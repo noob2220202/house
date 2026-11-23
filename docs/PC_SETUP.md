@@ -56,12 +56,8 @@ cd C:\dev\house
 pnpm install
 ```
 
-```powershell
-pnpm exec playwright install chromium
-```
-
 - `pnpm install`은 처음에 몇 분 걸립니다.
-- 마지막 명령은 화면 캡처 검수용 브라우저를 설치합니다.
+- 화면 캡처 검수용 브라우저(Playwright Chromium)는 워크플로 첫 단계에서 자동으로 설치됩니다.
 
 > 윈도우 보안(Defender)이 `node_modules` 검사 때문에 느려지면 `C:\dev\house` 폴더를 검사 예외에 추가하면 빨라집니다(선택).
 
