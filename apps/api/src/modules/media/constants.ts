@@ -1,14 +1,8 @@
 /** Server-side tuning of the media pipeline (client-visible limits live in @house/shared). */
 
-/** Images above either threshold are processed by the media-processing worker (202 PENDING). */
-export const ASYNC_PROCESSING_THRESHOLD = {
-  bytes: 6 * 1024 * 1024,
-  pixels: 24_000_000,
-} as const;
-
 /** Longest edge of the stored "original" (and of documents re-encoded from images). */
 export const MAX_STORED_EDGE = 4096;
-/** libvips threads per image operation (process-wide; the API shares the process). */
+/** libvips threads per image operation (process-wide, in the worker process). */
 export const SHARP_THREADS = 2;
 /** Background jobs processed at once by this process (one large decode at a time). */
 export const MEDIA_WORKER_CONCURRENCY = 1;

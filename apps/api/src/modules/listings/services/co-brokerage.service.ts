@@ -1,6 +1,7 @@
 import {
   ErrorCode,
   ListingAgencyStatus,
+  NotificationType,
   PUBLIC_LISTING_STATUSES,
   type AgencyListingDetail,
   type CoBrokerJoinInput,
@@ -99,6 +100,7 @@ export class CoBrokerageService {
         });
       }
       await this.notifier.notifyAgencyOwners(tx, [listing.primaryAgencyId], {
+        type: NotificationType.CO_BROKER_REQUESTED,
         title: '공동중개 참여 요청이 도착했습니다.',
         body: '다른 중개사무소가 매물의 공동중개 참여를 요청했습니다. 수락 또는 거절해 주세요.',
         listingId,

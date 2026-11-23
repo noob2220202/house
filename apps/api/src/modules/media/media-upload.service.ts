@@ -4,6 +4,7 @@ import {
   canUserUpload,
   ErrorCode,
   isAcceptedMime,
+  isHeifMime,
   MEDIA_USER_QUOTA,
   MediaKind,
   mediaMaxBytes,
@@ -26,9 +27,9 @@ import { DailyCapService } from '../../common/throttle/daily-cap.service';
 import { AppConfig } from '../../config/app-config.service';
 import { PrismaService, type PrismaTx } from '../../prisma/prisma.service';
 import { QUEUES } from '../../queue/queue.constants';
-import { ASYNC_PROCESSING_THRESHOLD, MEDIA_JOBS } from './constants';
-import { documentOutputFor, ImageProcessor } from './image-processor';
-import { MediaFiles } from './media-files';
+import { MEDIA_JOBS } from './constants';
+import { readImageHeader } from './image-header';
+import { assertPixels, documentOutputFor, ImageProcessor } from './image-processor';
 import { MediaStorage } from './media-storage';
 import { MediaMapper } from './media.mapper';
 import { mediaViewSelect, type MediaViewRow } from './media.selects';
@@ -51,9 +52,11 @@ export interface ProcessJobData {
 const MB = 1024 * 1024;
 
 /**
- * Upload flow: authorize purpose → size → magic-byte sniff → daily cap + quota → process.
- * PDFs, small images and small image documents are processed inline (201 READY); large ones and
- * HEIC go to the media-processing worker (202 PENDING, raw bytes kept in private staging until then).
+ * Upload flow: authorize purpose → size → magic-byte sniff → header check → daily cap + quota → store.
+ * The HTTP API never decodes images (no libvips/sharp call on untrusted bytes in this process): PDFs
+ * are stored inline (201 READY, no decoding involved); every image and image document is staged and
+ * processed by the media-processing worker process (202 PENDING, poll GET /media/:id). The header
+ * check is pure TypeScript, so malformed and oversized images are still refused up front.
  */
 @Injectable()
 export class MediaUploadService {
@@ -62,7 +65,6 @@ export class MediaUploadService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: MediaStorage,
-    private readonly files: MediaFiles,
     private readonly processor: ImageProcessor,
     private readonly mapper: MediaMapper,
     private readonly dailyCaps: DailyCapService,
@@ -100,6 +102,18 @@ export class MediaUploadService {
       });
     }
     this.processor.assertDecodable(mime);
+    const isPdf = mime === SniffedMime.PDF;
+    // HEIC/HEIF dimensions are only known after decoding; the worker checks them.
+    if (!isPdf && !isHeifMime(mime)) {
+      const dims = readImageHeader(file.buffer, mime);
+      if (!dims) {
+        throw new AppException(ErrorCode.MEDIA_UNSUPPORTED_TYPE, {
+          status: HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+          details: { accepted: rule.accept },
+        });
+      }
+      assertPixels(dims.width, dims.height);
+    }
     const userId = uploader.kind === 'USER' ? uploader.principal.userId : null;
     if (userId) {
       await this.dailyCaps.consume('MEDIA_UPLOAD', userId);
@@ -115,30 +129,18 @@ export class MediaUploadService {
       originalFilename: sanitizeFilename(file.originalname),
     } satisfies Partial<Prisma.MediaUncheckedCreateInput>;
 
-    if (rule.kind === MediaKind.DOCUMENT && mime === SniffedMime.PDF) {
-      return this.storeDocument(file.buffer, mime, base);
-    }
-    // Images and image documents: decoding is the memory-heavy part, so large ones and HEIC
-    // (size unknown before decoding) are processed by the worker, one at a time.
-    const dims = await this.processor.probe(file.buffer, mime);
-    const deferred =
-      dims === null ||
-      file.size > ASYNC_PROCESSING_THRESHOLD.bytes ||
-      dims.width * dims.height > ASYNC_PROCESSING_THRESHOLD.pixels;
+    if (rule.kind === MediaKind.DOCUMENT && isPdf) return this.storePdf(file.buffer, base);
     if (rule.kind === MediaKind.DOCUMENT) {
-      if (!deferred) return this.storeDocument(file.buffer, mime, base);
       const out = documentOutputFor(mime);
       return this.enqueue(file.buffer, file.size, base, {
         mimeType: out.mimeType,
         storageKey: this.storage.newPrivateKey(out.ext),
       });
     }
-    return deferred
-      ? this.enqueue(file.buffer, file.size, base, {
-          mimeType: 'image/webp',
-          storageKey: this.storage.newPublicImageKey(),
-        })
-      : this.storeImage(file.buffer, mime, base);
+    return this.enqueue(file.buffer, file.size, base, {
+      mimeType: 'image/webp',
+      storageKey: this.storage.newPublicImageKey(),
+    });
   }
 
   /** Also called by the multipart interceptor, so a forbidden purpose is refused before the body is read. */
@@ -150,8 +152,9 @@ export class MediaUploadService {
     if (!allowed) throw AppException.forbidden(ErrorCode.MEDIA_PURPOSE_NOT_ALLOWED);
   }
 
-  private async storeDocument(data: Buffer, mime: string, base: BaseCreate): Promise<OwnMediaView> {
-    const doc = await this.processor.processDocument(data, mime);
+  /** PDFs are stored as uploaded (completeness check only, no decoding). */
+  private async storePdf(data: Buffer, base: BaseCreate): Promise<OwnMediaView> {
+    const doc = await this.processor.processDocument(data, SniffedMime.PDF);
     const key = this.storage.newPrivateKey(doc.ext);
     await this.storage.write(MediaVisibility.PRIVATE, key, doc.data);
     const row = await this.createRow(
@@ -167,29 +170,6 @@ export class MediaUploadService {
       false,
     ).catch(async (err: unknown) => {
       await this.storage.remove(MediaVisibility.PRIVATE, [key]);
-      throw err;
-    });
-    return this.mapper.toOwnView(row);
-  }
-
-  private async storeImage(data: Buffer, mime: string, base: BaseCreate): Promise<OwnMediaView> {
-    const processed = await this.processor.processImage(data, mime);
-    const key = this.storage.newPublicImageKey();
-    const variants = await this.files.writeImage(key, processed);
-    const row = await this.createRow(
-      {
-        ...base,
-        status: MediaStatus.READY,
-        mimeType: 'image/webp',
-        sizeBytes: processed.original.data.length,
-        width: processed.original.width,
-        height: processed.original.height,
-        storageKey: key,
-        variants: variants,
-      },
-      false,
-    ).catch(async (err: unknown) => {
-      await this.files.removeImage(key);
       throw err;
     });
     return this.mapper.toOwnView(row);

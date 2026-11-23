@@ -5,7 +5,12 @@ import type { Request } from 'express';
 import { RequestContext } from '../context/request-context';
 import { IS_PUBLIC_KEY, ROLES_KEY } from '../decorators/metadata-keys';
 import { AppException } from '../errors/app.exception';
-import { isAdminPath, SESSION_RESOLVER, type SessionResolver } from './session-resolver';
+import {
+  isAdminPath,
+  resolveSessionOnce,
+  SESSION_RESOLVER,
+  type SessionResolver,
+} from './session-resolver';
 
 /**
  * Global guard. Resolves the session (if any) onto req.principal, then:
@@ -29,7 +34,7 @@ export class AuthGuard implements CanActivate {
       this.reflector.getAllAndOverride<boolean | undefined>(IS_PUBLIC_KEY, targets) ?? false;
     const roles = this.reflector.getAllAndOverride<Role[] | undefined>(ROLES_KEY, targets);
 
-    const session = await this.sessions.resolve(req);
+    const session = await resolveSessionOnce(req, this.sessions);
     if (session) {
       req.authSession = session;
       req.principal = session.principal;

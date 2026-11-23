@@ -20,7 +20,7 @@ import {
   withSession,
 } from '../../utils';
 import { fakeHeic, png } from './fixtures';
-import { createMediaTestApp, solidRaw, upload, type MediaTestApp } from './helpers';
+import { createMediaTestApp, solidRaw, upload, uploadReady, type MediaTestApp } from './helpers';
 
 const HOUR = 3_600_000;
 
@@ -170,12 +170,12 @@ describe('media lifecycle: processing, cleanup, MediaService (e2e)', () => {
   describe('orphan cleanup', () => {
     it('collects only unattached, non-exempt uploads past the grace period, then purges them', async () => {
       const { agency, s } = await agentSession();
-      const orphan = await upload(t, s, { purpose: 'LISTING_PHOTO', file: await png() }).expect(
-        201,
-      );
-      const attached = await upload(t, s, { purpose: 'LISTING_PHOTO', file: await png() }).expect(
-        201,
-      );
+      const orphan = {
+        body: await uploadReady(t, s, { purpose: 'LISTING_PHOTO', file: await png() }),
+      };
+      const attached = {
+        body: await uploadReady(t, s, { purpose: 'LISTING_PHOTO', file: await png() }),
+      };
       // CONTENT (embedded in notice bodies, no FK yet) is exempt.
       const content = await createMedia(t.prisma, { purpose: 'CONTENT' });
       const { listing } = await createListing(t.prisma, { agencyId: agency.id });
@@ -215,8 +215,7 @@ describe('media lifecycle: processing, cleanup, MediaService (e2e)', () => {
 
     it('a detach (released) restarts the grace period', async () => {
       const { agency, s } = await agentSession();
-      const m = await upload(t, s, { purpose: 'LISTING_PHOTO', file: await png() }).expect(201);
-      const id = m.body.id as string;
+      const { id } = await uploadReady(t, s, { purpose: 'LISTING_PHOTO', file: await png() });
       const { listing } = await createListing(t.prisma, { agencyId: agency.id });
       await t.prisma.listingPhoto.create({ data: { listingId: listing.id, mediaId: id } });
       await t.prisma.media.update({

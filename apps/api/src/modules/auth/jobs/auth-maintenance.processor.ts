@@ -8,7 +8,8 @@ import { PiiScrubService } from './pii-scrub.service';
 /** Daily at 04:17 KST (off-peak, off the hour). */
 const PII_SCRUB_PATTERN = '17 4 * * *';
 
-@Processor(AUTH_QUEUE)
+/** Runs only in the worker process (JOBS_ENABLED); e2e calls PiiScrubService directly. */
+@Processor(AUTH_QUEUE, { autorun: false })
 export class AuthMaintenanceProcessor extends WorkerHost implements OnApplicationBootstrap {
   private readonly logger = new Logger(AuthMaintenanceProcessor.name);
 
@@ -27,6 +28,7 @@ export class AuthMaintenanceProcessor extends WorkerHost implements OnApplicatio
       { pattern: PII_SCRUB_PATTERN, tz: 'Asia/Seoul' },
       { name: AUTH_JOBS.PII_SCRUB, data: {} },
     );
+    this.worker.run().catch((err: unknown) => this.logger.error({ err }, 'worker stopped'));
   }
 
   async process(job: Job): Promise<{ scrubbed: number }> {

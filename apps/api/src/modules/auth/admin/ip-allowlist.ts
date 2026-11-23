@@ -57,3 +57,31 @@ export function ipAllowed(entries: readonly string[] | undefined, ip: string | n
     return false;
   }
 }
+
+/**
+ * Lockout bucket for a client address: an IPv4 address as is, an IPv6 address by its /64 (one
+ * subscriber's prefix, whose addresses a single client can rotate through freely).
+ */
+export function clientIpBucket(ip: string | null | undefined): string {
+  if (!ip) return 'unknown';
+  const addr = normalizeIp(ip).split('%')[0] ?? '';
+  const family = isIP(addr);
+  if (family === 4) return addr;
+  if (family !== 6) return 'unknown';
+  return `${expandIpv6(addr).slice(0, 4).join(':')}::/64`;
+}
+
+/** A valid IPv6 address → its 8 hextets (lowercase, no leading zeros). */
+function expandIpv6(ip: string): string[] {
+  let s = ip.toLowerCase();
+  const v4 = /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s);
+  if (v4) {
+    const [a, b, c, d] = v4.slice(1).map(Number) as [number, number, number, number];
+    s = `${s.slice(0, v4.index)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
+  }
+  const [head = '', tail] = s.split('::');
+  const h = head ? head.split(':') : [];
+  const t = tail ? tail.split(':') : [];
+  const fill = tail === undefined ? [] : Array<string>(8 - h.length - t.length).fill('0');
+  return [...h, ...fill, ...t].map((g) => parseInt(g, 16).toString(16));
+}

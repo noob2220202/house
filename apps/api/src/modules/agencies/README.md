@@ -18,7 +18,7 @@ profile, and the 표시·광고 disclosure data listings need. Read `docs/CONVEN
 | `services/agency-review.service.ts`        | admin queue/detail/decision (+history, notification, audit), document stream, registry |
 | `agency-search.repository.ts`              | raw PostGIS / pg_trgm SQL (bound parameters only)                                      |
 | `clients/broker-registry.client.ts`        | registry lookup interface + data.go.kr implementation (`BROKER_REGISTRY` token)        |
-| `ports/agency-media.port.ts`               | media checks / URLs until MediaService exposes them (`AGENCY_MEDIA`)                   |
+| `ports/agency-media.port.ts`               | media checks / URLs via MediaService (`AGENCY_MEDIA`, same-tx `assertUsable`)          |
 | `ports/agency-listings.reader.ts`          | listing counts + 대표 매물 until ListingsModule exposes a reader                       |
 | `ports/agency-listings.sync.ts`            | listing side effects: counters on suspend/reinstate, contacts of departed staff        |
 
@@ -46,7 +46,8 @@ and disclosure helpers live in `packages/shared/src/agencies/`.
 | GET          | `/agencies/membership`                                    | User                              | caller's live membership                                 |
 | POST         | `/agencies/membership/leave`                              | User (agent)                      | owners cannot leave                                      |
 | GET          | `/admin/agencies?status&q&sort&page`                      | Admin (OPERATOR+)                 | review queue (status=PENDING, oldest first)              |
-| GET          | `/admin/agencies/:id`                                     | Admin                             | detail incl. owner contact, members, warnings            |
+| GET          | `/admin/agencies/:id?includeRemoved`                      | Admin                             | full contacts; each view audited `agency.pii-view` †     |
+| DELETE       | `/admin/agencies/:id` `{ reason }`                        | Admin (OPERATOR+)                 | soft-delete a PENDING / REJECTED application, audited    |
 | POST         | `/admin/agencies/:id/decision`                            | Admin (suspend/reinstate: ADMIN+) | APPROVED / REJECTED / SUSPENDED (+reason), audited       |
 | PATCH        | `/admin/agencies/:id/location`                            | Admin (OPERATOR+)                 | 소재지 change after 이전신고 check (+reason), audited    |
 | GET          | `/admin/agencies/:id/documents/:docId/file`               | Admin                             | streams the private file, `no-store`, view audited       |
@@ -66,9 +67,32 @@ disclosure, so once APPROVED the owner gets `400 AGENCY_NOT_EDITABLE` with
 `PATCH /admin/agencies/:id/location` after checking the 이전신고. 연락처 (phone/mobile/email) changes
 of an approved office are allowed and audited (`agency.contact.update`).
 
-등록번호 is stored canonically (`46150-2020-00012`, upper-case, single hyphens) and is unique on the
+등록번호 is stored canonically (`46150-2020-00012`, upper-case, single hyphens) and compared on the
 generated column `registration_key` (letters/digits/한글 only), so spellings differing in
-punctuation or case are duplicates. Removing / leaving staff moves their listing contacts to the 대표.
+punctuation or case are duplicates. Only a **live** office (APPROVED / SUSPENDED, not deleted)
+holds a number: partial unique index `agencies_registration_key_live` + the same filter in
+`assertRegistrationNumberFree`. Pending / rejected applications never reserve it, so a stranger
+cannot lock a real office out by applying with its public number. Approval re-checks under an
+advisory lock on the key (409 `AGENCY_REGISTRATION_DUPLICATE` with `details.agencyId` of the holder)
+and auto-rejects the other PENDING applications for that number (history, `AGENCY_REJECTED`
+notification, `agency.reject` audit with `duplicateOfAgencyId`, sessions detached). An admin can
+soft-delete a PENDING / REJECTED application (`DELETE /admin/agencies/:id`): status REJECTED +
+`deletedAt`, staff rows REMOVED, applicant notified, `agency.delete` audited; documents are kept.
+
+**중개보조원 and ads (공인중개사법 제18조의2①).** Only the 개업공인중개사 (OWNER) and 소속공인중개사
+(`isLicensed`) may be named with the office's ads (`isAdvertisableMember` in shared). Joining by
+invite always records a 중개보조원 (`isLicensed: false`; a self-declared flag is stripped); the
+owner sets `isLicensed: true` with a license number via `PATCH /agencies/mine/members/:memberId`
+(400 without one). The PATCH carries changes onto `ListingAgency` contacts in the same transaction:
+losing the license moves the member's ad contacts to the 대표 (as on departure); a rename / new
+phone of an advertisable member updates their ads (phone only where not overridden per listing).
+The public profile lists only OWNER + licensed ACTIVE staff. Removing / leaving staff moves their
+listing contacts to the 대표.
+
+† Admin personal data: `GET /admin/agencies` masks the applicant's name and email; decision and
+location responses mask owner and staff contacts; the full detail (owner name/email/phone, staff
+phone/license number) writes an `agency.pii-view` audit row (field names only). REMOVED staff are
+listed only with `includeRemoved=true`, phones masked.
 
 ## For other modules
 

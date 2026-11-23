@@ -24,7 +24,7 @@ echo
 
 # The seed is idempotent: it creates the admin only if the email does not exist yet.
 cd "$CUR/apps/api"
-SEED_ADMIN_EMAIL="$EMAIL" SEED_ADMIN_PASSWORD="$PW1" pnpm exec prisma db seed
+ADMIN_BOOTSTRAP_EMAIL="$EMAIL" ADMIN_BOOTSTRAP_PASSWORD="$PW1" pnpm exec prisma db seed
 scheme=https
 [[ "$TLS_ENABLED" == true ]] || scheme=http
 ok "완료. ${scheme}://${ADMIN_DOMAIN} 에서 로그인하고 OTP 앱(Google Authenticator 등)을 등록하세요."

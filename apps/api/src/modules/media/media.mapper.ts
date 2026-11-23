@@ -25,6 +25,14 @@ export type StoredVariants = Partial<Record<ImageVariant, StoredVariant>>;
 
 const VARIANT_NAMES = Object.keys(IMAGE_VARIANTS) as ImageVariant[];
 
+/** Key of one variant; only the key matters for URLs (dimensions are optional here). */
+function variantKeyOf(json: Prisma.JsonValue | null, name: ImageVariant): string | null {
+  if (!json || typeof json !== 'object' || Array.isArray(json)) return null;
+  const v = json[name];
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  return typeof v.key === 'string' && v.key.length > 0 ? v.key : null;
+}
+
 /** Reads the `variants` JSON column defensively (unknown/invalid entries are ignored). */
 export function parseVariants(json: Prisma.JsonValue | null): StoredVariants {
   if (!json || typeof json !== 'object' || Array.isArray(json)) return {};
@@ -43,7 +51,7 @@ export class MediaMapper {
 
   /** Public URL of a variant (falls back to the full-size image). */
   url(ref: Pick<MediaRef, 'storageKey' | 'variants'>, variant: ImageVariant = 'large'): string {
-    const key = parseVariants(ref.variants)[variant]?.key ?? ref.storageKey;
+    const key = variantKeyOf(ref.variants, variant) ?? ref.storageKey;
     return this.storage.publicUrl(key);
   }
 

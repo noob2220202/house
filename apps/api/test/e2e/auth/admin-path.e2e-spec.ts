@@ -54,9 +54,20 @@ describe('auth: admin path detection vs. the global admin IP allowlist (e2e)', (
   it('an invalid body is refused by the IP check first (no validation details leak)', async () => {
     const res = await t
       .http()
-      .post('/api/v1/ADMIN/auth/login')
+      .post('/api/v1/admin/auth/login')
       .set('Origin', ADMIN_ORIGIN)
       .send({ email: 'not-an-email' });
     expect(res.status).toBe(403);
+    expect(res.body.code).toBe(ErrorCode.AUTH_IP_NOT_ALLOWED);
+  });
+
+  it('other spellings of the admin prefix are not routes at all (case-sensitive routing)', async () => {
+    const res = await t
+      .http()
+      .post('/api/v1/ADMIN/auth/login')
+      .set('Origin', ADMIN_ORIGIN)
+      .send({ email: 'not-an-email' });
+    expect([403, 404]).toContain(res.status);
+    expect(res.body.code).not.toBe(ErrorCode.VALIDATION_FAILED);
   });
 });

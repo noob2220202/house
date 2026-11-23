@@ -6,7 +6,9 @@
   "scripts": {
     "build": "nest build -p tsconfig.build.json",
     "dev": "nest start --watch --preserveWatchOutput",
+    "dev:worker": "node --enable-source-maps --watch-path=dist dist/worker.js",
     "start": "node dist/main.js",
+    "start:worker": "node dist/worker.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "jest",
@@ -16,10 +18,12 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:migrate:status": "prisma migrate status",
     "db:seed": "prisma db seed",
+    "db:seed:demo": "SEED_DEMO=true prisma db seed",
     "db:test:prepare": "node test/prepare-test-dbs.mjs",
     "postinstall": "prisma generate",
     "db:migration:new": "node scripts/new-migration.mjs",
-    "db:format": "node scripts/prisma-snake-map.mjs && prisma format"
+    "db:format": "node scripts/prisma-snake-map.mjs && prisma format",
+    "db:drift": "node scripts/check-drift.mjs"
   },
   "dependencies": {
     "@house/shared": "workspace:*",
@@ -35,6 +39,7 @@
     "bullmq": "5.81.6",
     "compression": "1.8.2",
     "cookie-parser": "1.4.7",
+    "express": "5.2.1",
     "fast-xml-parser": "5.12.1",
     "helmet": "8.3.0",
     "ioredis": "5.11.1",
@@ -44,8 +49,8 @@
     "pino-http": "10.5.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
-    "sharp": "0.34.5",
-    "zod": "4.1.13"
+    "sharp": "0.35.5",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@house/config": "workspace:*",

@@ -178,6 +178,12 @@ on_error() {
     warn "현재 서비스는 바뀌지 않았습니다 (current → ${PREV_RELEASE:-없음})."
   fi
   migration_warning
+  if [[ "$FAILED_STAGE" == migrate ]]; then
+    [[ -n "$PRE_DUMP" ]] && warn "마이그레이션 전 백업: $PRE_DUMP"
+    local m failed_migrations
+    failed_migrations="$(db_failed_migrations 2>/dev/null)" || failed_migrations=""
+    while IFS= read -r m; do [[ -n "$m" ]] && migrate_resolve_hint "$m"; done <<<"$failed_migrations"
+  fi
   [[ -d "$RELEASE" ]] && touch "$RELEASE/.failed"
   exit "$code"
 }
@@ -242,18 +248,31 @@ if $SKIP_MIGRATE; then
 else
   FAILED_STAGE="migrate"
   step "DB 마이그레이션 (prisma migrate deploy)"
-  # Any query error aborts the deploy: an unreadable DB must never look like an empty one.
-  HAS_TABLE="$(pg_run "${PSQL[@]}" -c "select to_regclass('public._prisma_migrations') is not null")"
-  PUBLIC_TABLES="$(pg_run "${PSQL[@]}" -c "select count(*) from information_schema.tables where table_schema = 'public'")"
-  APPLIED=""
-  if [[ "$HAS_TABLE" == t ]]; then
-    APPLIED="$(pg_run "${PSQL[@]}" -c \
-      "select migration_name from _prisma_migrations where finished_at is not null and rolled_back_at is null")"
+  # Never overlap the nightly pg_dump: its ACCESS SHARE locks would make every ALTER TABLE wait
+  # (and every API query on that table queue behind the ALTER). backup.sh takes the same lock.
+  BACKUP_LOCK="$SHARED_DIR/.backup.lock"
+  if [[ ! -f "$BACKUP_LOCK" || -L "$BACKUP_LOCK" ]]; then
+    warn "잠금 파일이 없습니다: $BACKUP_LOCK — sudo $BIN_DIR/install.sh 를 한 번 다시 실행하세요."
+    false
   fi
+  exec 8>>"$BACKUP_LOCK"
+  if ! flock -n 8; then
+    log "백업이 진행 중입니다 — 끝날 때까지 기다립니다 (최대 10분)"
+    flock -w 600 8 || { warn "백업이 10분 안에 끝나지 않았습니다. 백업이 끝난 뒤 다시 배포하세요."; false; }
+  fi
+  # Any query error aborts the deploy: an unreadable DB must never look like an empty one.
+  PUBLIC_TABLES="$(pg_run "${PSQL[@]}" -c "select count(*) from information_schema.tables where table_schema = 'public'")"
+  # A failed migration (Prisma P3009) blocks every later `migrate deploy` until it is resolved.
+  FAILED_MIGRATIONS="$(db_failed_migrations)"
+  if [[ -n "$FAILED_MIGRATIONS" ]]; then
+    warn "이전 배포에서 실패한 마이그레이션이 DB에 기록되어 있어 진행할 수 없습니다: ${FAILED_MIGRATIONS//$'\n'/ }"
+    false # on_error prints the recovery steps
+  fi
+  APPLIED="$(db_applied_migrations)"
   PENDING=()
   while IFS= read -r m; do
     grep -qxF "$m" <<<"$APPLIED" || PENDING+=("$m")
-  done < <(find apps/api/prisma/schema/migrations -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort)
+  done < <(release_migrations .)
   if ((${#PENDING[@]} == 0)); then
     ok "적용할 마이그레이션 없음"
   else
@@ -267,16 +286,19 @@ else
       find "$BACKUP_DIR/pre-migrate" -maxdepth 1 -name '*.dump' -printf '%T@ %p\n' | sort -rn |
         tail -n +11 | cut -d' ' -f2- | xargs -r rm -f
     fi
-    (cd apps/api && pnpm exec prisma migrate deploy)
+    # lock_timeout: a DDL statement that cannot get its lock fails fast instead of stalling the API.
+    MIGRATE_URL="$(migrate_db_url "$(env_get DATABASE_URL)")"
+    (cd apps/api && DATABASE_URL="$MIGRATE_URL" pnpm exec prisma migrate deploy)
     MIGRATED=1
     ok "마이그레이션 적용 완료"
   fi
   if ! $SKIP_SEED; then
     FAILED_STAGE="seed"
     # Base data (regions, banner slots, site settings) — idempotent; never overwrites edits.
-    (cd apps/api && env SEED_ADMIN_EMAIL= SEED_ADMIN_PASSWORD= pnpm exec prisma db seed >/dev/null)
+    (cd apps/api && env ADMIN_BOOTSTRAP_EMAIL= ADMIN_BOOTSTRAP_PASSWORD= SEED_ADMIN_EMAIL= SEED_ADMIN_PASSWORD= SEED_DEMO= pnpm exec prisma db seed >/dev/null)
     ok "기본 데이터 시드 (멱등)"
   fi
+  exec 8>&- # release the backup lock
 fi
 
 # ─── 7. preflight ───────────────────────────────────────────────────────────────────────────

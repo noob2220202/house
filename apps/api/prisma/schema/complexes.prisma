@@ -120,6 +120,7 @@ model ComplexPhoto {
 
   @@unique([complexId, mediaId])
   @@index([complexId, sortOrder])
+  @@index([mediaId])
   @@map("complex_photos")
 }
 

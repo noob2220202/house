@@ -1,10 +1,13 @@
 import { AdminRole, ErrorCode, HEADER_NAMES, idParamSchema, UserRole } from '@house/shared';
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import type { Test } from 'supertest';
 import { z } from 'zod';
 import { AdminOnly, CurrentUser, Public, Roles } from '../../../src/common/decorators';
 import type { UserPrincipal } from '../../../src/common/auth/principal';
 import { AppException } from '../../../src/common/errors/app.exception';
 import { createZodDto } from '../../../src/common/pipes/zod-validation.pipe';
+import { SessionService } from '../../../src/modules/auth/session/session.service';
 import {
   createAdmin,
   createTestApp,
@@ -47,6 +50,14 @@ class ProbeController {
   @Roles(UserRole.AGENCY_OWNER)
   @Get('owner-only')
   ownerOnly(): { ok: true } {
+    return { ok: true };
+  }
+
+  /** Tiny per-route limit so the throttle tracker can be observed. */
+  @Public()
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @Get('throttled')
+  throttled(): { ok: true } {
     return { ok: true };
   }
 
@@ -138,6 +149,25 @@ describe('core pipeline (e2e)', () => {
         await loginAdmin(t.app, admin),
       ).expect(200);
     });
+
+    it('routing is case-sensitive: other spellings of admin routes do not resolve', async () => {
+      const admin = await createAdmin(t.prisma, { role: AdminRole.ADMIN });
+      const session = await loginAdmin(t.app, admin);
+      for (const path of [
+        '/api/v1/ADMIN/__probe',
+        '/api/v1/Admin/__probe',
+        '/API/v1/admin/__probe',
+      ]) {
+        const res = await withSession(t.http().get(path), session);
+        // Never served by the admin probe: 404 from the router (or 401 from the admin guard).
+        expect([401, 404]).toContain(res.status);
+        expect(res.body).not.toEqual({ ok: true });
+      }
+      const anon = await t.http().get('/api/v1/ADMIN/__probe').expect(404);
+      expect(anon.body.code).toBe(ErrorCode.NOT_FOUND);
+      // Public routes too: no case-folded aliases.
+      await t.http().get('/api/v1/__PROBE/public').expect(404);
+    });
   });
 
   describe('csrf', () => {
@@ -220,6 +250,49 @@ describe('core pipeline (e2e)', () => {
         .send({ name: 'x'.repeat(1_100_000), count: 1 })
         .expect(413);
       expect(res.body.code).toBe(ErrorCode.PAYLOAD_TOO_LARGE);
+    });
+  });
+
+  describe('throttle (keyed per user, else per client IP)', () => {
+    const hit = (xff?: string): Test => {
+      const req = t.http().get('/api/v1/__probe/throttled');
+      return xff ? req.set('X-Forwarded-For', xff) : req;
+    };
+
+    it('anonymous clients sharing one IP share a bucket → 429 after the limit', async () => {
+      for (let i = 0; i < 3; i++) await hit('203.0.113.7').expect(200);
+      const res = await hit('203.0.113.7').expect(429);
+      expect(res.body.code).toBe(ErrorCode.RATE_LIMITED);
+    });
+
+    it('X-Forwarded-For from a trusted loopback hop (nginx / SSR) separates clients', async () => {
+      for (let i = 0; i < 3; i++) await hit('203.0.113.7').expect(200);
+      await hit('203.0.113.7').expect(429);
+      await hit('198.51.100.20').expect(200);
+    });
+
+    it('logged-in users behind one shared IP (CGNAT) each get their own bucket', async () => {
+      const [a, b] = await Promise.all([createUser(t.prisma), createUser(t.prisma)]);
+      const [sa, sb] = await Promise.all([loginUser(t.app, a), loginUser(t.app, b)]);
+      const ip = '100.64.0.1';
+      for (let i = 0; i < 3; i++) await withSession(hit(ip), sa).expect(200);
+      await withSession(hit(ip), sa).expect(429);
+      // Same IP, different account: unaffected by A's exhausted bucket…
+      for (let i = 0; i < 3; i++) await withSession(hit(ip), sb).expect(200);
+      // …and an anonymous visitor on that IP still has the full IP bucket.
+      await hit(ip).expect(200);
+    });
+
+    it('the session is resolved once per request (throttler + auth guard share it)', async () => {
+      const user = await createUser(t.prisma);
+      const s = await loginUser(t.app, user);
+      const spy = jest.spyOn(t.app.get(SessionService), 'resolve');
+      try {
+        await withSession(t.http().get('/api/v1/__probe/me'), s).expect(200, { userId: user.id });
+        expect(spy).toHaveBeenCalledTimes(1);
+      } finally {
+        spy.mockRestore();
+      }
     });
   });
 

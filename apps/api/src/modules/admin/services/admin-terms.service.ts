@@ -1,5 +1,6 @@
 import {
   type AdminTermsView,
+  canTermsTypeBeRequired,
   ErrorCode,
   type Paginated,
   type TermsAdminListQuery,
@@ -65,6 +66,7 @@ export class AdminTermsService {
   }
 
   async create(dto: TermsDocumentInput): Promise<AdminTermsView> {
+    this.assertRequirable(dto.type, dto.isRequired);
     try {
       const doc = await this.prisma.termsDocument.create({
         data: { ...dto, effectiveAt: new Date(dto.effectiveAt) },
@@ -77,6 +79,7 @@ export class AdminTermsService {
 
   async update(id: string, dto: TermsDocumentUpdateInput): Promise<AdminTermsView> {
     const before = await this.loadDraft(id);
+    this.assertRequirable(before.type, dto.isRequired ?? before.isRequired);
     RequestContext.setAuditBefore(await this.detail(before.id));
     try {
       await this.prisma.termsDocument.update({
@@ -109,6 +112,8 @@ export class AdminTermsService {
     const before = await this.detail((await this.loadDraft(id)).id);
     await this.prisma.$transaction(async (tx) => {
       const draft = await this.loadDraft(id, tx);
+      // Drafts saved before this rule existed must not become a mandatory marketing/location consent.
+      this.assertRequirable(draft.type, draft.isRequired);
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`terms:${draft.type}`}))`;
       const latest = await tx.termsDocument.findFirst({
         where: { type: draft.type, publishedAt: { not: null } },
@@ -216,6 +221,13 @@ export class AdminTermsService {
       return AppException.conflict(ErrorCode.TERMS_VERSION_DUPLICATE);
     }
     return err;
+  }
+
+  /** MARKETING / LOCATION consent is optional by law/design (see OPTIONAL_ONLY_TERMS_TYPES). */
+  private assertRequirable(type: TermsDocument['type'], isRequired: boolean): void {
+    if (isRequired && !canTermsTypeBeRequired(type)) {
+      throw AppException.badRequest(ErrorCode.TERMS_OPTIONAL_ONLY, { type });
+    }
   }
 
   private async load(id: string, db: PrismaTx = this.prisma): Promise<TermsDocument> {

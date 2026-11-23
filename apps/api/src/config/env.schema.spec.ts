@@ -24,6 +24,8 @@ describe('parseEnv', () => {
     expect(env.CORS_ORIGINS).toEqual(['http://localhost:3000', 'http://localhost:3001']);
     expect(env.SWAGGER_ENABLED).toBe(true);
     expect(env.KAKAO_CLIENT_ID).toBeUndefined();
+    // Global throttle must not be stricter than nginx (20 r/s per IP) — see OPS-02.
+    expect(env.THROTTLE_LIMIT / (env.THROTTLE_TTL_MS / 1000)).toBeGreaterThanOrEqual(20);
   });
 
   it('treats empty values as unset and accepts .env.example', () => {
@@ -53,6 +55,21 @@ describe('parseEnv', () => {
       /COOKIE_SECURE/,
     );
     expect(parseEnv({ ...base, NODE_ENV: 'production' }).NODE_ENV).toBe('production');
+  });
+
+  it('refuses upload roots that contain each other', () => {
+    for (const [UPLOAD_DIR, PRIVATE_UPLOAD_DIR] of [
+      ['/srv/media', '/srv/media/private'],
+      ['/srv/data/private/public', '/srv/data/private'],
+      ['/srv/media', '/srv/media/'],
+    ]) {
+      expect(() => parseEnv({ ...base, UPLOAD_DIR, PRIVATE_UPLOAD_DIR })).toThrow(
+        /PRIVATE_UPLOAD_DIR/,
+      );
+    }
+    expect(() =>
+      parseEnv({ ...base, UPLOAD_DIR: '/srv/media', PRIVATE_UPLOAD_DIR: '/srv/media-private' }),
+    ).not.toThrow();
   });
 
   it('has no SMS or Apple settings', () => {

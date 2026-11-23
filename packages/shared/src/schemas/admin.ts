@@ -11,6 +11,7 @@ import {
   SiteSettingKey,
 } from '../enums/admin';
 import { TermsType } from '../enums/user';
+import { canTermsTypeBeRequired, TERMS_OPTIONAL_ONLY_MESSAGE } from '../admin/rules';
 import { parseYoutubeVideoId } from '../utils/url';
 import {
   dateTimeSchema,
@@ -275,9 +276,17 @@ const termsShape = {
   isRequired: z.boolean(),
   effectiveAt: dateTimeSchema,
 };
-export const termsDocumentInputSchema = z.object(termsShape);
+export const termsDocumentInputSchema = z
+  .object(termsShape)
+  .refine((v) => !v.isRequired || canTermsTypeBeRequired(v.type), {
+    message: TERMS_OPTIONAL_ONLY_MESSAGE,
+    path: ['isRequired'],
+  });
 export type TermsDocumentInput = z.infer<typeof termsDocumentInputSchema>;
-/** Drafts only; `type` is fixed once created. */
+/**
+ * Drafts only; `type` is fixed once created, so whether isRequired=true is allowed for the draft's
+ * type (canTermsTypeBeRequired) is checked by the API against the stored type.
+ */
 export const termsDocumentUpdateSchema = z
   .object(termsShape)
   .omit({ type: true })

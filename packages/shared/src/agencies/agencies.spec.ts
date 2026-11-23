@@ -2,6 +2,7 @@ import {
   agencyDecisionSchema,
   agencyJoinSchema,
   agencyLocationUpdateSchema,
+  agencyMemberUpdateSchema,
   agencyRegisterSchema,
   agencyUpdateSchema,
   businessHoursSchema,
@@ -149,18 +150,40 @@ describe('agency schemas', () => {
   it('join normalizes the code and checks the alphabet', () => {
     const j = agencyJoinSchema.parse({ code: 'abcde-fghjk', displayName: '김실장' });
     expect(j.code).toBe('ABCDEFGHJK');
-    expect(j.isLicensed).toBe(false);
     expect(agencyJoinSchema.safeParse({ code: 'ABCDE-FGHJ0', displayName: 'x' }).success).toBe(
       false,
     );
+  });
+
+  it('join cannot self-declare 소속공인중개사 (the flag and license number are stripped)', () => {
+    const j = agencyJoinSchema.parse({
+      code: 'ABCDEFGHJK',
+      displayName: '보조원',
+      isLicensed: true,
+      licenseNumber: '2020-1234',
+    });
+    expect(j).not.toHaveProperty('isLicensed');
+    expect(j).not.toHaveProperty('licenseNumber');
+  });
+
+  it('member update: 소속공인중개사 needs a well-formed license number; 보조원 has none', () => {
+    expect(agencyMemberUpdateSchema.safeParse({ isLicensed: true }).success).toBe(false);
     expect(
-      agencyJoinSchema.safeParse({
-        code: 'ABCDEFGHJK',
-        displayName: 'x',
-        isLicensed: false,
-        licenseNumber: '123',
-      }).success,
+      agencyMemberUpdateSchema.safeParse({ isLicensed: true, licenseNumber: null }).success,
     ).toBe(false);
+    expect(
+      agencyMemberUpdateSchema.safeParse({ isLicensed: true, licenseNumber: '!!' }).success,
+    ).toBe(false);
+    expect(
+      agencyMemberUpdateSchema.safeParse({ isLicensed: true, licenseNumber: 'abc-def' }).success,
+    ).toBe(false);
+    expect(
+      agencyMemberUpdateSchema.parse({ isLicensed: true, licenseNumber: '제2019-전남-00123호' }),
+    ).toEqual({ isLicensed: true, licenseNumber: '2019-전남-00123' });
+    expect(
+      agencyMemberUpdateSchema.safeParse({ isLicensed: false, licenseNumber: '2020-1' }).success,
+    ).toBe(false);
+    expect(agencyMemberUpdateSchema.parse({ isLicensed: false })).toEqual({ isLicensed: false });
   });
 });
 

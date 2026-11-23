@@ -4,7 +4,7 @@ import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import type Redis from 'ioredis';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
-import { configureApp } from '../../src/bootstrap/configure-app';
+import { configureApp, createHttpAdapter } from '../../src/bootstrap/configure-app';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { REDIS } from '../../src/redis/redis.constants';
 
@@ -39,7 +39,7 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
   });
   if (options.override) builder = options.override(builder);
   const moduleRef = await builder.compile();
-  const app = moduleRef.createNestApplication<NestExpressApplication>({
+  const app = moduleRef.createNestApplication<NestExpressApplication>(createHttpAdapter(), {
     bodyParser: false,
     bufferLogs: true,
   });

@@ -64,6 +64,10 @@ describe('auth: admin login + TOTP (e2e)', () => {
     const req = t.http().post(`/api/v1/admin/auth/${path}`).set('Origin', ADMIN_ORIGIN);
     return b ? req.set('Cookie', b.cookie).set('x-csrf-token', b.csrf) : req;
   };
+  /** Login attempt from a given client address (TRUST_PROXY=loopback honours X-Forwarded-For). */
+  const loginFrom = (ip: string, email: string, password: string) =>
+    post('login').set('X-Forwarded-For', ip).send({ email, password });
+  const failKey = (adminId: string, bucket: string) => `auth:admin-pw-fail:${adminId}:${bucket}`;
   const get = (path: string, b: Browser) =>
     t.http().get(`/api/v1/admin/auth/${path}`).set('Cookie', b.cookie);
 
@@ -111,23 +115,66 @@ describe('auth: admin login + TOTP (e2e)', () => {
       await post('login').send({ email: disabled.admin.email, password: PASSWORD }).expect(401);
     });
 
-    it('locks after 5 wrong passwords; while locked even the right password gets the same 401', async () => {
+    it('5 wrong passwords lock only that client: same 401 even for the right password there', async () => {
       const { admin: a } = await admin();
+      const attacker = '198.51.100.10';
       for (let i = 0; i < 5; i++) {
-        const res = await post('login')
-          .send({ email: a.email, password: `wrong-${i}-password` })
-          .expect(401);
+        const res = await loginFrom(attacker, a.email, `wrong-${i}-password`).expect(401);
         expect(res.body.code).toBe(ErrorCode.AUTH_INVALID_CREDENTIALS);
       }
-      const res = await post('login').send({ email: a.email, password: PASSWORD }).expect(401);
+      const res = await loginFrom(attacker, a.email, PASSWORD).expect(401);
       expect(res.body.code).toBe(ErrorCode.AUTH_INVALID_CREDENTIALS);
       expect(setCookies(res)[COOKIE_NAMES.ADMIN_SESSION]).toBeUndefined();
-      const row = await t.prisma.adminUser.findUniqueOrThrow({ where: { id: a.id } });
-      expect(row.lockedUntil!.getTime()).toBeGreaterThan(Date.now());
+      const ttl = await t.redis.ttl(failKey(a.id, attacker));
+      expect(ttl).toBeGreaterThan(0);
+      expect(ttl).toBeLessThanOrEqual(15 * 60);
       const audit = await t.prisma.auditLog.findFirstOrThrow({
-        where: { action: 'admin.account.lock', resourceId: a.id },
+        where: { action: 'admin.login.client_lock', resourceId: a.id },
       });
-      expect(audit.ip).toBeDefined();
+      expect(audit.after).toMatchObject({ ipBucket: attacker });
+    });
+
+    it('regression SEC-02: password-step failures never lock the account or end its sessions', async () => {
+      const { admin: a } = await admin({ enrolled: true });
+      const existing = await loginAdmin(t.app, a);
+      for (const attacker of ['198.51.100.10', '198.51.100.11']) {
+        for (let i = 0; i < 7; i++) {
+          await loginFrom(attacker, a.email, `wrong-${i}-password`).expect(401);
+        }
+      }
+      const row = await t.prisma.adminUser.findUniqueOrThrow({ where: { id: a.id } });
+      expect(row).toMatchObject({ failedLoginCount: 0, lockedUntil: null });
+      expect(
+        await t.prisma.auditLog.count({
+          where: { action: 'admin.account.lock', resourceId: a.id },
+        }),
+      ).toBe(0);
+      // The admin's verified session survives and they can still sign in from their own network.
+      await withSession(t.http().get('/api/v1/admin/auth/me'), existing).expect(200);
+      const own = await loginFrom('203.0.113.5', a.email, PASSWORD).expect(200);
+      expect(own.body).toMatchObject({ mfaRequired: true, totpEnrolled: true });
+    });
+
+    it('the per-client counter is a decaying window, not a permanent count', async () => {
+      const { admin: a } = await admin();
+      const ip = '198.51.100.30';
+      for (let i = 0; i < 4; i++) await loginFrom(ip, a.email, `wrong-${i}-password`).expect(401);
+      const ttl = await t.redis.ttl(failKey(a.id, ip));
+      expect(ttl).toBeGreaterThan(0);
+      expect(ttl).toBeLessThanOrEqual(15 * 60);
+      await t.redis.del(failKey(a.id, ip)); // what the window's expiry does
+      await loginFrom(ip, a.email, 'wrong-4-password').expect(401);
+      await loginFrom(ip, a.email, PASSWORD).expect(200); // 1 failure in the new window: not locked
+    });
+
+    it('an IPv6 client is bucketed by its /64, so rotating addresses does not reset the count', async () => {
+      const { admin: a } = await admin();
+      for (let i = 1; i <= 5; i++) {
+        await loginFrom(`2001:db8:1:2::${i}`, a.email, `wrong-${i}-password`).expect(401);
+      }
+      await loginFrom('2001:db8:1:2:abcd::9', a.email, PASSWORD).expect(401);
+      await loginFrom('2001:db8:1:3::1', a.email, PASSWORD).expect(200);
+      expect(await t.redis.get(failKey(a.id, '2001:db8:1:2::/64'))).toBe('5');
     });
 
     it('does not reveal whether an email exists or, while locked, whether the password is right', async () => {
@@ -160,15 +207,19 @@ describe('auth: admin login + TOTP (e2e)', () => {
       await post('totp/verify', second).send({ code: good }).expect(401); // sessions destroyed
     });
 
-    it('a completed second factor resets the counter', async () => {
+    it('a completed second factor resets the counters', async () => {
       const { admin: a, secret } = await admin({ enrolled: true });
       await post('login').send({ email: a.email, password: 'wrong-password-1' }).expect(401);
+      expect(await t.redis.get(failKey(a.id, '127.0.0.1'))).toBe('1');
       const pre = await login(a.email);
+      const wrong = totp.generate(secret) === '000000' ? '999999' : '000000';
+      await post('totp/verify', pre).send({ code: wrong }).expect(401);
       await post('totp/verify', pre)
         .send({ code: totp.generate(secret) })
         .expect(200);
       const row = await t.prisma.adminUser.findUniqueOrThrow({ where: { id: a.id } });
       expect(row.failedLoginCount).toBe(0);
+      expect(await t.redis.exists(failKey(a.id, '127.0.0.1'))).toBe(0);
     });
 
     it('outside the per-account IP allowlist: the same 401, nothing counted toward the lock', async () => {
@@ -187,6 +238,7 @@ describe('auth: admin login + TOTP (e2e)', () => {
       }
       const row = await t.prisma.adminUser.findUniqueOrThrow({ where: { id: a.id } });
       expect(row).toMatchObject({ failedLoginCount: 0, lockedUntil: null });
+      expect(await t.redis.exists(failKey(a.id, '127.0.0.1'))).toBe(0);
       const ok = await admin({ data: { ipAllowlist: ['127.0.0.1', '::1'] } });
       await post('login').send({ email: ok.admin.email, password: PASSWORD }).expect(200);
     });

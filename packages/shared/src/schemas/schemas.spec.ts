@@ -1,5 +1,7 @@
 import {
+  bannerImpressionBatchSchema,
   bboxSchema,
+  CSV_ARRAY_MAX,
   contactPhoneSchema,
   mapSearchQuerySchema,
   oauthProviderParamSchema,
@@ -49,5 +51,21 @@ describe('common schemas', () => {
     expect(q.dealTypes).toEqual(['SALE', 'JEONSE']);
     expect(q.verifiedOnly).toBe(true);
     expect(q.zoom).toBe(14);
+  });
+
+  it('caps csv filter lists at CSV_ARRAY_MAX values', () => {
+    const base = { bbox: '127.4,34.9,127.5,35.0', zoom: '14' };
+    const ok = Array.from({ length: CSV_ARRAY_MAX }, () => 'SALE').join(',');
+    expect(mapSearchQuerySchema.safeParse({ ...base, dealTypes: ok }).success).toBe(true);
+    const r = mapSearchQuerySchema.safeParse({ ...base, dealTypes: `${ok},SALE` });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues[0]).toMatchObject({ code: 'too_big', path: ['dealTypes'] });
+  });
+
+  it('rejects an oversized impression batch with a single issue (SEC-04)', () => {
+    const r = bannerImpressionBatchSchema.safeParse({ ids: new Array<number>(500_000).fill(0) });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues).toHaveLength(1);
+    expect(r.error?.issues[0]).toMatchObject({ code: 'too_big', path: ['ids'] });
   });
 });

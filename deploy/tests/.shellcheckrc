@@ -1,0 +1,4 @@
+source-path=SCRIPTDIR
+external-sources=true
+# Test style: `cond && pass || fail`, literal patterns in single quotes, vars read by sourced code.
+disable=SC2015,SC2016,SC2034,SC2012

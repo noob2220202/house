@@ -34,7 +34,7 @@ export class MediaController {
     private readonly library: MediaLibraryService,
   ) {}
 
-  /** multipart `file`; 201 when processed inline, 202 while the worker processes it (poll GET /media/:id). */
+  /** multipart `file`; 202 for images (the worker decodes them; poll GET /media/:id), 201 for PDFs. */
   @Post()
   @Throttle(THROTTLE.WRITE)
   @UseInterceptors(MediaUploadInterceptor)

@@ -45,6 +45,8 @@ enum NotificationType {
   AGENCY_WARNED
   LISTING_HIDDEN
   REPORT_RESOLVED
+  LISTING_EXPIRED
+  CO_BROKER_REQUESTED
   SYSTEM
 
   @@map("notification_type")

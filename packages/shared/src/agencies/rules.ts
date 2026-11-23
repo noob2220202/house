@@ -1,5 +1,10 @@
 // Owned by the agencies module team. Pure domain rules shared by api and frontends.
-import { AgencyStatus, type AgencyStatus as AgencyStatusValue } from '../enums/agency';
+import {
+  AgencyMemberRole,
+  AgencyStatus,
+  type AgencyMemberRole as AgencyMemberRoleValue,
+  type AgencyStatus as AgencyStatusValue,
+} from '../enums/agency';
 
 /**
  * Admin decisions. REJECTED → PENDING happens only by the owner resubmitting
@@ -21,6 +26,35 @@ export const LIVE_AGENCY_STATUSES: readonly AgencyStatusValue[] = [
   AgencyStatus.PENDING,
   AgencyStatus.APPROVED,
   AgencyStatus.SUSPENDED,
+];
+
+/**
+ * Statuses in which an agency holds its 등록번호: only a live office (approved, or suspended and
+ * still registered) reserves the number. Pending / rejected / deleted applications never block
+ * the real office from applying; on approval, competing pending applications are rejected.
+ * Mirrors the partial unique index agencies_registration_key_live.
+ */
+export const REGISTRATION_HOLDING_STATUSES: readonly AgencyStatusValue[] = [
+  AgencyStatus.APPROVED,
+  AgencyStatus.SUSPENDED,
+];
+
+/**
+ * 공인중개사법 제18조의2①: a 중개대상물 ad may name only the 개업공인중개사 (OWNER) or a
+ * 소속공인중개사, never a 중개보조원. Applies to listing contacts and to the agency page that
+ * shows the office's ads.
+ */
+export function isAdvertisableMember(m: {
+  role: AgencyMemberRoleValue;
+  isLicensed: boolean;
+}): boolean {
+  return m.role === AgencyMemberRole.OWNER || m.isLicensed;
+}
+
+/** Admins may soft-delete only applications that never went live. */
+export const ADMIN_DELETABLE_AGENCY_STATUSES: readonly AgencyStatusValue[] = [
+  AgencyStatus.PENDING,
+  AgencyStatus.REJECTED,
 ];
 
 /**

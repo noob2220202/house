@@ -23,15 +23,18 @@ import { AppException } from '../../../common/errors/app.exception';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { REDIS } from '../../../redis/redis.constants';
 import {
+  ADMIN_CLIENT_LOCK_SECONDS,
   ADMIN_LOCK_MINUTES,
   ADMIN_MAX_FAILED_ATTEMPTS,
+  ADMIN_MAX_PASSWORD_FAILURES,
+  ADMIN_PASSWORD_FAILURE_WINDOW_SECONDS,
   ADMIN_PRE_MFA_IDLE_TTL_SECONDS,
   RECOVERY_CODE_COUNT,
   REDIS_KEYS,
   TOTP_SETUP_TTL_SECONDS,
 } from '../auth.constants';
 import { readSessionCookie, SessionService } from '../session/session.service';
-import { ipAllowed } from './ip-allowlist';
+import { clientIpBucket, ipAllowed } from './ip-allowlist';
 import { normalizeRecoveryCode, PasswordService } from './password.service';
 import { SecretBox } from './secret-box';
 import { TotpService } from './totp.service';
@@ -57,9 +60,15 @@ export function toAdminMe(a: AdminUser): AdminMeResponse {
 
 /**
  * Back-office login: email + argon2id password → short pre-MFA session → mandatory TOTP
- * (enrollment on first login) → session rotated into a verified one. Failed password and TOTP
- * attempts share one counter that only a completed second factor resets; reaching
- * ADMIN_MAX_FAILED_ATTEMPTS locks the account, kills its sessions and writes an audit row.
+ * (enrollment on first login) → session rotated into a verified one.
+ *
+ * Two lockouts, so that knowing an admin's email is not enough to lock them out:
+ * - Wrong passwords count per (admin, client IP bucket) in Redis within a 15-minute window;
+ *   ADMIN_MAX_PASSWORD_FAILURES locks only that pair for 15 minutes. The account, its other
+ *   networks and its existing sessions are untouched.
+ * - Second-factor failures (and wrong passwords on re-auth from a verified session) prove the
+ *   caller knows the password: they share the account-wide counter that only a completed second
+ *   factor resets; ADMIN_MAX_FAILED_ATTEMPTS locks the account, kills its sessions and is audited.
  */
 @Injectable()
 export class AdminAuthService {
@@ -78,10 +87,10 @@ export class AdminAuthService {
   /**
    * Password step. Every refusal (unknown email, disabled, outside the account's IP allowlist,
    * locked, wrong password) is the same 401 after the same argon2 work, so the endpoint reveals
-   * neither which emails exist nor whether a password is right while the account is locked or the
-   * caller is outside its allowlist. Only wrong passwords from an allowed network count toward the
-   * lock. The failure counter is NOT reset here: only a completed second factor resets it, so
-   * "right password, then a few wrong codes" cannot be repeated forever.
+   * neither which emails exist nor whether a password is right while the account or this client
+   * is locked, or the caller is outside its allowlist. Only wrong passwords from an allowed network
+   * count, and only toward this client's lock. No counter is reset here: only a completed second
+   * factor resets them, so "right password, then a few wrong codes" cannot be repeated forever.
    */
   async login(dto: AdminLoginInput, req: Request, res: Response): Promise<AdminLoginResponse> {
     const admin = await this.prisma.adminUser.findUnique({ where: { email: dto.email } });
@@ -102,8 +111,13 @@ export class AdminAuthService {
       this.logger.warn({ adminId: admin.id, ip: req.ip }, 'admin login refused: account locked');
       throw invalidCredentials();
     }
+    const failKey = REDIS_KEYS.adminPasswordFailures(admin.id, clientIpBucket(req.ip));
+    if (Number((await this.redis.get(failKey)) ?? 0) >= ADMIN_MAX_PASSWORD_FAILURES) {
+      this.logger.warn({ adminId: admin.id, ip: req.ip }, 'admin login refused: client locked');
+      throw invalidCredentials();
+    }
     if (!ok) {
-      await this.registerFailure(admin.id, req);
+      await this.registerPasswordFailure(admin.id, failKey, req);
       this.logger.warn({ adminId: admin.id, ip: req.ip }, 'admin login: wrong password');
       throw invalidCredentials();
     }
@@ -191,7 +205,10 @@ export class AdminAuthService {
       );
       return row;
     });
-    await this.redis.del(REDIS_KEYS.totpSetup(admin.id));
+    await this.redis.del(
+      REDIS_KEYS.totpSetup(admin.id),
+      REDIS_KEYS.adminPasswordFailures(admin.id, clientIpBucket(req.ip)),
+    );
     // New second factor: every older session (possibly verified with the old secret) goes away.
     await this.sessions.destroyAllForSubject('ADMIN', admin.id);
     const csrfToken = await this.issueSession(req, res, updated, true);
@@ -234,6 +251,7 @@ export class AdminAuthService {
         lastLoginIp: req.ip?.slice(0, 64) ?? null,
       },
     });
+    await this.redis.del(REDIS_KEYS.adminPasswordFailures(admin.id, clientIpBucket(req.ip)));
     if (dto.recoveryCode !== undefined) {
       await this.audit.record({
         action: 'admin.recovery_code.use',
@@ -402,7 +420,39 @@ export class AdminAuthService {
   }
 
   /**
-   * Counts a failed password / second-factor attempt. Returns true when this attempt locked the
+   * Counts a wrong password at the login step for one (admin, client IP bucket). The counter lives
+   * in a fixed window that starts at the first failure; the attempt that reaches the limit locks
+   * the pair for ADMIN_CLIENT_LOCK_SECONDS (audited). Never touches the account or its sessions:
+   * this step proves nothing about the caller, so it must not let them lock the admin out.
+   */
+  private async registerPasswordFailure(adminId: string, key: string, req: Request): Promise<void> {
+    const results = await this.redis
+      .multi()
+      .incr(key)
+      .expire(key, ADMIN_PASSWORD_FAILURE_WINDOW_SECONDS, 'NX')
+      .exec();
+    const [err, value] = results?.[0] ?? [new Error('redis transaction aborted'), null];
+    if (err) throw err;
+    if (Number(value) !== ADMIN_MAX_PASSWORD_FAILURES) return;
+    await this.redis.expire(key, ADMIN_CLIENT_LOCK_SECONDS);
+    await this.audit.record({
+      action: 'admin.login.client_lock',
+      resourceType: 'AdminUser',
+      resourceId: adminId,
+      after: {
+        ip: req.ip ?? null,
+        ipBucket: clientIpBucket(req.ip),
+        failedAttempts: ADMIN_MAX_PASSWORD_FAILURES,
+        lockedForSeconds: ADMIN_CLIENT_LOCK_SECONDS,
+      },
+      actorType: AuditActorType.SYSTEM,
+    });
+    this.logger.warn({ adminId, ip: req.ip }, 'admin login locked for this client after failures');
+  }
+
+  /**
+   * Counts a failed attempt by a caller who already knows the password (second factor, or the
+   * password on re-auth from a verified session). Returns true when this attempt locked the
    * account (sessions are destroyed and the lock is audited).
    */
   private async registerFailure(adminId: string, req: Request): Promise<boolean> {

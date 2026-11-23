@@ -21,8 +21,11 @@
     "db:migrate": "pnpm --filter @house/api db:migrate",
     "db:migrate:dev": "pnpm --filter @house/api db:migrate:dev",
     "db:seed": "pnpm --filter @house/api db:seed",
+    "db:seed:demo": "pnpm --filter @house/api db:seed:demo",
     "db:test:prepare": "pnpm --filter @house/api db:test:prepare",
-    "lint:deploy": "shellcheck -x deploy/*.sh deploy/lib/common.sh && bash -n deploy/*.sh deploy/lib/common.sh"
+    "db:drift": "pnpm --filter @house/api db:drift",
+    "lint:deploy": "shellcheck -x deploy/*.sh deploy/lib/common.sh && bash -n deploy/*.sh deploy/lib/common.sh",
+    "test:deploy": "bash deploy/tests/run.sh"
   },
   "devDependencies": {
     "prettier": "3.6.2",

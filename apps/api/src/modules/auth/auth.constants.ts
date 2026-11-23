@@ -9,6 +9,11 @@ export const ADMIN_PRE_MFA_IDLE_TTL_SECONDS = 10 * 60;
 /** Unconfirmed TOTP enrollment secret. */
 export const TOTP_SETUP_TTL_SECONDS = 10 * 60;
 
+/** Wrong passwords per (admin, client IP bucket) within the window before that pair is locked. */
+export const ADMIN_MAX_PASSWORD_FAILURES = 5;
+export const ADMIN_PASSWORD_FAILURE_WINDOW_SECONDS = 15 * 60;
+export const ADMIN_CLIENT_LOCK_SECONDS = 15 * 60;
+/** Second-factor failures (the caller knew the password) before the whole account is locked. */
 export const ADMIN_MAX_FAILED_ATTEMPTS = 5;
 export const ADMIN_LOCK_MINUTES = 15;
 export const RECOVERY_CODE_COUNT = 10;
@@ -18,6 +23,17 @@ export const TOTP_ISSUER = 'House Admin';
 export const PII_SCRUB_DELAY_DAYS = 30;
 /** 탈퇴 후 재가입 제한: the same social account cannot sign up again for this long. */
 export const REJOIN_COOLDOWN_DAYS = 30;
+/**
+ * A member who withdraws while suspended: PII is kept this long (dispute / abuse handling, stated
+ * in the 개인정보처리방침) instead of PII_SCRUB_DELAY_DAYS, and the rejoin cooldown is as long, so
+ * withdrawing does not shed the suspension any sooner. Moderation evidence (reports, audit rows)
+ * is kept as usual.
+ */
+export const SUSPENDED_PII_RETENTION_DAYS = 90;
+/** Withdrawal ticket of a suspended member (issued at the refused social login, single use). */
+export const SUSPENDED_WITHDRAW_TTL_SECONDS = 10 * 60;
+/** "This member agreed to the current required terms" cache (positive results only). */
+export const TERMS_CONSENT_OK_TTL_SECONDS = 60 * 60;
 
 /** Cookies owned by the auth module (session cookies are COOKIE_NAMES in @house/shared). */
 export const AUTH_COOKIES = {
@@ -25,11 +41,14 @@ export const AUTH_COOKIES = {
   OAUTH_BINDING: 'house_oauth',
   /** Opaque handle of a pending social signup. */
   PENDING_SIGNUP: 'house_signup',
+  /** Withdrawal ticket of a suspended member (POST /auth/withdraw). */
+  SUSPENDED_WITHDRAW: 'house_withdraw',
 } as const;
 
 export const AUTH_COOKIE_PATHS = {
   OAUTH_BINDING: '/api/v1/auth/oauth',
   PENDING_SIGNUP: '/api/v1/auth/signup',
+  SUSPENDED_WITHDRAW: '/api/v1/auth/withdraw',
 } as const;
 
 /** Frontend routes (apps/web) the OAuth callback redirects to. */
@@ -43,7 +62,13 @@ export const WEB_PATHS = {
 export const REDIS_KEYS = {
   oauthState: (state: string) => `auth:oauth-state:${state}`,
   pendingSignup: (hash: string) => `auth:signup:${hash}`,
+  suspendedWithdraw: (hash: string) => `auth:suspended-withdraw:${hash}`,
+  termsConsentOk: (userId: string, currentRequiredDigest: string) =>
+    `auth:terms-ok:${userId}:${currentRequiredDigest}`,
   totpSetup: (adminId: string) => `auth:totp-setup:${adminId}`,
+  /** Wrong-password counter of one (admin, client IP bucket); ≥ the max means that pair is locked. */
+  adminPasswordFailures: (adminId: string, ipBucket: string) =>
+    `auth:admin-pw-fail:${adminId}:${ipBucket}`,
   /** One accepted code per (admin, secret, time-step); `secretTag` keeps a fresh secret usable. */
   totpUsedStep: (adminId: string, secretTag: string, step: number) =>
     `auth:totp-used:${adminId}:${secretTag}:${step}`,

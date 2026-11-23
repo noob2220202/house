@@ -14,7 +14,8 @@ interface FanoutData {
   dealRequestId?: unknown;
 }
 
-@Processor(DEAL_REQUESTS_QUEUE)
+/** Runs only in the worker process (JOBS_ENABLED); e2e calls the maintenance service directly. */
+@Processor(DEAL_REQUESTS_QUEUE, { autorun: false })
 export class DealRequestsProcessor extends WorkerHost implements OnApplicationBootstrap {
   private readonly logger = new Logger(DealRequestsProcessor.name);
 
@@ -38,6 +39,7 @@ export class DealRequestsProcessor extends WorkerHost implements OnApplicationBo
       { pattern: SCRUB_PATTERN, tz: 'Asia/Seoul' },
       { name: DEAL_REQUEST_JOBS.SCRUB, data: {} },
     );
+    this.worker.run().catch((err: unknown) => this.logger.error({ err }, 'worker stopped'));
   }
 
   async process(job: Job<FanoutData>): Promise<{ count: number }> {

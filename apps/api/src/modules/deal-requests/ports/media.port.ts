@@ -1,15 +1,8 @@
-import {
-  ErrorCode,
-  MediaPurpose,
-  MediaStatus,
-  MediaVisibility,
-  type ImageVariant,
-} from '@house/shared';
+import { ErrorCode, MediaPurpose, type ImageVariant } from '@house/shared';
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import { AppException } from '../../../common/errors/app.exception';
-import { AppConfig } from '../../../config/app-config.service';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
+import { MediaService } from '../../media/media.service';
 
 export interface DealRequestMediaRef {
   storageKey: string;
@@ -17,8 +10,7 @@ export interface DealRequestMediaRef {
 }
 
 /**
- * What the deal-requests module needs from the media domain. Bound to a Prisma implementation
- * until MediaService exposes `assertUsable` / URL helpers; swap the binding then.
+ * What the deal-requests module needs from the media domain (attach/detach per MediaService).
  */
 export interface DealRequestMediaPort {
   /**
@@ -36,45 +28,33 @@ export interface DealRequestMediaPort {
 
 export const DEAL_REQUEST_MEDIA = Symbol('DEAL_REQUEST_MEDIA');
 
-function variantKey(variants: Prisma.JsonValue | null, name: ImageVariant): string | null {
-  if (!variants || typeof variants !== 'object' || Array.isArray(variants)) return null;
-  const v = variants[name];
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
-  const key = v.key;
-  return typeof key === 'string' && key.length > 0 ? key : null;
-}
-
 @Injectable()
-export class PrismaDealRequestMedia implements DealRequestMediaPort {
-  private readonly base: string;
-
+export class MediaServiceDealRequestMedia implements DealRequestMediaPort {
   constructor(
     private readonly prisma: PrismaService,
-    config: AppConfig,
-  ) {
-    this.base = config.get('MEDIA_BASE_URL').replace(/\/+$/, '');
-  }
+    private readonly media: MediaService,
+  ) {}
 
   async assertPhotosUsable(
     mediaIds: readonly string[],
     userId: string,
-    db: PrismaTx = this.prisma,
+    db?: PrismaTx,
   ): Promise<void> {
     if (mediaIds.length === 0) return;
-    const usable = await db.media.count({
-      where: {
-        id: { in: [...mediaIds] },
-        ownerUserId: userId,
-        deletedAt: null,
-        status: MediaStatus.READY,
-        visibility: MediaVisibility.PUBLIC,
-        purpose: MediaPurpose.DEAL_REQUEST_PHOTO,
-        dealRequestPhotos: { none: {} },
-      },
-    });
-    if (usable !== new Set(mediaIds).size) {
-      throw AppException.badRequest(ErrorCode.DEAL_REQUEST_PHOTO_INVALID);
-    }
+    const check = (tx: PrismaTx) =>
+      this.media.assertUsable(
+        mediaIds,
+        {
+          purpose: MediaPurpose.DEAL_REQUEST_PHOTO,
+          ownerUserId: userId,
+          unattached: true,
+          errorCode: ErrorCode.DEAL_REQUEST_PHOTO_INVALID,
+        },
+        tx,
+      );
+    // Without a caller transaction this is only a pre-check (the locked check runs again later).
+    if (db) await check(db);
+    else await this.prisma.$transaction(check);
   }
 
   async discardPhotos(dealRequestIds: readonly string[], now: Date, db: PrismaTx): Promise<number> {
@@ -94,7 +74,6 @@ export class PrismaDealRequestMedia implements DealRequestMediaPort {
   }
 
   publicUrl(media: DealRequestMediaRef, variant: ImageVariant = 'medium'): string {
-    const key = variantKey(media.variants, variant) ?? media.storageKey;
-    return `${this.base}/${key}`;
+    return this.media.url(media, variant);
   }
 }

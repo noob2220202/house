@@ -1,6 +1,7 @@
 import { Module, RequestMethod } from '@nestjs/common';
 import { LoggerModule as PinoLoggerModule } from 'nestjs-pino';
 import { AppConfig } from '../config/app-config.service';
+import { logSerializers } from './log-serializers';
 
 @Module({
   imports: [
@@ -34,15 +35,7 @@ import { AppConfig } from '../config/app-config.service';
             ],
             censor: '[redacted]',
           },
-          serializers: {
-            req: (req: { id: string; method: string; url: string; remoteAddress?: string }) => ({
-              id: req.id,
-              method: req.method,
-              url: req.url,
-              ip: req.remoteAddress,
-            }),
-            res: (res: { statusCode: number }) => ({ statusCode: res.statusCode }),
-          },
+          serializers: logSerializers,
           customProps: () => ({ service: 'house-api' }),
         },
       }),

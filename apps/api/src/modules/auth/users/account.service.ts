@@ -3,8 +3,6 @@ import {
   AgencyMemberStatus,
   AgencyStatus,
   type AuthProvider,
-  DEAL_REQUEST_ACTIVE_STATUSES,
-  DealRequestStatus,
   type ConsentInput,
   type ConsentStatus,
   ErrorCode,
@@ -16,13 +14,21 @@ import {
   type WithdrawInput,
 } from '@house/shared';
 import type { Identity, User } from '@prisma/client';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import type { UserPrincipal } from '../../../common/auth/principal';
 import { AppException } from '../../../common/errors/app.exception';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
-import { PII_SCRUB_DELAY_DAYS } from '../auth.constants';
+import { DealRequestMaintenanceService } from '../../deal-requests/services/deal-request-maintenance.service';
+import { ListingsModerationService } from '../../listings/services/listings-moderation.service';
+import {
+  AUTH_COOKIE_PATHS,
+  AUTH_COOKIES,
+  PII_SCRUB_DELAY_DAYS,
+  SUSPENDED_PII_RETENTION_DAYS,
+} from '../auth.constants';
 import { SessionService } from '../session/session.service';
 import { TermsService } from '../terms/terms.service';
+import { SuspendedWithdrawStore } from './suspended-withdraw.store';
 import { type ActiveMembership, UserSessionService } from './user-session.service';
 import { WithdrawnIdentityService } from './withdrawn-identity.service';
 
@@ -73,6 +79,9 @@ export class AccountService {
     private readonly userSessions: UserSessionService,
     private readonly terms: TermsService,
     private readonly withdrawn: WithdrawnIdentityService,
+    private readonly dealRequests: DealRequestMaintenanceService,
+    private readonly listings: ListingsModerationService,
+    private readonly suspendedWithdraw: SuspendedWithdrawStore,
   ) {}
 
   /**
@@ -164,77 +173,109 @@ export class AccountService {
   }
 
   /**
-   * 회원 탈퇴: soft delete now (status, sessions, identities, agency memberships), PII scrubbed by
-   * the PII scrub job after PII_SCRUB_DELAY_DAYS. Identities are removed at once, but a tombstone
-   * keeps the same social account from signing up again for REJOIN_COOLDOWN_DAYS. Live 내놓기/구하기
-   * requests are cancelled and their contacts erased in the same transaction, so no agency can
-   * reveal them after this point. A suspended member cannot withdraw (no escaping moderation).
+   * 회원 탈퇴 from a logged-in session: see withdrawUser. Logs out everywhere afterwards.
    */
   async withdraw(principal: UserPrincipal, dto: WithdrawInput, res: Response): Promise<void> {
+    await this.withdrawUser(principal.userId, dto);
+    this.sessions.clearCookies(res, 'USER');
+  }
+
+  /**
+   * 회원 탈퇴: soft delete now (status, sessions, identities, agency memberships), PII scrubbed by
+   * the PII scrub job after PII_SCRUB_DELAY_DAYS. Identities are removed at once, but a tombstone
+   * keeps the same social account from signing up again for REJOIN_COOLDOWN_DAYS. 내놓기/구하기
+   * requests are cancelled and erased (contact, 동·호, address, position, photos) in the same
+   * transaction by the deal-requests module, so no agency can reveal them after this point;
+   * agencies with live proposals are notified after commit.
+   * A suspended member may withdraw too (deletion / 처리정지 rights are not suspended): their PII is
+   * then kept for SUSPENDED_PII_RETENTION_DAYS and the rejoin cooldown is as long; reports, audit
+   * rows and suspendedReason stay as moderation evidence until the scrub.
+   */
+  async withdrawUser(userId: string, dto: WithdrawInput): Promise<void> {
     const now = new Date();
-    await this.prisma.$transaction(async (tx) => {
+    const { notices, relinked } = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
-        where: { id: principal.userId },
+        where: { id: userId },
         select: { status: true },
       });
-      if (!user || user.status === UserStatus.WITHDRAWN) throw AppException.unauthenticated();
-      if (user.status === UserStatus.SUSPENDED) {
-        throw AppException.forbidden(ErrorCode.AUTH_WITHDRAW_SUSPENDED);
+      if (!user || (user.status !== UserStatus.ACTIVE && user.status !== UserStatus.SUSPENDED)) {
+        throw AppException.unauthenticated();
       }
+      const retentionDays =
+        user.status === UserStatus.SUSPENDED ? SUSPENDED_PII_RETENTION_DAYS : PII_SCRUB_DELAY_DAYS;
       const ownsAgency = await tx.agency.count({
         where: {
-          ownerUserId: principal.userId,
+          ownerUserId: userId,
           deletedAt: null,
           status: { in: [AgencyStatus.PENDING, AgencyStatus.APPROVED, AgencyStatus.SUSPENDED] },
         },
       });
       if (ownsAgency > 0) throw AppException.conflict(ErrorCode.AUTH_WITHDRAW_AGENCY_OWNER);
-      await this.detachMemberships(tx, principal.userId, now);
+      const relinked = await this.detachMemberships(tx, userId, now);
       const identities = await tx.identity.findMany({
-        where: { userId: principal.userId },
+        where: { userId },
         select: { provider: true, providerUserId: true },
       });
-      await this.withdrawn.record(tx, principal.userId, identities, now);
-      await tx.identity.deleteMany({ where: { userId: principal.userId } });
-      await this.closeDealRequests(tx, principal.userId, now);
+      await this.withdrawn.record(tx, userId, identities, now, {
+        cooldownDays:
+          user.status === UserStatus.SUSPENDED ? SUSPENDED_PII_RETENTION_DAYS : undefined,
+      });
+      await tx.identity.deleteMany({ where: { userId } });
+      const dealRequestNotices = await this.dealRequests.scrubUser(userId, now, tx);
       await tx.user.update({
-        where: { id: principal.userId },
+        where: { id: userId },
         data: {
           status: UserStatus.WITHDRAWN,
           withdrawnAt: now,
           withdrawalReason: dto.reason ?? null,
           marketingOptIn: false,
-          piiScrubAfter: new Date(now.getTime() + PII_SCRUB_DELAY_DAYS * 86_400_000),
+          piiScrubAfter: new Date(now.getTime() + retentionDays * 86_400_000),
         },
       });
+      return { notices: dealRequestNotices, relinked };
     });
-    await this.sessions.destroyAllForSubject('USER', principal.userId);
-    this.sessions.clearCookies(res, 'USER');
+    await this.sessions.destroyAllForSubject('USER', userId);
+    await this.dealRequests.dispatch(notices);
+    if (relinked > 0) await this.listings.invalidateSearch();
   }
 
   /**
-   * Cancels the member's live deal requests, revokes every contact grant and erases the typed
-   * contact + 동·호. The deal-requests maintenance job later stamps contactScrubbedAt (idempotent).
+   * Ends every agency membership and takes the member's name/phone off the listing ads they were
+   * the contact for (moved to the office's 대표). Returns the number of listing links changed.
    */
-  private async closeDealRequests(tx: PrismaTx, userId: string, now: Date): Promise<void> {
-    await tx.dealRequest.updateMany({
-      where: { userId, status: { in: [...DEAL_REQUEST_ACTIVE_STATUSES] } },
-      data: { status: DealRequestStatus.CANCELLED, closedAt: now },
+  private async detachMemberships(tx: PrismaTx, userId: string, now: Date): Promise<number> {
+    const memberships = await tx.agencyMember.findMany({
+      where: { userId, status: { not: AgencyMemberStatus.REMOVED } },
+      select: { id: true, agencyId: true },
     });
-    await tx.dealRequestContactGrant.updateMany({
-      where: { dealRequest: { userId }, revokedAt: null },
-      data: { revokedAt: now },
+    if (memberships.length === 0) return 0;
+    await tx.agencyMember.updateMany({
+      where: { id: { in: memberships.map((m) => m.id) } },
+      data: { status: AgencyMemberStatus.REMOVED, removedAt: now },
     });
-    await tx.dealRequest.updateMany({
-      where: { userId },
-      data: { contactName: '', contactPhone: '', addressDetail: null },
-    });
+    let relinked = 0;
+    for (const m of memberships) {
+      relinked += await this.listings.memberDeparted(tx, m.agencyId, m.id);
+    }
+    return relinked;
   }
 
-  private async detachMemberships(tx: PrismaTx, userId: string, now: Date): Promise<void> {
-    await tx.agencyMember.updateMany({
-      where: { userId, status: { not: AgencyMemberStatus.REMOVED } },
-      data: { status: AgencyMemberStatus.REMOVED, removedAt: now },
+  /**
+   * POST /auth/withdraw: withdrawal of a suspended member, who has no session. Authenticated by the
+   * ticket the refused social login issued (SuspendedWithdrawStore); 401 without a live one.
+   * The ticket is spent only on success, so a 409 (still owns an agency) can be retried.
+   */
+  async withdrawWithTicket(req: Request, res: Response, dto: WithdrawInput): Promise<void> {
+    const cookies = req.cookies as Record<string, string | undefined> | undefined;
+    const token = cookies?.[AUTH_COOKIES.SUSPENDED_WITHDRAW];
+    const userId = await this.suspendedWithdraw.get(token);
+    if (!token || !userId) throw AppException.unauthenticated();
+    await this.withdrawUser(userId, dto);
+    await this.suspendedWithdraw.delete(token);
+    res.clearCookie(AUTH_COOKIES.SUSPENDED_WITHDRAW, {
+      ...this.sessions.baseCookie(),
+      httpOnly: true,
+      path: AUTH_COOKIE_PATHS.SUSPENDED_WITHDRAW,
     });
   }
 

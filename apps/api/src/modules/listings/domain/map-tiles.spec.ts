@@ -17,7 +17,9 @@ describe('map tiles', () => {
     expect(b.swLat).toBeLessThanOrEqual(bbox.swLat);
     expect(b.neLng).toBeGreaterThanOrEqual(bbox.neLng);
     expect(b.neLat).toBeGreaterThanOrEqual(bbox.neLat);
-    expect(Math.abs(b.swLng / t - Math.round(b.swLng / t))).toBeLessThan(1e-4);
+    // Exact multiples (no rounding), so tile edges coincide with grid-cell edges.
+    for (const v of Object.values(b)) expect(Number.isInteger(v / t)).toBe(true);
+    expect(b.swLng).toBe(5801 * t);
   });
 
   it('nearby viewports share one tile key', () => {

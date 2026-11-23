@@ -19,10 +19,12 @@ import {
   AUTH_COOKIES,
   OAUTH_STATE_TTL_SECONDS,
   PENDING_SIGNUP_TTL_SECONDS,
+  SUSPENDED_WITHDRAW_TTL_SECONDS,
   WEB_PATHS,
 } from '../auth.constants';
 import { SessionService } from '../session/session.service';
 import { PendingSignupStore } from '../signup/pending-signup.store';
+import { SuspendedWithdrawStore } from '../users/suspended-withdraw.store';
 import { UserSessionService } from '../users/user-session.service';
 import { WithdrawnIdentityService } from '../users/withdrawn-identity.service';
 import { type OAuthProfile, OAuthProviderError } from './oauth-provider';
@@ -44,6 +46,7 @@ type Outcome = { redirectTo: string };
  * Authorization-code flows for every registered provider.
  *  start: state + nonce + PKCE verifier in Redis (single use), state bound to the browser by a cookie
  *  callback: state check → code exchange → profile → login | pending signup | identity link
+ *            (a suspended member gets no session, only a withdrawal ticket: SuspendedWithdrawStore)
  * Accounts are linked only through (provider, providerUserId) — never by email.
  * The callback never renders errors itself: it redirects to the web app with ?error=<code>.
  */
@@ -60,6 +63,7 @@ export class OAuthService {
     private readonly prisma: PrismaService,
     private readonly config: AppConfig,
     private readonly withdrawn: WithdrawnIdentityService,
+    private readonly suspendedWithdraw: SuspendedWithdrawStore,
   ) {}
 
   /** Returns the provider authorization URL to redirect the browser to. */
@@ -184,7 +188,22 @@ export class OAuthService {
     }
 
     const { user } = identity;
-    if (user.status === UserStatus.SUSPENDED) return { error: ErrorCode.AUTH_ACCOUNT_SUSPENDED };
+    if (user.status === UserStatus.SUSPENDED) {
+      // No session, but a single-use ticket so the member can still withdraw (POST /auth/withdraw).
+      const ticket = await this.suspendedWithdraw.create(user.id);
+      res.cookie(AUTH_COOKIES.SUSPENDED_WITHDRAW, ticket, {
+        ...this.sessions.baseCookie(),
+        httpOnly: true,
+        path: AUTH_COOKIE_PATHS.SUSPENDED_WITHDRAW,
+        maxAge: SUSPENDED_WITHDRAW_TTL_SECONDS * 1000,
+      });
+      return {
+        redirectTo: this.webUrl(WEB_PATHS.LOGIN, {
+          error: ErrorCode.AUTH_ACCOUNT_SUSPENDED,
+          withdrawable: '1',
+        }),
+      };
+    }
     if (user.status !== UserStatus.ACTIVE) return { error: ErrorCode.AUTH_ACCOUNT_WITHDRAWN };
 
     await this.prisma.identity.update({

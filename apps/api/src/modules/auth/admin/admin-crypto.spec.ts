@@ -2,7 +2,7 @@ import { type ExecutionContext, Logger } from '@nestjs/common';
 import type { AppConfig } from '../../../config/app-config.service';
 import { AppException } from '../../../common/errors/app.exception';
 import { AdminIpGuard } from './admin-ip.guard';
-import { IpAllowlist, ipAllowed, normalizeIp } from './ip-allowlist';
+import { clientIpBucket, IpAllowlist, ipAllowed, normalizeIp } from './ip-allowlist';
 import { normalizeRecoveryCode, PasswordService } from './password.service';
 import { SecretBox } from './secret-box';
 import { TotpService } from './totp.service';
@@ -30,6 +30,26 @@ describe('IpAllowlist', () => {
     expect(ipAllowed(['bad'], '1.2.3.4')).toBe(false);
     expect(ipAllowed([], '1.2.3.4')).toBe(true);
     expect(normalizeIp('::ffff:127.0.0.1')).toBe('127.0.0.1');
+  });
+});
+
+describe('clientIpBucket', () => {
+  it('keeps IPv4 addresses and buckets IPv6 by /64', () => {
+    expect(clientIpBucket('198.51.100.7')).toBe('198.51.100.7');
+    expect(clientIpBucket('::ffff:198.51.100.7')).toBe('198.51.100.7');
+    expect(clientIpBucket('2001:db8:1:2::1')).toBe('2001:db8:1:2::/64');
+    expect(clientIpBucket('2001:0DB8:0001:0002:ffff:1:2:3')).toBe('2001:db8:1:2::/64');
+    expect(clientIpBucket('2001:db8::1')).toBe('2001:db8:0:0::/64');
+    expect(clientIpBucket('fe80::1%eth0')).toBe('fe80:0:0:0::/64');
+    expect(clientIpBucket('64:ff9b:1:2::198.51.100.7')).toBe('64:ff9b:1:2::/64');
+    expect(clientIpBucket('::1')).toBe('0:0:0:0::/64');
+    expect(clientIpBucket('::')).toBe('0:0:0:0::/64');
+  });
+
+  it('maps missing or invalid addresses to one shared bucket', () => {
+    expect(clientIpBucket(undefined)).toBe('unknown');
+    expect(clientIpBucket('')).toBe('unknown');
+    expect(clientIpBucket('garbage')).toBe('unknown');
   });
 });
 

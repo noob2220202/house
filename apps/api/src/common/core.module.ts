@@ -1,6 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import type Redis from 'ioredis';
 import { AppConfig } from '../config/app-config.service';
 import { REDIS } from '../redis/redis.constants';
@@ -12,10 +12,12 @@ import { CsrfGuard } from './auth/csrf.guard';
 import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import { ZodValidationPipe } from './pipes/zod-validation.pipe';
 import { DailyCapService } from './throttle/daily-cap.service';
+import { HouseThrottlerGuard } from './throttle/house-throttler.guard';
 import { RedisThrottlerStorage } from './throttle/redis-throttler.storage';
 
 /**
- * Cross-cutting wiring. Guard order matters: Throttler → Auth (resolves session) → CSRF.
+ * Cross-cutting wiring. Guard order matters: Throttler (per user, else per IP) → Auth (reuses the
+ * memoized session) → CSRF.
  * Nothing here should need editing by module teams.
  */
 @Global()
@@ -37,7 +39,7 @@ import { RedisThrottlerStorage } from './throttle/redis-throttler.storage';
     }),
   ],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: HouseThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: CsrfGuard },
     { provide: APP_PIPE, useFactory: () => new ZodValidationPipe() },

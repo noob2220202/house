@@ -186,21 +186,35 @@ export class ListingSearchRepository {
       GROUP BY 1, l.deal_type`;
   }
 
-  /** Grid clusters: ST_SnapToGrid cells of `size` degrees. */
-  gridAggregates(where: Prisma.Sql, size: number): Promise<GridAggRow[]> {
-    return this.prisma.$queryRaw<GridAggRow[]>`
-      SELECT ST_X(g.cell)::float8 AS "cx", ST_Y(g.cell)::float8 AS "cy",
+  /**
+   * Grid clusters: half-open cells [k·size, (k+1)·size) keyed by floor(coord / size), so cell
+   * edges sit on multiples of `size` and therefore on tile edges (tiles are 4 cells wide, see
+   * map-tiles.ts). `where` carries the GIST-backed `location && envelope` filter, which is lossy
+   * (geography boxes are geocentric and loose, edges inclusive); the exact half-open lng/lat range
+   * here makes every point belong to exactly one tile and one cell.
+   * cx/cy are the cell centre (stable cluster key); lat/lng the listings' centroid.
+   */
+  gridSql(where: Prisma.Sql, size: number, tile: Bbox): Prisma.Sql {
+    return Prisma.sql`
+      SELECT ((g.ix + 0.5) * ${size}::float8)::float8 AS "cx",
+             ((g.iy + 0.5) * ${size}::float8)::float8 AS "cy",
              g.deal_type::text AS "dealType", count(*)::int AS "count",
              min(g.price_sort) AS "priceMin", max(g.price_sort) AS "priceMax",
              min(g.monthly_rent) AS "rentMin", max(g.monthly_rent) AS "rentMax",
              avg(g.lat)::float8 AS "lat", avg(g.lng)::float8 AS "lng"
       FROM (
-        SELECT ST_SnapToGrid(l.location::geometry, ${size}::float8) AS cell,
+        SELECT floor(l.lng / ${size}::float8) AS ix, floor(l.lat / ${size}::float8) AS iy,
                l.deal_type, l.price_sort, l.monthly_rent, l.lat, l.lng
         FROM listings l
         WHERE ${where}
+          AND l.lng >= ${tile.swLng}::float8 AND l.lng < ${tile.neLng}::float8
+          AND l.lat >= ${tile.swLat}::float8 AND l.lat < ${tile.neLat}::float8
       ) g
-      GROUP BY 1, 2, g.deal_type`;
+      GROUP BY g.ix, g.iy, g.deal_type`;
+  }
+
+  gridAggregates(where: Prisma.Sql, size: number, tile: Bbox): Promise<GridAggRow[]> {
+    return this.prisma.$queryRaw<GridAggRow[]>(this.gridSql(where, size, tile));
   }
 
   /**
@@ -290,6 +304,30 @@ export class ListingSearchRepository {
       SELECT u.id FROM (${Prisma.join(branches, ' UNION ALL ')}) u
       ORDER BY u.seg, u.k ${dir}, ${tieBreak}u.id DESC
       OFFSET ${offset} LIMIT ${limit}`;
+  }
+
+  /**
+   * Disclosable co-broker count (ACTIVE links of approved, non-deleted agencies) for one page of
+   * listing ids. Scoped to the ids so its cost follows the page size, not the size of
+   * listing_agencies (a Prisma relation _count aggregates the whole table before joining).
+   */
+  agencyCountsSql(ids: string[]): Prisma.Sql {
+    return Prisma.sql`
+      SELECT la.listing_id AS "listingId", count(*)::int AS "n"
+      FROM listing_agencies la
+      JOIN agencies a ON a.id = la.agency_id
+        AND a.status = ${AgencyStatus.APPROVED}::agency_status AND a.deleted_at IS NULL
+      WHERE la.listing_id = ANY(${ids}::uuid[])
+        AND la.status = ${ListingAgencyStatus.ACTIVE}::listing_agency_status
+      GROUP BY la.listing_id`;
+  }
+
+  async agencyCounts(ids: string[]): Promise<Map<string, number>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.prisma.$queryRaw<{ listingId: string; n: number }[]>(
+      this.agencyCountsSql(ids),
+    );
+    return new Map(rows.map((r) => [r.listingId, r.n]));
   }
 
   async listIds(

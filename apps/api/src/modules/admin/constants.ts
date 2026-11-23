@@ -15,13 +15,6 @@ export const VISITOR_KEY_PREFIX = 'admin:visitors:';
 export const VISITOR_KEY_TTL_SECONDS = 60 * 60 * 24 * 40;
 
 /**
- * Requests carrying a client-chosen x-request-id are counted under it (admin audit safety net):
- * `admin:audit:rid:<id>`. The TTL must exceed any request's duration.
- */
-export const AUDIT_REQUEST_ID_KEY_PREFIX = 'admin:audit:rid:';
-export const AUDIT_REQUEST_ID_TTL_SECONDS = 10 * 60;
-
-/**
  * 신고자 연락처·IP 보유기간: kept this long after the report is closed (for objections and repeat
  * reports), then erased by the admin-maintenance job.
  */

@@ -20,6 +20,7 @@
 | 경로              | 설명                                                                  |
 | ----------------- | --------------------------------------------------------------------- |
 | `apps/api`        | NestJS 11 (Express) — 유일한 백엔드. 전역 prefix `/api/v1`, 포트 4000 |
+| `apps/api` 워커   | `dist/worker.js` — HTTP 없는 BullMQ 워커 프로세스 (모든 작업 처리)    |
 | `apps/web`        | Next.js 15 App Router 사용자 사이트 (포트 3000, `/healthz`)           |
 | `apps/admin`      | Next.js 15 App Router 관리자 (포트 3001, `/healthz`)                  |
 | `packages/shared` | zod 스키마, enum, 상수, 에러 코드, 유틸 (api·프론트 공용, `tsc` 빌드) |
@@ -59,6 +60,13 @@ TypeScript strict, ESLint(flat config, type-aware) + Prettier, Node 22 LTS.
 ioredis 단일 클라이언트(키 prefix `REDIS_KEY_PREFIX`) — 서버 세션, 레이트 리밋(@nestjs/throttler + Redis
 storage, Lua 원자 처리), 일일 한도(DailyCapService), 캐시(CacheService: 지도 타일, 배너 노출 등 짧은 TTL),
 BullMQ 큐와 반복 작업(실거래가 동기화, 배너 통계 반영, 이미지 처리, 조회수 반영, 알림, 정리 작업).
+
+**프로세스 분리**: HTTP API(`dist/main.js`)는 작업을 큐에 넣기만 하고 프로세서를 실행하지 않습니다.
+모든 프로세서와 반복 작업 등록은 별도 워커(`dist/worker.js`, PM2 `house-worker`)에서만 돌아갑니다.
+진입점이 AppModule보다 먼저 역할을 정하고(`src/roles/api.ts` → `JOBS_ENABLED=false`,
+`src/roles/worker.ts` → `true`), 모든 `@Processor`는 `autorun: false`로 선언되어 `JOBS_ENABLED`일 때만
+워커를 시작합니다(`src/processors.spec.ts`가 강제). 큰 이미지 디코딩·실거래가 동기화가 API 메모리를
+밀어내지 않고, API를 여러 인스턴스로 늘려도 작업이 중복 실행되지 않습니다.
 
 ## 5. 인증·권한
 
@@ -132,8 +140,24 @@ Jest 단위 테스트 + supertest e2e를 **실제 Postgres/Redis**로 실행합�
 Redis DB 인덱스(1~8)를 사용해 병렬 실행해도 충돌하지 않습니다. 외부 API(OAuth, data.go.kr, 중개업소 조회)는
 인터페이스 뒤에 두고 테스트에서는 가짜/픽스처를 사용합니다. 모든 엔드포인트는 정상·권한 실패·검증 실패 e2e를 가집니다.
 
-## 13. 배포 (예정)
+## 13. 모듈 간 연결 (통합 단계에서 확정)
 
-단일 VPS(Ubuntu)에 Node 22, PostgreSQL 16 + PostGIS, Redis, nginx를 OS 패키지로 설치하고 systemd로
-api/web/admin 프로세스를 관리합니다(Docker 미사용). nginx가 TLS 종료, `/api` → 4000, 사용자 사이트 → 3000,
-관리자 → 3001, `/media/*` → `UPLOAD_DIR` 정적 제공을 담당합니다. 배포 키트는 이후 단계에서 추가됩니다.
+| 연결                                 | 방식                                                                                                    |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| 미디어 첨부 (매물·중개사무소·내놓기) | 각 모듈 port → `MediaService.assertUsable(ids, rule, tx)` (같은 트랜잭션에서 잠금) + 분리 시 `released` |
+| 중개사무소 상태 변경 → 매물·광고     | `ListingsModerationService.onAgencyStatusChanged/memberDeparted` + `AdsInvalidationService`             |
+| 관리자 매물 조치 (숨김·거래완료)     | `ListingsModerationService` (hide/close/unhide, `invalidateSearch`)                                     |
+| 회원 탈퇴                            | 같은 트랜잭션에서 내놓기·구하기 삭제(`DealRequestMaintenanceService.scrubUser`), 매물 담당자 이관       |
+| 탈퇴 회원 PII 파기 작업              | `MediaService.scrubOwner`로 업로드 파일명 삭제·미첨부 파일 제거                                         |
+| 알림                                 | `notifications` 테이블 (`LISTING_EXPIRED`, `CO_BROKER_REQUESTED` 등), 외부 발송(SMS 등) 없음            |
+| 감사 로그 안전망                     | `AuditService.record`가 요청 컨텍스트에 기록 여부 표시 → 관리자 변경에 기록이 없으면 자동 기록          |
+
+라우팅은 대소문자를 구분합니다(`/api/v1/ADMIN/...`은 404). 외래 키 경합(P2003)은 409로 응답합니다.
+스키마와 마이그레이션의 차이는 `pnpm db:drift`로 검사합니다(CI·배포 전 필수).
+
+## 14. 배포
+
+단일 VPS(Ubuntu)에 Node 22, PostgreSQL 16 + PostGIS, Redis, nginx를 OS 패키지로 설치하고 PM2로
+house-api(cluster)·house-worker(fork 1개)·house-web·house-admin을 관리합니다(Docker 미사용).
+nginx가 TLS 종료, `/api` → API, 사용자 사이트·관리자 → Next.js, `/media/*` → `UPLOAD_DIR` 정적 제공을
+담당합니다. 설치·배포·롤백·백업 절차는 [DEPLOY.md](DEPLOY.md), 운영은 [OPERATIONS.md](OPERATIONS.md).

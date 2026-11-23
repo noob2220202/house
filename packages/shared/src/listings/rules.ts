@@ -1,10 +1,13 @@
 // Owned by the listings module team. Pure listing rules shared by the API and the frontends.
 import {
   AssetType,
+  BuildingUse,
   DealType,
   FloorClass,
   FloorDisplay,
   ListingStatus,
+  type AssetType as AssetTypeValue,
+  type BuildingUse as BuildingUseValue,
   type DealType as DealTypeValue,
   type FloorClass as FloorClassValue,
   type ListingStatus as ListingStatusValue,
@@ -115,8 +118,27 @@ export function searchAreaOf(a: ListingAreaFields): number | null {
 }
 
 /** Asset types that are buildings (everything except 토지). */
-export function isBuildingAsset(assetType: AssetType): boolean {
+export function isBuildingAsset(assetType: AssetTypeValue): boolean {
   return assetType !== AssetType.LAND;
+}
+
+/**
+ * 건축물 용도 implied by the site category where it is unambiguous (아파트, 오피스텔). 원룸·투룸,
+ * 주택, 상업·업무 can be many uses (다가구/다세대/근린생활시설…), so the agent must state it.
+ */
+const IMPLIED_BUILDING_USE: Partial<Record<AssetTypeValue, BuildingUseValue>> = {
+  APT: BuildingUse.APARTMENT,
+  OFFICETEL: BuildingUse.OFFICETEL,
+};
+
+/** The 건축물 용도 to show: the stated one, else the one implied by the asset type, else null. */
+export function effectiveBuildingUse(
+  assetType: AssetTypeValue | null | undefined,
+  buildingUse: BuildingUseValue | null | undefined,
+): BuildingUseValue | null {
+  if (buildingUse) return buildingUse;
+  if (!assetType || !isBuildingAsset(assetType)) return null;
+  return IMPLIED_BUILDING_USE[assetType] ?? null;
 }
 
 /**

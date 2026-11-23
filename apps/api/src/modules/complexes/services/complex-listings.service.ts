@@ -7,9 +7,22 @@ import {
   type ComplexListingsSummary,
   type DealTypeListingSummary,
 } from '@house/shared';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { PUBLIC_PRIMARY_AGENCY_WHERE } from '../../listings/listing.selects';
 
 const DEAL_TYPES = enumValues(DealType);
+
+/**
+ * Same disclosure rule as public listing search/detail: 광고중/계약중, not deleted, and the
+ * primary agency is disclosable (approved, not deleted). Listings of a SUSPENDED/REJECTED office
+ * stay ACTIVE in the table but must not be counted on 단지 pages.
+ */
+const PUBLIC_LISTING_WHERE = {
+  deletedAt: null,
+  status: { in: [...PUBLIC_LISTING_STATUSES] },
+  ...PUBLIC_PRIMARY_AGENCY_WHERE,
+} as const satisfies Prisma.ListingWhereInput;
 
 function emptyCounts(): ComplexListingCounts {
   return {
@@ -18,7 +31,7 @@ function emptyCounts(): ComplexListingCounts {
   };
 }
 
-/** Read-only aggregates over the listings table for 단지 pages (listings module owns writes). */
+/** Read-only aggregates over publicly visible listings for 단지 pages (listings module owns writes). */
 @Injectable()
 export class ComplexListingsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -27,7 +40,7 @@ export class ComplexListingsService {
   async summary(complexId: string): Promise<ComplexListingsSummary> {
     const groups = await this.prisma.listing.groupBy({
       by: ['dealType'],
-      where: { complexId, deletedAt: null, status: { in: [...PUBLIC_LISTING_STATUSES] } },
+      where: { complexId, ...PUBLIC_LISTING_WHERE },
       _count: { _all: true },
       _min: { priceSort: true, monthlyRent: true },
       _max: { priceSort: true, monthlyRent: true },
@@ -58,11 +71,7 @@ export class ComplexListingsService {
     if (complexIds.length === 0) return out;
     const groups = await this.prisma.listing.groupBy({
       by: ['complexId', 'dealType'],
-      where: {
-        complexId: { in: [...complexIds] },
-        deletedAt: null,
-        status: { in: [...PUBLIC_LISTING_STATUSES] },
-      },
+      where: { complexId: { in: [...complexIds] }, ...PUBLIC_LISTING_WHERE },
       _count: { _all: true },
     });
     for (const g of groups) {

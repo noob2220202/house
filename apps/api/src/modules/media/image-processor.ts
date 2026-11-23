@@ -7,7 +7,7 @@ import {
   type ImageVariant,
 } from '@house/shared';
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import sharp, { type Sharp } from 'sharp';
+import sharp, { type Metadata, type Sharp } from 'sharp';
 import { AppException } from '../../common/errors/app.exception';
 import { JPEG_DOCUMENT_QUALITY, MAX_STORED_EDGE, SHARP_THREADS, WEBP_QUALITY } from './constants';
 import { HEIC_DECODER, type HeicDecoder } from './ports/heic-decoder.port';
@@ -55,7 +55,8 @@ const processingFailed = (cause?: unknown): AppException =>
     cause,
   });
 
-function assertPixels(width: number, height: number): void {
+/** MEDIA_DIMENSIONS_INVALID (400) unless 1 ≤ width·height ≤ MEDIA_MAX_INPUT_PIXELS. */
+export function assertPixels(width: number, height: number): void {
   if (width < 1 || height < 1 || width * height > MEDIA_MAX_INPUT_PIXELS) {
     throw new AppException(ErrorCode.MEDIA_DIMENSIONS_INVALID, {
       details: { width, height, maxPixels: MEDIA_MAX_INPUT_PIXELS },
@@ -76,7 +77,7 @@ interface Decoded {
 }
 
 let sharpTuned = false;
-/** Process-wide: few libvips threads per image and no operation cache (the API shares the process). */
+/** Process-wide: few libvips threads per image and no operation cache. */
 function tuneSharp(): void {
   if (sharpTuned) return;
   sharp.concurrency(SHARP_THREADS);
@@ -113,7 +114,7 @@ export class ImageProcessor {
    */
   async probe(data: Buffer, mime: string): Promise<ImageDimensions | null> {
     if (isHeifMime(mime) || mime === SniffedMime.PDF) return null;
-    let meta: sharp.Metadata;
+    let meta: Metadata;
     try {
       meta = await sharp(data, { limitInputPixels: false }).metadata();
     } catch (cause) {

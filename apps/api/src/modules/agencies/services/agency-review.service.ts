@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { stat } from 'node:fs/promises';
 import {
+  ADMIN_DELETABLE_AGENCY_STATUSES,
   ADMIN_ROLE_RANK,
   AdminAgencySort,
   AdminRole,
@@ -9,13 +10,18 @@ import {
   ALLOWED_DOCUMENT_MIME,
   ErrorCode,
   NotificationType,
+  REGISTRATION_HOLDING_STATUSES,
   RegistryCheckStatus,
   UserRole,
   canAdminTransitionAgency,
+  maskEmail,
+  maskPhone,
   sggCodeOf,
   type AdminAgencyDetail,
+  type AdminAgencyDetailQuery,
   type AdminAgencyListItem,
   type AdminAgencyListQuery,
+  type AgencyAdminDeleteInput,
   type AgencyDecisionInput,
   type AgencyLocationUpdateInput,
   type AgencyRegistryCheck,
@@ -25,12 +31,13 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type { AdminPrincipal } from '../../../common/auth/principal';
 import { AuditService } from '../../../common/audit/audit.service';
+import { AdsInvalidationService } from '../../ads/services/ads-invalidation.service';
 import { CacheService } from '../../../common/cache/cache.service';
 import { AppException } from '../../../common/errors/app.exception';
 import { paginate } from '../../../common/pagination/pagination';
 import { AppConfig } from '../../../config/app-config.service';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
-import { AgencyMapper, toMemberView } from '../agency.mapper';
+import { AgencyMapper, maskName, toMemberView } from '../agency.mapper';
 import { agencyMemberSelect, myAgencySelect } from '../agency.selects';
 import {
   BROKER_REGISTRY,
@@ -38,7 +45,8 @@ import {
   type BrokerRegistryClient,
 } from '../clients/broker-registry.client';
 import { AGENCY_REDIS, REGISTRY_CACHE_TTL_SECONDS } from '../constants';
-import { lockAgency } from '../domain/locks';
+import { lockAgency, lockRegistrationKey } from '../domain/locks';
+import { isUniqueViolation } from '../domain/prisma-errors';
 import { compareWithRegistry } from '../domain/registry-compare';
 import { AGENCY_LISTINGS_SYNC, type AgencyListingsSync } from '../ports/agency-listings.sync';
 import { AGENCY_MEDIA, type AgencyMediaPort } from '../ports/agency-media.port';
@@ -67,6 +75,39 @@ const isPublic = (s: AgencyStatus): boolean => s === AgencyStatus.APPROVED;
 
 const INLINE_MIME = new Set<string>(ALLOWED_DOCUMENT_MIME);
 
+/** statusReason of pending applications rejected because another office got the 등록번호. */
+export const DUPLICATE_REGISTRATION_REJECT_REASON =
+  '동일한 등록번호의 다른 중개사무소 신청이 승인되어 자동 반려되었습니다. 등록번호를 확인해 주세요.';
+
+/** Fields of the full detail view, recorded (names only) in the 개인정보 접속기록. */
+const DETAIL_PII_FIELDS = [
+  'owner.name',
+  'owner.email',
+  'owner.phone',
+  'members.phone',
+  'members.licenseNumber',
+] as const;
+
+/** Masks contacts of a detail view (mutation responses, REMOVED staff). */
+function maskDetail(d: AdminAgencyDetail): AdminAgencyDetail {
+  return {
+    ...d,
+    owner: {
+      ...d.owner,
+      name: maskName(d.owner.name),
+      email: maskEmail(d.owner.email),
+      phone: d.owner.phone ? maskPhone(d.owner.phone) : null,
+    },
+    members: d.members.map((m) => ({ ...m, phone: m.phone ? maskPhone(m.phone) : null })),
+  };
+}
+
+interface CompetitorRow {
+  id: string;
+  name: string;
+  owner_user_id: string;
+}
+
 export interface DocumentFile {
   path: string;
   mimeType: string;
@@ -90,6 +131,7 @@ export class AgencyReviewService {
     @Inject(AGENCY_LISTINGS_SYNC) private readonly listings: AgencyListingsSync,
     @Inject(AGENCY_MEDIA) private readonly media: AgencyMediaPort,
     @Inject(BROKER_REGISTRY) private readonly registry: BrokerRegistryClient,
+    private readonly ads: AdsInvalidationService,
   ) {}
 
   async list(q: AdminAgencyListQuery): Promise<Paginated<AdminAgencyListItem>> {
@@ -152,7 +194,7 @@ export class AgencyReviewService {
         phone: a.phone,
         roadAddress: a.roadAddress,
         status: a.status,
-        owner: a.owner,
+        owner: { id: a.owner.id, name: maskName(a.owner.name), email: maskEmail(a.owner.email) },
         documentCount: a._count.documents,
         memberCount: a._count.members,
         warningCount: a.warningCount,
@@ -162,8 +204,24 @@ export class AgencyReviewService {
     };
   }
 
-  async detail(agencyId: string, db: PrismaTx = this.prisma): Promise<AdminAgencyDetail> {
-    const row = await db.agency.findFirst({
+  /**
+   * Full agency record with owner and staff contacts unmasked. Viewing it is a 개인정보 접속기록
+   * (안전성 확보조치 기준 제8조), so it writes an `agency.pii-view` audit row naming the fields shown,
+   * never their values. REMOVED staff are included only on request, with phones masked.
+   */
+  async detail(agencyId: string, q: AdminAgencyDetailQuery): Promise<AdminAgencyDetail> {
+    const detail = await this.build(agencyId, q.includeRemoved);
+    await this.audit.record({
+      action: 'agency.pii-view',
+      resourceType: 'Agency',
+      resourceId: agencyId,
+      after: { fields: [...DETAIL_PII_FIELDS], includeRemoved: q.includeRemoved },
+    });
+    return detail;
+  }
+
+  private async build(agencyId: string, includeRemoved = false): Promise<AdminAgencyDetail> {
+    const row = await this.prisma.agency.findFirst({
       where: { id: agencyId, deletedAt: null },
       select: {
         ...myAgencySelect,
@@ -172,6 +230,7 @@ export class AgencyReviewService {
           select: { id: true, name: true, nickname: true, email: true, phone: true, status: true },
         },
         members: {
+          ...(includeRemoved ? {} : { where: { status: { not: AgencyMemberStatus.REMOVED } } }),
           select: agencyMemberSelect,
           orderBy: [{ status: 'asc' }, { role: 'asc' }, { joinedAt: 'asc' }],
           take: 100,
@@ -187,7 +246,12 @@ export class AgencyReviewService {
     return {
       ...this.mapper.mine(row),
       owner: row.owner,
-      members: row.members.map(toMemberView),
+      members: row.members.map((m) => {
+        const view = toMemberView(m);
+        return m.status === AgencyMemberStatus.REMOVED
+          ? { ...view, phone: view.phone ? maskPhone(view.phone) : null }
+          : view;
+      }),
       warningCount: row.warningCount,
       recentWarnings: row.warnings.map((w) => ({
         id: w.id,
@@ -196,6 +260,11 @@ export class AgencyReviewService {
         createdAt: w.createdAt.toISOString(),
       })),
     };
+  }
+
+  /** Mutation responses carry the masked detail; the full view is GET /admin/agencies/:id. */
+  private async maskedDetail(agencyId: string): Promise<AdminAgencyDetail> {
+    return maskDetail(await this.build(agencyId));
   }
 
   /** 승인 / 반려 / 정지 / 정지 해제, with status history, notification and audit in one transaction. */
@@ -210,77 +279,108 @@ export class AgencyReviewService {
     }
     const to = input.status;
     const reason = input.reason ?? null;
-    const outcome = await this.prisma.$transaction(async (tx) => {
-      await lockAgency(tx, agencyId);
-      const before = await tx.agency.findFirst({
-        where: { id: agencyId, deletedAt: null },
-        select: {
-          id: true,
-          name: true,
-          status: true,
-          statusReason: true,
-          ownerUserId: true,
-          approvedAt: true,
-          suspendedAt: true,
-        },
-      });
-      if (!before) throw AppException.notFound(ErrorCode.AGENCY_NOT_FOUND);
-      const required = minRoleForTransition(before.status, to);
-      if (ADMIN_ROLE_RANK[admin.role] < ADMIN_ROLE_RANK[required]) {
-        throw AppException.forbidden(ErrorCode.AGENCY_DECISION_FORBIDDEN);
-      }
-      if (!canAdminTransitionAgency(before.status, to)) {
-        throw AppException.badRequest(ErrorCode.AGENCY_INVALID_STATUS_TRANSITION, {
-          from: before.status,
-          to,
+    const outcome = await this.prisma
+      .$transaction(async (tx) => {
+        await lockAgency(tx, agencyId);
+        const before = await tx.agency.findFirst({
+          where: { id: agencyId, deletedAt: null },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            statusReason: true,
+            ownerUserId: true,
+            approvedAt: true,
+            suspendedAt: true,
+            registrationKey: true,
+          },
         });
-      }
-      const now = new Date();
-      const firstApproval = to === AgencyStatus.APPROVED && before.status === AgencyStatus.PENDING;
-      const updated = await tx.agency.updateMany({
-        where: { id: agencyId, status: before.status },
-        data: {
-          status: to,
-          statusReason: reason,
-          ...(firstApproval && !before.approvedAt ? { approvedAt: now } : {}),
-          ...(to === AgencyStatus.APPROVED ? { suspendedAt: null } : {}),
-          ...(to === AgencyStatus.SUSPENDED ? { suspendedAt: now } : {}),
-        },
-      });
-      if (updated.count !== 1) throw AppException.conflict(ErrorCode.AGENCY_STATUS_CONFLICT);
-      const visibilityChanged = isPublic(before.status) !== isPublic(to);
-      // Suspension takes the office's listings off public search (primary must be APPROVED).
-      if (visibilityChanged) await this.listings.agencyVisibilityChanged(tx, agencyId);
-      await tx.agencyStatusHistory.create({
-        data: {
-          agencyId,
-          fromStatus: before.status,
-          toStatus: to,
-          reason,
-          decidedByAdminId: admin.adminId,
-        },
-      });
-      if (firstApproval) {
-        await tx.user.update({
-          where: { id: before.ownerUserId },
-          data: { role: UserRole.AGENCY_OWNER },
+        if (!before) throw AppException.notFound(ErrorCode.AGENCY_NOT_FOUND);
+        const required = minRoleForTransition(before.status, to);
+        if (ADMIN_ROLE_RANK[admin.role] < ADMIN_ROLE_RANK[required]) {
+          throw AppException.forbidden(ErrorCode.AGENCY_DECISION_FORBIDDEN);
+        }
+        if (!canAdminTransitionAgency(before.status, to)) {
+          throw AppException.badRequest(ErrorCode.AGENCY_INVALID_STATUS_TRANSITION, {
+            from: before.status,
+            to,
+          });
+        }
+        const now = new Date();
+        const firstApproval =
+          to === AgencyStatus.APPROVED && before.status === AgencyStatus.PENDING;
+        // Going live takes the 등록번호: refuse if another live office holds it (pending ones lose).
+        const goesLive = to === AgencyStatus.APPROVED && before.status !== AgencyStatus.SUSPENDED;
+        const key = goesLive ? before.registrationKey : null;
+        if (key) {
+          await lockRegistrationKey(tx, key);
+          const holder = await tx.agency.findFirst({
+            where: {
+              registrationKey: key,
+              deletedAt: null,
+              status: { in: [...REGISTRATION_HOLDING_STATUSES] },
+              id: { not: agencyId },
+            },
+            select: { id: true },
+          });
+          if (holder) {
+            throw AppException.conflict(ErrorCode.AGENCY_REGISTRATION_DUPLICATE, {
+              agencyId: holder.id,
+            });
+          }
+        }
+        const updated = await tx.agency.updateMany({
+          where: { id: agencyId, status: before.status },
+          data: {
+            status: to,
+            statusReason: reason,
+            ...(firstApproval && !before.approvedAt ? { approvedAt: now } : {}),
+            ...(to === AgencyStatus.APPROVED ? { suspendedAt: null } : {}),
+            ...(to === AgencyStatus.SUSPENDED ? { suspendedAt: now } : {}),
+          },
         });
-      }
-      await tx.notification.create({
-        data: { userId: before.ownerUserId, ...this.notificationFor(before, to, reason) },
+        if (updated.count !== 1) throw AppException.conflict(ErrorCode.AGENCY_STATUS_CONFLICT);
+        const visibilityChanged = isPublic(before.status) !== isPublic(to);
+        // Suspension takes the office's listings off public search (primary must be APPROVED).
+        if (visibilityChanged) await this.listings.agencyVisibilityChanged(tx, agencyId);
+        await tx.agencyStatusHistory.create({
+          data: {
+            agencyId,
+            fromStatus: before.status,
+            toStatus: to,
+            reason,
+            decidedByAdminId: admin.adminId,
+          },
+        });
+        if (firstApproval) {
+          await tx.user.update({
+            where: { id: before.ownerUserId },
+            data: { role: UserRole.AGENCY_OWNER },
+          });
+        }
+        await tx.notification.create({
+          data: { userId: before.ownerUserId, ...this.notificationFor(before, to, reason) },
+        });
+        await this.audit.record(
+          {
+            action: `agency.${before.status === AgencyStatus.SUSPENDED ? 'reinstate' : DECISION_VERB[to]}`,
+            resourceType: 'Agency',
+            resourceId: agencyId,
+            before: { status: before.status, statusReason: before.statusReason },
+            after: { status: to, statusReason: reason },
+          },
+          tx,
+        );
+        const rejectedOwners = key ? await this.rejectCompetitors(tx, agencyId, key, admin) : [];
+        return { before, firstApproval, visibilityChanged, rejectedOwners };
+      })
+      .catch((err: unknown) => {
+        // Backstop for the partial unique index agencies_registration_key_live.
+        if (isUniqueViolation(err, 'registrationKey')) {
+          throw AppException.conflict(ErrorCode.AGENCY_REGISTRATION_DUPLICATE);
+        }
+        throw err;
       });
-      await this.audit.record(
-        {
-          action: `agency.${before.status === AgencyStatus.SUSPENDED ? 'reinstate' : DECISION_VERB[to]}`,
-          resourceType: 'Agency',
-          resourceId: agencyId,
-          before: { status: before.status, statusReason: before.statusReason },
-          after: { status: to, statusReason: reason },
-        },
-        tx,
-      );
-      return { before, firstApproval, visibilityChanged };
-    });
 
     const ownerId = outcome.before.ownerUserId;
     if (outcome.firstApproval) {
@@ -290,9 +390,160 @@ export class AgencyReviewService {
     } else if (to === AgencyStatus.SUSPENDED) {
       await this.invites.revokeAll(agencyId);
     }
+    for (const owner of outcome.rejectedOwners) {
+      await this.sessions.apply(owner, { agencyId: null });
+    }
     await this.cache.invalidatePublic();
-    if (outcome.visibilityChanged) await this.listings.invalidateSearch();
-    return this.detail(agencyId);
+    if (outcome.visibilityChanged) {
+      await this.listings.invalidateSearch();
+      await this.ads.agencyStatusChanged();
+    }
+    return this.maskedDetail(agencyId);
+  }
+
+  /**
+   * Rejects the other PENDING applications for a 등록번호 that just went live (one office, one
+   * number), with history, notification and audit. Conditional on PENDING, so a concurrent owner
+   * edit or admin decision on a competitor simply wins or loses its row lock; no agency lock is
+   * taken here (lock order). Returns the owners whose sessions must drop the application.
+   */
+  private async rejectCompetitors(
+    tx: PrismaTx,
+    approvedId: string,
+    registrationKey: string,
+    admin: AdminPrincipal,
+  ): Promise<string[]> {
+    const reason = DUPLICATE_REGISTRATION_REJECT_REASON;
+    const rows = await tx.$queryRaw<CompetitorRow[]>`
+      UPDATE agencies
+      SET status = 'REJECTED'::agency_status, status_reason = ${reason}, updated_at = now()
+      WHERE registration_key = ${registrationKey}
+        AND deleted_at IS NULL
+        AND status = 'PENDING'::agency_status
+        AND id <> ${approvedId}::uuid
+      RETURNING id, name, owner_user_id`;
+    if (rows.length === 0) return [];
+    await tx.agencyStatusHistory.createMany({
+      data: rows.map((r) => ({
+        agencyId: r.id,
+        fromStatus: AgencyStatus.PENDING,
+        toStatus: AgencyStatus.REJECTED,
+        reason,
+        decidedByAdminId: admin.adminId,
+      })),
+    });
+    await tx.notification.createMany({
+      data: rows.map((r) => ({
+        userId: r.owner_user_id,
+        ...this.notificationFor(
+          { id: r.id, name: r.name, status: AgencyStatus.PENDING },
+          AgencyStatus.REJECTED,
+          reason,
+        ),
+      })),
+    });
+    for (const r of rows) {
+      await this.audit.record(
+        {
+          action: 'agency.reject',
+          resourceType: 'Agency',
+          resourceId: r.id,
+          before: { status: AgencyStatus.PENDING },
+          after: {
+            status: AgencyStatus.REJECTED,
+            statusReason: reason,
+            duplicateOfAgencyId: approvedId,
+          },
+        },
+        tx,
+      );
+    }
+    return rows.map((r) => r.owner_user_id);
+  }
+
+  /**
+   * Soft-deletes an application that never went live (PENDING / REJECTED), e.g. a fake one, so
+   * nothing of it lingers in the queue or the applicant's account. A pending one is rejected
+   * first (history row). Staff rows are closed, the applicant is notified, the action audited.
+   * Documents are kept as evidence (not released to media cleanup).
+   */
+  async remove(
+    agencyId: string,
+    input: AgencyAdminDeleteInput,
+    admin: AdminPrincipal,
+  ): Promise<void> {
+    const before = await this.prisma.$transaction(async (tx) => {
+      await lockAgency(tx, agencyId);
+      const row = await tx.agency.findFirst({
+        where: { id: agencyId, deletedAt: null },
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          statusReason: true,
+          ownerUserId: true,
+          registrationNumber: true,
+        },
+      });
+      if (!row) throw AppException.notFound(ErrorCode.AGENCY_NOT_FOUND);
+      if (!ADMIN_DELETABLE_AGENCY_STATUSES.includes(row.status)) {
+        throw AppException.badRequest(ErrorCode.AGENCY_NOT_DELETABLE, { status: row.status });
+      }
+      const now = new Date();
+      const updated = await tx.agency.updateMany({
+        where: { id: agencyId, status: row.status, deletedAt: null },
+        data: { status: AgencyStatus.REJECTED, statusReason: input.reason, deletedAt: now },
+      });
+      if (updated.count !== 1) throw AppException.conflict(ErrorCode.AGENCY_STATUS_CONFLICT);
+      if (row.status === AgencyStatus.PENDING) {
+        await tx.agencyStatusHistory.create({
+          data: {
+            agencyId,
+            fromStatus: AgencyStatus.PENDING,
+            toStatus: AgencyStatus.REJECTED,
+            reason: input.reason,
+            decidedByAdminId: admin.adminId,
+          },
+        });
+      }
+      await tx.agencyMember.updateMany({
+        where: { agencyId, status: { not: AgencyMemberStatus.REMOVED } },
+        data: { status: AgencyMemberStatus.REMOVED, removedAt: now },
+      });
+      await tx.notification.create({
+        data: {
+          userId: row.ownerUserId,
+          type: NotificationType.AGENCY_REJECTED,
+          title: '중개사무소 등록 신청이 삭제되었습니다.',
+          body: input.reason,
+          data: { agencyId },
+        },
+      });
+      await this.audit.record(
+        {
+          action: 'agency.delete',
+          resourceType: 'Agency',
+          resourceId: agencyId,
+          before: {
+            status: row.status,
+            statusReason: row.statusReason,
+            registrationNumber: row.registrationNumber,
+            deletedAt: null,
+          },
+          after: {
+            status: AgencyStatus.REJECTED,
+            statusReason: input.reason,
+            deletedAt: now.toISOString(),
+          },
+        },
+        tx,
+      );
+      return row;
+    });
+    // A pending owner acted for the application (a rejected one was already detached).
+    if (before.status === AgencyStatus.PENDING) {
+      await this.sessions.apply(before.ownerUserId, { agencyId: null });
+    }
   }
 
   /**
@@ -369,7 +620,7 @@ export class AgencyReviewService {
       });
     });
     await this.cache.invalidatePublic();
-    return this.detail(agencyId);
+    return this.maskedDetail(agencyId);
   }
 
   /** Resolves a private document file for the authorized admin download. */

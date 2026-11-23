@@ -4,6 +4,7 @@ import {
   AgencyStatus,
   ErrorCode,
   LIVE_AGENCY_STATUSES,
+  isAdvertisableMember,
   UserRole,
   type AgencyInviteCreateInput,
   type AgencyInviteView,
@@ -22,7 +23,7 @@ import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
 import { toMemberView } from '../agency.mapper';
 import { agencyMemberSelect } from '../agency.selects';
 import { MAX_ACTIVE_INVITES } from '../constants';
-import { lockUserMembership } from '../domain/locks';
+import { lockAgency, lockUserMembership } from '../domain/locks';
 import { AGENCY_LISTINGS_SYNC, type AgencyListingsSync } from '../ports/agency-listings.sync';
 import { AgencyCacheService } from './agency-cache.service';
 import { AgencyInviteStore, toInviteView } from './agency-invite.store';
@@ -73,27 +74,67 @@ export class AgencyMembersService {
     return { ...page, items: page.items.map(toMemberView) };
   }
 
+  /**
+   * Owner edits a staff member. Listing ads copy the contact's name and phone onto each
+   * ListingAgency row, so the change is carried there in the same transaction: a member who is no
+   * longer advertisable (license flag cleared) is taken off the ads like a departure (contact moves
+   * to the 대표), and a rename / new phone of an advertisable member updates their ads (phone only
+   * where the row still shows the old member phone, i.e. was not overridden per listing).
+   */
   async update(
     user: UserPrincipal,
     memberId: string,
     input: AgencyMemberUpdateInput,
   ): Promise<AgencyMemberView> {
     const agencyId = await this.managedAgencyId(user.userId);
-    const member = await this.findMember(agencyId, memberId);
-    const isLicensed = input.isLicensed ?? member.isLicensed;
-    const updated = await this.prisma.agencyMember.update({
-      where: { id: member.id },
-      data: {
-        displayName: input.displayName,
-        title: input.title,
-        phone: input.phone,
-        isLicensed: input.isLicensed,
-        // A 중개보조원 has no license number.
-        licenseNumber: isLicensed ? input.licenseNumber : null,
-      },
-      select: agencyMemberSelect,
+    const { updated, relinked } = await this.prisma.$transaction(async (tx) => {
+      await lockAgency(tx, agencyId);
+      const member = await this.findMember(agencyId, memberId, tx);
+      const isLicensed = input.isLicensed ?? member.isLicensed;
+      // A 중개보조원 has no license number; a 소속공인중개사 must have one (the 대표 is the
+      // 개업공인중개사 whose 등록 already covers it).
+      const licenseNumber = isLicensed
+        ? input.licenseNumber !== undefined
+          ? input.licenseNumber
+          : member.licenseNumber
+        : null;
+      if (isLicensed && !licenseNumber && member.role !== AgencyMemberRole.OWNER) {
+        throw AppException.badRequest(ErrorCode.AGENCY_LICENSE_NUMBER_REQUIRED);
+      }
+      const row = await tx.agencyMember.update({
+        where: { id: member.id },
+        data: {
+          displayName: input.displayName,
+          title: input.title,
+          phone: input.phone,
+          isLicensed: input.isLicensed,
+          licenseNumber,
+        },
+        select: agencyMemberSelect,
+      });
+      let changed = 0;
+      if (isAdvertisableMember(member) && !isAdvertisableMember(row)) {
+        changed = await this.listings.memberDeparted(tx, agencyId, member.id);
+      } else if (isAdvertisableMember(row)) {
+        if (row.displayName !== member.displayName) {
+          const r = await tx.listingAgency.updateMany({
+            where: { agencyId, contactMemberId: member.id },
+            data: { contactName: row.displayName },
+          });
+          changed += r.count;
+        }
+        if (row.phone !== member.phone) {
+          const r = await tx.listingAgency.updateMany({
+            where: { agencyId, contactMemberId: member.id, contactPhone: member.phone },
+            data: { contactPhone: row.phone },
+          });
+          changed += r.count;
+        }
+      }
+      return { updated: row, relinked: changed };
     });
     await this.cache.invalidatePublic();
+    if (relinked > 0) await this.listings.invalidateSearch();
     return toMemberView(updated);
   }
 
@@ -195,8 +236,10 @@ export class AgencyMembersService {
           displayName: input.displayName,
           title: input.title ?? null,
           phone: input.phone ?? null,
-          isLicensed: input.isLicensed,
-          licenseNumber: input.isLicensed ? (input.licenseNumber ?? null) : null,
+          // Always 중개보조원 until the owner confirms the license (PATCH members/:id): a joining
+          // user's own claim never makes them advertisable (공인중개사법 제18조의2①).
+          isLicensed: false,
+          licenseNumber: null,
         };
         await tx.agencyMember.upsert({
           where: { agencyId_userId: { agencyId: claimed.agencyId, userId: user.userId } },
@@ -230,10 +273,18 @@ export class AgencyMembersService {
     return agency.id;
   }
 
-  private async findMember(agencyId: string, memberId: string) {
-    const member = await this.prisma.agencyMember.findFirst({
+  private async findMember(agencyId: string, memberId: string, db: PrismaTx = this.prisma) {
+    const member = await db.agencyMember.findFirst({
       where: { id: memberId, agencyId, status: AgencyMemberStatus.ACTIVE },
-      select: { id: true, userId: true, role: true, isLicensed: true },
+      select: {
+        id: true,
+        userId: true,
+        role: true,
+        isLicensed: true,
+        licenseNumber: true,
+        displayName: true,
+        phone: true,
+      },
     });
     if (!member) throw AppException.notFound(ErrorCode.AGENCY_MEMBER_NOT_FOUND);
     return member;

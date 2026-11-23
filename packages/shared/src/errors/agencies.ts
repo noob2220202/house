@@ -20,6 +20,8 @@ export const AgenciesErrorCode = {
   AGENCY_OWNER_NOT_REMOVABLE: 'AGENCY_OWNER_NOT_REMOVABLE',
   AGENCY_DECISION_FORBIDDEN: 'AGENCY_DECISION_FORBIDDEN',
   AGENCY_STATUS_CONFLICT: 'AGENCY_STATUS_CONFLICT',
+  AGENCY_NOT_DELETABLE: 'AGENCY_NOT_DELETABLE',
+  AGENCY_LICENSE_NUMBER_REQUIRED: 'AGENCY_LICENSE_NUMBER_REQUIRED',
 } as const;
 
 export const AGENCIES_ERROR_MESSAGES: Record<keyof typeof AgenciesErrorCode, string> = {
@@ -43,4 +45,6 @@ export const AGENCIES_ERROR_MESSAGES: Record<keyof typeof AgenciesErrorCode, str
   AGENCY_OWNER_NOT_REMOVABLE: '대표 공인중개사는 소속에서 제외할 수 없습니다.',
   AGENCY_DECISION_FORBIDDEN: '이 처리를 할 권한이 없습니다.',
   AGENCY_STATUS_CONFLICT: '다른 관리자가 먼저 처리했습니다. 새로고침 후 다시 시도해 주세요.',
+  AGENCY_NOT_DELETABLE: '승인 대기 또는 반려된 신청만 삭제할 수 있습니다.',
+  AGENCY_LICENSE_NUMBER_REQUIRED: '소속공인중개사는 자격증 번호가 필요합니다.',
 };

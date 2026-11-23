@@ -3,14 +3,16 @@ import { Injectable } from '@nestjs/common';
 import type { PrismaTx } from '../../../prisma/prisma.service';
 
 export interface ListingNotice {
+  type: typeof NotificationType.LISTING_EXPIRED | typeof NotificationType.CO_BROKER_REQUESTED;
   title: string;
   body: string;
   listingId: string;
 }
 
 /**
- * In-app notices to an agency's owner(s). Bound to a Prisma implementation writing the shared
- * `notifications` table until a notifications module exports a writer (no external delivery).
+ * In-app notices to an agency's owner(s), written to the shared `notifications` table (read via
+ * /me/notifications; no external delivery). A direct write: the notifications writer lives in the
+ * deal-requests module, which depends on listings through agencies.
  */
 export interface ListingNotifierPort {
   notifyAgencyOwners(
@@ -44,7 +46,7 @@ export class PrismaListingNotifier implements ListingNotifierPort {
     await db.notification.createMany({
       data: userIds.map((userId) => ({
         userId,
-        type: NotificationType.SYSTEM,
+        type: notice.type,
         title: notice.title,
         body: notice.body,
         data: { listingId: notice.listingId },

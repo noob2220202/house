@@ -38,7 +38,7 @@
 | 로그                       | 위치 / 명령                                                          |
 | -------------------------- | -------------------------------------------------------------------- |
 | API / worker / web / admin | `sudo -u house pm2 logs` · 파일: `/var/log/house/pm2/*.log`          |
-| 배포·롤백 기록             | `/var/log/house/deploy.log`                                          |
+| 배포·롤백 기록             | `/var/log/house/deploy.log` (배포 중 SSH가 끊겨도 여기서 이어 보기)  |
 | 백업 기록                  | `/var/log/house/backup.log`                                          |
 | 복원 기록                  | `/var/log/house/restore.log`                                         |
 | Nginx 접속/오류            | `/var/log/nginx/house-web.*.log`, `/var/log/nginx/house-admin.*.log` |
@@ -70,14 +70,17 @@ PM2는 `house` 사용자로 동작하므로 항상 `sudo -u house pm2 ...` 형�
 | `sudo -u house pm2 monit`                | CPU·메모리 실시간 화면 (q로 종료)                    |
 | `sudo -u house pm2 describe house-api`   | 앱 상세 (재시작 횟수, 로그 경로, 실행 위치)          |
 | `sudo -u house pm2 reload house-api`     | API **무중단** 재시작 (2개 프로세스를 하나씩)        |
+| `sudo -u house pm2 scale house-web 3`    | 프로세스 수 변경 (무중단, 11장)                      |
 | `sudo -u house pm2 restart house-worker` | 작업 처리기 재시작 (진행 중 작업은 최대 30초 마무리) |
 | `sudo -u house pm2 reload all`           | 전체 재시작 (`.env` 변경은 `deploy.sh`로 반영하세요) |
 | `sudo -u house pm2 flush`                | 로그 파일 비우기                                     |
 
 - 앱 구성: `house-api`(API, 2개), `house-worker`(작업 큐, 1개), `house-web`(사용자 사이트, 2개), `house-admin`(관리자, 1개)
+  - api/web/admin은 모두 **cluster 모드**라 1개짜리 admin도 reload 때 새 프로세스를 먼저 띄우고 옛 것을 내립니다(무중단). worker만 fork 모드입니다.
 - 메모리가 기준(API 700MB, worker 800MB, web 600MB, admin 400MB)을 넘으면 PM2가 자동으로 재시작합니다.
 - 서버 재부팅 후 자동 시작은 systemd 서비스 `pm2-house`가 담당합니다: `systemctl status pm2-house`
-- `.env`를 바꾼 뒤에는 `pm2 reload`보다 **`/srv/house/deploy.sh`** 를 쓰세요. 같은 버전이면 빌드 없이 설정만 다시 읽습니다.
+- `.env`를 바꾼 뒤에는 `pm2 reload`보다 **`/srv/house/deploy.sh`** 를 쓰세요. 같은 버전이면 빌드 없이, **새 설정으로 먼저 사전 점검**한 뒤에만 다시 읽습니다.
+  `pm2 reload`는 점검 없이 바로 교체하므로 설정 오류가 있으면 API가 내려갑니다.
 
 ## 4. 서비스(시스템) 명령
 
@@ -95,12 +98,16 @@ Nginx 설정은 템플릿으로 생성됩니다. 직접 고치지 말고 저장�
 ### 접속
 
 ```bash
-# 앱 계정으로 (일반 조회) — .env의 DATABASE_URL 사용
-sudo -u house bash -c 'psql "$(grep ^DATABASE_URL= /srv/house/shared/.env | cut -d= -f2- | sed "s/?.*//")"'
+# 앱 계정으로 (일반 조회) — .env의 DATABASE_URL 사용, 비밀번호는 명령줄에 나오지 않음
+sudo /srv/house/db-shell.sh
+sudo /srv/house/db-shell.sh -c 'SELECT count(*) FROM users;'
 
 # 관리자(슈퍼유저)로
 sudo -u postgres psql -d house
 ```
+
+DB 비밀번호가 들어간 주소(`postgresql://...:비밀번호@...`)를 `psql "..."`처럼 **명령줄에 직접 쓰지 마세요.** 명령줄은 서버의 다른 사용자도 볼 수 있습니다
+(`ps`, `/proc/*/cmdline`). 스크립트들은 모두 환경변수(`PGPASSWORD`)로만 전달합니다.
 
 - 운영 DB에서 직접 `UPDATE`/`DELETE`를 하기 전에는 **반드시** `/srv/house/backup.sh --db-only`로 백업하세요.
 - 가능하면 관리자 화면에서 처리하세요. 관리자 화면의 변경은 **감사 로그**(누가, 무엇을, 이전/이후 값, IP)에 남지만 직접 SQL은 남지 않습니다.
@@ -115,6 +122,27 @@ SELECT migration_name, finished_at FROM _prisma_migrations ORDER BY finished_at 
 SELECT pid, now() - query_start AS 시간, state, left(query, 80) FROM pg_stat_activity
  WHERE datname = current_database() AND state <> 'idle' ORDER BY 2 DESC;   -- 오래 걸리는 쿼리
 ```
+
+### 마이그레이션 실패 (P3009 복구)
+
+배포 중 마이그레이션이 실패하면(SQL 오류, 잠금 대기 시간 초과 등) 서비스는 이전 버전 그대로지만, Prisma가 그 마이그레이션을
+**실패 상태로 기록**해 두기 때문에 이후의 모든 배포가 `Error: P3009`로 멈춥니다. `deploy.sh`는 마이그레이션 전에 이 상태를 확인하고,
+실패하면 아래 명령과 마이그레이션 전 백업 경로(`/var/backups/house/pre-migrate/…`)를 화면에 보여 줍니다.
+
+1. 실패 원인 확인: `/var/log/house/deploy.log`의 오류. `canceling statement due to lock timeout`이면 다른 긴 작업이 표를 잡고 있던 것이니
+   (마이그레이션은 표를 5초 이상 기다리지 않습니다 — 그동안 사이트가 멈추지 않게) 잠시 뒤 다시 하면 됩니다. SQL 오류면 고친 커밋을 준비합니다.
+2. DB에 변경이 남았는지 확인: 마이그레이션 하나는 한 트랜잭션이라 보통 아무것도 남지 않습니다. (`CREATE INDEX CONCURRENTLY` 처럼 트랜잭션 밖에서
+   도는 마이그레이션만 예외 — 남은 인덱스를 `\d 표이름`으로 확인 후 개발자와 정리)
+3. 실패 기록 정리 후 다시 배포:
+
+```bash
+sudo -u house -H bash -c 'cd /srv/house/current/apps/api && pnpm exec prisma migrate resolve --rolled-back <마이그레이션_이름>'
+/srv/house/deploy.sh
+```
+
+실패 기록 조회: `SELECT migration_name, started_at FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL;`
+
+- 마이그레이션은 매일 03:30 DB 백업과 **동시에 돌지 않습니다** (배포가 백업이 끝날 때까지 최대 10분 기다리고, 백업도 배포의 마이그레이션을 기다립니다).
 
 ### Redis
 
@@ -134,14 +162,19 @@ Redis에는 **로그인 세션**과 **작업 큐**가 있어 `noeviction`(메모
 ls -lh /var/backups/house/db | tail
 ```
 
-| 종류              | 주기                     | 위치                              | 보관    |
-| ----------------- | ------------------------ | --------------------------------- | ------- |
-| DB 전체 (pg_dump) | 매일 03:30               | `/var/backups/house/db/`          | 14일    |
-| 업로드 파일       | 주 1회 (하드링크 스냅샷) | `/var/backups/house/uploads/`     | 14일    |
-| 배포 전 DB        | DB 변경이 있는 배포마다  | `/var/backups/house/pre-migrate/` | 최근 10 |
-| 복원 전 DB        | 복원할 때마다            | `/var/backups/house/pre-restore/` | 수동    |
-| `.env` 사본       | 매일                     | `/var/backups/house/config/`      | 14일    |
-| 외부 복사(선택)   | 매일                     | `RCLONE_REMOTE`                   | 14일    |
+| 종류               | 주기                    | 위치                                      | 보관    |
+| ------------------ | ----------------------- | ----------------------------------------- | ------- |
+| DB 전체 (pg_dump)  | 매일 03:30              | `/var/backups/house/db/`                  | 14일    |
+| 업로드 파일        | 매일 (하드링크 스냅샷)  | `/var/backups/house/uploads/`             | 14일    |
+| 배포 전 DB         | DB 변경이 있는 배포마다 | `/var/backups/house/pre-migrate/`         | 최근 10 |
+| 복원 전 DB         | 복원할 때마다           | `/var/backups/house/pre-restore/`         | 수동    |
+| `.env` 사본        | 매일                    | `/var/backups/house/config/`              | 14일    |
+| 외부 복사(선택)    | 매일                    | `RCLONE_REMOTE`                           | 14일    |
+| 마지막 정상 `.env` | 배포·reload 성공 때마다 | `/var/backups/house/config/env.last-good` | 1개     |
+
+- 보관 기간(14일)이 지나도 DB 덤프·업로드 스냅샷은 **최근 7개를 항상 남깁니다**(`BACKUP_KEEP_MIN`). 그날 백업이 실패하면 정리 자체를 건너뜁니다.
+  그래도 실패가 이어지면 `status.sh`의 "26시간 넘게 백업 없음" 경고와 `BACKUP_NOTIFY_URL` 알림으로 알 수 있습니다: `tail -50 /var/log/house/backup.log`
+- 외부 복사에서 서버에서 지워진 업로드 파일은 `uploads-deleted/<날짜시간>/`에 14일간 남습니다.
 
 **`.env` 사본은 서버 밖으로 따로 보관**하세요 (비밀번호 관리자 등). 서버를 새로 만들 때 이 파일이 있어야 관리자 OTP와 기존 세션이 유지됩니다.
 
@@ -166,7 +199,11 @@ sudo -u postgres dropdb house_drill                                       # 확�
 ```
 
 - 확인 질문에 DB 이름(`house`)을 정확히 입력해야 진행됩니다.
-- 과정: 현재 DB 덤프(안전 백업) → **새 DB에 복원·검증** → API·worker 일시 중지(약 10초) → 이름 교체 → 재시작 → 헬스체크
+- 과정: 현재 DB 덤프(안전 백업) → **새 DB에 앱 계정 권한으로 복원·검증** → API·worker 일시 중지 → 새 접속 차단 → 이름 교체(한 번에, 실패하면 아무것도 안 바뀜)
+  → 현재 버전의 **마이그레이션 적용**(덤프가 더 오래된 경우) → 재시작 → 헬스체크
+- 중간에 오류가 나거나 Ctrl+C로 멈춰도 API·worker는 **자동으로 다시 시작**되고 운영 DB는 그대로입니다.
+- 덤프 파일은 `house` 사용자가 읽을 수 있어야 합니다. root만 읽을 수 있는 곳(예: `/root`)에 받았다면 먼저:
+  `sudo install -o house -g house -m 0600 받은파일.dump /var/backups/house/db/`
 - 교체 전 DB는 `house_before_날짜시간` 이름으로 남아 있습니다. 며칠 지켜본 뒤 삭제: `sudo -u postgres dropdb house_before_...`
 - 덤프 시점 이후의 데이터(새 매물, 회원가입 등)는 사라집니다. 필요하면 `house_before_...` DB에서 해당 데이터를 조회해 옮깁니다.
 
@@ -179,7 +216,7 @@ sudo -u postgres dropdb house_drill                                       # 확�
 ### 서버 이전 / 서버가 사라졌을 때
 
 1. 새 서버에서 DEPLOY.md 4~6단계 (install.sh)
-2. **설치 직후, 첫 배포 전에** 보관해 둔 `.env`를 `/srv/house/shared/.env`로 복사 (`chown house:house`, `chmod 600`)
+2. **설치 직후, 첫 배포 전에** 보관해 둔 `.env`를 복사: `sudo install -m 0640 -o root -g house 보관한.env /srv/house/shared/.env`
    그리고 install.sh를 한 번 더 실행해 DB/Redis 비밀번호를 그 `.env`에 맞춥니다.
 3. 외부 백업에서 최신 DB 덤프와 업로드 파일을 받아 `/var/backups/house/db/`, `/var/backups/house/uploads/<날짜>/` 에 놓기
    (예: `sudo -u house rclone copy offsite-crypt:house-backups/db /var/backups/house/db`)
@@ -198,7 +235,7 @@ certbot renew --dry-run              # 갱신 시험 (실제 변경 없음)
 ```
 
 - 만료 알림 메일이 오면 대개 DNS나 방화벽(80번 포트) 문제입니다. `certbot renew` 를 직접 실행해 오류를 확인하세요.
-- 도메인을 추가/변경했다면 install.sh를 새 도메인으로 다시 실행합니다.
+- 도메인을 추가/변경했다면 install.sh를 새 도메인으로 다시 실행합니다. 인증서에 새 이름이 없으면 자동으로 다시 발급하고, `.env`에서 고칠 키를 알려 줍니다 (DEPLOY.md 16단계).
 
 ## 8. 보안 업데이트
 
@@ -219,6 +256,10 @@ reboot                                     # 필요할 때만. 1~2분 후 앱은
   **현재 접속 창을 닫지 말고** 새 창에서 로그인되는지 먼저 확인하세요.
 - **방화벽**: `ufw status` (22/80/443만 열려 있어야 함). PostgreSQL(5432)과 Redis는 외부에 열지 않습니다.
 - **차단 현황**: `fail2ban-client status sshd`, 차단 해제: `fail2ban-client set sshd unbanip 1.2.3.4`
+- fail2ban은 **SSH만** 차단합니다. 웹 요청 제한(429)으로는 차단하지 않습니다: 통신사 LTE/5G는 많은 사용자가 IP 하나를 같이 쓰므로(CGNAT),
+  IP를 막으면 그 뒤의 모든 사용자가 사이트에 못 들어오게 됩니다. 남용은 Nginx의 IP별 요청 제한(로그인 흐름만 엄격)과 API의 사용자별 제한이 막습니다.
+- 예전 설치에서 만든 `nginx-limit-req` 차단 규칙에 걸린 IP가 있다면 (install.sh를 다시 실행하면 규칙은 사라집니다):
+  `fail2ban-client status nginx-limit-req` → `fail2ban-client set nginx-limit-req unbanip 1.2.3.4`
 
 ### 관리자 화면 IP 제한
 
@@ -233,11 +274,18 @@ deny all;
 
 `nginx -t && systemctl reload nginx`. API 수준 제한은 `.env`의 `ADMIN_IP_ALLOWLIST`(배포 필요). 집·사무실 IP가 바뀌면 관리자 화면이 막히므로, 바뀐 IP를 추가하거나 SSH로 접속해 이 파일을 고치면 됩니다.
 
+### 설정 끄기 (`.env`에서 값 지우기)
+
+`.env`에서 설정을 끌 때는 줄을 지우지 말고 **값만 비우세요**: `GOOGLE_CLIENT_ID=` (빈 값 = 설정 안 함).
+(`apps/api/.env.example`에 있는 키는 줄을 지워도 배포 시 빈 값으로 처리되지만, 빈 값으로 남겨 두는 것이 가장 확실합니다.
+PM2는 재시작해도 예전 환경변수를 그대로 들고 있기 때문에, 문서에 없는 키를 지운 경우에는 옛 값이 남습니다.)
+변경 후 `/srv/house/deploy.sh`.
+
 ### 비밀값 교체
 
 | 값                         | 교체 영향 / 방법                                                                                                            |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| 소셜 로그인 Secret, API 키 | 콘솔에서 재발급 → `.env` 수정 → `/srv/house/deploy.sh`                                                                      |
+| 소셜 로그인 Secret, API 키 | 콘솔에서 재발급 → `sudo nano /srv/house/shared/.env` 수정 → `/srv/house/deploy.sh`                                          |
 | `COOKIE_SECRET`            | 바꾸면 **모든 사용자가 로그아웃**됩니다. 유출이 의심될 때만. `openssl rand -base64 48`                                      |
 | `TOTP_ENCRYPTION_KEY`      | **바꾸지 마세요.** 바꾸면 모든 관리자 OTP가 무효가 됩니다. (유출 시 개발자와 함께 재암호화 작업)                            |
 | DB 비밀번호                | `.env`의 `DATABASE_URL` 비밀번호 부분을 새 값(영문·숫자)으로 수정 → `install.sh` 재실행(역할 비밀번호 동기화) → `deploy.sh` |
@@ -251,7 +299,7 @@ du -sh /srv/house/releases /var/backups/house /var/lib/house/uploads /var/log/ho
 ```
 
 - 릴리스는 최근 5개만 보관됩니다 (`deploy.conf`의 `KEEP_RELEASES`).
-- 빌드 캐시가 커지면: `rm -rf /srv/house/shared/turbo-cache` (다음 배포가 조금 느려질 뿐 안전)
+- 빌드 캐시가 커지면: `rm -rf /srv/house/shared/turbo-cache/*` (폴더 자체는 지우지 마세요. 다음 배포가 조금 느려질 뿐 안전)
 - pnpm 저장소 정리: `cd /srv/house/current && sudo -u house pnpm store prune --store-dir /srv/house/shared/pnpm-store`
 - 백업 보관 기간 조정: `deploy.conf`의 `BACKUP_RETENTION_DAYS`
 
@@ -259,8 +307,12 @@ du -sh /srv/house/releases /var/backups/house /var/lib/house/uploads /var/log/ho
 
 1. `/srv/house/status.sh` — 어느 부분이 실패인지 확인
 2. **앱(api/web/admin)만 실패** → `sudo -u house pm2 logs <앱> --err --lines 100`
-   - 방금 배포했다면 → `/srv/house/rollback.sh`
-   - `.env` 문제(`Invalid environment configuration`)라면 → 값 수정 → `/srv/house/deploy.sh`
+   - 방금 배포했다면 → `/srv/house/rollback.sh` (대상 버전을 먼저 임시 포트에서 켜 보고, 켜지지 않으면 전환하지 않습니다.
+     전환 후 헬스체크에 실패하면 원래 버전으로 되돌아갑니다. 대상 버전이 모르는 DB 마이그레이션이 이미 적용되어 있으면
+     목록을 보여 주고 멈춥니다 — 그대로 진행하려면 `--force` 후 버전 이름 입력. 이 경우 새 코드가 저장한 데이터(새 상태값 등)를
+     이전 코드가 읽지 못해 일부 화면이 오류가 날 수 있으니, 가능하면 롤백 대신 고친 버전을 배포하세요.)
+   - `.env` 문제(`Invalid environment configuration`)라면 → 값 수정 → `/srv/house/deploy.sh` (사전 점검을 통과해야만 적용됩니다.
+     급하면 직전 정상 설정으로: `sudo install -m 0640 -o root -g house /var/backups/house/config/env.last-good /srv/house/shared/.env && /srv/house/deploy.sh`)
 3. **DB(`db` 체크) 실패** → `systemctl status postgresql`, `tail -50 /var/log/postgresql/postgresql-16-main.log`, 디스크 가득 참 여부(`df -h`)
 4. **Redis 실패** → `systemctl status redis-server`, `tail -50 /var/log/redis/redis-server.log`
 5. **nginx만 실패** → `nginx -t`, `systemctl status nginx`
@@ -269,7 +321,14 @@ du -sh /srv/house/releases /var/backups/house /var/lib/house/uploads /var/log/ho
 
 ## 11. 규모 조정
 
-- 접속이 늘어 CPU가 부족하면 VPS 사양을 올린 뒤 `deploy.conf`의 `API_INSTANCES`(CPU 수 - 1 정도), `WEB_INSTANCES`를 늘립니다. 프로세스 수 변경은 다시 등록해야 반영됩니다(수 초 중단):
-  `sudo -u house pm2 delete house-api house-web && /srv/house/deploy.sh --force`
+- 접속이 늘어 CPU가 부족하면 VPS 사양을 올린 뒤 `sudo nano /srv/house/shared/deploy.conf`에서 `API_INSTANCES`(CPU 수 - 1 정도), `WEB_INSTANCES`를 늘리고,
+  **중단 없이** 바로 반영합니다 (cluster 모드 앱의 scale은 무중단):
+  ```bash
+  sudo -u house pm2 scale house-api 3
+  sudo -u house pm2 scale house-web 3
+  sudo -u house pm2 save
+  ```
+- **포트**를 바꾸는 경우는 Nginx 설정도 다시 만들어야 합니다. 절차는 DEPLOY.md 16단계를 따르세요
+  (바꾼 앱만 `pm2 delete` → `pm2 start /srv/house/current/ecosystem.config.cjs --only <앱>` → `pm2 save` → `install.sh --nginx-only`).
 - PostgreSQL 메모리 설정은 기본값입니다. 4GB 이상 서버에서는 `/etc/postgresql/16/main/conf.d/house.conf`에 예를 들어
   `shared_buffers = 1GB`, `effective_cache_size = 3GB`, `work_mem = 16MB` 를 넣고 한가한 시간에 `systemctl restart postgresql`.

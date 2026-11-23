@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { ErrorCode, TermsType, UserRole, UserStatus } from '@house/shared';
+import { COOKIE_NAMES, ErrorCode, TermsType, UserRole, UserStatus } from '@house/shared';
+import { SUSPENDED_PII_RETENTION_DAYS } from '../../../src/modules/auth/auth.constants';
 import { PiiScrubService } from '../../../src/modules/auth/jobs/pii-scrub.service';
 import {
   createAgency,
@@ -15,8 +16,10 @@ import type { FakeOAuthHttp } from './fakes/fake-oauth-http';
 import {
   callback,
   createAuthTestApp,
+  rawSetCookie,
   redirectTarget,
   seedTerms,
+  setCookies,
   startOAuth,
   WEB_ORIGIN,
 } from './helpers';
@@ -278,19 +281,123 @@ describe('auth: /me account endpoints (e2e)', () => {
       expect(await t.prisma.withdrawnIdentity.count()).toBe(0);
     });
 
-    it('403 for a suspended member (cannot withdraw to escape moderation)', async () => {
-      const { user, s } = await member();
-      await t.prisma.user.update({
-        where: { id: user.id },
-        data: { status: UserStatus.SUSPENDED },
+    it('a suspended member can still withdraw (ticket from the refused login); PII kept 90 days', async () => {
+      const user = await createUser(t.prisma, {
+        status: UserStatus.SUSPENDED,
+        suspendedAt: new Date(),
+        suspendedReason: '허위매물 반복 등록',
+        identities: { create: { provider: 'KAKAO', providerUserId: '7777' } },
       });
-      const res = await withSession(t.http().post('/api/v1/me/withdraw'), s)
+      const flow = await startOAuth(t, 'kakao');
+      fake.kakaoCode('c-susp', { id: 7777 });
+      const login = await callback(
+        t,
+        'kakao',
+        { code: 'c-susp', state: flow.state },
+        { house_oauth: flow.binding },
+      ).expect(302);
+      const target = redirectTarget(login);
+      expect(target.searchParams.get('error')).toBe(ErrorCode.AUTH_ACCOUNT_SUSPENDED);
+      expect(target.searchParams.get('withdrawable')).toBe('1');
+      const cookies = setCookies(login);
+      expect(cookies[COOKIE_NAMES.SESSION]).toBeUndefined();
+      const ticket = cookies.house_withdraw;
+      expect(ticket).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      const raw = rawSetCookie(login, 'house_withdraw') ?? '';
+      expect(raw).toMatch(/HttpOnly/i);
+      expect(raw).toContain('Path=/api/v1/auth/withdraw');
+
+      const withTicket = () =>
+        t
+          .http()
+          .post('/api/v1/auth/withdraw')
+          .set('Origin', WEB_ORIGIN)
+          .set('Cookie', `house_withdraw=${ticket}`);
+      // the ticket is not a session
+      await t.http().get('/api/v1/auth/me').set('Cookie', `house_withdraw=${ticket}`).expect(401);
+      const invalid = await withTicket().send({ reason: 'x' }).expect(400);
+      expect(invalid.body.code).toBe(ErrorCode.VALIDATION_FAILED);
+      await withTicket().send({ confirm: true, reason: '개인정보 삭제 요청' }).expect(204);
+
+      const row = await t.prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+      expect(row.status).toBe(UserStatus.WITHDRAWN);
+      expect(row.piiScrubAfter!.getTime() - row.withdrawnAt!.getTime()).toBe(
+        SUSPENDED_PII_RETENTION_DAYS * 86_400_000,
+      );
+      expect(row.suspendedReason).toBe('허위매물 반복 등록'); // moderation evidence kept
+      expect(await t.prisma.identity.count({ where: { userId: user.id } })).toBe(0);
+      const tombstone = await t.prisma.withdrawnIdentity.findFirstOrThrow({
+        where: { userId: user.id },
+      });
+      expect(tombstone.rejoinAfter.getTime() - row.withdrawnAt!.getTime()).toBe(
+        SUSPENDED_PII_RETENTION_DAYS * 86_400_000,
+      );
+      // single use
+      await withTicket().send({ confirm: true }).expect(401);
+
+      const scrubber = t.app.get(PiiScrubService);
+      expect(await scrubber.scrubDue(new Date(Date.now() + 31 * 86_400_000))).toBe(0);
+      expect(await scrubber.scrubDue(new Date(Date.now() + 91 * 86_400_000))).toBe(1);
+      const scrubbed = await t.prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+      expect(scrubbed).toMatchObject({
+        suspendedReason: null,
+        withdrawalReason: null,
+        email: null,
+      });
+    });
+
+    it('POST /auth/withdraw: 401 without a ticket or with a forged one; 403 from a foreign origin', async () => {
+      await t
+        .http()
+        .post('/api/v1/auth/withdraw')
+        .set('Origin', WEB_ORIGIN)
+        .send({ confirm: true })
+        .expect(401);
+      await t
+        .http()
+        .post('/api/v1/auth/withdraw')
+        .set('Origin', WEB_ORIGIN)
+        .set('Cookie', `house_withdraw=${'A'.repeat(43)}`)
+        .send({ confirm: true })
+        .expect(401);
+      const csrf = await t
+        .http()
+        .post('/api/v1/auth/withdraw')
+        .set('Origin', 'https://evil.example')
         .send({ confirm: true })
         .expect(403);
-      expect(res.body.code).toBe(ErrorCode.AUTH_WITHDRAW_SUSPENDED);
-      const row = await t.prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+      expect(csrf.body.code).toBe(ErrorCode.CSRF_FAILED);
+    });
+
+    it('a suspended member who still runs an agency gets 409 and keeps the ticket', async () => {
+      const { owner } = await createAgency(t.prisma);
+      await t.prisma.user.update({
+        where: { id: owner.id },
+        data: { status: UserStatus.SUSPENDED },
+      });
+      await t.prisma.identity.create({
+        data: { userId: owner.id, provider: 'KAKAO', providerUserId: '8888' },
+      });
+      const flow = await startOAuth(t, 'kakao');
+      fake.kakaoCode('c-own', { id: 8888 });
+      const login = await callback(
+        t,
+        'kakao',
+        { code: 'c-own', state: flow.state },
+        { house_oauth: flow.binding },
+      ).expect(302);
+      const ticket = setCookies(login).house_withdraw;
+      const send = () =>
+        t
+          .http()
+          .post('/api/v1/auth/withdraw')
+          .set('Origin', WEB_ORIGIN)
+          .set('Cookie', `house_withdraw=${ticket}`)
+          .send({ confirm: true });
+      expect((await send().expect(409)).body.code).toBe(ErrorCode.AUTH_WITHDRAW_AGENCY_OWNER);
+      expect((await send().expect(409)).body.code).toBe(ErrorCode.AUTH_WITHDRAW_AGENCY_OWNER);
+      const row = await t.prisma.user.findUniqueOrThrow({ where: { id: owner.id } });
       expect(row.status).toBe(UserStatus.SUSPENDED);
-      expect(await t.prisma.identity.count({ where: { userId: user.id } })).toBe(1);
     });
 
     it('cancels live deal requests and erases their contacts at once; the scrub job erases linked data', async () => {
@@ -387,6 +494,59 @@ describe('auth: /me account endpoints (e2e)', () => {
         .expect(204);
       const m = await t.prisma.agencyMember.findFirstOrThrow({ where: { userId: staff.id } });
       expect(m.status).toBe('REMOVED');
+    });
+
+    it('the scrub job erases former staff rows (name, title, phone, license number)', async () => {
+      const { agency, owner } = await createAgency(t.prisma);
+      const staff = await createUser(t.prisma, { role: UserRole.AGENT });
+      await t.prisma.agencyMember.create({
+        data: {
+          agencyId: agency.id,
+          userId: staff.id,
+          role: 'AGENT',
+          displayName: '김직원',
+          title: '실장',
+          phone: '01077778888',
+          isLicensed: true,
+          licenseNumber: '46150-2026-00077',
+        },
+      });
+      const ss = await loginUser(
+        t.app,
+        { id: staff.id, role: UserRole.AGENT },
+        { agencyId: agency.id },
+      );
+      await withSession(t.http().post('/api/v1/me/withdraw'), ss)
+        .send({ confirm: true })
+        .expect(204);
+      await t.app.get(PiiScrubService).scrubDue(new Date(Date.now() + 31 * 86_400_000));
+
+      const m = await t.prisma.agencyMember.findFirstOrThrow({ where: { userId: staff.id } });
+      expect(m).toMatchObject({
+        status: 'REMOVED',
+        displayName: '탈퇴 회원',
+        title: null,
+        phone: null,
+        licenseNumber: null,
+      });
+      const os = await loginUser(
+        t.app,
+        { id: owner.id, role: UserRole.AGENCY_OWNER },
+        { agencyId: agency.id },
+      );
+      const list = await withSession(
+        t.http().get('/api/v1/agencies/mine/members').query({ includeRemoved: 'true' }),
+        os,
+      ).expect(200);
+      const body = JSON.stringify(list.body);
+      expect(body).not.toContain('김직원');
+      expect(body).not.toContain('01077778888');
+      expect(body).not.toContain('46150-2026-00077');
+      // the office's own (active) member rows are untouched
+      const ownerRow = await t.prisma.agencyMember.findFirstOrThrow({
+        where: { userId: owner.id },
+      });
+      expect(ownerRow.displayName).toBe(agency.representativeName);
     });
 
     it('400 without explicit confirmation', async () => {

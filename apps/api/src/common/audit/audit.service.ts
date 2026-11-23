@@ -13,6 +13,9 @@ const REDACTED_KEYS = new Set([
   'contactPhone',
   'phone',
   'ho',
+  'reporterPhone',
+  'email',
+  'withdrawalReason',
 ]);
 
 export interface AuditRecordInput {
@@ -82,6 +85,9 @@ export class AuditService {
         requestId: ctx?.requestId ?? null,
       },
     });
+    // Inside a transaction this marks the row as written before commit; if the transaction rolls
+    // back the handler fails too, and the admin safety net only runs after a successful handler.
+    if (ctx) ctx.auditWritten = true;
   }
 
   /** Fire-and-forget variant for non-transactional paths; failures are logged, never thrown. */

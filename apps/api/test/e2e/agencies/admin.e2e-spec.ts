@@ -14,7 +14,13 @@ import {
   withSession,
   type TestApp,
 } from '../../utils';
-import { FakeBrokerRegistry, createPendingAgency, pluck, writePrivateFile } from './helpers';
+import {
+  FakeBrokerRegistry,
+  createAgent,
+  createPendingAgency,
+  pluck,
+  writePrivateFile,
+} from './helpers';
 
 describe('agencies: admin review (e2e)', () => {
   let t: TestApp;
@@ -54,6 +60,11 @@ describe('agencies: admin review (e2e)', () => {
         memberCount: 1,
         owner: { id: first.owner.id },
       });
+      // Lists mask the applicant's contacts.
+      const owner = res.body.items[0].owner as { name: string | null; email: string | null };
+      expect(owner.email).toMatch(/^.{1,2}\*\*\*@/);
+      expect(owner.email).not.toBe(first.owner.email);
+      if (first.owner.name) expect(owner.name).not.toBe(first.owner.name);
       const searched = await withSession(
         t.http().get(`/api/v1/admin/agencies?q=${encodeURIComponent('두번째')}`),
         s,
@@ -100,6 +111,42 @@ describe('agencies: admin review (e2e)', () => {
       expect(res.body.members).toHaveLength(1);
     });
 
+    it('records each full view as a 개인정보 접속기록; REMOVED staff only on request, masked', async () => {
+      const { agency } = await createAgency(t.prisma);
+      const active = await createAgent(t.prisma, agency.id);
+      const gone = await createAgent(t.prisma, agency.id);
+      await t.prisma.agencyMember.update({
+        where: { id: gone.memberId },
+        data: { status: 'REMOVED', removedAt: new Date() },
+      });
+      const { admin: viewer, s } = await admin();
+      const res = await withSession(t.http().get(`/api/v1/admin/agencies/${agency.id}`), s).expect(
+        200,
+      );
+      expect(pluck(res.body.members, 'id')).not.toContain(gone.memberId);
+      expect(res.body.members).toContainEqual(
+        expect.objectContaining({ id: active.memberId, phone: '01099998888' }),
+      );
+      const audit = await t.prisma.auditLog.findFirstOrThrow({
+        where: { action: 'agency.pii-view', resourceId: agency.id },
+      });
+      expect(audit).toMatchObject({ adminUserId: viewer.id, resourceType: 'Agency' });
+      expect(JSON.stringify(audit.after)).not.toContain('01099998888');
+
+      const all = await withSession(
+        t.http().get(`/api/v1/admin/agencies/${agency.id}?includeRemoved=true`),
+        s,
+      ).expect(200);
+      expect(all.body.members).toContainEqual(
+        expect.objectContaining({ id: gone.memberId, phone: '010-****-8888' }),
+      );
+      await withSession(
+        t.http().get(`/api/v1/admin/agencies/${agency.id}?includeRemoved=maybe`),
+        s,
+      ).expect(400);
+      expect(await t.prisma.auditLog.count({ where: { action: 'agency.pii-view' } })).toBe(2);
+    });
+
     it('401 without admin session; 404 unknown; 400 malformed id', async () => {
       const { agency } = await createPendingAgency(t.prisma);
       await t.http().get(`/api/v1/admin/agencies/${agency.id}`).expect(401);
@@ -125,6 +172,9 @@ describe('agencies: admin review (e2e)', () => {
         .expect(200);
       expect(res.body.status).toBe('APPROVED');
       expect(res.body.approvedAt).toEqual(expect.any(String));
+      // Mutation responses mask contacts (the full view is the audited GET).
+      expect(res.body.owner.email).not.toBe(owner.email);
+      expect(res.body.owner.email).toMatch(/\*\*\*@/);
       expect(res.body.statusHistory[0]).toMatchObject({
         fromStatus: 'PENDING',
         toStatus: 'APPROVED',
@@ -293,6 +343,68 @@ describe('agencies: admin review (e2e)', () => {
       expect(await counts()).toEqual({ agency: 1, coBroker: 1, complex: 1 });
     });
 
+    it('approving one application for a 등록번호 auto-rejects competing pending ones', async () => {
+      const real = await createPendingAgency(t.prisma, { registrationNumber: '46150-2026-04444' });
+      const fake = await createPendingAgency(t.prisma, { registrationNumber: '46150202604444' });
+      const fakeSession = await loginUser(t.app, fake.owner, { agencyId: fake.agency.id });
+      const other = await createPendingAgency(t.prisma);
+      const { admin: reviewer, s } = await admin();
+      await withSession(t.http().post(`/api/v1/admin/agencies/${real.agency.id}/decision`), s)
+        .send({ status: 'APPROVED' })
+        .expect(200);
+
+      const lost = await t.prisma.agency.findUniqueOrThrow({ where: { id: fake.agency.id } });
+      expect(lost).toMatchObject({ status: 'REJECTED', statusReason: expect.any(String) });
+      expect(
+        (await t.prisma.agency.findUniqueOrThrow({ where: { id: other.agency.id } })).status,
+      ).toBe('PENDING');
+      const history = await t.prisma.agencyStatusHistory.findFirstOrThrow({
+        where: { agencyId: fake.agency.id, toStatus: 'REJECTED' },
+      });
+      expect(history).toMatchObject({ fromStatus: 'PENDING', decidedByAdminId: reviewer.id });
+      const note = await t.prisma.notification.findFirstOrThrow({
+        where: { userId: fake.owner.id },
+      });
+      expect(note.type).toBe('AGENCY_REJECTED');
+      const audit = await t.prisma.auditLog.findFirstOrThrow({
+        where: { action: 'agency.reject', resourceId: fake.agency.id },
+      });
+      expect(audit.after).toMatchObject({ duplicateOfAgencyId: real.agency.id });
+      const [session] = await t.app.get(SessionService).listForSubject('USER', fake.owner.id);
+      expect(session?.agencyId).toBeNull();
+      const mine = await withSession(t.http().get('/api/v1/agencies/mine'), fakeSession).expect(
+        200,
+      );
+      expect(mine.body.status).toBe('REJECTED');
+    });
+
+    it('409 approving while another live office holds the 등록번호', async () => {
+      const { agency: live } = await createAgency(t.prisma, {
+        registrationNumber: '46150-2026-05555',
+      });
+      const { agency } = await createPendingAgency(t.prisma, {
+        registrationNumber: '46150-2026-05555',
+      });
+      const { s } = await admin();
+      const res = await withSession(
+        t.http().post(`/api/v1/admin/agencies/${agency.id}/decision`),
+        s,
+      )
+        .send({ status: 'APPROVED' })
+        .expect(409);
+      expect(res.body).toMatchObject({
+        code: 'AGENCY_REGISTRATION_DUPLICATE',
+        details: { agencyId: live.id },
+      });
+      expect((await t.prisma.agency.findUniqueOrThrow({ where: { id: agency.id } })).status).toBe(
+        'PENDING',
+      );
+      // Rejecting it is still possible.
+      await withSession(t.http().post(`/api/v1/admin/agencies/${agency.id}/decision`), s)
+        .send({ status: 'REJECTED', reason: '이미 등록된 사무소입니다.' })
+        .expect(200);
+    });
+
     it('400 for invalid transitions and payloads; 401 for user sessions; 404 unknown', async () => {
       const { agency } = await createPendingAgency(t.prisma);
       const { s } = await admin(AdminRole.SUPER_ADMIN);
@@ -334,6 +446,82 @@ describe('agencies: admin review (e2e)', () => {
       expect((await t.prisma.agency.findUniqueOrThrow({ where: { id: agency.id } })).status).toBe(
         AgencyStatus.PENDING,
       );
+    });
+  });
+
+  describe('DELETE /api/v1/admin/agencies/:id', () => {
+    it('204: soft-deletes a pending application, frees the applicant and audits it', async () => {
+      const { agency, owner } = await createPendingAgency(t.prisma, {
+        registrationNumber: '46150-2026-06666',
+      });
+      await loginUser(t.app, owner, { agencyId: agency.id });
+      const { admin: reviewer, s } = await admin();
+      await withSession(t.http().delete(`/api/v1/admin/agencies/${agency.id}`), s)
+        .send({ reason: '허위 신청 (등록번호 도용)' })
+        .expect(204);
+
+      const row = await t.prisma.agency.findUniqueOrThrow({ where: { id: agency.id } });
+      expect(row).toMatchObject({ status: 'REJECTED', deletedAt: expect.any(Date) });
+      expect(
+        await t.prisma.agencyMember.count({ where: { agencyId: agency.id, status: 'ACTIVE' } }),
+      ).toBe(0);
+      const audit = await t.prisma.auditLog.findFirstOrThrow({
+        where: { action: 'agency.delete', resourceId: agency.id },
+      });
+      expect(audit).toMatchObject({ adminUserId: reviewer.id, resourceType: 'Agency' });
+      expect(audit.before).toMatchObject({
+        status: 'PENDING',
+        registrationNumber: '46150-2026-06666',
+      });
+      const [session] = await t.app.get(SessionService).listForSubject('USER', owner.id);
+      expect(session?.agencyId).toBeNull();
+      await withSession(t.http().get(`/api/v1/admin/agencies/${agency.id}`), s).expect(404);
+      const queue = await withSession(t.http().get('/api/v1/admin/agencies'), s).expect(200);
+      expect(pluck(queue.body.items, 'id')).not.toContain(agency.id);
+
+      // The applicant may apply again; a rejected application can be deleted as well.
+      const so = await loginUser(t.app, owner);
+      await withSession(t.http().get('/api/v1/agencies/mine'), so).expect(404);
+      const rejected = await createPendingAgency(t.prisma, { status: AgencyStatus.REJECTED });
+      await withSession(t.http().delete(`/api/v1/admin/agencies/${rejected.agency.id}`), s)
+        .send({ reason: '중복 신청' })
+        .expect(204);
+    });
+
+    it('400 for live offices or a missing reason; 401 for users; 404 unknown / already deleted', async () => {
+      const { agency } = await createAgency(t.prisma);
+      const { s } = await admin(AdminRole.SUPER_ADMIN);
+      const live = await withSession(t.http().delete(`/api/v1/admin/agencies/${agency.id}`), s)
+        .send({ reason: 'x' })
+        .expect(400);
+      expect(live.body.code).toBe('AGENCY_NOT_DELETABLE');
+      const pending = await createPendingAgency(t.prisma);
+      const noReason = await withSession(
+        t.http().delete(`/api/v1/admin/agencies/${pending.agency.id}`),
+        s,
+      )
+        .send({})
+        .expect(400);
+      expect(noReason.body.code).toBe('VALIDATION_FAILED');
+      const user = await loginUser(t.app, await createUser(t.prisma));
+      await withSession(t.http().delete(`/api/v1/admin/agencies/${pending.agency.id}`), user)
+        .send({ reason: 'x' })
+        .expect(401);
+      await withSession(
+        t.http().delete('/api/v1/admin/agencies/0190f3c2-7a4b-7cde-8f00-123456789abc'),
+        s,
+      )
+        .send({ reason: 'x' })
+        .expect(404);
+      await withSession(t.http().delete(`/api/v1/admin/agencies/${pending.agency.id}`), s)
+        .send({ reason: 'x' })
+        .expect(204);
+      await withSession(t.http().delete(`/api/v1/admin/agencies/${pending.agency.id}`), s)
+        .send({ reason: 'x' })
+        .expect(404);
+      expect(
+        (await t.prisma.agency.findUniqueOrThrow({ where: { id: agency.id } })).deletedAt,
+      ).toBeNull();
     });
   });
 

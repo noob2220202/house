@@ -114,6 +114,8 @@ export const NotificationType = {
   AGENCY_WARNED: 'AGENCY_WARNED',
   LISTING_HIDDEN: 'LISTING_HIDDEN',
   REPORT_RESOLVED: 'REPORT_RESOLVED',
+  LISTING_EXPIRED: 'LISTING_EXPIRED',
+  CO_BROKER_REQUESTED: 'CO_BROKER_REQUESTED',
   SYSTEM: 'SYSTEM',
 } as const;
 export type NotificationType = EnumValue<typeof NotificationType>;

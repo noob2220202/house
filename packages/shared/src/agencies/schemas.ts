@@ -224,54 +224,70 @@ export const agencyInviteCreateSchema = z.preprocess(
 );
 export type AgencyInviteCreateInput = z.infer<typeof agencyInviteCreateSchema>;
 
+/**
+ * 공인중개사 자격증 번호 (e.g. "2019-전남-00123", "11-2020-001234"): letters, digits, 한글 and
+ * hyphens, at least one digit. The owner checks it against the certificate before setting it.
+ */
+export const licenseNumberSchema = z
+  .string()
+  .trim()
+  .transform((s) => s.replace(/^제\s*/, '').replace(/\s*호$/, ''))
+  .pipe(
+    z.string().regex(/^(?=.*\d)[0-9A-Za-z가-힣](?:[0-9A-Za-z가-힣-]{1,38})[0-9A-Za-z가-힣]$/, {
+      message: '자격증 번호 형식이 올바르지 않습니다.',
+    }),
+  );
+
 const memberProfileFields = {
   displayName: trimmed(50),
   title: z.string().trim().max(30).nullable().optional(),
   phone: phoneSchema.nullable().optional(),
-  /** 소속공인중개사 (true) or 중개보조원 (false). */
-  isLicensed: z.boolean().default(false),
-  licenseNumber: z.string().trim().max(40).nullable().optional(),
 };
 
-const licenseNeedsFlag = (m: { isLicensed?: boolean; licenseNumber?: string | null }) =>
-  !m.licenseNumber || m.isLicensed !== false;
-
-/** POST /agencies/join — a user redeems an invite code and joins as AGENT. */
-export const agencyJoinSchema = z
-  .object({
-    code: z
-      .string()
-      .max(20)
-      .transform(normalizeInviteCode)
-      .pipe(
-        z
-          .string()
-          .length(AGENCY_INVITE_CODE_LENGTH, '초대 코드가 올바르지 않습니다.')
-          .refine(
-            (c) => [...c].every((ch) => AGENCY_INVITE_CODE_ALPHABET.includes(ch)),
-            '초대 코드가 올바르지 않습니다.',
-          ),
-      ),
-    ...memberProfileFields,
-  })
-  .refine(licenseNeedsFlag, {
-    message: '자격증 번호는 소속공인중개사만 입력합니다.',
-    path: ['licenseNumber'],
-  });
+/**
+ * POST /agencies/join — a user redeems an invite code and joins as AGENT. A joining member is
+ * always recorded as 중개보조원 (not advertisable, 공인중개사법 제18조의2①); only the owner marks
+ * them 소속공인중개사 with a license number (PATCH /agencies/mine/members/:memberId). Unknown keys
+ * such as a self-declared `isLicensed` are stripped.
+ */
+export const agencyJoinSchema = z.object({
+  code: z
+    .string()
+    .max(20)
+    .transform(normalizeInviteCode)
+    .pipe(
+      z
+        .string()
+        .length(AGENCY_INVITE_CODE_LENGTH, '초대 코드가 올바르지 않습니다.')
+        .refine(
+          (c) => [...c].every((ch) => AGENCY_INVITE_CODE_ALPHABET.includes(ch)),
+          '초대 코드가 올바르지 않습니다.',
+        ),
+    ),
+  ...memberProfileFields,
+});
 export type AgencyJoinInput = z.infer<typeof agencyJoinSchema>;
 
-/** PATCH /agencies/mine/members/:memberId */
+/**
+ * PATCH /agencies/mine/members/:memberId (owner only). Marking a member 소속공인중개사 needs the
+ * license number in the same request; a 중개보조원 has none.
+ */
 export const agencyMemberUpdateSchema = z
   .object({
     displayName: memberProfileFields.displayName.optional(),
     title: memberProfileFields.title,
     phone: memberProfileFields.phone,
+    /** 소속공인중개사 (true) or 중개보조원 (false). */
     isLicensed: z.boolean().optional(),
-    licenseNumber: memberProfileFields.licenseNumber,
+    licenseNumber: licenseNumberSchema.nullable().optional(),
   })
   .refine(nonEmpty, { message: '변경할 항목을 입력해 주세요.' })
-  .refine(licenseNeedsFlag, {
+  .refine((m) => !m.licenseNumber || m.isLicensed !== false, {
     message: '자격증 번호는 소속공인중개사만 입력합니다.',
+    path: ['licenseNumber'],
+  })
+  .refine((m) => m.isLicensed !== true || !!m.licenseNumber, {
+    message: '소속공인중개사는 자격증 번호를 함께 입력해 주세요.',
     path: ['licenseNumber'],
   });
 export type AgencyMemberUpdateInput = z.infer<typeof agencyMemberUpdateSchema>;
@@ -297,6 +313,12 @@ export const adminAgencyListQuerySchema = paginationQuerySchema.extend({
 });
 export type AdminAgencyListQuery = z.infer<typeof adminAgencyListQuerySchema>;
 
+/** GET /admin/agencies/:id — REMOVED staff are left out unless asked for (contacts masked). */
+export const adminAgencyDetailQuerySchema = z.object({
+  includeRemoved: queryBoolean.transform((v) => v ?? false),
+});
+export type AdminAgencyDetailQuery = z.infer<typeof adminAgencyDetailQuerySchema>;
+
 /** POST /admin/agencies/:id/decision — 승인 / 반려 / 정지 (APPROVED also reinstates a suspension). */
 export const agencyDecisionSchema = z
   .object({
@@ -308,6 +330,13 @@ export const agencyDecisionSchema = z
     path: ['reason'],
   });
 export type AgencyDecisionInput = z.infer<typeof agencyDecisionSchema>;
+
+/**
+ * DELETE /admin/agencies/:id — soft-deletes a PENDING / REJECTED application (e.g. a fake one
+ * holding a real office's 등록번호). The reason is audited and sent to the applicant.
+ */
+export const agencyAdminDeleteSchema = z.object({ reason: trimmed(1000) });
+export type AgencyAdminDeleteInput = z.infer<typeof agencyAdminDeleteSchema>;
 
 export const agencyRegistryCheckQuerySchema = z.object({
   refresh: queryBoolean.transform((v) => v ?? false),

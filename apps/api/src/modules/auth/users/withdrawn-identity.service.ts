@@ -40,8 +40,10 @@ export class WithdrawnIdentityService {
     userId: string,
     accounts: readonly SocialAccount[],
     now: Date,
+    opts: { cooldownDays?: number } = {},
   ): Promise<void> {
-    const rejoinAfter = new Date(now.getTime() + REJOIN_COOLDOWN_DAYS * 86_400_000);
+    const days = opts.cooldownDays ?? REJOIN_COOLDOWN_DAYS;
+    const rejoinAfter = new Date(now.getTime() + days * 86_400_000);
     for (const account of accounts) {
       const providerUserIdHash = this.hash(account);
       await tx.withdrawnIdentity.upsert({

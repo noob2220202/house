@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import {
+  AgencyMemberRole,
   AgencyMemberStatus,
   AgencyStatus,
   ErrorCode,
@@ -146,8 +147,13 @@ export class AgencyPublicService {
       where: { id: agencyId, status: AgencyStatus.APPROVED, deletedAt: null },
       select: {
         ...agencyProfileSelect,
+        // 제18조의2①: this page shows the office's 중개대상물 ads, so it names only the
+        // 개업공인중개사 and 소속공인중개사 (isAdvertisableMember), never a 중개보조원.
         members: {
-          where: { status: AgencyMemberStatus.ACTIVE },
+          where: {
+            status: AgencyMemberStatus.ACTIVE,
+            OR: [{ role: AgencyMemberRole.OWNER }, { isLicensed: true }],
+          },
           orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }],
           take: PROFILE_MEMBERS_LIMIT,
           select: { id: true, displayName: true, title: true, role: true, isLicensed: true },

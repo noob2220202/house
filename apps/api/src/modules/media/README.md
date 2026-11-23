@@ -16,10 +16,15 @@ Registered in `AppModule` already — do not edit `app.module.ts`. Read `docs/CO
   `IMAGE_VARIANTS` (thumb 320×240 cover, medium 960×720 inside, large 1920×1440 inside, never enlarged).
   Real dimensions are stored per variant. sharp runs with 2 libvips threads and no cache; the worker
   processes one job at a time (`MEDIA_WORKER_CONCURRENCY`).
-- **Sync vs background**: images and image documents ≤ 6 MB and ≤ 24 MP are processed inline →
-  `201 READY`. Larger ones and all HEIC go to the `media-processing` queue → `202 PENDING` (raw bytes in
-  private staging until done; poll `GET /media/:id`). PDFs are always inline. Invalid images end `FAILED`
-  with a Korean `error`; I/O errors are retried.
+- **Process isolation (SEC-01)**: the HTTP API never decodes images — no libvips/sharp call on untrusted
+  bytes runs in the process that holds sessions, the DB pool and the secrets. The API only checks the
+  header with a pure-TypeScript reader (`image-header.ts`: JPEG SOF, PNG IHDR, WebP VP8/VP8L/VP8X), so a
+  malformed header is still `415` and more than 50 MP is still `400 MEDIA_DIMENSIONS_INVALID` up front.
+  Every image and image document is staged and processed by the worker process (`dist/worker.js`, the
+  `media-processing` queue) → `202 PENDING` (raw bytes in private staging until done; poll
+  `GET /media/:id`). PDFs are not decoded and are stored inline → `201 READY`. Images the worker cannot
+  decode end `FAILED` with a Korean `error`; I/O errors are retried. sharp is pinned to ≥ 0.35.5
+  (libvips/libheif CVE fixes; a unit test guards the version).
 - **HEIC**: decoded through the `HEIC_DECODER` port. Prebuilt sharp lacks the HEVC decoder, so the default
   `SharpHeicDecoder` reports `supported=false` and HEIC uploads are refused up front with
   `415 MEDIA_HEIC_UNSUPPORTED`. A system libvips built with libde265, or another decoder bound to the
@@ -37,7 +42,8 @@ Registered in `AppModule` already — do not edit `app.module.ts`. Read `docs/CO
   site's origin).
 - **Roots**: `MediaStorage` refuses to start when `UPLOAD_DIR` and `PRIVATE_UPLOAD_DIR` contain each
   other (private files would become servable by nginx).
-- **Quotas** (`MEDIA_USER_QUOTA`): 2 GiB and 5000 live files per user, plus at most 20 PENDING. The quota
+- **Quotas** (`MEDIA_USER_QUOTA`): 2 GiB and 5000 live files per user, plus at most 40 PENDING (a full
+  listing's 30 photos uploaded at once must fit). The quota
   is checked under a per-user advisory lock. The daily cap is `DAILY_CAPS.MEDIA_UPLOAD` (300). Admins are
   not limited.
 - **Orphan cleanup** (`MediaCleanupService`): runs hourly on the module's own `media-processing` queue
@@ -72,7 +78,7 @@ Registered in `AppModule` already — do not edit `app.module.ts`. Read `docs/CO
 
 | Method | Path                    | Auth                                                           | Notes                                                                           |
 | ------ | ----------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| POST   | `/media?purpose=`       | user (throttle WRITE, daily cap, quota)                        | 201 READY / 202 PENDING → `OwnMediaView`                                        |
+| POST   | `/media?purpose=`       | user (throttle WRITE, daily cap, quota)                        | 202 PENDING (images) / 201 READY (PDF) → `OwnMediaView`                         |
 | GET    | `/media`                | user                                                           | own uploads, `purpose`, `status` csv filters, paginated                         |
 | GET    | `/media/:id`            | public                                                         | owner: `OwnMediaView` (any state); others: READY PUBLIC, not DEAL_REQUEST_PHOTO |
 | GET    | `/media/:id/private`    | uploader, or AGENT/AGENCY_OWNER of the agency it's attached to | stream, `Cache-Control: private, no-store`                                      |
@@ -114,6 +120,6 @@ Add `imports: [MediaModule]` and inject `MediaService`. The calls are:
 
 ## Tests
 
-- Unit: `pnpm --filter @house/api test -- src/modules/media` (processor, storage, mapper).
+- Unit: `pnpm --filter @house/api test -- src/modules/media` (processor, header reader, storage, mapper).
 - e2e: `pnpm --filter @house/api test:e2e media`. It uses database `house_test_media` and Redis DB 7,
   writes files under `$TMPDIR/house-test/media/`, and replaces `HEIC_DECODER` with a fake.

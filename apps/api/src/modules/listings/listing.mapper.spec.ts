@@ -5,6 +5,7 @@ import type { ListingMediaPort } from './ports/listing-media.port';
 
 const media: ListingMediaPort = {
   assertUsableForListing: () => Promise.resolve(),
+  released: () => Promise.resolve(),
   urls: (m) => ({
     thumbUrl: `/t/${m.storageKey}`,
     mediumUrl: `/m/${m.storageKey}`,
@@ -58,9 +59,8 @@ function row(): ListingAgencyDetailRow {
     favoriteCount: 0,
     primaryAgencyId: 'a1',
     primaryAgency: { id: 'a1', name: '순천부동산' },
-    _count: { agencies: 2 },
     description: null,
-    maintenanceFeeItems: [],
+    maintenanceFee: null,
     moveInType: 'IMMEDIATE',
     moveInDate: null,
     hiddenReason: 'PRIVATE-REASON',
@@ -165,6 +165,34 @@ describe('ListingMapper', () => {
     expect(out.coverPhoto?.mediaId).toBe('m2');
     expect(out.photos.map((p) => p.mediaId)).toEqual(['m1', 'm2']);
     expect(out.exclusiveAreaPyeong).toBe(25.7);
+    // Only disclosable agencies are counted: the suspended a2 is not.
+    expect(out.agencyCount).toBe(1);
+  });
+
+  it('public detail shows the 관리비 breakdown and the 건축물 용도 (implied for 아파트)', () => {
+    const fee = {
+      billingType: 'FIXED',
+      items: [
+        { kind: 'GENERAL', included: true, amountWon: 100_000 },
+        { kind: 'ELECTRICITY', included: false },
+      ],
+    };
+    const r = row();
+    const out = mapper.publicDetail({ ...r, maintenanceFee: fee, agencies: [] }, false);
+    expect(out.maintenanceFee).toEqual(fee);
+    expect(out.property.buildingUse).toBe('APARTMENT');
+    const room = mapper.publicDetail(
+      {
+        ...r,
+        // A stored value that no longer matches the schema reads as "not entered".
+        maintenanceFee: ['수도', '인터넷'],
+        agencies: [],
+        property: { ...r.property, assetType: 'ONEROOM', buildingUse: 'MULTI_FAMILY_HOUSE' },
+      },
+      false,
+    );
+    expect(room.maintenanceFee).toBeNull();
+    expect(room.property.buildingUse).toBe('MULTI_FAMILY_HOUSE');
   });
 
   it('agency detail includes the private fields', () => {
@@ -174,6 +202,8 @@ describe('ListingMapper', () => {
     expect(out.isPrimaryAgency).toBe(true);
     expect(out.hiddenReason).toBe('PRIVATE-REASON');
     expect(out.version).toBe(3);
+    // Counted like the public view: ACTIVE links of approved agencies (not a2 SUSPENDED, a3 PENDING).
+    expect(out.agencyCount).toBe(1);
     expect(out.agencies.map((a) => [a.agencyId, a.status])).toEqual([
       ['a1', 'ACTIVE'],
       ['a2', 'ACTIVE'],
@@ -194,7 +224,12 @@ describe('ListingMapper', () => {
   });
 
   it('summary drops price fields that do not apply to the deal type', () => {
-    const out = mapper.summary({ ...row(), monthlyRent: 50, deposit: 1000 });
-    expect(out).toMatchObject({ salePrice: 30000, deposit: null, monthlyRent: null });
+    const out = mapper.summary({ ...row(), monthlyRent: 50, deposit: 1000 }, 2);
+    expect(out).toMatchObject({
+      salePrice: 30000,
+      deposit: null,
+      monthlyRent: null,
+      agencyCount: 2,
+    });
   });
 });

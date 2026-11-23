@@ -1,8 +1,9 @@
 import { API_PREFIX, HEADER_NAMES } from '@house/shared';
-import type { NestExpressApplication } from '@nestjs/platform-express';
+import { ExpressAdapter, type NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
+import express from 'express';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
@@ -10,6 +11,7 @@ import { z } from 'zod';
 import { requestContextMiddleware } from '../common/context/request-context';
 import { renderException } from '../common/filters/all-exceptions.filter';
 import { AppConfig } from '../config/app-config.service';
+import type { HttpDrainer } from './graceful-shutdown';
 
 z.config(z.locales.ko());
 
@@ -21,13 +23,33 @@ function parseTrustProxy(value: string): boolean | number | string {
 }
 
 /**
+ * The Express adapter every HTTP app (main.ts, e2e) is created with. Routing is exact-case:
+ * /api/v1/ADMIN/... must not alias the admin routes (nginx admin rules, isAdminPath and the route
+ * table must agree). Express builds its router with these settings when it is first used, and the
+ * Nest adapter uses it in its constructor, so they must be set on the instance beforehand.
+ */
+export function createHttpAdapter(): ExpressAdapter {
+  const server = express();
+  server.set('case sensitive routing', true);
+  return new ExpressAdapter(server);
+}
+
+export interface ConfigureAppOptions {
+  /** Registered as the very first middleware (main.ts: graceful reload). */
+  drainer?: HttpDrainer;
+}
+
+/**
  * Applies every HTTP-level setting. Shared by main.ts and the e2e test app factory so tests
  * exercise exactly the production pipeline. Must be called before app.init()/listen().
+ * Signal handling is not set up here: main.ts drains HTTP before closing the app.
  */
-export function configureApp(app: NestExpressApplication): void {
+export function configureApp(app: NestExpressApplication, options: ConfigureAppOptions = {}): void {
   const config = app.get(AppConfig);
   app.useLogger(app.get(Logger));
   app.flushLogs();
+
+  if (options.drainer) app.use(options.drainer.middleware);
 
   app.set('trust proxy', parseTrustProxy(config.get('TRUST_PROXY')));
   app.disable('x-powered-by');
@@ -63,7 +85,6 @@ export function configureApp(app: NestExpressApplication): void {
   });
 
   app.setGlobalPrefix(API_PREFIX);
-  app.enableShutdownHooks();
 
   if (config.get('SWAGGER_ENABLED')) {
     const doc = new DocumentBuilder()

@@ -1,4 +1,12 @@
-import { DealType, ErrorCode, kstDayKey, ListingStatus, MediaPurpose } from '@house/shared';
+import {
+  AgencyStatus,
+  type ComplexListingsSummary,
+  DealType,
+  ErrorCode,
+  kstDayKey,
+  ListingStatus,
+  MediaPurpose,
+} from '@house/shared';
 import { CacheService } from '../../../src/common/cache/cache.service';
 import { RequestContext } from '../../../src/common/context/request-context';
 import {
@@ -589,6 +597,69 @@ describe('complexes: public read API (e2e)', () => {
           maxMonthlyRent: null,
         },
       ]);
+    });
+
+    it('counts only listings whose primary agency is disclosable (detail, summary, popular)', async () => {
+      const { complex } = await seedBuyoung(t, { viewCount: 3 });
+      const { agency: ok } = await createAgency(t.prisma);
+      const { agency: suspended } = await createAgency(t.prisma);
+      const { agency: rejected } = await createAgency(t.prisma);
+      const { agency: removed } = await createAgency(t.prisma);
+      const sale = (agencyId: string, price: number) =>
+        createListing(t.prisma, {
+          agencyId,
+          property: { complexId: complex.id },
+          listing: { salePrice: price, priceSort: price },
+        });
+      await sale(ok.id, 20000);
+      await sale(suspended.id, 99000);
+      await sale(suspended.id, 1000);
+      await sale(rejected.id, 50000);
+      await sale(removed.id, 60000);
+
+      const saleOf = (body: unknown) =>
+        (body as ComplexListingsSummary).byDealType.find((x) => x.dealType === DealType.SALE);
+      const popularCounts = async () => {
+        await t.app.get(CacheService).bump(COMPLEXES_CACHE.POPULAR);
+        const r = await t.http().get('/api/v1/complexes/popular?limit=1').expect(200);
+        return (r.body as { id: string; listingCounts: { total: number } }[])[0];
+      };
+
+      // All five offices approved: every listing is public.
+      let r = await t.http().get(`/api/v1/complexes/${complex.id}/listings`).expect(200);
+      expect(r.body.total).toBe(5);
+      expect(await popularCounts()).toMatchObject({ id: complex.id, listingCounts: { total: 5 } });
+
+      await t.prisma.agency.update({
+        where: { id: suspended.id },
+        data: { status: AgencyStatus.SUSPENDED },
+      });
+      await t.prisma.agency.update({
+        where: { id: rejected.id },
+        data: { status: AgencyStatus.REJECTED },
+      });
+      await t.prisma.agency.update({ where: { id: removed.id }, data: { deletedAt: new Date() } });
+
+      r = await t.http().get(`/api/v1/complexes/${complex.id}/listings`).expect(200);
+      expect(r.body.total).toBe(1);
+      expect(saleOf(r.body)).toMatchObject({ count: 1, minPrice: 20000, maxPrice: 20000 });
+
+      const detail = await t
+        .http()
+        .get(`/api/v1/complexes/${complex.id}`)
+        .set('User-Agent', BROWSER_UA)
+        .expect(200);
+      expect(detail.body.listingSummary.total).toBe(1);
+      expect(saleOf(detail.body.listingSummary)).toMatchObject({
+        count: 1,
+        minPrice: 20000,
+        maxPrice: 20000,
+      });
+
+      expect(await popularCounts()).toMatchObject({
+        id: complex.id,
+        listingCounts: { total: 1, byDealType: { SALE: 1 } },
+      });
     });
 
     it('404 for deleted 단지, 400 for a malformed id', async () => {

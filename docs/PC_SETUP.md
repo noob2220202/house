@@ -7,11 +7,11 @@
 
 ## 1. 설치할 프로그램 (처음 한 번만)
 
-| 순서 | 프로그램 | 받는 곳 | 비고 |
-|---|---|---|---|
-| ① | **Git for Windows** | https://git-scm.com/download/win | 설치 옵션은 기본값 그대로. Git Bash와 GitHub 로그인 도구(Credential Manager)가 같이 설치됩니다. Claude Code가 Git Bash를 사용합니다. |
-| ② | **Node.js 22 LTS** | https://nodejs.org → "22.x LTS" Windows 설치 파일(.msi) | 23 이상이 아니라 **22 버전**이어야 합니다. |
-| ③ | **Claude 데스크톱 앱** | 이미 사용 중 | Claude Code 탭에서 내 PC 폴더로 세션을 열 수 있어야 합니다. |
+| 순서 | 프로그램               | 받는 곳                                                 | 비고                                                                                                                                 |
+| ---- | ---------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| ①    | **Git for Windows**    | https://git-scm.com/download/win                        | 설치 옵션은 기본값 그대로. Git Bash와 GitHub 로그인 도구(Credential Manager)가 같이 설치됩니다. Claude Code가 Git Bash를 사용합니다. |
+| ②    | **Node.js 22 LTS**     | https://nodejs.org → "22.x LTS" Windows 설치 파일(.msi) | 23 이상이 아니라 **22 버전**이어야 합니다.                                                                                           |
+| ③    | **Claude 데스크톱 앱** | 이미 사용 중                                            | Claude Code 탭에서 내 PC 폴더로 세션을 열 수 있어야 합니다.                                                                          |
 
 설치가 끝나면 **PowerShell을 관리자 권한으로** 열고 아래를 한 줄씩 실행합니다.
 
@@ -85,6 +85,7 @@ ultracode house-frontend 워크플로를 실행해줘. 작업 브랜치는 front
 - PC는 논리 프로세서가 12개라 에이전트를 최대 10개까지 동시에 돌립니다.
 
 ### 진행 중 확인
+
 - `/workflows` 를 입력하면 진행 상황이 보입니다.
 - 개발 서버를 직접 띄워 보고 싶으면 (모의 모드):
 
@@ -96,7 +97,7 @@ cd C:\dev\house\apps\web
 $env:NEXT_PUBLIC_API_MOCK="1"; pnpm exec next dev --port 3000
 ```
 
-  → 브라우저에서 http://localhost:3000
+→ 브라우저에서 http://localhost:3000
 
 ---
 
@@ -107,5 +108,6 @@ $env:NEXT_PUBLIC_API_MOCK="1"; pnpm exec next dev --port 3000
 - 두 작업은 폴더가 나뉘어 있어 충돌이 거의 없습니다. 프론트엔드는 `apps/web`, `apps/admin`, `packages/ui`, 백엔드는 `apps/api`, `packages/shared`를 씁니다.
 
 ## 주의
+
 - **사용량 한도**: 동시에 많이 돌리는 만큼 사용량도 빨리 씁니다. 한도에 걸리면 초기화될 때까지 멈췄다가 이어서 진행하면 됩니다.
 - **키/비밀번호는 이 저장소에 절대 커밋하지 않습니다.** 프론트엔드 개발에는 키가 필요 없습니다.

@@ -39,11 +39,14 @@ model Agency {
   name               String                                 @db.VarChar(100)
   /// 대표 개업공인중개사 성명
   representativeName String                                 @map("representative_name") @db.VarChar(50)
-  /// 중개사무소 등록번호
-  registrationNumber String                                 @unique @map("registration_number") @db.VarChar(40)
+  /// 중개사무소 등록번호. Unique only among live offices (see registrationKey).
+  registrationNumber String                                 @map("registration_number") @db.VarChar(40)
   /// Uniqueness key of the 등록번호 (letters/digits/한글 only, upper-cased). GENERATED column
   /// (see migration 20261123160000_agencies_registration_key): never write it; read-only here.
-  registrationKey    String?                                @unique @default(dbgenerated("upper(regexp_replace((registration_number)::text, '[^0-9A-Za-z가-힣]'::text, ''::text, 'g'::text))")) @map("registration_key") @db.VarChar(40)
+  /// Unique among APPROVED / SUSPENDED, not deleted agencies only: partial unique index
+  /// agencies_registration_key_live (migration 20261123190000_agencies_registration_key_live),
+  /// which Prisma cannot express, so pending / rejected applications never reserve a number.
+  registrationKey    String?                                @default(dbgenerated("upper(regexp_replace((registration_number)::text, '[^0-9A-Za-z가-힣]'::text, ''::text, 'g'::text))")) @map("registration_key") @db.VarChar(40)
   businessNumber     String?                                @map("business_number") @db.VarChar(20)
   phone              String                                 @db.VarChar(20)
   mobile             String?                                @db.VarChar(20)
@@ -96,6 +99,8 @@ model Agency {
   @@index([roadAddress(ops: raw("gin_trgm_ops"))], type: Gin, map: "agencies_road_address_trgm_idx")
   @@index([representativeName(ops: raw("gin_trgm_ops"))], type: Gin, map: "agencies_representative_name_trgm_idx")
   @@index([status, createdAt])
+  @@index([logoMediaId])
+  @@index([registrationKey])
   @@map("agencies")
 }
 
@@ -141,6 +146,7 @@ model AgencyDocument {
   uploadedBy User?  @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   @@index([agencyId, type])
+  @@index([mediaId])
   @@map("agency_documents")
 }
 

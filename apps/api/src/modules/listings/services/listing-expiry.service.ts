@@ -1,4 +1,4 @@
-import { ListingStatus, PUBLIC_LISTING_STATUSES } from '@house/shared';
+import { ListingStatus, NotificationType, PUBLIC_LISTING_STATUSES } from '@house/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -61,6 +61,7 @@ export class ListingExpiryService {
         });
         for (const r of rows) {
           await this.notifier.notifyAgencyOwners(tx, [r.primaryAgencyId], {
+            type: NotificationType.LISTING_EXPIRED,
             title: '매물 광고기간이 만료되었습니다.',
             body: '거래 가능 여부를 다시 확인한 뒤 매물을 다시 게시해 주세요.',
             listingId: r.id,

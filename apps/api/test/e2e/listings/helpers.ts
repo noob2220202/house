@@ -77,6 +77,15 @@ export function publishablePayload(overrides: Record<string, unknown> = {}) {
     description: '역세권, 학군 우수',
     salePrice: 35_000,
     maintenanceFeeWon: 150_000,
+    // 아파트 관리비: 월별 실비 정산 → 월평균 금액 + 포함 항목.
+    maintenanceFee: {
+      billingType: 'ACTUAL',
+      items: [
+        { kind: 'GENERAL', included: true },
+        { kind: 'WATER', included: true },
+        { kind: 'HEATING', included: true },
+      ],
+    },
     moveInType: MoveInType.IMMEDIATE,
     options: ['ELEVATOR', 'PARKING'],
     ...rest,

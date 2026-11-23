@@ -5,6 +5,7 @@ import {
   AgencyStatus,
   ErrorCode,
   LIVE_AGENCY_STATUSES,
+  REGISTRATION_HOLDING_STATUSES,
   registrationNumberKey,
   sggCodeOf,
   type AgencyDocumentInput,
@@ -26,7 +27,6 @@ import { AgencyMapper, toDocumentView } from '../agency.mapper';
 import { agencyDocumentSelect, myAgencySelect } from '../agency.selects';
 import { MAX_AGENCY_DOCUMENTS } from '../constants';
 import { lockAgency, lockUserMembership } from '../domain/locks';
-import { isUniqueViolation } from '../domain/prisma-errors';
 import { AGENCY_MEDIA, type AgencyMediaPort } from '../ports/agency-media.port';
 import { AgencyCacheService } from './agency-cache.service';
 import { AgencySessionSyncService } from './agency-session-sync.service';
@@ -84,62 +84,52 @@ export class AgencyRegistrationService {
   ) {}
 
   async register(user: UserPrincipal, input: AgencyRegisterInput): Promise<MyAgency> {
-    let agencyId: string;
-    try {
-      agencyId = await this.prisma.$transaction(async (tx) => {
-        await lockUserMembership(tx, user.userId);
-        await this.assertCanStartAgency(tx, user.userId);
-        await this.assertRegistrationNumberFree(tx, input.registrationNumber);
-        await this.media.assertDocumentsUsable(
-          input.documents.map((d) => d.mediaId),
-          user.userId,
-          tx,
-        );
+    // Pending rows are outside the partial unique index, so no unique violation can occur here.
+    const agencyId = await this.prisma.$transaction(async (tx) => {
+      await lockUserMembership(tx, user.userId);
+      await this.assertCanStartAgency(tx, user.userId);
+      await this.assertRegistrationNumberFree(tx, input.registrationNumber);
+      await this.media.assertDocumentsUsable(
+        input.documents.map((d) => d.mediaId),
+        user.userId,
+        tx,
+      );
 
-        const agency = await tx.agency.create({
-          data: {
-            ownerUserId: user.userId,
-            name: input.name,
-            representativeName: input.representativeName,
-            registrationNumber: input.registrationNumber,
-            businessNumber: input.businessNumber,
-            ...this.profileData(input),
-            phone: input.phone,
-            roadAddress: input.roadAddress,
-            lat: input.lat,
-            lng: input.lng,
-            sggCode: this.sggCodeFor(input.emdCode),
-            specialties: input.specialties ?? [],
-            status: AgencyStatus.PENDING,
-          },
-          select: { id: true },
-        });
-        await tx.agencyMember.create({
-          data: {
-            agencyId: agency.id,
-            userId: user.userId,
-            role: AgencyMemberRole.OWNER,
-            status: AgencyMemberStatus.ACTIVE,
-            displayName: input.representativeName,
-            phone: input.mobile ?? null,
-            isLicensed: true,
-          },
-        });
-        await this.createDocuments(tx, agency.id, user.userId, input.documents);
-        await tx.agencyStatusHistory.create({
-          data: { agencyId: agency.id, fromStatus: null, toStatus: AgencyStatus.PENDING },
-        });
-        return agency.id;
+      const agency = await tx.agency.create({
+        data: {
+          ownerUserId: user.userId,
+          name: input.name,
+          representativeName: input.representativeName,
+          registrationNumber: input.registrationNumber,
+          businessNumber: input.businessNumber,
+          ...this.profileData(input),
+          phone: input.phone,
+          roadAddress: input.roadAddress,
+          lat: input.lat,
+          lng: input.lng,
+          sggCode: this.sggCodeFor(input.emdCode),
+          specialties: input.specialties ?? [],
+          status: AgencyStatus.PENDING,
+        },
+        select: { id: true },
       });
-    } catch (err) {
-      if (
-        isUniqueViolation(err, 'registrationNumber') ||
-        isUniqueViolation(err, 'registrationKey')
-      ) {
-        throw AppException.conflict(ErrorCode.AGENCY_REGISTRATION_DUPLICATE);
-      }
-      throw err;
-    }
+      await tx.agencyMember.create({
+        data: {
+          agencyId: agency.id,
+          userId: user.userId,
+          role: AgencyMemberRole.OWNER,
+          status: AgencyMemberStatus.ACTIVE,
+          displayName: input.representativeName,
+          phone: input.mobile ?? null,
+          isLicensed: true,
+        },
+      });
+      await this.createDocuments(tx, agency.id, user.userId, input.documents);
+      await tx.agencyStatusHistory.create({
+        data: { agencyId: agency.id, fromStatus: null, toStatus: AgencyStatus.PENDING },
+      });
+      return agency.id;
+    });
     // Pending owners act for their application (as UserSessionService computes on next login).
     await this.sessions.apply(user.userId, { agencyId });
     return this.loadMine(agencyId);
@@ -152,17 +142,17 @@ export class AgencyRegistrationService {
 
   async updateMine(user: UserPrincipal, input: AgencyUpdateInput): Promise<MyAgency> {
     const owned = await this.ownedAgency(user.userId);
-    if (input.logoMediaId) await this.media.assertLogoUsable(input.logoMediaId, user.userId);
     const { logoMediaId, ...profile } = input;
     await this.prisma.$transaction(async (tx) => {
       await lockAgency(tx, owned.id);
       const before = await tx.agency.findUniqueOrThrow({
         where: { id: owned.id },
-        select: { status: true, phone: true, mobile: true, email: true },
+        select: { status: true, phone: true, mobile: true, email: true, logoMediaId: true },
       });
       if (!EDITABLE_STATUSES.includes(before.status)) {
         throw AppException.badRequest(ErrorCode.AGENCY_NOT_EDITABLE);
       }
+      if (logoMediaId) await this.media.assertLogoUsable(logoMediaId, user.userId, tx);
       if (before.status === AgencyStatus.APPROVED) {
         const fields = REVIEWED_LOCATION_FIELDS.filter((f) => profile[f] !== undefined);
         if (fields.length > 0) {
@@ -180,6 +170,9 @@ export class AgencyRegistrationService {
           ...(logoMediaId !== undefined ? { logoMediaId } : {}),
         },
       });
+      if (logoMediaId !== undefined && before.logoMediaId && before.logoMediaId !== logoMediaId) {
+        await this.media.released([before.logoMediaId], tx);
+      }
       // 연락처 of a live office is part of every ad's disclosure: keep a trail of who changed it.
       if (before.status === AgencyStatus.APPROVED) {
         const changed = (['phone', 'mobile', 'email'] as const).filter(
@@ -209,76 +202,66 @@ export class AgencyRegistrationService {
   /** 반려된 신청 보완 후 재신청: REJECTED → PENDING with a history row. */
   async resubmit(user: UserPrincipal, input: AgencyResubmitInput): Promise<MyAgency> {
     const owned = await this.ownedAgency(user.userId);
-    try {
-      await this.prisma.$transaction(async (tx) => {
-        // Same lock order as join(): membership first, then the agency.
-        await lockUserMembership(tx, user.userId);
-        await lockAgency(tx, owned.id);
-        const current = await tx.agency.findUniqueOrThrow({
-          where: { id: owned.id },
-          select: { status: true },
-        });
-        if (current.status !== AgencyStatus.REJECTED) {
-          throw AppException.badRequest(ErrorCode.AGENCY_INVALID_STATUS_TRANSITION, {
-            from: current.status,
-            to: AgencyStatus.PENDING,
-          });
-        }
-        // Back to PENDING makes the owner act for this agency again: refuse while they are an
-        // active member of another live agency (e.g. joined elsewhere after the rejection).
-        const elsewhere = await tx.agencyMember.count({
-          where: {
-            userId: user.userId,
-            status: AgencyMemberStatus.ACTIVE,
-            agencyId: { not: owned.id },
-            agency: { deletedAt: null, status: { in: [...LIVE_AGENCY_STATUSES] } },
-          },
-        });
-        if (elsewhere > 0) throw AppException.conflict(ErrorCode.AGENCY_ALREADY_MEMBER);
-        if (input.registrationNumber) {
-          await this.assertRegistrationNumberFree(tx, input.registrationNumber, owned.id);
-        }
-        if (input.documents?.length) {
-          await this.assertDocumentRoom(tx, owned.id, input.documents.length);
-          await this.media.assertDocumentsUsable(
-            input.documents.map((d) => d.mediaId),
-            user.userId,
-            tx,
-          );
-          await this.createDocuments(tx, owned.id, user.userId, input.documents);
-        }
-        const { name, representativeName, registrationNumber, businessNumber } = input;
-        await tx.agency.update({
-          where: { id: owned.id },
-          data: {
-            ...(name !== undefined ? { name } : {}),
-            ...(representativeName !== undefined ? { representativeName } : {}),
-            ...(registrationNumber !== undefined ? { registrationNumber } : {}),
-            ...(businessNumber !== undefined ? { businessNumber } : {}),
-            ...this.profileData(input),
-            ...(input.emdCode !== undefined ? { sggCode: this.sggCodeFor(input.emdCode) } : {}),
-            status: AgencyStatus.PENDING,
-            statusReason: null,
-          },
-        });
-        await tx.agencyStatusHistory.create({
-          data: {
-            agencyId: owned.id,
-            fromStatus: AgencyStatus.REJECTED,
-            toStatus: AgencyStatus.PENDING,
-            reason: input.message ?? null,
-          },
-        });
+    await this.prisma.$transaction(async (tx) => {
+      // Same lock order as join(): membership first, then the agency.
+      await lockUserMembership(tx, user.userId);
+      await lockAgency(tx, owned.id);
+      const current = await tx.agency.findUniqueOrThrow({
+        where: { id: owned.id },
+        select: { status: true },
       });
-    } catch (err) {
-      if (
-        isUniqueViolation(err, 'registrationNumber') ||
-        isUniqueViolation(err, 'registrationKey')
-      ) {
-        throw AppException.conflict(ErrorCode.AGENCY_REGISTRATION_DUPLICATE);
+      if (current.status !== AgencyStatus.REJECTED) {
+        throw AppException.badRequest(ErrorCode.AGENCY_INVALID_STATUS_TRANSITION, {
+          from: current.status,
+          to: AgencyStatus.PENDING,
+        });
       }
-      throw err;
-    }
+      // Back to PENDING makes the owner act for this agency again: refuse while they are an
+      // active member of another live agency (e.g. joined elsewhere after the rejection).
+      const elsewhere = await tx.agencyMember.count({
+        where: {
+          userId: user.userId,
+          status: AgencyMemberStatus.ACTIVE,
+          agencyId: { not: owned.id },
+          agency: { deletedAt: null, status: { in: [...LIVE_AGENCY_STATUSES] } },
+        },
+      });
+      if (elsewhere > 0) throw AppException.conflict(ErrorCode.AGENCY_ALREADY_MEMBER);
+      if (input.registrationNumber) {
+        await this.assertRegistrationNumberFree(tx, input.registrationNumber, owned.id);
+      }
+      if (input.documents?.length) {
+        await this.assertDocumentRoom(tx, owned.id, input.documents.length);
+        await this.media.assertDocumentsUsable(
+          input.documents.map((d) => d.mediaId),
+          user.userId,
+          tx,
+        );
+        await this.createDocuments(tx, owned.id, user.userId, input.documents);
+      }
+      const { name, representativeName, registrationNumber, businessNumber } = input;
+      await tx.agency.update({
+        where: { id: owned.id },
+        data: {
+          ...(name !== undefined ? { name } : {}),
+          ...(representativeName !== undefined ? { representativeName } : {}),
+          ...(registrationNumber !== undefined ? { registrationNumber } : {}),
+          ...(businessNumber !== undefined ? { businessNumber } : {}),
+          ...this.profileData(input),
+          ...(input.emdCode !== undefined ? { sggCode: this.sggCodeFor(input.emdCode) } : {}),
+          status: AgencyStatus.PENDING,
+          statusReason: null,
+        },
+      });
+      await tx.agencyStatusHistory.create({
+        data: {
+          agencyId: owned.id,
+          fromStatus: AgencyStatus.REJECTED,
+          toStatus: AgencyStatus.PENDING,
+          reason: input.message ?? null,
+        },
+      });
+    });
     await this.sessions.apply(user.userId, { agencyId: owned.id });
     return this.loadMine(owned.id);
   }
@@ -318,7 +301,7 @@ export class AgencyRegistrationService {
       await lockAgency(tx, owned.id);
       const doc = await tx.agencyDocument.findFirst({
         where: { id: docId, agencyId: owned.id },
-        select: { id: true, type: true },
+        select: { id: true, type: true, mediaId: true },
       });
       if (!doc) throw AppException.notFound(ErrorCode.AGENCY_DOCUMENT_NOT_FOUND);
       const { status } = await tx.agency.findUniqueOrThrow({
@@ -335,6 +318,7 @@ export class AgencyRegistrationService {
         if (certs <= 1) throw AppException.badRequest(ErrorCode.AGENCY_DOCUMENT_REQUIRED);
       }
       await tx.agencyDocument.delete({ where: { id: doc.id } });
+      await this.media.released([doc.mediaId], tx);
     });
   }
 
@@ -381,7 +365,12 @@ export class AgencyRegistrationService {
     if (member > 0) throw AppException.conflict(ErrorCode.AGENCY_ALREADY_MEMBER);
   }
 
-  /** 등록번호 uniqueness on the punctuation/case-insensitive key (the DB unique index backs it). */
+  /**
+   * 등록번호 is taken only by a live office (APPROVED / SUSPENDED, not deleted), compared on the
+   * punctuation/case-insensitive key; the partial unique index agencies_registration_key_live
+   * backs it. Pending or rejected applications never reserve a number (a stranger could otherwise
+   * park a real office's public 등록번호 and lock it out); approval settles competing ones.
+   */
   private async assertRegistrationNumberFree(
     tx: PrismaTx,
     registrationNumber: string,
@@ -390,6 +379,8 @@ export class AgencyRegistrationService {
     const taken = await tx.agency.findFirst({
       where: {
         registrationKey: registrationNumberKey(registrationNumber),
+        deletedAt: null,
+        status: { in: [...REGISTRATION_HOLDING_STATUSES] },
         ...(exceptAgencyId ? { id: { not: exceptAgencyId } } : {}),
       },
       select: { id: true },

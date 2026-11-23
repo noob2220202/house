@@ -17,6 +17,24 @@ export interface SessionResolver {
 
 export const SESSION_RESOLVER = Symbol('SESSION_RESOLVER');
 
+const resolvedSessions = new WeakMap<Request, Promise<ResolvedSession | null>>();
+
+/**
+ * Resolves the request's session at most once per request. The throttler guard (which keys limits
+ * by user) and AuthGuard both need it; this keeps it to one Redis lookup / sliding-expiry touch.
+ */
+export function resolveSessionOnce(
+  req: Request,
+  resolver: SessionResolver,
+): Promise<ResolvedSession | null> {
+  let pending = resolvedSessions.get(req);
+  if (!pending) {
+    pending = resolver.resolve(req);
+    resolvedSessions.set(req, pending);
+  }
+  return pending;
+}
+
 /** Admin API lives under /api/v1/admin and authenticates with the admin cookie only. */
 export const ADMIN_PATH_PREFIX = '/api/v1/admin';
 

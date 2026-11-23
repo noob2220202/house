@@ -45,6 +45,11 @@ export function renderException(exception: unknown): Rendered {
     if (exception.code === 'P2002') {
       return { status: 409, body: { code: ErrorCode.CONFLICT, message: ERROR_MESSAGES.CONFLICT } };
     }
+    // Foreign-key violation: e.g. an attach that lost the race against a delete of the target
+    // (media reference guard trigger) or a parent row removed concurrently.
+    if (exception.code === 'P2003') {
+      return { status: 409, body: { code: ErrorCode.CONFLICT, message: ERROR_MESSAGES.CONFLICT } };
+    }
     if (exception.code === 'P2025') {
       return {
         status: 404,

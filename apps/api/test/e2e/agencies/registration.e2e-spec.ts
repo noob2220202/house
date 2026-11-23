@@ -166,6 +166,11 @@ describe('agencies: registration & my agency (e2e)', () => {
         .expect(201);
       // The modern 시군구-연도-일련번호 form is stored hyphenated.
       expect(created.body.registrationNumber).toBe('46150-2026-00777');
+      // Only a live office holds its number (see the next test for pending ones).
+      await t.prisma.agency.update({
+        where: { id: created.body.id as string },
+        data: { status: AgencyStatus.APPROVED },
+      });
 
       const second = await createUser(t.prisma);
       const s2 = await loginUser(t.app, second);
@@ -187,6 +192,62 @@ describe('agencies: registration & my agency (e2e)', () => {
         .expect(409);
       expect(legacy.body.code).toBe('AGENCY_REGISTRATION_DUPLICATE');
       expect(await t.prisma.agency.count({ where: { ownerUserId: second.id } })).toBe(0);
+    });
+
+    it('201: pending, rejected or deleted applications do not reserve a 등록번호; suspended offices do', async () => {
+      const regNo = '46150-2026-00888';
+      // A stranger parks the real office's public number on a fake application.
+      const squatter = await createPendingAgency(t.prisma, { registrationNumber: regNo });
+      const rejected = await createPendingAgency(t.prisma, {
+        registrationNumber: '46150202600888',
+        status: AgencyStatus.REJECTED,
+      });
+      await createPendingAgency(t.prisma, {
+        registrationNumber: regNo,
+        status: AgencyStatus.APPROVED,
+        deletedAt: new Date(),
+      });
+
+      const real = await createUser(t.prisma);
+      const s = await loginUser(t.app, real);
+      const doc = await createDocumentMedia(t.prisma, real.id);
+      const res = await withSession(t.http().post('/api/v1/agencies'), s)
+        .send(registerBody(doc.id, { registrationNumber: regNo }))
+        .expect(201);
+      expect(res.body.status).toBe(AgencyStatus.PENDING);
+      expect(
+        await t.prisma.agency.count({
+          where: { registrationKey: '46150202600888', deletedAt: null },
+        }),
+      ).toBe(3);
+
+      // The rejected applicant may resubmit with the same number too.
+      const so = await loginUser(t.app, rejected.owner);
+      await withSession(t.http().post('/api/v1/agencies/mine/resubmit'), so)
+        .send({ registrationNumber: regNo })
+        .expect(200);
+
+      // A suspended office still holds it.
+      await t.prisma.agency.update({
+        where: { id: squatter.agency.id },
+        data: { status: AgencyStatus.SUSPENDED },
+      });
+      const late = await createUser(t.prisma);
+      const sl = await loginUser(t.app, late);
+      const d2 = await createDocumentMedia(t.prisma, late.id);
+      const dup = await withSession(t.http().post('/api/v1/agencies'), sl)
+        .send(registerBody(d2.id, { registrationNumber: regNo }))
+        .expect(409);
+      expect(dup.body.code).toBe('AGENCY_REGISTRATION_DUPLICATE');
+    });
+
+    it('the database refuses a second live office with the same number', async () => {
+      await createAgency(t.prisma, { registrationNumber: '46150-2026-00999' });
+      await expect(
+        createAgency(t.prisma, { registrationNumber: '46150202600999' }),
+      ).rejects.toMatchObject({ code: 'P2002' });
+      // ...but a pending duplicate is fine at the DB level.
+      await createPendingAgency(t.prisma, { registrationNumber: '46150-2026-00999' });
     });
   });
 

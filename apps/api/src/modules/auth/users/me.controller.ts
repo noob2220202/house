@@ -17,12 +17,18 @@ import type { Response } from 'express';
 import type { UserPrincipal } from '../../../common/auth/principal';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { THROTTLE } from '../../../common/throttle/throttle.constants';
+import { SkipTermsCheck } from '../terms/skip-terms-check.decorator';
 import { ConsentInputDto, OAuthProviderParamDto, UpdateProfileDto, WithdrawDto } from '../dto';
 import { AccountService } from './account.service';
 
-/** The member's own account. Linking a provider starts at GET /auth/oauth/:provider/start?intent=link. */
+/**
+ * The member's own account. Linking a provider starts at GET /auth/oauth/:provider/start?intent=link.
+ * Exempt from TermsConsentGuard: agreeing to new terms happens here, and a member who does not
+ * agree must still be able to correct or delete their data and withdraw.
+ */
 @ApiTags('auth')
 @Controller('me')
+@SkipTermsCheck()
 export class MeController {
   constructor(private readonly accounts: AccountService) {}
 

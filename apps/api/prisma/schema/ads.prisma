@@ -77,6 +77,8 @@ model Banner {
   @@index([slot, startAt, endAt])
   @@index([slot, sortOrder])
   @@index([agencyId])
+  @@index([pcMediaId])
+  @@index([mobileMediaId])
   @@map("banners")
 }
 
@@ -141,5 +143,6 @@ model Popup {
 
   @@index([startAt, endAt])
   @@index([targetPages], type: Gin)
+  @@index([mediaId])
   @@map("popups")
 }

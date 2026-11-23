@@ -414,6 +414,75 @@ describe('agency listings (e2e)', () => {
       ]);
     });
 
+    it('원룸 정액관리비 ≥ 10만원 needs 건축물 용도 and an itemized breakdown (세부기준)', async () => {
+      const a = await agencyWithOwner(t);
+      const id = await createDraft(t, a.ownerSession, {
+        dealType: 'MONTHLY',
+        salePrice: undefined,
+        deposit: 500,
+        monthlyRent: 40,
+        maintenanceFee: { billingType: 'FIXED', items: [] },
+        property: { assetType: 'ONEROOM', complexId: undefined, dong: undefined },
+      });
+      const r = await withSession(t.http().post(`${BASE}/${id}/publish`), a.ownerSession).expect(
+        400,
+      );
+      expect(r.body.code).toBe(ErrorCode.LISTING_PUBLISH_REQUIREMENTS);
+      expect(r.body.details).toEqual([
+        { field: 'property.buildingUse', label: '중개대상물 종류(건축물 용도)' },
+        { field: 'maintenanceFee.breakdown', label: '관리비 세부내역' },
+      ]);
+      // Clearing the billing type is reported as such.
+      await withSession(t.http().patch(`${BASE}/${id}`), a.ownerSession)
+        .send({ maintenanceFee: null, property: { buildingUse: 'MULTI_FAMILY_HOUSE' } })
+        .expect(200);
+      const r2 = await withSession(t.http().post(`${BASE}/${id}/publish`), a.ownerSession).expect(
+        400,
+      );
+      expect(r2.body.details).toEqual([
+        { field: 'maintenanceFee.billingType', label: '관리비 부과방식' },
+      ]);
+      const fee = {
+        billingType: 'FIXED',
+        items: [
+          { kind: 'GENERAL', included: true, amountWon: 120_000 },
+          { kind: 'INTERNET', included: true, amountWon: 30_000 },
+          { kind: 'ELECTRICITY', included: false },
+        ],
+      };
+      await withSession(t.http().patch(`${BASE}/${id}`), a.ownerSession)
+        .send({ maintenanceFee: fee })
+        .expect(200);
+      await withSession(t.http().post(`${BASE}/${id}/publish`), a.ownerSession).expect(200);
+      const pub = await t.http().get(`/api/v1/listings/${id}`).expect(200);
+      expect(pub.body.maintenanceFee).toEqual(fee);
+      expect(pub.body.property.buildingUse).toBe('MULTI_FAMILY_HOUSE');
+    });
+
+    it('rejects free-text 건축물 용도 and malformed 관리비 내역 (400)', async () => {
+      const a = await agencyWithOwner(t);
+      const bad = [
+        { property: { buildingUse: '원룸' } },
+        { maintenanceFee: { billingType: 'MONTHLY' } },
+        { maintenanceFee: { billingType: 'UNKNOWN', items: [] } },
+        {
+          maintenanceFee: {
+            billingType: 'FIXED',
+            items: [
+              { kind: 'WATER', included: true },
+              { kind: 'WATER', included: false },
+            ],
+          },
+        },
+      ];
+      for (const overrides of bad) {
+        const res = await withSession(t.http().post(BASE), a.ownerSession)
+          .send(publishablePayload(overrides))
+          .expect(400);
+        expect(res.body.code).toBe(ErrorCode.VALIDATION_FAILED);
+      }
+    });
+
     it('republishing keeps the first publication time and starts a new ad period', async () => {
       const a = await agencyWithOwner(t);
       const id = await createPublished(t, a.ownerSession);

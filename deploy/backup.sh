@@ -35,7 +35,11 @@ BACKUP_LOCK="$SHARED_DIR/.backup.lock"
 [[ -f "$BACKUP_LOCK" && ! -L "$BACKUP_LOCK" ]] ||
   die "잠금 파일이 없습니다: $BACKUP_LOCK — sudo $BIN_DIR/install.sh 를 한 번 다시 실행하세요."
 exec 8>>"$BACKUP_LOCK"
-flock -n 8 || die "다른 백업이 진행 중입니다."
+# deploy.sh holds this lock while it migrates (DDL must not queue behind a dump): wait for it.
+if ! flock -n 8; then
+  log "다른 백업 또는 배포의 DB 마이그레이션이 진행 중입니다 — 기다립니다 (최대 30분)"
+  flock -w 1800 8 || die "30분 안에 잠금을 얻지 못했습니다 (다른 백업/마이그레이션 진행 중)."
+fi
 
 DB_DIR="$BACKUP_DIR/db"
 UP_DIR="$BACKUP_DIR/uploads"

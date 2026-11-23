@@ -49,7 +49,25 @@ function readEnvFile(file) {
   return out;
 }
 
+/** Variable names apps/api/.env.example documents (also the commented-out `# KEY=` ones). */
+function documentedKeys(file) {
+  if (!fs.existsSync(file)) return [];
+  const keys = new Set();
+  for (const raw of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
+    const m = /^\s*#?\s*(?:export\s+)?([A-Z][A-Z0-9_]*)=/.exec(raw);
+    if (m) keys.add(m[1]);
+  }
+  return [...keys];
+}
+
 const env = readEnvFile(path.join(SHARED, '.env'));
+// `pm2 startOrReload --update-env` MERGES the new env into the old one, and @nestjs/config lets
+// process.env win over the .env file: a key deleted from shared/.env would keep its old value
+// (and `pm2 save` would persist it). Every documented key missing from .env is therefore passed
+// as '' — which parseEnv treats as unset — so deleting a line really unsets it.
+for (const key of documentedKeys(path.join(__dirname, 'apps', 'api', '.env.example'))) {
+  if (!(key in env)) env[key] = '';
+}
 const conf = readEnvFile(path.join(SHARED, 'deploy.conf'));
 const LOG_DIR = path.join(conf.LOG_DIR || '/var/log/house', 'pm2');
 
@@ -63,8 +81,8 @@ const WEB_PORT = num(conf.WEB_PORT, 3000);
 const ADMIN_PORT = num(conf.ADMIN_PORT, 3001);
 
 const apiDir = path.join(CURRENT, 'apps', 'api');
-// A dedicated worker entry (no HTTP server) is used once apps/api builds dist/worker.js;
-// until then the worker is a second main.js bound to 127.0.0.1:WORKER_PORT with jobs enabled.
+// Releases built before apps/api shipped dist/worker.js ran the worker as a second main.js on
+// WORKER_PORT; keep that fallback so a rollback to such a release still has a worker.
 const dedicatedWorker = fs.existsSync(path.join(apiDir, 'dist', 'worker.js'));
 
 const common = {

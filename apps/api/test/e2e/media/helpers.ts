@@ -1,7 +1,8 @@
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
-import { HEADER_NAMES } from '@house/shared';
+import { HEADER_NAMES, type OwnMediaView } from '@house/shared';
 import type { Test } from 'supertest';
+import { MediaProcessingService } from '../../../src/modules/media/media-processing.service';
 import {
   HEIC_DECODER,
   type HeicDecoder,
@@ -76,6 +77,23 @@ export function upload(
     });
   }
   return req;
+}
+
+/**
+ * Image upload as the API answers it (202 PENDING: images are only decoded by the worker), then
+ * the worker's processing step run directly. Resolves to the READY row as the uploader sees it.
+ */
+export async function uploadReady(
+  t: TestApp,
+  session: TestSession,
+  opts: Parameters<typeof upload>[2],
+): Promise<OwnMediaView> {
+  const res = await upload(t, session, opts).expect(202);
+  const id = (res.body as OwnMediaView).id;
+  await expect(t.app.get(MediaProcessingService).processPending(id)).resolves.toBe('READY');
+  const path = opts.admin ? `/api/v1/admin/media/${id}` : `/api/v1/media/${id}`;
+  const view = await withSession(t.http().get(path), session).expect(200);
+  return view.body as OwnMediaView;
 }
 
 /** CSRF header without the matching cookie value. */

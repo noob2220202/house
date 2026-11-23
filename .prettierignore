@@ -6,3 +6,7 @@ coverage
 pnpm-lock.yaml
 apps/api/prisma/schema/migrations/**/*.sql
 next-env.d.ts
+# Design drafts and design/frontend workflow tooling are kept byte-for-byte as delivered.
+design/
+.claude/
+tools/

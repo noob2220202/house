@@ -3,6 +3,7 @@ import {
   DealType,
   MAP_MAX_MARKERS,
   MapResultKind,
+  type Bbox,
   type DealTypeStatsMap,
   type MapCluster,
   type MapComplexMarker,
@@ -44,7 +45,7 @@ const newGroup = (): Group => ({ count: 0, latSum: 0, lngSum: 0, byDealType: {} 
 const round7 = (n: number): number => Math.round(n * 1e7) / 1e7;
 
 /**
- * Map search: 읍면동 clusters (low zoom), ST_SnapToGrid clusters (mid zoom), or 단지 + 개별 매물
+ * Map search: 읍면동 clusters (low zoom), tile-aligned grid clusters (mid zoom), or 단지 + 개별 매물
  * markers (high zoom). Results are computed for the tile-aligned bbox and cached briefly in Redis.
  */
 @Injectable()
@@ -86,7 +87,7 @@ export class MapSearchService {
         return { ...base, clusters, total: clusters.reduce((n, c) => n + c.count, 0) };
       }
       case MapResultKind.GRID_CLUSTERS: {
-        const clusters = await this.gridClusters(where, plan.gridSize);
+        const clusters = await this.gridClusters(where, plan.gridSize, plan.bbox);
         return { ...base, clusters, total: clusters.reduce((n, c) => n + c.count, 0) };
       }
       case MapResultKind.MARKERS: {
@@ -142,8 +143,8 @@ export class MapSearchService {
       .sort((a, b) => b.count - a.count);
   }
 
-  private async gridClusters(where: Prisma.Sql, size: number): Promise<MapCluster[]> {
-    const rows = await this.repo.gridAggregates(where, size);
+  private async gridClusters(where: Prisma.Sql, size: number, tile: Bbox): Promise<MapCluster[]> {
+    const rows = await this.repo.gridAggregates(where, size, tile);
     const groups = new Map<string, Group>();
     for (const r of rows) {
       const key = `${round7(r.cx)}:${round7(r.cy)}`;

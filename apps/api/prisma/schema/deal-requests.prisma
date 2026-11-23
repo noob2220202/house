@@ -134,6 +134,7 @@ model DealRequestPhoto {
   media       Media       @relation(fields: [mediaId], references: [id], onDelete: Restrict)
 
   @@unique([dealRequestId, mediaId])
+  @@index([mediaId])
   @@map("deal_request_photos")
 }
 

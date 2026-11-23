@@ -170,9 +170,7 @@ describe('listings query performance (e2e, 20k rows)', () => {
   it('map: grid clusters over a district bbox use the GIST index', async () => {
     const bbox = { swLng: 127.4, swLat: 34.9, neLng: 127.45, neLat: 34.95 };
     const where = repo.publicWhere(none, bbox);
-    const sql = Prisma.sql`SELECT ST_SnapToGrid(l.location::geometry, 0.005) AS cell, count(*)
-      FROM listings l WHERE ${where} GROUP BY 1`;
-    const r = await explain('map grid (district)', sql);
+    const r = await explain('map grid (district)', repo.gridSql(where, 0.005, bbox));
     expect(r.indexes).toContain('listings_location_idx');
     expect(r.ms).toBeLessThan(100);
   });
@@ -199,6 +197,20 @@ describe('listings query performance (e2e, 20k rows)', () => {
     );
     // Covers every row, so a sequential scan is the right plan here; it must still be quick.
     expect(r.ms).toBeLessThan(150);
+  });
+
+  it('co-broker counts for a page are scoped to its ids (no listing_agencies scan)', async () => {
+    const ids = (
+      await t.prisma.$queryRaw<{ id: string }[]>(
+        repo.listSql(none, undefined, ListingSort.LATEST, 0, 20),
+      )
+    ).map((r) => r.id);
+    expect(ids).toHaveLength(20);
+    const r = await explain('co-broker counts (20 ids)', repo.agencyCountsSql(ids));
+    expect(r.seqScans).not.toContain('listing_agencies');
+    expect(r.ms).toBeLessThan(20);
+    const counts = await repo.agencyCounts(ids);
+    expect([...counts.values()]).toEqual(ids.map(() => 1));
   });
 
   it('agency listing list uses listing_agencies(agency_id, status)', async () => {

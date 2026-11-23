@@ -1,9 +1,16 @@
-import { listingDraftSchema, listingPhotosSchema, listingUpdateSchema } from '../schemas/listings';
+import {
+  listingDraftSchema,
+  listingPhotosSchema,
+  listingUpdateSchema,
+  maintenanceFeeSchema,
+  type MaintenanceFee,
+} from '../schemas/listings';
 import { checkPublishRequirements, type PublishCheckInput } from './publish';
 import {
   AGENCY_EDITABLE_STATUSES,
   applicablePrices,
   canAgencyTransition,
+  effectiveBuildingUse,
   floorClassOf,
   floorLabel,
   priceSortOf,
@@ -130,7 +137,13 @@ describe('checkPublishRequirements (표시·광고 명시사항)', () => {
     expect(
       fields(
         complete({
-          property: { assetType: 'HOUSE', floor: null, exclusiveArea: null, totalFloorArea: 120 },
+          property: {
+            assetType: 'HOUSE',
+            buildingUse: 'DETACHED_HOUSE',
+            floor: null,
+            exclusiveArea: null,
+            totalFloorArea: 120,
+          },
         }),
       ),
     ).toEqual([]);
@@ -148,7 +161,13 @@ describe('checkPublishRequirements (표시·광고 명시사항)', () => {
       fields(complete({ floorDisplay: 'CLASS', property: { assetType: 'APT', floor: 9 } })),
     ).toEqual([]);
     // 단독주택 may omit 해당 층.
-    expect(fields(complete({ property: { assetType: 'HOUSE', floor: null } }))).toEqual([]);
+    expect(
+      fields(
+        complete({
+          property: { assetType: 'HOUSE', buildingUse: 'MULTI_FAMILY_HOUSE', floor: null },
+        }),
+      ),
+    ).toEqual([]);
   });
 
   it('소재지(법정동) is required for every asset type', () => {
@@ -160,6 +179,162 @@ describe('checkPublishRequirements (표시·광고 명시사항)', () => {
   it('입주가능일 DATE requires the date', () => {
     expect(fields(complete({ moveInType: 'DATE' }))).toEqual(['moveIn']);
     expect(fields(complete({ moveInType: 'DATE', moveInDate: '2027-03-01' }))).toEqual([]);
+  });
+
+  describe('중개대상물 종류 = 건축물 용도 (건축법 시행령 별표1)', () => {
+    it('원룸·투룸, 주택, 상업·업무 must state the building use', () => {
+      for (const assetType of ['ONEROOM', 'HOUSE', 'COMMERCIAL'] as const) {
+        expect(fields(complete({ property: { assetType } }))).toEqual(['property.buildingUse']);
+        expect(
+          fields(complete({ property: { assetType, buildingUse: 'NEIGHBORHOOD_FACILITY_2' } })),
+        ).toEqual([]);
+      }
+      expect(checkPublishRequirements(complete({ property: { assetType: 'ONEROOM' } }))).toEqual([
+        { field: 'property.buildingUse', label: '중개대상물 종류(건축물 용도)' },
+      ]);
+    });
+
+    it('아파트/오피스텔 imply their use; 토지 needs none', () => {
+      expect(fields(complete({ property: { assetType: 'OFFICETEL' } }))).toEqual([]);
+      expect(effectiveBuildingUse('APT', null)).toBe('APARTMENT');
+      expect(effectiveBuildingUse('OFFICETEL', undefined)).toBe('OFFICETEL');
+      expect(effectiveBuildingUse('APT', 'MULTIPLEX_HOUSE')).toBe('MULTIPLEX_HOUSE');
+      expect(effectiveBuildingUse('ONEROOM', null)).toBeNull();
+      expect(effectiveBuildingUse('LAND', null)).toBeNull();
+    });
+  });
+
+  describe('관리비 세부기준 (부과방식 + 항목별 내역)', () => {
+    // The audit probe: 원룸 월세, 정액 15만원, no breakdown — must not be publishable.
+    const oneroom = (over: Partial<PublishCheckInput> = {}) =>
+      complete({
+        dealType: 'MONTHLY',
+        salePrice: null,
+        deposit: 500,
+        monthlyRent: 40,
+        maintenanceFeeWon: 150_000,
+        ...over,
+        property: { assetType: 'ONEROOM', buildingUse: 'MULTI_FAMILY_HOUSE' },
+      });
+
+    it('requires the billing type whenever there is a 관리비', () => {
+      expect(fields(oneroom())).toEqual(['maintenanceFee.billingType']);
+      expect(checkPublishRequirements(oneroom())[0]?.label).toBe('관리비 부과방식');
+      // 0원 (없음) needs neither.
+      expect(fields(oneroom({ maintenanceFeeWon: 0 }))).toEqual([]);
+    });
+
+    it('정액 10만원 이상: every included item needs an amount and they must add up', () => {
+      const fixed = (items: MaintenanceFee['items']) =>
+        fields(oneroom({ maintenanceFee: { billingType: 'FIXED', items } }));
+      expect(fixed([])).toEqual(['maintenanceFee.breakdown']);
+      expect(
+        fixed([
+          { kind: 'GENERAL', included: true },
+          { kind: 'INTERNET', included: true, amountWon: 20_000 },
+        ]),
+      ).toEqual(['maintenanceFee.breakdown']);
+      expect(
+        fixed([
+          { kind: 'GENERAL', included: true, amountWon: 100_000 },
+          { kind: 'WATER', included: true, amountWon: 20_000 },
+        ]),
+      ).toEqual(['maintenanceFee.breakdown']);
+      expect(fixed([{ kind: 'ELECTRICITY', included: false }])).toEqual([
+        'maintenanceFee.breakdown',
+      ]);
+      expect(
+        fixed([
+          { kind: 'GENERAL', included: true, amountWon: 100_000 },
+          { kind: 'WATER', included: true, amountWon: 20_000 },
+          { kind: 'INTERNET', included: true, amountWon: 30_000 },
+          { kind: 'ELECTRICITY', included: false },
+          { kind: 'GAS', included: false },
+        ]),
+      ).toEqual([]);
+      expect(
+        checkPublishRequirements(oneroom({ maintenanceFee: { billingType: 'FIXED', items: [] } })),
+      ).toEqual([{ field: 'maintenanceFee.breakdown', label: '관리비 세부내역' }]);
+    });
+
+    it('정액 10만원 미만 or 실비 정산: the included items, amounts optional', () => {
+      const items = [
+        { kind: 'GENERAL', included: true },
+        { kind: 'WATER', included: true },
+      ] as const;
+      expect(
+        fields(
+          oneroom({
+            maintenanceFeeWon: 50_000,
+            maintenanceFee: { billingType: 'FIXED', items: [] },
+          }),
+        ),
+      ).toEqual(['maintenanceFee.breakdown']);
+      expect(
+        fields(
+          oneroom({
+            maintenanceFeeWon: 50_000,
+            maintenanceFee: { billingType: 'FIXED', items: [...items] },
+          }),
+        ),
+      ).toEqual([]);
+      expect(
+        fields(oneroom({ maintenanceFee: { billingType: 'ACTUAL', items: [...items] } })),
+      ).toEqual([]);
+    });
+
+    it('확인불가: a stated reason replaces the breakdown', () => {
+      expect(fields(oneroom({ maintenanceFee: { billingType: 'UNKNOWN', items: [] } }))).toEqual([
+        'maintenanceFee.billingType',
+      ]);
+      expect(
+        fields(
+          oneroom({
+            maintenanceFee: {
+              billingType: 'UNKNOWN',
+              items: [],
+              unavailableReason: '임대인 미고지',
+            },
+          }),
+        ),
+      ).toEqual([]);
+      expect(
+        fields(
+          oneroom({
+            maintenanceFee: { billingType: 'FIXED', items: [], unavailableReason: '임대인 미고지' },
+          }),
+        ),
+      ).toEqual([]);
+    });
+
+    it('schema: unique kinds, UNKNOWN needs a reason, non-negative amounts', () => {
+      expect(
+        maintenanceFeeSchema.safeParse({
+          billingType: 'FIXED',
+          items: [
+            { kind: 'WATER', included: true },
+            { kind: 'WATER', included: false },
+          ],
+        }).success,
+      ).toBe(false);
+      expect(maintenanceFeeSchema.safeParse({ billingType: 'UNKNOWN' }).success).toBe(false);
+      expect(
+        maintenanceFeeSchema.safeParse({
+          billingType: 'UNKNOWN',
+          unavailableReason: '임대인 미고지',
+        }).success,
+      ).toBe(true);
+      expect(
+        maintenanceFeeSchema.safeParse({
+          billingType: 'FIXED',
+          items: [{ kind: 'GENERAL', included: true, amountWon: -1 }],
+        }).success,
+      ).toBe(false);
+      expect(maintenanceFeeSchema.parse({ billingType: 'ACTUAL' })).toEqual({
+        billingType: 'ACTUAL',
+        items: [],
+      });
+    });
   });
 });
 
@@ -236,10 +411,29 @@ describe('listing write schemas', () => {
 
   it('draft applies defaults and requires the map position', () => {
     const d = listingDraftSchema.parse({ dealType: 'SALE', property });
-    expect(d).toMatchObject({ floorDisplay: 'EXACT', options: [], maintenanceFeeItems: [] });
+    expect(d).toMatchObject({ floorDisplay: 'EXACT', options: [] });
+    expect(d.maintenanceFee).toBeUndefined();
     expect(
       listingDraftSchema.safeParse({ dealType: 'SALE', property: { assetType: 'APT' } }).success,
     ).toBe(false);
+  });
+
+  it('buildingUse is a 건축법 용도, not free text; maintenanceFee is structured', () => {
+    expect(
+      listingDraftSchema.safeParse({
+        dealType: 'SALE',
+        property: { ...property, buildingUse: '원룸' },
+      }).success,
+    ).toBe(false);
+    expect(
+      listingDraftSchema.parse({
+        dealType: 'MONTHLY',
+        property: { ...property, assetType: 'ONEROOM', buildingUse: 'MULTIPLEX_HOUSE' },
+        maintenanceFee: { billingType: 'FIXED', items: [{ kind: 'GENERAL', included: true }] },
+      }),
+    ).toMatchObject({ property: { buildingUse: 'MULTIPLEX_HOUSE' } });
+    expect(listingUpdateSchema.parse({ maintenanceFee: null })).toEqual({ maintenanceFee: null });
+    expect(listingUpdateSchema.safeParse({ maintenanceFeeItems: ['수도'] }).success).toBe(false);
   });
 
   it('update: null clears optional fields, required ones cannot be cleared, empty patch fails', () => {

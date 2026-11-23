@@ -58,6 +58,7 @@ import {
 } from '../ports/agency-membership.port';
 import { LISTING_MEDIA, type ListingMediaPort } from '../ports/listing-media.port';
 import { ListingCountersService } from './listing-counters.service';
+import { ListingSummariesService } from './listing-summaries.service';
 
 type ListingWithProperty = Listing & { property: Property };
 
@@ -104,6 +105,7 @@ export class AgencyListingsService {
     private readonly prisma: PrismaService,
     private readonly config: AppConfig,
     private readonly mapper: ListingMapper,
+    private readonly summaries: ListingSummariesService,
     private readonly counters: ListingCountersService,
     @Inject(LISTING_AGENCY_MEMBERSHIP) private readonly membership: AgencyMembershipPort,
     @Inject(LISTING_MEDIA) private readonly media: ListingMediaPort,
@@ -132,7 +134,7 @@ export class AgencyListingsService {
           select: LISTING_SUMMARY_SELECT,
           ...args,
         });
-        return rows.map((r) => this.mapper.summary(r));
+        return this.summaries.map(rows);
       },
       () => this.prisma.listing.count({ where }),
     );
@@ -420,16 +422,25 @@ export class AgencyListingsService {
     const current = await this.loadForActor(id, actor, { primaryOnly: true });
     this.assertEditable(current.status);
     const ids = dto.photos.map((p) => p.mediaId);
-    await this.media.assertUsableForListing(ids, { userId: actor.userId, listingId: id });
     const cover = dto.coverMediaId ?? ids[0];
 
     await this.prisma.$transaction(async (tx) => {
+      await this.media.assertUsableForListing(ids, { userId: actor.userId, listingId: id }, tx);
       const { count } = await tx.listing.updateMany({
         where: { id, deletedAt: null, status: { in: [...AGENCY_EDITABLE_STATUSES] } },
         data: { photoCount: dto.photos.length, version: { increment: 1 } },
       });
       if (count === 0) throw concurrentModification();
+      const previous = await tx.listingPhoto.findMany({
+        where: { listingId: id },
+        select: { mediaId: true },
+      });
       await tx.listingPhoto.deleteMany({ where: { listingId: id } });
+      const kept = new Set(ids);
+      await this.media.released(
+        previous.map((p) => p.mediaId).filter((m) => !kept.has(m)),
+        tx,
+      );
       if (dto.photos.length > 0) {
         await tx.listingPhoto.createMany({
           data: dto.photos.map((p, i) => ({

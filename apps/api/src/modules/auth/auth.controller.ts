@@ -29,15 +29,17 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { AppException } from '../../common/errors/app.exception';
 import { THROTTLE } from '../../common/throttle/throttle.constants';
-import { SessionIdParamDto, SignupDto } from './dto';
+import { SessionIdParamDto, SignupDto, WithdrawDto } from './dto';
 import { OAuthProviderRegistry } from './oauth/oauth-registry';
 import { randomToken } from './oauth/oauth-state.store';
 import { readSessionCookie, SessionService } from './session/session.service';
 import { SignupService } from './signup/signup.service';
+import { SkipTermsCheck } from './terms/skip-terms-check.decorator';
 import { AccountService } from './users/account.service';
 
 @ApiTags('auth')
 @Controller('auth')
+@SkipTermsCheck()
 export class AuthController {
   constructor(
     private readonly sessions: SessionService,
@@ -143,5 +145,22 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<SignupResponse> {
     return this.signup.complete(req, res, dto);
+  }
+
+  /**
+   * 회원 탈퇴 of a suspended member (no session): authenticated by the `house_withdraw` ticket the
+   * refused social login set (redirect `/login?error=AUTH_ACCOUNT_SUSPENDED&withdrawable=1`).
+   * Logged-in members use POST /me/withdraw.
+   */
+  @Public()
+  @Post('withdraw')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle(THROTTLE.AUTH)
+  withdrawSuspended(
+    @Body() dto: WithdrawDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
+    return this.accounts.withdrawWithTicket(req, res, dto);
   }
 }

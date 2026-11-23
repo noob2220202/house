@@ -190,6 +190,51 @@ describe('admin terms (e2e)', () => {
     expect(JSON.stringify(audit?.after)).not.toContain('제1조');
   });
 
+  it('marketing and location consent can never be made required', async () => {
+    const { session: admin } = await adminActor(t, AdminRole.ADMIN);
+    for (const type of [TermsType.MARKETING, TermsType.LOCATION]) {
+      await as(t, admin, 'post', '/admin/terms')
+        .send(draft({ type, isRequired: true }))
+        .expect(400);
+      const optional = await as(t, admin, 'post', '/admin/terms')
+        .send(draft({ type, isRequired: false }))
+        .expect(201);
+      expectCode(
+        await as(t, admin, 'patch', `/admin/terms/${optional.body.id}`)
+          .send({ isRequired: true })
+          .expect(400),
+        ErrorCode.TERMS_OPTIONAL_ONLY,
+      );
+      expect(
+        (await t.prisma.termsDocument.findUniqueOrThrow({ where: { id: optional.body.id } }))
+          .isRequired,
+      ).toBe(false);
+    }
+    // A draft stored as required before the rule existed cannot be published.
+    const legacy = await t.prisma.termsDocument.create({
+      data: {
+        type: TermsType.MARKETING,
+        version: '9.0',
+        title: '마케팅 정보 수신 동의',
+        content: '광고성 정보',
+        isRequired: true,
+        effectiveAt: new Date(Date.now() + DAY),
+      },
+    });
+    const res = await as(t, admin, 'post', `/admin/terms/${legacy.id}/publish`).expect(400);
+    expectCode(res, ErrorCode.TERMS_OPTIONAL_ONLY);
+    expect(res.body.details).toMatchObject({ type: TermsType.MARKETING });
+    expect(
+      (await t.prisma.termsDocument.findUniqueOrThrow({ where: { id: legacy.id } })).publishedAt,
+    ).toBeNull();
+    // Unsetting the flag on that draft is allowed, then it publishes as an optional consent.
+    await as(t, admin, 'patch', `/admin/terms/${legacy.id}`)
+      .send({ isRequired: false })
+      .expect(200);
+    const pub = await as(t, admin, 'post', `/admin/terms/${legacy.id}/publish`).expect(200);
+    expect(pub.body).toMatchObject({ isRequired: false, requiresReconsent: false });
+  });
+
   it('validation failures (400)', async () => {
     const { session: admin } = await adminActor(t, AdminRole.ADMIN);
     await as(t, admin, 'post', '/admin/terms')

@@ -254,6 +254,74 @@ pg_run() (
   "$@"
 )
 
+# ─── migrations ─────────────────────────────────────────────────────────────────────────────
+# `prisma migrate deploy` runs against the live DB while the old release serves. A DDL statement
+# waiting for its ACCESS EXCLUSIVE lock (behind a long query or pg_dump) would queue every API
+# query on that table behind it, so it gives up after MIGRATE_LOCK_TIMEOUT instead.
+MIGRATE_LOCK_TIMEOUT=5s
+MIGRATE_STATEMENT_TIMEOUT=15min
+MIG_PSQL=(psql -X -q -At -v ON_ERROR_STOP=1)
+
+# migrate_db_url <url>: the URL with lock/statement timeouts as libpq `options`. Prisma's schema
+# engine ignores PGOPTIONS but honours this parameter. A URL that already sets options is kept.
+migrate_db_url() {
+  local url="$1"
+  local opts="-c%20lock_timeout%3D${MIGRATE_LOCK_TIMEOUT}%20-c%20statement_timeout%3D${MIGRATE_STATEMENT_TIMEOUT}"
+  if [[ "$url" =~ [?\&]options= ]]; then
+    printf '%s' "$url"
+  elif [[ "$url" == *\?* ]]; then
+    printf '%s&options=%s' "$url" "$opts"
+  else
+    printf '%s?options=%s' "$url" "$opts"
+  fi
+}
+
+# The queries below run as the app role (DATABASE_URL); a query error is returned, never hidden.
+db_has_migrations_table() {
+  local has
+  has="$(pg_run "${MIG_PSQL[@]}" -c "select to_regclass('public._prisma_migrations') is not null")" || return 2
+  [[ "$has" == t ]]
+}
+# Migrations that started but neither finished nor were marked rolled back (Prisma P3009 state).
+db_failed_migrations() {
+  local rc=0
+  db_has_migrations_table || rc=$?
+  ((rc == 1)) && return 0
+  ((rc == 0)) || return "$rc"
+  pg_run "${MIG_PSQL[@]}" -c \
+    "select migration_name from _prisma_migrations where finished_at is null and rolled_back_at is null order by started_at"
+}
+db_applied_migrations() {
+  local rc=0
+  db_has_migrations_table || rc=$?
+  ((rc == 1)) && return 0
+  ((rc == 0)) || return "$rc"
+  pg_run "${MIG_PSQL[@]}" -c \
+    "select migration_name from _prisma_migrations where finished_at is not null and rolled_back_at is null order by migration_name"
+}
+release_migrations() {
+  find "$1/apps/api/prisma/schema/migrations" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort
+}
+# migrations_unknown_to <release>: migrations applied to the DB that <release> does not ship.
+# Older code can break on them (e.g. Prisma throws on an enum value its client does not know).
+migrations_unknown_to() {
+  local applied known
+  applied="$(db_applied_migrations)" || return 1
+  known="$(release_migrations "$1")"
+  [[ -n "$applied" ]] || return 0
+  comm -23 <(sort <<<"$applied") <(sed '/^$/d' <<<"$known")
+}
+
+# Recovery command for a failed (P3009) migration, run from the live release.
+migrate_resolve_hint() {
+  local name="$1"
+  warn "실패한 마이그레이션: $name — 이 상태에서는 다음 배포의 마이그레이션도 모두 멈춥니다 (Prisma P3009)."
+  warn "  1) 원인(SQL 오류, 잠금 대기 시간 초과 등)을 확인하고 고친 커밋을 준비합니다. 자세한 절차: docs/OPERATIONS.md 'P3009 복구'"
+  warn "  2) 변경이 DB에 남지 않았다면(보통 그렇습니다 — 마이그레이션은 한 트랜잭션) 실패 기록을 정리:"
+  warn "     sudo -u $HOUSE_USER -H bash -c 'cd $CURRENT_LINK/apps/api && pnpm exec prisma migrate resolve --rolled-back $name'"
+  warn "  3) 그 다음 다시 배포: sudo $HOUSE_ROOT/deploy.sh"
+}
+
 # ─── users / environment ────────────────────────────────────────────────────────────────────
 # Clean environment for anything that runs as the service user: nothing from root's shell
 # (npm/pnpm config, tokens) reaches builds or the apps.

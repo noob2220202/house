@@ -2,8 +2,10 @@
 // money is 만원 except 관리비 in 원, areas are ㎡ with 평 for display).
 import type { Paginated } from '../schemas/common';
 import type { MapResultKind } from '../constants/map';
+import type { MaintenanceFee } from '../schemas/listings';
 import type {
   AssetType,
+  BuildingUse,
   DealType,
   Direction,
   DirectionBasis,
@@ -92,7 +94,8 @@ export interface ListingAgencyDisclosure {
 
 export interface ListingDetail extends ListingSummary {
   description: string | null;
-  maintenanceFeeItems: string[];
+  /** 관리비 부과방식 + 항목별 내역 (null = not entered; maintenanceFeeWon 0 = 없음). */
+  maintenanceFee: MaintenanceFee | null;
   moveInType: MoveInType | null;
   moveInDate: string | null;
   floorDisplay: FloorDisplay;
@@ -118,7 +121,8 @@ export interface ListingDetail extends ListingSummary {
     heatingType: string | null;
     zoning: string | null;
     landCategory: string | null;
-    buildingUse: string | null;
+    /** 건축물 용도 (중개대상물 종류); implied for 아파트/오피스텔 when not stated. */
+    buildingUse: BuildingUse | null;
   };
   complex: { id: string; name: string; households: number | null; builtYear: number | null } | null;
   photos: PhotoUrls[];

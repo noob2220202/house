@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { z } from 'zod';
 
 const bool = z
@@ -86,12 +87,29 @@ export const envSchema = z
       .regex(/^\d{5}$/)
       .default('46150'),
 
-    /** Register BullMQ repeatable jobs at boot (disable in tests). */
-    JOBS_ENABLED: bool.default(true),
+    /**
+     * Run BullMQ processors + register repeatable jobs. Forced by the entry point (main.ts: false,
+     * worker.ts: true, see process-role.ts); only tests set it themselves (false).
+     */
+    JOBS_ENABLED: bool.default(false),
     THROTTLE_TTL_MS: z.coerce.number().int().positive().default(60_000),
-    THROTTLE_LIMIT: z.coerce.number().int().positive().default(300),
+    // Global per-route default, keyed per user (session) or else per client IP. Matches nginx's
+    // 20 r/s per IP; strict limits for auth/report/deal-request are set per route (THROTTLE.*).
+    THROTTLE_LIMIT: z.coerce.number().int().positive().default(1200),
   })
   .superRefine((env, ctx) => {
+    // Private documents must never be reachable under the public /media root (and vice versa).
+    const pub = path.resolve(env.UPLOAD_DIR);
+    const priv = path.resolve(env.PRIVATE_UPLOAD_DIR);
+    const inside = (child: string, parent: string) =>
+      child === parent || child.startsWith(parent + path.sep);
+    if (inside(pub, priv) || inside(priv, pub)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PRIVATE_UPLOAD_DIR'],
+        message: 'UPLOAD_DIR and PRIVATE_UPLOAD_DIR must not contain each other',
+      });
+    }
     if (env.NODE_ENV !== 'production') return;
     if (env.COOKIE_SECURE === false) {
       ctx.addIssue({

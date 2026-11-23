@@ -11,7 +11,7 @@ import {
   type TestSession,
 } from '../../utils';
 import { jpegWithExif, pdf, png } from './fixtures';
-import { createMediaTestApp, itemIds, upload, type MediaTestApp } from './helpers';
+import { createMediaTestApp, itemIds, upload, uploadReady, type MediaTestApp } from './helpers';
 
 const BAD_ID = 'not-a-uuid';
 
@@ -30,8 +30,8 @@ describe('media library: GET/DELETE /api/v1/media (e2e)', () => {
   }
 
   async function uploadPng(s: TestSession, purpose = 'DEAL_REQUEST_PHOTO') {
-    const res = await upload(t, s, { purpose, file: await png(), filename: 'p.png' }).expect(201);
-    return res.body as { id: string; url: string; variants: Record<string, { url: string }> };
+    const view = await uploadReady(t, s, { purpose, file: await png(), filename: 'p.png' });
+    return view as { id: string; url: string; variants: Record<string, { url: string }> };
   }
 
   async function uploadDoc(s: TestSession) {
@@ -225,10 +225,9 @@ describe('media library: GET/DELETE /api/v1/media (e2e)', () => {
           agencyId: agency.id,
         },
       );
-      const res = await upload(t, s, {
-        purpose: 'LISTING_PHOTO',
-        file: await jpegWithExif(),
-      }).expect(201);
+      const res = {
+        body: await uploadReady(t, s, { purpose: 'LISTING_PHOTO', file: await jpegWithExif() }),
+      };
       const { listing } = await createListing(t.prisma, { agencyId: agency.id });
       await t.prisma.listingPhoto.create({ data: { listingId: listing.id, mediaId: res.body.id } });
 

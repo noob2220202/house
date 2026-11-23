@@ -2,15 +2,20 @@ import {
   ErrorCode,
   PUBLIC_LISTING_STATUSES,
   RecentViewTarget,
+  type Bbox,
   type ListingDetail,
+  type ListingFilter,
   type ListingListQuery,
   type ListingPage,
 } from '@house/shared';
 import { Injectable } from '@nestjs/common';
 import type { Principal } from '../../../common/auth/principal';
+import { CacheService } from '../../../common/cache/cache.service';
 import { AppException } from '../../../common/errors/app.exception';
 import { toPaginated } from '../../../common/pagination/pagination';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { LISTINGS_SEARCH_CACHE_NS, MAP_TILE_CACHE_TTL_SECONDS } from '../constants';
+import { filterFingerprint } from '../domain/map-tiles';
 import { ListingSearchRepository } from '../listing-search.repository';
 import { ListingMapper } from '../listing.mapper';
 import {
@@ -20,6 +25,7 @@ import {
 } from '../listing.selects';
 import { FavoritesService } from './favorites.service';
 import { ListingViewsService } from './listing-views.service';
+import { ListingSummariesService } from './listing-summaries.service';
 import { RecentViewsService } from './recent-views.service';
 
 /** Public read side: sorted/paginated search and the listing detail page. */
@@ -32,6 +38,8 @@ export class ListingQueryService {
     private readonly views: ListingViewsService,
     private readonly recent: RecentViewsService,
     private readonly favorites: FavoritesService,
+    private readonly summaries: ListingSummariesService,
+    private readonly cache: CacheService,
   ) {}
 
   async list(q: ListingListQuery): Promise<ListingPage> {
@@ -39,7 +47,7 @@ export class ListingQueryService {
     const offset = (page - 1) * pageSize;
     const [ids, total] = await Promise.all([
       this.search.listIds(filter, bbox, sort, offset, pageSize),
-      this.search.count(this.search.publicWhere(filter, bbox)),
+      this.total(filter, bbox),
     ]);
     const rows =
       ids.length === 0
@@ -49,11 +57,28 @@ export class ListingQueryService {
             select: LISTING_SUMMARY_SELECT,
           });
     const byId = new Map(rows.map((r) => [r.id, r]));
-    const items = ids.flatMap((id) => {
-      const row = byId.get(id);
-      return row ? [this.mapper.summary(row)] : [];
-    });
+    const items = await this.summaries.map(
+      ids.flatMap((id) => {
+        const row = byId.get(id);
+        return row ? [row] : [];
+      }),
+    );
     return toPaginated(items, total, { page, pageSize });
+  }
+
+  /**
+   * Total matches for (filter, bbox): a full count of the matching rows, so it is cached like map
+   * tiles (same version namespace, bumped on every public-data write; the TTL bounds staleness).
+   * Independent of page and sort, so paging through results reuses it.
+   */
+  private async total(filter: ListingFilter, bbox: Bbox | undefined): Promise<number> {
+    const version = await this.cache.version(LISTINGS_SEARCH_CACHE_NS);
+    const area = bbox ? `${bbox.swLng},${bbox.swLat},${bbox.neLng},${bbox.neLat}` : 'all';
+    return this.cache.getOrSet(
+      `cache:listings:list-total:v${version}:${area}:${filterFingerprint(filter)}`,
+      MAP_TILE_CACHE_TTL_SECONDS,
+      () => this.search.count(this.search.publicWhere(filter, bbox)),
+    );
   }
 
   /** Public detail of an ACTIVE/RESERVED listing; counts a deduped view and a recent view. */

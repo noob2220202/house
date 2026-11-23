@@ -127,6 +127,13 @@ describe('agencies: staff, invites & membership (e2e)', () => {
       );
       const [session] = await t.app.get(SessionService).listForSubject('USER', user.id);
       expect(session).toMatchObject({ role: 'AGENT', agencyId: agency.id });
+      // The self-declared license is ignored: a joiner is a 중개보조원 until the owner confirms.
+      const member = await t.prisma.agencyMember.findFirstOrThrow({
+        where: { agencyId: agency.id, userId: user.id },
+      });
+      expect(member).toMatchObject({ isLicensed: false, licenseNumber: null });
+      const profile = await t.http().get(`/api/v1/agencies/${agency.id}`).expect(200);
+      expect(pluck(profile.body.members, 'id')).not.toContain(member.id);
 
       // Single use.
       const second = await loginUser(t.app, await createUser(t.prisma));
@@ -248,6 +255,84 @@ describe('agencies: staff, invites & membership (e2e)', () => {
       await withSession(t.http().patch(`/api/v1/agencies/mine/members/${memberId}`), s)
         .send({ phone: '02-123-4567' })
         .expect(400);
+    });
+
+    it('PATCH: 소속공인중개사 needs a license number (request or on file)', async () => {
+      const { agency, s } = await ownerSession();
+      const { memberId } = await createAgent(t.prisma, agency.id);
+      const patch = (body: Record<string, unknown>) =>
+        withSession(t.http().patch(`/api/v1/agencies/mine/members/${memberId}`), s).send(body);
+      const missing = await patch({ isLicensed: true }).expect(400);
+      expect(missing.body.code).toBe('VALIDATION_FAILED');
+      await patch({ isLicensed: true, licenseNumber: '!!' }).expect(400);
+      await patch({ isLicensed: true, licenseNumber: '2021-0002' }).expect(200);
+      // Clearing the number of a licensed member is refused (it would stay advertisable).
+      const cleared = await patch({ licenseNumber: null }).expect(400);
+      expect(cleared.body.code).toBe('AGENCY_LICENSE_NUMBER_REQUIRED');
+      const row = await t.prisma.agencyMember.findUniqueOrThrow({ where: { id: memberId } });
+      expect(row).toMatchObject({ isLicensed: true, licenseNumber: '2021-0002' });
+    });
+
+    it('PATCH carries the change onto listing ads: de-licensed → contact moves to the 대표; rename / new phone → ads follow', async () => {
+      const { agency, s } = await ownerSession();
+      const ownerMember = await t.prisma.agencyMember.update({
+        where: { agencyId_userId: { agencyId: agency.id, userId: agency.ownerUserId } },
+        data: { phone: '01011112222' },
+      });
+      const broker = await createAgent(t.prisma, agency.id);
+      await t.prisma.agencyMember.update({
+        where: { id: broker.memberId },
+        data: { isLicensed: true, licenseNumber: '2020-0001' },
+      });
+      const ad = async (contactPhone: string) => {
+        const { listing } = await createListing(t.prisma, { agencyId: agency.id });
+        await t.prisma.listingAgency.update({
+          where: { listingId_agencyId: { listingId: listing.id, agencyId: agency.id } },
+          data: { contactMemberId: broker.memberId, contactName: '김실장', contactPhone },
+        });
+        return listing.id;
+      };
+      const plain = await ad('01099998888');
+      const overridden = await ad('01055556666');
+      const contactOf = async (listingId: string) => {
+        const res = await t.http().get(`/api/v1/listings/${listingId}`).expect(200);
+        return (res.body.agencies as Record<string, unknown>[]).find(
+          (a) => a.agencyId === agency.id,
+        );
+      };
+      const patch = (body: Record<string, unknown>) =>
+        withSession(t.http().patch(`/api/v1/agencies/mine/members/${broker.memberId}`), s)
+          .send(body)
+          .expect(200);
+
+      // Prime the public listing caches, then rename + new phone.
+      await contactOf(plain);
+      await patch({ displayName: '김중개', phone: '010-7777-8888' });
+      expect(await contactOf(plain)).toMatchObject({
+        contactName: '김중개',
+        contactPhone: '01077778888',
+      });
+      // A per-listing phone override is kept.
+      expect(await contactOf(overridden)).toMatchObject({
+        contactName: '김중개',
+        contactPhone: '01055556666',
+      });
+
+      // No longer licensed: the 중개보조원 must not stay named on any ad.
+      await patch({ isLicensed: false });
+      for (const id of [plain, overridden]) {
+        expect(await contactOf(id)).toMatchObject({
+          contactName: ownerMember.displayName,
+          contactPhone: '01011112222',
+        });
+      }
+      expect(
+        await t.prisma.listingAgency.count({ where: { contactMemberId: broker.memberId } }),
+      ).toBe(0);
+
+      // Editing a 중개보조원 touches no ad.
+      await patch({ displayName: '보조원' });
+      expect(await contactOf(plain)).toMatchObject({ contactName: ownerMember.displayName });
     });
 
     it('DELETE /api/v1/agencies/mine/members/:memberId removes an agent and downgrades them', async () => {

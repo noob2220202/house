@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { MAX_LISTING_PHOTOS } from '../constants/media';
 import {
   AssetType,
+  BuildingUse,
   DealType,
   Direction,
   DirectionBasis,
@@ -11,6 +12,8 @@ import {
   ListingOption,
   ListingSort,
   ListingStatus,
+  MaintenanceFeeBillingType,
+  MaintenanceFeeKind,
   MoveInType,
   RecentViewTarget,
   VerificationMethod,
@@ -148,7 +151,8 @@ const propertyShape = {
   heatingType: text(50),
   zoning: text(50),
   landCategory: text(20),
-  buildingUse: text(50),
+  /** 건축물 용도 (건축물대장, 건축법 시행령 별표1) — 표시·광고의 「중개대상물 종류」. */
+  buildingUse: z.enum(BuildingUse),
 };
 const REQUIRED_PROPERTY_KEYS = ['assetType', 'roadAddress', 'lat', 'lng'] as const;
 type PropertyShape = typeof propertyShape;
@@ -201,6 +205,36 @@ export const listingContactSchema = z.object({
 });
 export type ListingContactInput = z.infer<typeof listingContactSchema>;
 
+/**
+ * 관리비 세부내역 (「중개대상물의 표시·광고 명시사항 세부기준」). Each kind appears at most once;
+ * `included` = part of the monthly 관리비, `amountWon` = that item's monthly amount (원).
+ */
+export const maintenanceFeeItemSchema = z.object({
+  kind: z.enum(MaintenanceFeeKind),
+  included: z.boolean(),
+  amountWon: z.int().min(0).max(100_000_000).nullable().optional(),
+});
+export type MaintenanceFeeItem = z.infer<typeof maintenanceFeeItemSchema>;
+
+export const maintenanceFeeSchema = z
+  .object({
+    billingType: z.enum(MaintenanceFeeBillingType),
+    items: z
+      .array(maintenanceFeeItemSchema)
+      .max(Object.keys(MaintenanceFeeKind).length)
+      .refine((items) => new Set(items.map((i) => i.kind)).size === items.length, {
+        message: '같은 관리비 항목이 중복되었습니다.',
+      })
+      .default([]),
+    /** Why the breakdown cannot be shown (e.g. 임대인 미고지) — the rule allows stating that instead. */
+    unavailableReason: text(200).nullable().optional(),
+  })
+  .refine((v) => v.billingType !== MaintenanceFeeBillingType.UNKNOWN || !!v.unavailableReason, {
+    path: ['unavailableReason'],
+    message: '관리비를 확인할 수 없는 사유를 입력해 주세요.',
+  });
+export type MaintenanceFee = z.infer<typeof maintenanceFeeSchema>;
+
 const listingShape = {
   dealType: z.enum(DealType),
   title: text(80),
@@ -213,7 +247,8 @@ const listingShape = {
   premium: z.int().min(-10_000_000).max(10_000_000),
   /** 관리비 (원/월, 0 = 없음) */
   maintenanceFeeWon: z.int().min(0).max(100_000_000),
-  maintenanceFeeItems: z.array(text(30)).max(20),
+  /** 관리비 부과방식 + 항목별 내역. */
+  maintenanceFee: maintenanceFeeSchema,
   moveInType: z.enum(MoveInType),
   moveInDate: dateOnlySchema,
   floorDisplay: z.enum(FloorDisplay),
@@ -246,7 +281,6 @@ export const listingDraftSchema = z
     dealType: listingShape.dealType,
     floorDisplay: listingShape.floorDisplay.default(FloorDisplay.EXACT),
     options: listingShape.options.default([]),
-    maintenanceFeeItems: listingShape.maintenanceFeeItems.default([]),
     property: propertyInputSchema,
     contact: listingContactSchema.optional(),
   })
@@ -260,12 +294,12 @@ export const listingUpdateSchema = z
     ...(Object.fromEntries(
       (Object.keys(listingShape) as ListingKey[]).map((k) => [
         k,
-        k === 'dealType' || k === 'floorDisplay' || k === 'options' || k === 'maintenanceFeeItems'
+        k === 'dealType' || k === 'floorDisplay' || k === 'options'
           ? listingShape[k].optional()
           : listingShape[k].nullable().optional(),
       ]),
     ) as {
-      [K in ListingKey]: K extends 'dealType' | 'floorDisplay' | 'options' | 'maintenanceFeeItems'
+      [K in ListingKey]: K extends 'dealType' | 'floorDisplay' | 'options'
         ? z.ZodOptional<ListingShape[K]>
         : z.ZodOptional<z.ZodNullable<ListingShape[K]>>;
     }),

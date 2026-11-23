@@ -1,6 +1,7 @@
-import { applicablePrices } from '@house/shared';
+import { applicablePrices, maintenanceFeeSchema } from '@house/shared';
 import type {
   AssetType,
+  BuildingUse,
   DealType,
   Direction,
   DirectionBasis,
@@ -8,12 +9,13 @@ import type {
   ListingDraftInput,
   ListingOption,
   ListingUpdateInput,
+  MaintenanceFee,
   MoveInType,
   PropertyInput,
   PropertyUpdateInput,
   PublishCheckInput,
 } from '@house/shared';
-import type { Listing, Property } from '@prisma/client';
+import { Prisma, type Listing, type Property } from '@prisma/client';
 import { decimalToNumber } from '../../../common/utils/decimal';
 import { dateOnlyToDate } from './dates';
 import {
@@ -54,7 +56,7 @@ export interface PropertyState {
   heatingType: string | null;
   zoning: string | null;
   landCategory: string | null;
-  buildingUse: string | null;
+  buildingUse: BuildingUse | null;
 }
 
 export interface ListingState {
@@ -67,7 +69,7 @@ export interface ListingState {
   presalePrice: number | null;
   premium: number | null;
   maintenanceFeeWon: number | null;
-  maintenanceFeeItems: string[];
+  maintenanceFee: MaintenanceFee | null;
   moveInType: MoveInType | null;
   moveInDate: Date | null;
   floorDisplay: FloorDisplay;
@@ -166,12 +168,22 @@ export function listingStateFromInput(d: ListingDraftInput): ListingState {
     presalePrice: orNull(d.presalePrice),
     premium: orNull(d.premium),
     maintenanceFeeWon: orNull(d.maintenanceFeeWon),
-    maintenanceFeeItems: d.maintenanceFeeItems,
+    maintenanceFee: orNull(d.maintenanceFee),
     moveInType: orNull(d.moveInType),
     moveInDate: dateOrNull(d.moveInDate),
     floorDisplay: d.floorDisplay,
     options: d.options,
   };
+}
+
+/**
+ * The stored JSON, validated against the shared schema. A row that no longer parses (hand-edited,
+ * older shape) reads as "not entered", so publishing asks for the breakdown again.
+ */
+export function maintenanceFeeFromJson(v: Prisma.JsonValue | null): MaintenanceFee | null {
+  if (v === null) return null;
+  const parsed = maintenanceFeeSchema.safeParse(v);
+  return parsed.success ? parsed.data : null;
 }
 
 export function listingStateFromRow(l: Listing): ListingState {
@@ -185,7 +197,7 @@ export function listingStateFromRow(l: Listing): ListingState {
     presalePrice: l.presalePrice,
     premium: l.premium,
     maintenanceFeeWon: l.maintenanceFeeWon,
-    maintenanceFeeItems: l.maintenanceFeeItems,
+    maintenanceFee: maintenanceFeeFromJson(l.maintenanceFee),
     moveInType: l.moveInType,
     moveInDate: l.moveInDate,
     floorDisplay: l.floorDisplay,
@@ -203,7 +215,7 @@ const LISTING_PATCH_KEYS = [
   'presalePrice',
   'premium',
   'maintenanceFeeWon',
-  'maintenanceFeeItems',
+  'maintenanceFee',
   'moveInType',
   'moveInDate',
   'floorDisplay',
@@ -226,7 +238,10 @@ export function hasPropertyChanges(patch: PropertyUpdateInput | undefined): bool
   return !!patch && Object.values(patch).some((v) => v !== undefined);
 }
 
-export interface ListingWriteColumns extends PropertySearchColumns, ListingState {
+export interface ListingWriteColumns
+  extends PropertySearchColumns,
+    Omit<ListingState, 'maintenanceFee'> {
+  maintenanceFee: Prisma.InputJsonValue | typeof Prisma.DbNull;
   priceSort: number | null;
 }
 
@@ -243,6 +258,7 @@ export function listingWriteColumns(
   const prices = applicablePrices(l.dealType, l);
   return {
     ...l,
+    maintenanceFee: l.maintenanceFee ?? Prisma.DbNull,
     ...prices,
     ...propertySearchColumns(p, complexBuiltYear),
     priceSort: listingPriceSort(l.dealType, prices),
@@ -262,6 +278,7 @@ export function publishCheckInput(
     presalePrice: l.presalePrice,
     premium: l.premium,
     maintenanceFeeWon: l.maintenanceFeeWon,
+    maintenanceFee: l.maintenanceFee,
     moveInType: l.moveInType,
     moveInDate: l.moveInDate,
     floorDisplay: l.floorDisplay,

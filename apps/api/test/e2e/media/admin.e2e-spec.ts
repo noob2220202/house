@@ -13,7 +13,7 @@ import {
   type TestSession,
 } from '../../utils';
 import { pdf, png } from './fixtures';
-import { createMediaTestApp, itemIds, upload, type MediaTestApp } from './helpers';
+import { createMediaTestApp, itemIds, upload, uploadReady, type MediaTestApp } from './helpers';
 
 const BAD_ID = 'nope';
 
@@ -32,12 +32,12 @@ describe('admin media: /api/v1/admin/media (e2e)', () => {
   }
 
   async function adminBanner(s: TestSession): Promise<string> {
-    const res = await upload(t, s, {
+    const view = await uploadReady(t, s, {
       admin: true,
       purpose: 'BANNER',
       file: await png(600, 200),
-    }).expect(201);
-    return res.body.id as string;
+    });
+    return view.id;
   }
 
   async function userDoc() {
@@ -224,9 +224,9 @@ describe('admin media: /api/v1/admin/media (e2e)', () => {
           agencyId: agency.id,
         },
       );
-      const photo = await upload(t, os, { purpose: 'LISTING_PHOTO', file: await png() }).expect(
-        201,
-      );
+      const photo = {
+        body: await uploadReady(t, os, { purpose: 'LISTING_PHOTO', file: await png() }),
+      };
       const { listing } = await createListing(t.prisma, { agencyId: agency.id });
       await t.prisma.listingPhoto.create({
         data: { listingId: listing.id, mediaId: photo.body.id },

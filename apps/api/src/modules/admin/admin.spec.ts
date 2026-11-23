@@ -6,9 +6,7 @@ import { ROLES_KEY } from '../../common/decorators/metadata-keys';
 import { AppException } from '../../common/errors/app.exception';
 import { resourceTypeFromPath, stripSecrets } from './audit/admin-mutation-audit.interceptor';
 import { RequirePermission } from './permissions.decorator';
-import type { CacheService } from '../../common/cache/cache.service';
 import type { PrismaTx } from '../../prisma/prisma.service';
-import { LISTINGS_SEARCH_CACHE_NS } from '../listings/constants';
 import type { ListingsModerationService } from '../listings/services/listings-moderation.service';
 import { reportSelect, toAdminReportView, type ReportRow } from './admin.mapper';
 import { ListingModerationAdapter } from './ports/listing-moderation.port';
@@ -179,23 +177,22 @@ describe('ListingModerationAdapter', () => {
       hide: jest.fn().mockResolvedValue('ACTIVE'),
       close: jest.fn().mockResolvedValue('ACTIVE'),
       unhide: jest.fn().mockResolvedValue(undefined),
+      invalidateSearch: jest.fn().mockResolvedValue(undefined),
     };
-    const cache = { bump: jest.fn().mockResolvedValue(undefined) };
     const adapter = new ListingModerationAdapter(
       moderation as unknown as ListingsModerationService,
-      cache as unknown as CacheService,
     );
-    return { adapter, moderation, cache };
+    return { adapter, moderation };
   }
 
   it('joins the caller transaction when hiding, and invalidates map tiles on request', async () => {
-    const { adapter, moderation, cache } = setup();
+    const { adapter, moderation } = setup();
     const tx = {} as PrismaTx;
     await adapter.hide('l1', '허위', tx);
     expect(moderation.hide).toHaveBeenCalledWith('l1', '허위', tx);
-    expect(cache.bump).not.toHaveBeenCalled();
+    expect(moderation.invalidateSearch).not.toHaveBeenCalled();
     await adapter.invalidateSearch();
-    expect(cache.bump).toHaveBeenCalledWith(LISTINGS_SEARCH_CACHE_NS);
+    expect(moderation.invalidateSearch).toHaveBeenCalledTimes(1);
   });
 
   it('force-closes in a single listings-module transaction', async () => {

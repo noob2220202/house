@@ -190,7 +190,12 @@ describe('agencies: public search, map & profile (e2e)', () => {
     it('200: profile with staff, listing counts, representative listings and disclosure', async () => {
       const { central, lake } = await seed();
       const agencyId = central.agency.id;
-      await createAgent(t.prisma, agencyId);
+      const assistant = await createAgent(t.prisma, agencyId);
+      const licensed = await createAgent(t.prisma, agencyId);
+      await t.prisma.agencyMember.update({
+        where: { id: licensed.memberId },
+        data: { isLicensed: true, licenseNumber: '2020-전남-0001', displayName: '이중개' },
+      });
       const { listing: sale } = await createListing(t.prisma, {
         agencyId,
         listing: { verifiedAt: new Date('2026-11-01T00:00:00Z'), title: '역세권 84㎡' },
@@ -231,8 +236,13 @@ describe('agencies: public search, map & profile (e2e)', () => {
           registrationNumber: central.agency.registrationNumber,
         },
       });
+      // 제18조의2①: the page carries the office's ads, so the 중개보조원 is not named at all.
       expect(pluck(res.body.members, 'role')).toEqual(['OWNER', 'AGENT']);
+      expect(pluck(res.body.members, 'id')).not.toContain(assistant.memberId);
+      expect(res.body.members[1]).toMatchObject({ id: licensed.memberId, isLicensed: true });
       expect(res.body.members[1]).not.toHaveProperty('phone');
+      expect(res.body.members[1]).not.toHaveProperty('licenseNumber');
+      expect(JSON.stringify(res.body)).not.toContain('김실장');
       expect(res.body.representativeListings).toHaveLength(3);
       expect(res.body.representativeListings[0]).toMatchObject({
         id: sale.id,

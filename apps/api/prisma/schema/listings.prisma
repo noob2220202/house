@@ -134,6 +134,48 @@ enum RecentViewTarget {
 }
 
 /// The physical unit. `ho` is PRIVATE and must never be serialized by public endpoints.
+/// 건축물 용도 (건축법 시행령 별표1) — 표시·광고의 「중개대상물 종류」.
+enum BuildingUse {
+  DETACHED_HOUSE
+  MULTI_UNIT_HOUSE
+  MULTI_FAMILY_HOUSE
+  OFFICIAL_RESIDENCE
+  APARTMENT
+  ROW_HOUSE
+  MULTIPLEX_HOUSE
+  DORMITORY
+  NEIGHBORHOOD_FACILITY_1
+  NEIGHBORHOOD_FACILITY_2
+  CULTURE_ASSEMBLY
+  RELIGIOUS
+  SALES
+  TRANSPORTATION
+  MEDICAL
+  EDUCATION_RESEARCH
+  ELDERLY_CHILD
+  TRAINING
+  SPORTS
+  OFFICE
+  OFFICETEL
+  LODGING
+  AMUSEMENT
+  FACTORY
+  WAREHOUSE
+  HAZARDOUS_MATERIAL
+  AUTOMOBILE
+  ANIMAL_PLANT
+  RESOURCE_RECYCLING
+  CORRECTIONAL_MILITARY
+  BROADCASTING
+  POWER_PLANT
+  CEMETERY
+  TOURIST_REST
+  FUNERAL
+  CAMPING
+
+  @@map("building_use")
+}
+
 model Property {
   id             String                                 @id @default(uuid(7)) @db.Uuid
   assetType      AssetType                              @map("asset_type")
@@ -173,8 +215,8 @@ model Property {
   zoning         String?                                @db.VarChar(50)
   /// 지목 (토지)
   landCategory   String?                                @map("land_category") @db.VarChar(20)
-  /// 건축물 용도 (상업·업무)
-  buildingUse    String?                                @map("building_use") @db.VarChar(50)
+  /// 건축물 용도 (건축물대장). APT/OFFICETEL imply it when null.
+  buildingUse    BuildingUse?                           @map("building_use")
   createdById    String?                                @map("created_by_id") @db.Uuid
   createdAt      DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -194,41 +236,42 @@ model Property {
 /// A deal offer on a property. Search columns (assetType…photoCount) are denormalized copies
 /// maintained by ListingsService on every write so map/list queries hit one table.
 model Listing {
-  id                  String          @id @default(uuid(7)) @db.Uuid
-  propertyId          String          @map("property_id") @db.Uuid
-  dealType            DealType        @map("deal_type")
-  status              ListingStatus   @default(DRAFT)
-  title               String?         @db.VarChar(80)
-  description         String?
+  id                String          @id @default(uuid(7)) @db.Uuid
+  propertyId        String          @map("property_id") @db.Uuid
+  dealType          DealType        @map("deal_type")
+  status            ListingStatus   @default(DRAFT)
+  title             String?         @db.VarChar(80)
+  description       String?
   /// 매매가 (만원)
-  salePrice           Int?            @map("sale_price")
+  salePrice         Int?            @map("sale_price")
   /// 보증금 / 전세금 (만원)
-  deposit             Int?
+  deposit           Int?
   /// 월세 (만원)
-  monthlyRent         Int?            @map("monthly_rent")
+  monthlyRent       Int?            @map("monthly_rent")
   /// 분양가 (만원)
-  presalePrice        Int?            @map("presale_price")
+  presalePrice      Int?            @map("presale_price")
   /// 프리미엄 (만원, 마이너스 프리미엄 가능)
-  premium             Int?
+  premium           Int?
   /// 관리비 (원/월)
-  maintenanceFeeWon   Int?            @map("maintenance_fee_won")
-  maintenanceFeeItems String[]        @default([]) @map("maintenance_fee_items")
-  moveInType          MoveInType?     @map("move_in_type")
-  moveInDate          DateTime?       @map("move_in_date") @db.Date
-  floorDisplay        FloorDisplay    @default(EXACT) @map("floor_display")
-  options             ListingOption[] @default([])
-  primaryAgencyId     String          @map("primary_agency_id") @db.Uuid
-  createdById         String?         @map("created_by_id") @db.Uuid
-  publishedAt         DateTime?       @map("published_at") @db.Timestamptz(3)
-  closedAt            DateTime?       @map("closed_at") @db.Timestamptz(3)
-  expiresAt           DateTime?       @map("expires_at") @db.Timestamptz(3)
-  hiddenReason        String?         @map("hidden_reason") @db.VarChar(500)
+  maintenanceFeeWon Int?            @map("maintenance_fee_won")
+  /// 관리비 부과방식 + 항목별 내역 (shared maintenanceFeeSchema: billingType, items[], unavailableReason)
+  maintenanceFee    Json?           @map("maintenance_fee")
+  moveInType        MoveInType?     @map("move_in_type")
+  moveInDate        DateTime?       @map("move_in_date") @db.Date
+  floorDisplay      FloorDisplay    @default(EXACT) @map("floor_display")
+  options           ListingOption[] @default([])
+  primaryAgencyId   String          @map("primary_agency_id") @db.Uuid
+  createdById       String?         @map("created_by_id") @db.Uuid
+  publishedAt       DateTime?       @map("published_at") @db.Timestamptz(3)
+  closedAt          DateTime?       @map("closed_at") @db.Timestamptz(3)
+  expiresAt         DateTime?       @map("expires_at") @db.Timestamptz(3)
+  hiddenReason      String?         @map("hidden_reason") @db.VarChar(500)
   /// Latest 실매물 확인 date.
-  verifiedAt          DateTime?       @map("verified_at") @db.Timestamptz(3)
-  viewCount           Int             @default(0) @map("view_count")
-  favoriteCount       Int             @default(0) @map("favorite_count")
+  verifiedAt        DateTime?       @map("verified_at") @db.Timestamptz(3)
+  viewCount         Int             @default(0) @map("view_count")
+  favoriteCount     Int             @default(0) @map("favorite_count")
   /// Optimistic concurrency counter, bumped by every content/status write (not by counters).
-  version             Int             @default(0)
+  version           Int             @default(0)
 
   // --- denormalized search columns ---
   assetType     AssetType                              @map("asset_type")
@@ -317,6 +360,7 @@ model ListingPhoto {
 
   @@unique([listingId, mediaId])
   @@index([listingId, sortOrder])
+  @@index([mediaId])
   @@map("listing_photos")
 }
 

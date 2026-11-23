@@ -14,7 +14,7 @@ import {
   withSession,
 } from '../../utils';
 import { pdf, png } from './fixtures';
-import { createMediaTestApp, upload, type MediaTestApp } from './helpers';
+import { createMediaTestApp, upload, uploadReady, type MediaTestApp } from './helpers';
 
 const HOUR = 3_600_000;
 
@@ -61,9 +61,9 @@ describe('media: attach/delete races, one-shot locks, reference guard, owner scr
       { id: owner.id, role: UserRole.AGENCY_OWNER },
       { agencyId: agency.id },
     );
-    const res = await upload(t, s, { purpose: 'LISTING_PHOTO', file: await png() }).expect(201);
+    const photo = await uploadReady(t, s, { purpose: 'LISTING_PHOTO', file: await png() });
     const { listing } = await createListing(t.prisma, { agencyId: agency.id });
-    return { owner, s, listing, mediaId: res.body.id as string };
+    return { owner, s, listing, mediaId: photo.id };
   }
 
   describe('DELETE /media/:id racing an attach', () => {
@@ -251,18 +251,18 @@ describe('media: attach/delete races, one-shot locks, reference guard, owner scr
         { id: owner.id, role: UserRole.AGENCY_OWNER },
         { agencyId: agency.id },
       );
-      const looseRes = await upload(t, s, {
+      const loosePhoto = await uploadReady(t, s, {
         purpose: 'LISTING_PHOTO',
         file: await png(),
         filename: '홍길동_집.png',
-      }).expect(201);
+      });
       const docRes = await upload(t, s, {
         purpose: 'AGENCY_DOCUMENT',
         file: pdf(),
         filename: '홍길동_중개사무소등록증.pdf',
         contentType: 'application/pdf',
       }).expect(201);
-      const loose = { id: (looseRes.body as { id: string }).id };
+      const loose = { id: loosePhoto.id };
       const doc = { id: (docRes.body as { id: string }).id };
       await t.prisma.agencyDocument.create({
         data: { agencyId: agency.id, type: 'REGISTRATION_CERT', mediaId: doc.id },

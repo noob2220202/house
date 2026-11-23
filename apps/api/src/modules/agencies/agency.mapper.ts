@@ -19,6 +19,15 @@ import { AGENCY_MEDIA, type AgencyMediaPort, type MediaRef } from './ports/agenc
 
 const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() : null);
 
+/** 홍길동 → 홍*동, 김철 → 김*: admin lists show who applied without the full name. */
+export function maskName(name: string | null | undefined): string | null {
+  if (!name) return null;
+  const chars = [...name.trim()];
+  if (chars.length <= 1) return '*';
+  if (chars.length === 2) return `${chars[0]}*`;
+  return `${chars[0]}${'*'.repeat(chars.length - 2)}${chars[chars.length - 1]}`;
+}
+
 export function toBusinessHours(value: Prisma.JsonValue | null): BusinessHours | null {
   if (value === null) return null;
   const parsed = businessHoursSchema.safeParse(value);

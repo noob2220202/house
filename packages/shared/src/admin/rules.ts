@@ -1,5 +1,7 @@
 // Owned by the admin module team. Pure rules shared by the API and the admin frontend.
 import { ReportAction, ReportStatus, ReportTargetType, SiteSettingKey } from '../enums/admin';
+import { TermsType } from '../enums/user';
+import { ADMIN_ERROR_MESSAGES } from '../errors/admin';
 import { parseYoutubeVideoId } from '../utils/url';
 
 /** Keys served by GET /site-settings/public (everything else is back-office only). */
@@ -102,3 +104,22 @@ export const ADS_ENDING_SOON_DAYS = 7;
  */
 export const TERMS_NOTICE_DAYS = 7;
 export const TERMS_NOTICE_DAYS_UNFAVORABLE = 30;
+
+/**
+ * Terms types that can never be a condition of using the service:
+ *  - MARKETING: 정보통신망법 제50조 requires separate, voluntary consent for 광고성 정보, and
+ *    개인정보보호법 제22조⑤ forbids refusing service because an optional consent was declined.
+ *  - LOCATION: the map uses the device location only when the member allows it, and the server
+ *    never stores it, so it is an optional feature rather than a core one.
+ * A document of these types must have isRequired=false (checked on create, update and publish).
+ */
+export const OPTIONAL_ONLY_TERMS_TYPES: readonly TermsType[] = [
+  TermsType.MARKETING,
+  TermsType.LOCATION,
+];
+
+export function canTermsTypeBeRequired(type: TermsType): boolean {
+  return !OPTIONAL_ONLY_TERMS_TYPES.includes(type);
+}
+
+export const TERMS_OPTIONAL_ONLY_MESSAGE = ADMIN_ERROR_MESSAGES.TERMS_OPTIONAL_ONLY;

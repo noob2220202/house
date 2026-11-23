@@ -135,8 +135,13 @@ Links: `linkUrlSchema` (http/https or site-relative only). Dates: `dateOnlySchem
 Queue names are in `src/queue/queue.constants.ts` (`QUEUES.TRADE_SYNC`, `BANNER_STATS`,
 `MEDIA_PROCESSING`, `COUNTERS_FLUSH`, `NOTIFICATIONS`, `CLEANUP`). In your module:
 `BullModule.registerQueue({ name: QUEUES.X })`, a `@Processor(QUEUES.X)` class extending
-`WorkerHost`, and repeatable jobs registered in `onApplicationBootstrap` **only if
-`config.get('JOBS_ENABLED')`**, via `queue.upsertJobScheduler(id, { pattern }, …)` (idempotent).
+`WorkerHost` declared with **`@Processor(QUEUES.X, { autorun: false })`**, and in
+`onApplicationBootstrap`: `if (!this.config.get('JOBS_ENABLED')) return;` then the repeatable jobs via
+`queue.upsertJobScheduler(id, { pattern }, …)` (idempotent) and `this.worker.run()`.
+`src/processors.spec.ts` fails the build otherwise. Only `dist/worker.js` runs processors (its entry sets
+`JOBS_ENABLED=true`); the HTTP API (`dist/main.js`) forces `false` and only enqueues. Several
+processors on one queue each receive every job name, so give each module its own queue (or one
+dispatcher per queue).
 Jobs must be idempotent (upserts keyed by natural/source keys, SET totals rather than INCR). In e2e,
 call the processor/service method directly instead of waiting on workers.
 
@@ -214,7 +219,24 @@ the generator/datasource). Conventions: UUIDv7 ids `@id @default(uuid(7)) @db.Uu
 `deletedAt`, enums mirrored in `@house/shared` (a unit test enforces Prisma ↔ shared enum parity).
 
 Only **additive** edits in your own file (new models, nullable/defaulted columns, indexes, enum
-values). Renames/drops need the lead. Workflow:
+values). Renames/drops need the lead.
+
+Rollback safety (deploy/rollback.sh only reverts code, never migrations):
+
+- **Enum values ship in two releases.** Release N adds the value (migration + Prisma enum + shared
+  twin) but no code writes it; release N+1 starts writing it. An older Prisma client throws
+  (`Value 'X' not found in enum`) on any row holding a value it does not know, so writing a value
+  in the same release that adds it makes a rollback by one release return 500s on those rows.
+  rollback.sh refuses (without `--force`) any target that lacks an applied migration.
+- Migrations run against the live DB with `lock_timeout=5s` and `statement_timeout=15min` (deploy.sh
+  passes them in the connection URL). A statement that cannot get its lock fails the deploy instead
+  of stalling the API; keep each migration short. An index on a large existing table goes in its own
+  migration as `CREATE INDEX CONCURRENTLY` (Prisma runs a migration file containing only that
+  statement outside a transaction); plain `CREATE INDEX` blocks writes to the table while it builds.
+- A failed migration blocks later deploys (Prisma P3009) until resolved: docs/OPERATIONS.md
+  "P3009 복구".
+
+Workflow:
 
 ```bash
 # 1. edit apps/api/prisma/schema/<module>.prisma (and the shared enum twin if you add enum values)

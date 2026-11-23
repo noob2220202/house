@@ -9,7 +9,7 @@ Registered in `AppModule` already — do not edit `app.module.ts`. Read `docs/CO
 - Publish validator (공인중개사법 제18조의2 + 표시·광고 명시사항 세부기준): 소재지, 면적, 가격, 중개대상물 종류, 거래형태, 총층수, 해당층(저/중/고 허용), 사용승인일, 방향+기준, 방·욕실 수, 입주가능일, 주차대수, 관리비 + responsible agency's 명칭/소재지/연락처/등록번호/대표 성명. Fail with `LISTING_PUBLISH_REQUIREMENTS` and `details: [{ field, label }]`.
 - Status lifecycle DRAFT → ACTIVE ↔ RESERVED → CLOSED, HIDDEN (admin/report). Keep denormalized search columns on `listings` in sync on every write (same transaction).
 - 실매물 확인 records (method + date) → `listings.verified_at`.
-- Map search: bbox + zoom + filters → region clusters (읍면동 aggregation, zoom ≤ `MAP_ZOOM.REGION_MAX`), grid clusters (`ST_SnapToGrid`, ≤ `GRID_MAX`), or complex/listing markers with counts per deal type + min/max price. `$queryRaw` + `common/geo` helpers only; LIMIT `MAP_MAX_MARKERS`; cache hot tiles in Redis (`CacheService`, short TTL).
+- Map search: bbox + zoom + filters → region clusters (읍면동 aggregation, zoom ≤ `MAP_ZOOM.REGION_MAX`), grid clusters (half-open `floor(coord / size)` cells aligned to tile edges, ≤ `GRID_MAX`), or complex/listing markers with counts per deal type + min/max price. `$queryRaw` + `common/geo` helpers only; LIMIT `MAP_MAX_MARKERS`; cache hot tiles in Redis (`CacheService`, short TTL).
 - Paginated list with sorts (최신순, 실매물확인순, 가격순, 면적순, 준공년순, 사진순) — every sort has an index.
 - Photos (order, cover; `MAX_LISTING_PHOTOS`), favorites, recent views, view counters (Redis → `counters-flush` job).
 

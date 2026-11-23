@@ -316,6 +316,23 @@ describe('ads: public serving, tracking and stats (e2e)', () => {
         .send({ ids: many })
         .expect(400);
     });
+
+    it('400 fast and small for a ~1 MB batch of junk ids (zod max short-circuits; SEC-04)', async () => {
+      // 500k elements ≈ BODY_LIMIT. zod < 4.6.6 validated every element past .max() (~600 MB heap).
+      const junk = `{"ids":[${new Array(500_000).fill('0').join(',')}]}`;
+      const started = Date.now();
+      const res = await t
+        .http()
+        .post('/api/v1/banners/impressions')
+        .set('Origin', PUBLIC_ORIGIN)
+        .set('Content-Type', 'application/json')
+        .send(junk)
+        .expect(400);
+      expect(Date.now() - started).toBeLessThan(2_000);
+      expect(res.body.code).toBe('VALIDATION_FAILED');
+      expect(res.body.details.length).toBeLessThanOrEqual(20);
+      expect(JSON.stringify(res.body).length).toBeLessThan(10_000);
+    });
   });
 
   describe('GET /banners/:id/click', () => {

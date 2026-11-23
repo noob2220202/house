@@ -10,8 +10,8 @@ import { Injectable } from '@nestjs/common';
 import { AppException } from '../../../common/errors/app.exception';
 import { paginate } from '../../../common/pagination/pagination';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { ListingMapper } from '../listing.mapper';
 import { LISTING_SUMMARY_SELECT, PUBLIC_PRIMARY_AGENCY_WHERE } from '../listing.selects';
+import { ListingSummariesService } from './listing-summaries.service';
 
 /** Favorites stay listed after a deal closes (shown as 거래완료); drafts/hidden/deleted drop out. */
 const FAVORITE_VISIBLE_STATUSES = [...PUBLIC_LISTING_STATUSES, ListingStatus.CLOSED];
@@ -20,7 +20,7 @@ const FAVORITE_VISIBLE_STATUSES = [...PUBLIC_LISTING_STATUSES, ListingStatus.CLO
 export class FavoritesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly mapper: ListingMapper,
+    private readonly summaries: ListingSummariesService,
   ) {}
 
   /** Idempotent: favoriting twice keeps one row and counts once. */
@@ -79,9 +79,10 @@ export class FavoritesService {
           select: { createdAt: true, listing: { select: LISTING_SUMMARY_SELECT } },
           ...args,
         });
-        return rows.map((r) => ({
+        const listings = await this.summaries.map(rows.map((r) => r.listing));
+        return rows.map((r, i) => ({
           favoritedAt: r.createdAt.toISOString(),
-          listing: this.mapper.summary(r.listing),
+          listing: listings[i]!,
         }));
       },
       () => this.prisma.favoriteListing.count({ where }),

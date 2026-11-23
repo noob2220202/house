@@ -9,8 +9,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { paginate } from '../../../common/pagination/pagination';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RECENT_VIEWS_CAP } from '../constants';
-import { ListingMapper } from '../listing.mapper';
 import { LISTING_SUMMARY_SELECT, PUBLIC_PRIMARY_AGENCY_WHERE } from '../listing.selects';
+import { ListingSummariesService } from './listing-summaries.service';
 
 /** 최근 본 매물/단지/중개사무소. Exported so the complexes/agencies modules can record views. */
 @Injectable()
@@ -19,7 +19,7 @@ export class RecentViewsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly mapper: ListingMapper,
+    private readonly summaries: ListingSummariesService,
   ) {}
 
   /** Upserts the view and trims the user's history of that type to RECENT_VIEWS_CAP. Never throws. */
@@ -81,7 +81,8 @@ export class RecentViewsService {
           },
           select: LISTING_SUMMARY_SELECT,
         });
-        const byId = new Map(rows.map((r) => [r.id, this.mapper.summary(r)]));
+        const summaries = await this.summaries.map(rows);
+        const byId = new Map(summaries.map((r) => [r.id, r]));
         return { ...page, items: base.map((b) => ({ ...b, listing: byId.get(b.targetId) })) };
       }
       case RecentViewTarget.COMPLEX: {

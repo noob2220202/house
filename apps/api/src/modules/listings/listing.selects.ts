@@ -69,14 +69,11 @@ export const LISTING_SUMMARY_SELECT = {
     take: 1,
     select: { mediaId: true, caption: true, isCover: true, media: mediaRef },
   },
-  _count: {
-    select: {
-      agencies: {
-        where: { status: ListingAgencyStatus.ACTIVE, agency: DISCLOSABLE_AGENCY_WHERE },
-      },
-    },
-  },
 } as const satisfies Prisma.ListingSelect;
+/**
+ * No co-broker `_count` here on purpose: Prisma computes a relation count as a GROUP BY over the
+ * whole listing_agencies table. Summaries get it from ListingSummariesService (page-scoped).
+ */
 export type ListingSummaryRow = Prisma.ListingGetPayload<{ select: typeof LISTING_SUMMARY_SELECT }>;
 
 const PUBLIC_PROPERTY_SELECT = {
@@ -118,7 +115,7 @@ const AGENCY_DISCLOSURE_SELECT = {
 
 const DETAIL_EXTRA = {
   description: true,
-  maintenanceFeeItems: true,
+  maintenanceFee: true,
   moveInType: true,
   moveInDate: true,
   property: { select: PUBLIC_PROPERTY_SELECT },
@@ -143,6 +140,7 @@ export const LISTING_PUBLIC_DETAIL_SELECT = {
     select: {
       agencyId: true,
       isPrimary: true,
+      status: true,
       contactName: true,
       contactPhone: true,
       agency: { select: AGENCY_DISCLOSURE_SELECT },

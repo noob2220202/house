@@ -241,3 +241,130 @@ export const RecentViewTarget = {
   AGENCY: 'AGENCY',
 } as const;
 export type RecentViewTarget = EnumValue<typeof RecentViewTarget>;
+
+/**
+ * 관리비 부과방식 (「중개대상물의 표시·광고 명시사항 세부기준」, 2023-09-21 시행).
+ * UNKNOWN = 임대인 미고지 등으로 확인할 수 없음 (사유를 함께 표시해야 한다).
+ */
+export const MaintenanceFeeBillingType = {
+  FIXED: 'FIXED',
+  ACTUAL: 'ACTUAL',
+  UNKNOWN: 'UNKNOWN',
+} as const;
+export type MaintenanceFeeBillingType = EnumValue<typeof MaintenanceFeeBillingType>;
+
+export const MAINTENANCE_FEE_BILLING_TYPE_LABEL: Record<MaintenanceFeeBillingType, string> = {
+  FIXED: '정액관리비',
+  ACTUAL: '실비 정산(사용량 부과)',
+  UNKNOWN: '확인불가',
+};
+
+/** 관리비 세부 항목: 일반관리비, 사용료(전기·수도·가스·난방·인터넷·TV), 기타관리비. */
+export const MaintenanceFeeKind = {
+  GENERAL: 'GENERAL',
+  ELECTRICITY: 'ELECTRICITY',
+  WATER: 'WATER',
+  GAS: 'GAS',
+  HEATING: 'HEATING',
+  INTERNET: 'INTERNET',
+  TV: 'TV',
+  OTHER: 'OTHER',
+} as const;
+export type MaintenanceFeeKind = EnumValue<typeof MaintenanceFeeKind>;
+
+export const MAINTENANCE_FEE_KIND_LABEL: Record<MaintenanceFeeKind, string> = {
+  GENERAL: '일반관리비',
+  ELECTRICITY: '전기료',
+  WATER: '수도료',
+  GAS: '가스사용료',
+  HEATING: '난방비',
+  INTERNET: '인터넷 사용료',
+  TV: 'TV 사용료',
+  OTHER: '기타관리비',
+};
+
+/** 정액관리비가 이 금액(원/월) 이상이면 항목별 금액을 표시해야 한다. */
+export const MAINTENANCE_FEE_BREAKDOWN_THRESHOLD_WON = 100_000;
+
+/**
+ * 건축물 용도 (건축법 시행령 별표1, 건축물대장 기준). 표시·광고의 「중개대상물 종류」는 사이트
+ * 분류(AssetType)가 아니라 이 용도로 표시한다. 주택은 세부 용도(다가구·다세대 등)까지 구분한다.
+ */
+export const BuildingUse = {
+  DETACHED_HOUSE: 'DETACHED_HOUSE',
+  MULTI_UNIT_HOUSE: 'MULTI_UNIT_HOUSE',
+  MULTI_FAMILY_HOUSE: 'MULTI_FAMILY_HOUSE',
+  OFFICIAL_RESIDENCE: 'OFFICIAL_RESIDENCE',
+  APARTMENT: 'APARTMENT',
+  ROW_HOUSE: 'ROW_HOUSE',
+  MULTIPLEX_HOUSE: 'MULTIPLEX_HOUSE',
+  DORMITORY: 'DORMITORY',
+  NEIGHBORHOOD_FACILITY_1: 'NEIGHBORHOOD_FACILITY_1',
+  NEIGHBORHOOD_FACILITY_2: 'NEIGHBORHOOD_FACILITY_2',
+  CULTURE_ASSEMBLY: 'CULTURE_ASSEMBLY',
+  RELIGIOUS: 'RELIGIOUS',
+  SALES: 'SALES',
+  TRANSPORTATION: 'TRANSPORTATION',
+  MEDICAL: 'MEDICAL',
+  EDUCATION_RESEARCH: 'EDUCATION_RESEARCH',
+  ELDERLY_CHILD: 'ELDERLY_CHILD',
+  TRAINING: 'TRAINING',
+  SPORTS: 'SPORTS',
+  OFFICE: 'OFFICE',
+  OFFICETEL: 'OFFICETEL',
+  LODGING: 'LODGING',
+  AMUSEMENT: 'AMUSEMENT',
+  FACTORY: 'FACTORY',
+  WAREHOUSE: 'WAREHOUSE',
+  HAZARDOUS_MATERIAL: 'HAZARDOUS_MATERIAL',
+  AUTOMOBILE: 'AUTOMOBILE',
+  ANIMAL_PLANT: 'ANIMAL_PLANT',
+  RESOURCE_RECYCLING: 'RESOURCE_RECYCLING',
+  CORRECTIONAL_MILITARY: 'CORRECTIONAL_MILITARY',
+  BROADCASTING: 'BROADCASTING',
+  POWER_PLANT: 'POWER_PLANT',
+  CEMETERY: 'CEMETERY',
+  TOURIST_REST: 'TOURIST_REST',
+  FUNERAL: 'FUNERAL',
+  CAMPING: 'CAMPING',
+} as const;
+export type BuildingUse = EnumValue<typeof BuildingUse>;
+
+export const BUILDING_USE_LABEL: Record<BuildingUse, string> = {
+  DETACHED_HOUSE: '단독주택',
+  MULTI_UNIT_HOUSE: '다중주택',
+  MULTI_FAMILY_HOUSE: '다가구주택',
+  OFFICIAL_RESIDENCE: '공관',
+  APARTMENT: '아파트',
+  ROW_HOUSE: '연립주택',
+  MULTIPLEX_HOUSE: '다세대주택',
+  DORMITORY: '기숙사',
+  NEIGHBORHOOD_FACILITY_1: '제1종 근린생활시설',
+  NEIGHBORHOOD_FACILITY_2: '제2종 근린생활시설',
+  CULTURE_ASSEMBLY: '문화 및 집회시설',
+  RELIGIOUS: '종교시설',
+  SALES: '판매시설',
+  TRANSPORTATION: '운수시설',
+  MEDICAL: '의료시설',
+  EDUCATION_RESEARCH: '교육연구시설',
+  ELDERLY_CHILD: '노유자시설',
+  TRAINING: '수련시설',
+  SPORTS: '운동시설',
+  OFFICE: '업무시설',
+  OFFICETEL: '오피스텔',
+  LODGING: '숙박시설',
+  AMUSEMENT: '위락시설',
+  FACTORY: '공장',
+  WAREHOUSE: '창고시설',
+  HAZARDOUS_MATERIAL: '위험물 저장 및 처리 시설',
+  AUTOMOBILE: '자동차 관련 시설',
+  ANIMAL_PLANT: '동물 및 식물 관련 시설',
+  RESOURCE_RECYCLING: '자원순환 관련 시설',
+  CORRECTIONAL_MILITARY: '교정 및 군사 시설',
+  BROADCASTING: '방송통신시설',
+  POWER_PLANT: '발전시설',
+  CEMETERY: '묘지 관련 시설',
+  TOURIST_REST: '관광 휴게시설',
+  FUNERAL: '장례시설',
+  CAMPING: '야영장 시설',
+};

@@ -4,7 +4,7 @@
 명령어는 회색 상자 안의 내용을 **그대로 복사해서** 붙여 넣으면 됩니다. `example.com`, `OWNER/REPO` 같은 부분만 내 값으로 바꾸세요.
 
 - Docker, 컨테이너, 가상환경은 쓰지 않습니다. 서버에 Node.js, PostgreSQL, Redis, Nginx를 직접 설치합니다.
-- 소셜 로그인은 **카카오, 네이버, Google**만 씁니다. Apple 로그인은 없습니다.
+- 소셜 로그인은 **카카오, 네이버, Google**만 씁니다.
 - **SMS 발송 서비스는 쓰지 않습니다.** 휴대폰 인증이 없으므로 SMS 업체와 계약하거나 키를 받을 필요가 없습니다.
 - 일상 운영(로그, 백업 확인, 복원 연습, 보안 업데이트)은 [OPERATIONS.md](OPERATIONS.md)에 있습니다.
 
@@ -40,9 +40,10 @@
 | `/srv/house/releases/`           | 배포된 버전들 (최근 5개 보관, 되돌리기용)                |
 | `/srv/house/shared/.env`         | **설정·비밀값 파일** (외부 서비스 키를 여기에 넣음)      |
 | `/srv/house/shared/deploy.conf`  | 도메인, 저장소 주소, 포트 등 배포 설정                   |
+| `/srv/house/bin/`                | 배포 스크립트 설치본 (root 소유, 18단계 참고)            |
 | `/var/lib/house/uploads/public`  | 매물 사진 등 공개 이미지                                 |
 | `/var/lib/house/uploads/private` | 중개사무소 등록증 등 비공개 서류 (웹에서 직접 접근 불가) |
-| `/var/backups/house/`            | 자동 백업 (DB 매일, 업로드 파일 주 1회, 14일 보관)       |
+| `/var/backups/house/`            | 자동 백업 (DB·업로드 파일 매일, 14일 보관)               |
 | `/var/log/house/`                | 앱 로그, 배포 로그, 백업 로그                            |
 
 ---
@@ -151,7 +152,7 @@ cd /root/house-setup
 - **Redis** (서버 내부에서만 접속, 비밀번호 자동 생성)
 - **Nginx** 설정, **Let's Encrypt HTTPS 인증서** 발급 (`example.com`, `www`, `admin` 한 번에)
 - **방화벽(UFW)**: SSH, 80, 443만 허용 / **fail2ban**: 로그인 공격 차단
-- `/srv/house/shared/.env` 생성 (비밀값 자동 생성. **이미 있으면 절대 덮어쓰지 않음**)
+- `/srv/house/shared/.env` 생성 (비밀값 자동 생성. **이미 있으면 절대 덮어쓰지 않음**. root 소유, 앱은 읽기만 가능)
 - 매일 새벽 3시 30분 **자동 백업** 등록
 
 끝나면 한국어 요약이 나옵니다. 스크립트는 **여러 번 실행해도 안전**합니다. 중간에 실패했으면 원인을 고치고 같은 명령을 다시 실행하세요.
@@ -174,9 +175,10 @@ cd /root/house-setup
 ## 7. 외부 서비스 키 넣기 (.env)
 
 ```bash
-sudo -u house nano /srv/house/shared/.env
+sudo nano /srv/house/shared/.env
 ```
 
+- 이 파일은 **root 소유**(`root:house`, 0640)입니다. 앱(house 사용자)은 읽기만 하고 고칠 수 없으므로, 편집은 항상 `sudo`로 합니다.
 - `nano` 편집기 사용법: 화살표로 이동, 값 입력 → **Ctrl+O** 후 Enter(저장) → **Ctrl+X**(나가기)
 - `키=값` 형식입니다. `=` 앞뒤에 공백을 넣지 마세요. 값 뒤의 `# 설명`은 그대로 두어도 됩니다.
 - DB/Redis 비밀번호, `COOKIE_SECRET`, `TOTP_ENCRYPTION_KEY`는 이미 자동으로 채워져 있습니다. **절대 바꾸거나 공개하지 마세요.**
@@ -240,9 +242,12 @@ https://example.com/api/v1/auth/oauth/google/callback
 - `ADMIN_IP_ALLOWLIST`: 관리자 API를 특정 IP에서만 허용 (예: `203.0.113.5,198.51.100.0/24`). 비워 두면 제한 없음(비밀번호+OTP는 항상 필요).
   관리자 화면 자체를 막으려면 `/etc/nginx/house/admin-allowlist.conf`도 설정합니다 (OPERATIONS.md 참고).
 - `REGION_SGG_CODE`: 서비스 지역 시군구 코드. 순천시는 `46150` (행정구역 코드가 바뀌면 여기만 수정).
-- `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`: 비워 두세요. 관리자 계정은 9단계의 `create-admin.sh`로 만듭니다.
+- `ADMIN_BOOTSTRAP_EMAIL`, `ADMIN_BOOTSTRAP_PASSWORD`, `SEED_DEMO`: 비워 두세요. 관리자 계정은 9단계의 `create-admin.sh`로 만들고, 가상 데모 데이터(`SEED_DEMO`)는 운영 서버에 넣지 않습니다.
 
+설정을 끌 때는 줄을 지우지 말고 값을 비워 두세요 (`GOOGLE_CLIENT_ID=`).
 저장한 뒤에는 배포(8단계)를 실행해야 반영됩니다. 이미 배포된 상태에서 `.env`만 바꿨다면 `deploy.sh`가 새로 빌드하지 않고 설정만 다시 읽어 재시작합니다.
+이때도 **먼저 새 `.env`로 앱을 임시 포트에서 켜 보고**(사전 점검), 켜지지 않으면 재시작하지 않고 멈춥니다. 화면에 `현재 서비스는 바뀌지 않았습니다`와 함께
+마지막으로 정상 동작한 설정(`/var/backups/house/config/env.last-good`)으로 되돌리는 명령이 나오니, 오류 내용을 보고 고치거나 그 명령으로 되돌리세요.
 
 ## 8. 첫 배포
 
@@ -304,7 +309,12 @@ https://example.com/api/v1/auth/oauth/google/callback
 | `--force`            | 같은 커밋이라도 새로 빌드                       |
 
 - 배포는 한 번에 하나만 실행됩니다. 누가 배포 중이면 `다른 배포가 진행 중입니다`라고 나옵니다.
-- 배포 스크립트 자체가 바뀐 경우에도 자동으로 새 스크립트로 다시 실행됩니다.
+- 배포는 **별도 세션**에서 실행되고 화면은 그 로그를 보여 주기만 합니다. 그래서 중간에 **SSH가 끊기거나 Ctrl+C를 눌러도 배포는 끝까지 진행**되고,
+  실패하면 자동 롤백까지 마칩니다. 다시 접속해서 `tail -f /var/log/house/deploy.log` 로 이어서 볼 수 있습니다.
+  꼭 멈춰야 한다면 화면에 표시된 `kill <PID>` 를 실행하세요 (전환 이후라면 이전 버전으로 자동 롤백).
+  인터넷이 자주 끊기는 곳이라면 `tmux` 안에서 실행하면 화면도 유지됩니다: `tmux new -s deploy` → 배포 → 끊긴 뒤 `tmux attach -t deploy`.
+- 배포 스크립트(`deploy/` 폴더)가 바뀐 커밋이면 마지막에 안내가 나옵니다. 보안상 배포 스크립트는 자동으로 바뀌지 않으므로 안내된 명령
+  `sudo /srv/house/bin/install.sh --kit-only --kit-ref <커밋>` 을 실행하세요 (18단계).
 - 배포 기록: `/var/log/house/deploy.log`
 
 ## 12. 되돌리기 (롤백)
@@ -317,13 +327,20 @@ https://example.com/api/v1/auth/oauth/google/callback
 /srv/house/rollback.sh 20261123101500-abc1234   # 특정 버전으로
 ```
 
-롤백은 **코드만** 되돌립니다. DB 구조 변경은 항상 "추가만" 하는 원칙이라 이전 코드도 그대로 동작합니다.
+- 전환하기 전에 대상 버전을 **현재 `.env`·DB로 임시 포트에서 켜 봅니다**. 켜지지 않으면 전환하지 않고 멈춥니다 (서비스는 그대로).
+- 전환 후 헬스체크에 실패하면 **원래 버전으로 자동 복귀**합니다.
+- 롤백은 **코드만** 되돌립니다. 대상 버전이 모르는 DB 마이그레이션이 적용되어 있으면 목록을 보여 주고 멈춥니다.
+  새 코드가 이미 저장한 새 상태값(enum)을 이전 코드가 읽지 못해 오류가 날 수 있기 때문입니다. 그래도 진행하려면
+  `--force`를 붙이고 화면에서 버전 이름을 입력합니다. (개발 규칙상 새 enum 값은 "추가만 하는 배포 → 사용하는 배포" 두 단계로 나가므로,
+  **바로 이전 버전**으로의 롤백은 보통 안전합니다.)
+
 데이터를 배포 직전으로 되돌려야 한다면 `/var/backups/house/pre-migrate/`의 백업으로 복원합니다 (OPERATIONS.md의 복원 절차).
 
 ## 13. 백업
 
-- **자동**: 매일 03:30 DB 전체 백업, 주 1회 업로드 파일 스냅샷, **14일 보관** (`/var/backups/house`)
-- **수동**: `/srv/house/backup.sh` (업로드 포함: `--uploads`)
+- **자동**: 매일 03:30 DB 전체 백업과 업로드 파일 스냅샷(바뀌지 않은 파일은 하드링크라 용량을 거의 쓰지 않음), **14일 보관** (`/var/backups/house`)
+  - 기간이 지나도 **최근 7개는 항상 남깁니다**(`deploy.conf`의 `BACKUP_KEEP_MIN`). 그날 백업이 실패하면 오래된 백업을 지우지 않습니다.
+- **수동**: `/srv/house/backup.sh` (DB만: `--db-only`)
 - **배포 전 백업**: DB 변경이 있는 배포마다 `/var/backups/house/pre-migrate/`에 자동 저장 (최근 10개)
 
 ### 서버 밖으로 백업 복사 (강력 권장)
@@ -335,13 +352,17 @@ apt-get install -y rclone
 sudo -u house rclone config      # 안내에 따라 원격 저장소 추가 (예: 이름 "offsite")
 ```
 
-개인정보가 들어 있으므로 rclone의 **crypt**(암호화) 원격을 한 겹 더 만드는 것을 권장합니다. 그다음 `/srv/house/shared/deploy.conf`에서:
+개인정보가 들어 있으므로 rclone의 **crypt**(암호화) 원격을 한 겹 더 만드는 것을 권장합니다. 그다음 `sudo nano /srv/house/shared/deploy.conf`에서:
 
 ```
 RCLONE_REMOTE=offsite-crypt:house-backups
 ```
 
-이제 매일 백업 후 DB 덤프와 업로드 파일이 자동으로 업로드됩니다. (`.env` 비밀값 파일은 외부로 보내지 않습니다. 별도로 안전한 곳에 보관하세요.)
+이제 매일 백업 후 DB 덤프와 업로드 파일이 자동으로 업로드됩니다. 서버에서 지워지거나 바뀐 업로드 파일은 원격에서 바로 지우지 않고
+`uploads-deleted/<날짜시간>/` 으로 옮겨 14일 동안 보관합니다. (`.env` 비밀값 파일은 외부로 보내지 않습니다. 별도로 안전한 곳에 보관하세요.)
+
+`deploy.conf`는 스크립트가 **읽어서 검사**합니다(실행하지 않음). 값은 `키=값` 한 줄씩, 따옴표 없이 쓰면 됩니다. 모르는 키나 형식이 틀린 값
+(예: 포트에 문자, `https://`가 아닌 알림 URL)이 있으면 모든 스크립트가 `deploy.conf N번째 줄 ...` 오류를 내고 멈추니, 그 줄을 고치세요.
 
 백업이 실패하면 알림을 받으려면 [healthchecks.io](https://healthchecks.io) 같은 서비스에서 체크 URL을 만들어 `deploy.conf`에 넣습니다.
 
@@ -370,13 +391,81 @@ tail -f /var/log/house/deploy.log          # 배포 기록
 | 로그인이 유지되지 않음              | HTTPS로 접속했는지 (HTTP에서는 로그인 쿠키가 동작하지 않음)                                                               |
 | `다른 배포가 진행 중입니다`         | 다른 창에서 배포 중인지 확인. 진행 중인 것이 없다면 잠시 후 다시 실행                                                     |
 | 배포 중 `preflight api: FAILED`     | 새 코드가 켜지지 않음 (서비스는 이전 버전 그대로). 화면의 오류 내용 또는 `.env` 값 확인                                   |
-| `Invalid environment configuration` | `.env` 값 형식 오류 (줄에 표시된 키 확인)                                                                                 |
+| `Invalid environment configuration` | `.env` 값 형식 오류 (줄에 표시된 키 확인). 서비스는 그대로이며, 화면의 명령으로 직전 정상 `.env`로 되돌릴 수 있음         |
+| `deploy.conf N번째 줄 ...`          | 그 줄의 키 이름 또는 값 형식 오류: `sudo nano /srv/house/shared/deploy.conf`                                              |
+| `잠금 파일이 없습니다`              | 이전 버전으로 설치된 서버: 18단계의 "기존 서버 업그레이드" 실행                                                           |
 | 디스크 가득 참                      | `df -h`, `du -sh /var/backups/house /var/log/house /srv/house/releases` (OPERATIONS.md 참고)                              |
 | 저장소를 가져오지 못함              | 6-1 배포 키 등록 확인: `sudo -u house ssh -T git@github.com` (환영 메시지가 나오면 정상)                                  |
 
 ## 16. 서버 설정 바꾸기
 
-- **도메인/저장소/브랜치 변경**: 6단계 명령을 새 값으로 다시 실행 (`.env`는 유지되므로 `.env`의 URL과 Redirect URI도 직접 수정)
-- **포트·프로세스 수**: `/srv/house/shared/deploy.conf`의 `API_INSTANCES`, `WEB_INSTANCES` 등 수정 후
-  `sudo -u house pm2 delete house-api house-web house-admin house-worker && /srv/house/deploy.sh --force`
+- **도메인/관리자 주소 변경**: 3단계 DNS를 먼저 바꾸고, 6단계 명령을 새 `--domain`(필요하면 `--admin-subdomain`)으로 다시 실행합니다.
+  install.sh가 기존 인증서에 새 이름이 없음을 알아채고 **새 이름으로 인증서를 다시 발급**합니다.
+  `.env`는 덮어쓰지 않으므로, 요약의 경고에 나온 키(`PUBLIC_BASE_URL`, `ADMIN_BASE_URL`, `API_BASE_URL`, `CORS_ORIGINS`,
+  `KAKAO_REDIRECT_URI`, `NAVER_REDIRECT_URI`, `GOOGLE_REDIRECT_URI`)를 `sudo nano /srv/house/shared/.env`로 고치고, 각 로그인 콘솔의
+  Redirect URI도 새 주소로 바꾼 뒤 `/srv/house/deploy.sh`.
+- **저장소/브랜치 변경**: 6단계 명령을 새 `--repo`/`--branch`로 다시 실행
+- **프로세스 수** (`API_INSTANCES`, `WEB_INSTANCES`, `ADMIN_INSTANCES`): `sudo nano /srv/house/shared/deploy.conf`에서 고친 뒤 **중단 없이**
+  ```bash
+  sudo -u house pm2 scale house-api 3 && sudo -u house pm2 scale house-web 3 && sudo -u house pm2 save
+  ```
+  (숫자는 deploy.conf에 적은 값. 다음 배포부터도 그 값이 쓰입니다.)
+- **포트** (`API_PORT`, `WEB_PORT`, `ADMIN_PORT`, `WORKER_PORT`): Nginx도 새 포트로 다시 만들어야 합니다. 한가한 시간에 (해당 앱 수 초 중단):
+  ```bash
+  sudo nano /srv/house/shared/deploy.conf             # 포트 수정
+  sudo -u house pm2 delete house-web                    # 바꾼 앱만 (예: WEB_PORT)
+  sudo -u house pm2 start /srv/house/current/ecosystem.config.cjs --only house-web && sudo -u house pm2 save
+  sudo /srv/house/bin/install.sh --nginx-only           # nginx upstream을 새 포트로
+  ```
+  `API_PORT`를 바꿨다면 web/admin도 내부 API 주소가 바뀌므로 `house-api`, `house-web`, `house-admin` 모두 위처럼 다시 등록합니다.
 - **Nginx 설정만 다시 만들기**: `/srv/house/bin/install.sh --nginx-only`
+
+## 17. 파일 소유권 (보안 구조)
+
+인터넷에 노출된 앱과 빌드 스크립트(npm 패키지)는 `house` 사용자로 실행됩니다. 만약 앱이 뚫리거나 악성 패키지가 들어와도 **root 권한을 얻지 못하도록**
+root가 실행하거나 읽는 파일은 모두 root 소유입니다.
+
+| 위치                                                             | 소유 / 권한      | 이유                                                    |
+| ---------------------------------------------------------------- | ---------------- | ------------------------------------------------------- |
+| `/srv/house`, `/srv/house/bin`, `/srv/house/*.sh`                | root, 0755       | `sudo`로 실행하는 배포 스크립트                         |
+| `/srv/house/shared/`                                             | root:house, 0750 |                                                         |
+| `/srv/house/shared/.env`, `deploy.conf`                          | root:house, 0640 | 앱은 읽기만. 편집은 `sudo nano`                         |
+| `/srv/house/releases/`, `/srv/house/repo.git`                    | house            | 배포(빌드)는 house 사용자가 수행                        |
+| `/var/lib/house/uploads`, `/var/backups/house`, `/var/log/house` | house            | 앱·백업이 쓰는 데이터 (root 작업은 house 권한으로 처리) |
+
+배포 스크립트는 `deploy.sh`가 스스로 바꾸지 않습니다. 바뀐 배포 스크립트는 root가 직접 저장소에서 받아 검사(문법 확인) 후 설치합니다 (18단계).
+
+## 18. 배포 스크립트 갱신 / 기존 서버 업그레이드
+
+- **배포 스크립트 갱신** (배포 화면에 안내가 나왔을 때):
+  ```bash
+  sudo /srv/house/bin/install.sh --kit-only --kit-ref <안내된 커밋>     # 커밋 생략 시 deploy.conf의 BRANCH 최신
+  ```
+  root가 서버의 배포 키로 저장소에서 `deploy/` 폴더만 받아(호스트 키는 `/srv/house/shared/ssh_known_hosts`로 확인) root 소유로 설치합니다.
+- **이 구조 이전에 설치한 서버** (`/srv/house`가 house 소유였던 서버)는 신뢰할 수 있는 새 체크아웃으로 install.sh를 한 번 다시 실행합니다.
+  ```bash
+  rm -rf /root/house-setup && git clone https://github.com/OWNER/REPO.git /root/house-setup    # 5단계와 같은 방법
+  cd /root/house-setup && ./deploy/install.sh --domain example.com --email 내메일@example.com
+  ```
+  소유권 정리, `current` 링크 구조 변경, 잠금 파일 생성, fail2ban의 nginx 차단 규칙 제거가 자동으로 됩니다. 그다음 `/srv/house/deploy.sh --force`로
+  한 번 배포하세요(관리자 사이트가 무중단 모드로 다시 등록되며 이때만 수 초 끊깁니다).
+
+## 부록: 컨테이너 종단 검증 기록 (2026-11-23)
+
+systemd 없는 Ubuntu 24.04 컨테이너에서 저장소 복사본(로컬 경로 `REPO_URL`)으로 아래 순서를 실제로 실행했습니다.
+
+1. `install.sh --no-tls --skip-upgrade --skip-firewall --skip-fail2ban --skip-swap --skip-timezone --skip-pm2-startup`
+   → PostgreSQL 역할·DB, Redis(비밀번호), nginx, `/srv/house` 구조, `.env` 생성 (재실행해도 기존 값 유지).
+   저장소 디렉터리는 `house` 사용자가 읽을 수 있어야 합니다(다른 소유자면 git의 dubious ownership 오류).
+2. 첫 `deploy.sh`: 의존성 설치 → 빌드 → 마이그레이션 전 백업 → 마이그레이션 → 임시 포트 사전 점검 → 전환 (약 1분).
+   PM2에서 `house-api` ×2(cluster), `house-worker`(fork, `dist/worker.js`), `house-web` ×2, `house-admin` 실행 확인.
+   BullMQ 소비자(blocking 연결)는 모두 worker 프로세스에만 있음을 확인했습니다.
+3. nginx: `curl -H 'Host: <도메인>' http://127.0.0.1/api/v1/health/ready` → 200, `/healthz`(web·admin) 200,
+   사이트 도메인의 `/api/v1/admin/*`·`/api/v1/ADMIN/*` → 404, `/media/*` 정적 제공(immutable 캐시).
+4. 두 번째 배포 중 0.05초 간격으로 api·web·admin·매물 목록을 폴링: 884건 모두 200 (무중단 reload).
+5. `rollback.sh -y`: 이전 릴리스로 전환, 폴링 224건 모두 200.
+6. API가 부팅 중 죽는 커밋 배포: 사전 점검에서 실패 → 전환하지 않음, 서비스 영향 없음(폴링 776건 모두 200).
+7. `create-admin.sh` → 기본 시드 + 최고관리자 생성 (OTP는 첫 로그인 때 등록).
+
+검증하지 못한 부분: 실제 도메인의 인증서 발급(certbot), systemd 서비스 등록·UFW·fail2ban, `restore.sh` 전체 교체
+(배포 키트 자체 테스트 `pnpm test:deploy` 범위), `--no-tls`에서는 Secure 쿠키 때문에 관리자 로그인 흐름을 nginx 경유로 확인하지 않았습니다.

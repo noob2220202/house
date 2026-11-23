@@ -11,6 +11,8 @@ export interface RequestContextStore {
   principal?: Principal;
   /** Snapshot set by services before a mutation, consumed by the audit interceptor. */
   auditBefore?: unknown;
+  /** Set by AuditService.record once this request wrote an audit row (admin safety net). */
+  auditWritten?: boolean;
 }
 
 const storage = new AsyncLocalStorage<RequestContextStore>();

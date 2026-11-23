@@ -52,16 +52,22 @@ export const dateTimeSchema = z.iso.datetime({ offset: true });
 
 // ---------- query-string helpers (all query values arrive as strings) ----------
 
-/** "a,b" or ["a","b"] → ["a","b"], validated by `item`. */
+/** Upper bound for csv filter lists; every csvArray item is an enum value, so real filters are far smaller. */
+export const CSV_ARRAY_MAX = 50;
+
+/** "a,b" or ["a","b"] → ["a","b"], validated by `item`; longer than CSV_ARRAY_MAX is rejected. */
 export function csvArray<T extends z.ZodType>(item: T) {
-  return z.preprocess((v) => {
-    if (v === undefined || v === null || v === '') return undefined;
-    const raw = Array.isArray(v) ? v : [v];
-    return raw
-      .flatMap((x) => String(x).split(','))
-      .map((x) => x.trim())
-      .filter(Boolean);
-  }, z.array(item).optional());
+  return z.preprocess(
+    (v) => {
+      if (v === undefined || v === null || v === '') return undefined;
+      const raw = Array.isArray(v) ? v : [v];
+      return raw
+        .flatMap((x) => String(x).split(','))
+        .map((x) => x.trim())
+        .filter(Boolean);
+    },
+    z.array(item).max(CSV_ARRAY_MAX, `최대 ${CSV_ARRAY_MAX}개까지 선택할 수 있습니다.`).optional(),
+  );
 }
 
 export const queryBoolean = z.preprocess((v) => {

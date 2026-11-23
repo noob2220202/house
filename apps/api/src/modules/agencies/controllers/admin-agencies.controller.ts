@@ -8,6 +8,7 @@ import type {
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   HttpCode,
@@ -22,7 +23,9 @@ import { ApiTags } from '@nestjs/swagger';
 import type { AdminPrincipal } from '../../../common/auth/principal';
 import { AdminOnly, CurrentAdmin } from '../../../common/decorators';
 import {
+  AdminAgencyDetailQueryDto,
   AdminAgencyListQueryDto,
+  AgencyAdminDeleteDto,
   AgencyAdminDocumentParamDto,
   AgencyDecisionDto,
   AgencyLocationUpdateDto,
@@ -46,9 +49,27 @@ export class AdminAgenciesController {
     return this.review.list(q);
   }
 
+  /** Full contacts of owner and staff; every view is recorded (`agency.pii-view`). */
   @Get(':id')
-  detail(@Param() p: IdParamDto): Promise<AdminAgencyDetail> {
-    return this.review.detail(p.id);
+  detail(
+    @Param() p: IdParamDto,
+    @Query() q: AdminAgencyDetailQueryDto,
+  ): Promise<AdminAgencyDetail> {
+    return this.review.detail(p.id, q);
+  }
+
+  /**
+   * Soft-deletes a PENDING / REJECTED application (e.g. a fake one), freeing its 등록번호 entry
+   * from the queue. Audited in-transaction (`agency.delete`) with the reason.
+   */
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(
+    @Param() p: IdParamDto,
+    @Body() dto: AgencyAdminDeleteDto,
+    @CurrentAdmin() admin: AdminPrincipal,
+  ): Promise<void> {
+    return this.review.remove(p.id, dto, admin);
   }
 
   @Post(':id/decision')

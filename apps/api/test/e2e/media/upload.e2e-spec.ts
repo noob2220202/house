@@ -5,10 +5,19 @@ import { getQueueToken } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import sharp from 'sharp';
 import { kstDateKey } from '../../../src/common/throttle/daily-cap.service';
+import { ImageProcessor } from '../../../src/modules/media/image-processor';
+import { MediaProcessingService } from '../../../src/modules/media/media-processing.service';
 import { QUEUES } from '../../../src/queue/queue.constants';
-import { createAgency, createMedia, createUser, loginUser, resetAll } from '../../utils';
-import { fakeHeic, jpegWithExif, pdf, png, webp } from './fixtures';
-import { createMediaTestApp, upload, withBadCsrf, type MediaTestApp } from './helpers';
+import {
+  createAgency,
+  createMedia,
+  createUser,
+  loginUser,
+  resetAll,
+  withSession,
+} from '../../utils';
+import { fakeHeic, jpegWithExif, pdf, png, pngHeaderOnly, webp } from './fixtures';
+import { createMediaTestApp, upload, uploadReady, withBadCsrf, type MediaTestApp } from './helpers';
 
 describe('POST /api/v1/media (e2e)', () => {
   let t: MediaTestApp;
@@ -44,15 +53,19 @@ describe('POST /api/v1/media (e2e)', () => {
   });
 
   describe('happy paths', () => {
-    it('listing photo: 201 READY, sanitized webp + variants on the public disk', async () => {
+    it('listing photo: 202 PENDING, then (worker) READY sanitized webp + variants', async () => {
       const { owner, s } = await agent();
       const res = await upload(t, s, {
         purpose: 'LISTING_PHOTO',
         file: await jpegWithExif(400, 200),
         filename: '거실 사진.jpg',
-      }).expect(201);
+      }).expect(202);
+      expect(res.body).toMatchObject({ status: 'PENDING', mimeType: 'image/webp', url: null });
+      const id = (res.body as OwnMediaView).id;
+      await expect(t.app.get(MediaProcessingService).processPending(id)).resolves.toBe('READY');
+      const view = await withSession(t.http().get(`/api/v1/media/${id}`), s).expect(200);
 
-      expect(res.body).toMatchObject({
+      expect(view.body).toMatchObject({
         purpose: 'LISTING_PHOTO',
         visibility: 'PUBLIC',
         status: 'READY',
@@ -63,12 +76,13 @@ describe('POST /api/v1/media (e2e)', () => {
         attached: false,
         error: null,
       });
-      const body = res.body as OwnMediaView;
+      const body = view.body as OwnMediaView;
       expect(body.url).toMatch(/^\/media\/img\/\d{4}\/\d{2}\/[0-9a-f]{2}\/[0-9a-f]{32}\.webp$/);
       expect(Object.keys(body.variants).sort()).toEqual(['large', 'medium', 'thumb']);
       expect(res.body).not.toHaveProperty('storageKey');
+      expect(view.body).not.toHaveProperty('storageKey');
 
-      const row = await t.prisma.media.findUniqueOrThrow({ where: { id: res.body.id } });
+      const row = await t.prisma.media.findUniqueOrThrow({ where: { id } });
       expect(row.ownerUserId).toBe(owner.id);
       const stored = await readFile(path.join(t.publicDir, row.storageKey));
       const meta = await sharp(stored).metadata();
@@ -85,17 +99,51 @@ describe('POST /api/v1/media (e2e)', () => {
 
     it('any user: deal-request photo (png) and agency logo (webp)', async () => {
       const { s } = await plainUser();
-      const a = await upload(t, s, {
+      const a = await uploadReady(t, s, {
         purpose: 'DEAL_REQUEST_PHOTO',
         file: await png(),
         filename: 'a.png',
-      }).expect(201);
-      expect(a.body).toMatchObject({ status: 'READY', width: 64, height: 48 });
-      await upload(t, s, {
+      });
+      expect(a).toMatchObject({ status: 'READY', width: 64, height: 48 });
+      const b = await uploadReady(t, s, {
         purpose: 'AGENCY_LOGO',
         file: await webp(),
         filename: 'me.webp',
-      }).expect(201);
+      });
+      expect(b).toMatchObject({ status: 'READY', width: 64, height: 48 });
+    });
+
+    it('SEC-01: the HTTP API never decodes an image (libvips runs in the worker only)', async () => {
+      const processor = t.app.get(ImageProcessor);
+      const spies = [
+        jest.spyOn(processor, 'probe'),
+        jest.spyOn(processor, 'processImage'),
+        jest.spyOn(processor, 'processDocument'),
+      ];
+      try {
+        const { s } = await plainUser();
+        const cases = [
+          { purpose: 'DEAL_REQUEST_PHOTO', file: await jpegWithExif(40, 20) },
+          { purpose: 'DEAL_REQUEST_PHOTO', file: await png() },
+          { purpose: 'AGENCY_LOGO', file: await webp() },
+          { purpose: 'AGENCY_DOCUMENT', file: await jpegWithExif(40, 20) },
+          { purpose: 'AGENCY_DOCUMENT', file: await png() },
+        ];
+        for (const c of cases) {
+          const res = await upload(t, s, c).expect(202);
+          expect(res.body).toMatchObject({ status: 'PENDING' });
+        }
+        for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+        const docs = await t.prisma.media.findMany({
+          where: { purpose: 'AGENCY_DOCUMENT' },
+          select: { mimeType: true, storageKey: true },
+          orderBy: { createdAt: 'asc' },
+        });
+        expect(docs.map((d) => d.mimeType)).toEqual(['image/jpeg', 'image/png']);
+        expect(docs.every((d) => d.storageKey.startsWith('doc/'))).toBe(true);
+      } finally {
+        for (const spy of spies) spy.mockRestore();
+      }
     });
 
     it('403 PROFILE for everyone: no FK link yet, so uploads would never be collected', async () => {
@@ -265,13 +313,28 @@ describe('POST /api/v1/media (e2e)', () => {
       expect(await t.prisma.media.count()).toBe(0);
     });
 
-    it('415 for a corrupt image behind a valid signature', async () => {
+    it('415 for a corrupt image behind a valid signature (header check, nothing stored)', async () => {
+      const { s } = await plainUser();
+      const corrupt = [
+        Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0]),
+        (await png()).subarray(0, 20),
+        Buffer.from('RIFF\0\0\0\0WEBPVP8 \0\0\0\0\0\0\0\0\0\0\0\0\0\0', 'latin1'),
+      ];
+      for (const file of corrupt) {
+        const res = await upload(t, s, { purpose: 'AGENCY_LOGO', file }).expect(415);
+        expect(res.body.code).toBe(ErrorCode.MEDIA_UNSUPPORTED_TYPE);
+      }
+      expect(await t.prisma.media.count()).toBe(0);
+    });
+
+    it('400 MEDIA_DIMENSIONS_INVALID up front for a decompression bomb header', async () => {
       const { s } = await plainUser();
       const res = await upload(t, s, {
-        purpose: 'AGENCY_LOGO',
-        file: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0]),
-      }).expect(415);
-      expect(res.body.code).toBe(ErrorCode.MEDIA_UNSUPPORTED_TYPE);
+        purpose: 'DEAL_REQUEST_PHOTO',
+        file: pngHeaderOnly(20_000, 20_000),
+      }).expect(400);
+      expect(res.body.code).toBe(ErrorCode.MEDIA_DIMENSIONS_INVALID);
+      expect(await t.prisma.media.count()).toBe(0);
     });
 
     it('415 MEDIA_HEIC_UNSUPPORTED up front when this server cannot convert HEIC', async () => {

@@ -64,8 +64,11 @@ export const MEDIA_USER_QUOTA = {
   maxBytes: 2 * 1024 * MB,
   /** Number of live uploads. */
   maxFiles: 5000,
-  /** Uploads still waiting for background processing. */
-  maxPending: 20,
+  /**
+   * Uploads still waiting for background processing. Every image is processed by the worker, so
+   * this must allow a full listing's photos (MAX_LISTING_PHOTOS = 30) uploaded at once.
+   */
+  maxPending: 40,
 } as const;
 
 /** Unattached uploads older than this are removed by the orphan cleanup job. */

@@ -152,9 +152,12 @@ export class TermsService {
     });
   }
 
-  /** Required types whose current version the user has not (or no longer) agreed to. */
-  async pendingRequired(userId: string): Promise<TermsType[]> {
-    const required = (await this.current()).filter((d) => d.isRequired);
+  /**
+   * Required types whose current version the user has not (or no longer) agreed to.
+   * `required` (the current required documents) may be passed when the caller already has it.
+   */
+  async pendingRequired(userId: string, required?: TermsDocument[]): Promise<TermsType[]> {
+    required ??= (await this.current()).filter((d) => d.isRequired);
     const latest = await this.latestDecisions(
       userId,
       required.map((d) => d.id),

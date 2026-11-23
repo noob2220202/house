@@ -1,7 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CacheService } from '../../../common/cache/cache.service';
 import type { PrismaTx } from '../../../prisma/prisma.service';
-import { LISTINGS_SEARCH_CACHE_NS } from '../../listings/constants';
 import { ListingsModerationService } from '../../listings/services/listings-moderation.service';
 
 /** What the admin module needs from the listings module to moderate a listing. */
@@ -25,10 +23,7 @@ export const LISTING_MODERATION = Symbol('ADMIN_LISTING_MODERATION');
 /** Adapter over ListingsModerationService (exported by ListingsModule). */
 @Injectable()
 export class ListingModerationAdapter implements ListingModerationPort {
-  constructor(
-    private readonly moderation: ListingsModerationService,
-    private readonly cache: CacheService,
-  ) {}
+  constructor(private readonly moderation: ListingsModerationService) {}
 
   async hide(listingId: string, reason: string, tx?: PrismaTx): Promise<void> {
     await this.moderation.hide(listingId, reason, tx);
@@ -42,11 +37,7 @@ export class ListingModerationAdapter implements ListingModerationPort {
     await this.moderation.close(listingId, reason);
   }
 
-  /**
-   * Same bump as ListingCountersService.invalidateSearch(), which ListingsModule does not export.
-   * Map tiles also expire on their own after MAP_TILE_CACHE_TTL_SECONDS.
-   */
-  async invalidateSearch(): Promise<void> {
-    await this.cache.bump(LISTINGS_SEARCH_CACHE_NS);
+  invalidateSearch(): Promise<void> {
+    return this.moderation.invalidateSearch();
   }
 }

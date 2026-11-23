@@ -15,6 +15,7 @@ export const AdminErrorCode = {
   TERMS_VERSION_DUPLICATE: 'TERMS_VERSION_DUPLICATE',
   TERMS_ALREADY_PUBLISHED: 'TERMS_ALREADY_PUBLISHED',
   TERMS_EFFECTIVE_AT_INVALID: 'TERMS_EFFECTIVE_AT_INVALID',
+  TERMS_OPTIONAL_ONLY: 'TERMS_OPTIONAL_ONLY',
   SETTING_INVALID: 'SETTING_INVALID',
   MEMBER_NOT_FOUND: 'MEMBER_NOT_FOUND',
   MEMBER_INVALID_STATUS: 'MEMBER_INVALID_STATUS',
@@ -44,6 +45,8 @@ export const ADMIN_ERROR_MESSAGES: Record<keyof typeof AdminErrorCode, string> =
   TERMS_ALREADY_PUBLISHED: '게시된 약관은 수정하거나 삭제할 수 없습니다. 새 버전을 만들어 주세요.',
   TERMS_EFFECTIVE_AT_INVALID:
     '시행일이 올바르지 않습니다. 시행일은 현재 이후이자 기존 버전보다 늦어야 하며, 개정 약관은 시행 7일 전까지 게시해야 합니다.',
+  TERMS_OPTIONAL_ONLY:
+    '마케팅 수신·위치기반서비스 동의는 선택 항목으로만 받을 수 있습니다. 필수 여부를 해제해 주세요.',
   SETTING_INVALID: '설정값이 올바르지 않습니다.',
   MEMBER_NOT_FOUND: '회원을 찾을 수 없습니다.',
   MEMBER_INVALID_STATUS: '현재 회원 상태에서는 처리할 수 없습니다.',

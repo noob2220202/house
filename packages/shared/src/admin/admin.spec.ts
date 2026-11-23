@@ -29,6 +29,7 @@ import {
   hasAdminPermission,
 } from './permissions';
 import {
+  canTermsTypeBeRequired,
   isReportActionAllowed,
   isValidIpOrCidr,
   maskEmail,
@@ -277,5 +278,36 @@ describe('termsPublishSchema', () => {
       urgent: true,
       reason: '법령 개정 반영',
     });
+  });
+});
+
+describe('terms that must stay optional (marketing, location)', () => {
+  const doc = (type: string, isRequired: boolean) => ({
+    type,
+    version: '2.0',
+    title: '약관',
+    content: '제1조 (목적)',
+    isRequired,
+    effectiveAt: '2027-01-01T00:00:00.000Z',
+  });
+
+  it.each(['MARKETING', 'LOCATION'])('refuses a required %s document', (type) => {
+    const res = termsDocumentInputSchema.safeParse(doc(type, true));
+    expect(res.success).toBe(false);
+    expect(res.error?.issues[0]).toMatchObject({ path: ['isRequired'] });
+    expect(res.error?.issues[0]?.message).toContain('선택 항목');
+    expect(termsDocumentInputSchema.safeParse(doc(type, false)).success).toBe(true);
+  });
+
+  it('allows required service/privacy terms', () => {
+    expect(termsDocumentInputSchema.safeParse(doc('SERVICE', true)).success).toBe(true);
+    expect(termsDocumentInputSchema.safeParse(doc('PRIVACY', true)).success).toBe(true);
+  });
+
+  it('exposes the rule for checks against a stored type', () => {
+    expect(canTermsTypeBeRequired('SERVICE')).toBe(true);
+    expect(canTermsTypeBeRequired('PRIVACY')).toBe(true);
+    expect(canTermsTypeBeRequired('MARKETING')).toBe(false);
+    expect(canTermsTypeBeRequired('LOCATION')).toBe(false);
   });
 });

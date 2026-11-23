@@ -1,6 +1,7 @@
 /**
- * Per-route overrides for @Throttle(). The global default (THROTTLE_LIMIT per THROTTLE_TTL_MS
- * per client IP) applies elsewhere. Usage: @Throttle(THROTTLE.AUTH)
+ * Per-route overrides for @Throttle(). The global default (THROTTLE_LIMIT per THROTTLE_TTL_MS)
+ * applies elsewhere. Buckets are per route and keyed by the logged-in account, else by client IP
+ * (see HouseThrottlerGuard). Usage: @Throttle(THROTTLE.AUTH)
  */
 export const THROTTLE = {
   /** login / oauth start+callback / admin login */

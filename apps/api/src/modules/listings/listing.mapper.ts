@@ -1,6 +1,7 @@
 import {
   AgencyStatus,
   applicablePrices,
+  effectiveBuildingUse,
   FloorDisplay,
   ListingAgencyStatus,
   floorLabel,
@@ -14,6 +15,7 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import { decimalToNumber } from '../../common/utils/decimal';
 import { dateToDateOnly } from './domain/dates';
+import { maintenanceFeeFromJson } from './domain/listing-state';
 import type {
   ListingAgencyDetailRow,
   ListingPublicDetailRow,
@@ -22,6 +24,9 @@ import type {
 import { LISTING_MEDIA, type ListingMediaPort, type MediaRef } from './ports/listing-media.port';
 
 const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() : null);
+/** Same rule as DISCLOSABLE_AGENCY_WHERE. */
+const isDisclosable = (a: { status: string; deletedAt: Date | null }): boolean =>
+  a.status === AgencyStatus.APPROVED && !a.deletedAt;
 
 interface PhotoRow {
   mediaId: string;
@@ -62,7 +67,8 @@ export class ListingMapper {
     };
   }
 
-  summary(row: ListingSummaryRow): ListingSummary {
+  /** `agencyCount`: disclosable ACTIVE agencies on the listing (ListingSummariesService). */
+  summary(row: ListingSummaryRow, agencyCount: number): ListingSummary {
     const area = decimalToNumber(row.exclusiveArea);
     const cover = row.photos[0];
     return {
@@ -97,7 +103,7 @@ export class ListingMapper {
       verifiedAt: iso(row.verifiedAt),
       publishedAt: iso(row.publishedAt),
       primaryAgency: { id: row.primaryAgency.id, name: row.primaryAgency.name },
-      agencyCount: row._count.agencies,
+      agencyCount,
       viewCount: row.viewCount,
       favoriteCount: row.favoriteCount,
     };
@@ -126,7 +132,10 @@ export class ListingMapper {
     const p = row.property;
     const latest = row.verifications[0];
     const cover = row.photos.find((ph) => ph.isCover) ?? null;
-    const base = this.summary({ ...row, photos: cover ? [cover] : [] });
+    const agencyCount = row.agencies.filter(
+      (a) => a.status === ListingAgencyStatus.ACTIVE && isDisclosable(a.agency),
+    ).length;
+    const base = this.summary({ ...row, photos: cover ? [cover] : [] }, agencyCount);
     return {
       ...base,
       complex: row.complex
@@ -138,7 +147,7 @@ export class ListingMapper {
           }
         : null,
       description: row.description,
-      maintenanceFeeItems: row.maintenanceFeeItems,
+      maintenanceFee: maintenanceFeeFromJson(row.maintenanceFee),
       moveInType: row.moveInType,
       moveInDate: dateToDateOnly(row.moveInDate),
       floorDisplay: row.floorDisplay,
@@ -163,7 +172,7 @@ export class ListingMapper {
         heatingType: p.heatingType,
         zoning: p.zoning,
         landCategory: p.landCategory,
-        buildingUse: p.buildingUse,
+        buildingUse: effectiveBuildingUse(p.assetType, p.buildingUse),
       },
       photos: row.photos.map((ph) => this.photo(ph)),
       latestVerification: latest
@@ -176,9 +185,7 @@ export class ListingMapper {
   publicDetail(row: ListingPublicDetailRow, isFavorite: boolean): ListingDetail {
     return {
       ...this.detailBase(row, false),
-      agencies: row.agencies
-        .filter((a) => a.agency.status === AgencyStatus.APPROVED && !a.agency.deletedAt)
-        .map((a) => this.disclosure(a)),
+      agencies: row.agencies.filter((a) => isDisclosable(a.agency)).map((a) => this.disclosure(a)),
       isFavorite,
     };
   }

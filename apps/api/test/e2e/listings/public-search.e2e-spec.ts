@@ -390,6 +390,22 @@ describe('public listing search (e2e)', () => {
       expect((await t.http().get(url).expect(200)).body.total).toBe(2);
     });
 
+    it('caches the list total per (filter, bbox) and invalidates it with the map tiles', async () => {
+      const a = await agencyWithOwner(t);
+      await createPublished(t, a.ownerSession);
+      const url = `/api/v1/listings?bbox=${BBOX}&pageSize=1`;
+      expect((await t.http().get(url).expect(200)).body.total).toBe(1);
+      expect(await t.redis.keys('house-test:cache:listings:list-total:*')).toHaveLength(1);
+      // Another page / sort of the same search reuses the cached total.
+      await t.http().get(`${url}&page=2&sort=PRICE_ASC`).expect(200);
+      expect(await t.redis.keys('house-test:cache:listings:list-total:*')).toHaveLength(1);
+
+      await seedListing(t, a.agency.id); // behind the API's back: cached until expiry
+      expect((await t.http().get(url).expect(200)).body.total).toBe(1);
+      await createPublished(t, a.ownerSession); // through the service: version bump
+      expect((await t.http().get(url).expect(200)).body.total).toBe(3);
+    });
+
     it('400 for missing/oversized bbox and out-of-range zoom', async () => {
       for (const qs of [
         'zoom=12',
@@ -444,7 +460,32 @@ describe('public listing search (e2e)', () => {
       const a = await agencyWithOwner(t);
       const b = await agencyWithOwner(t);
       const id = await createPublished(t, a.ownerSession);
+      const solo = await createPublished(t, a.ownerSession);
       await addCoBroker(t, id, a, b);
+      const user = await createUser(t.prisma);
+      const us = await loginUser(t.app, user);
+      await withSession(t.http().put(`/api/v1/me/favorites/listings/${id}`), us).expect(200);
+      await withSession(t.http().get(`/api/v1/listings/${id}`), us).expect(200);
+      // Page-scoped co-broker counts on every summary list.
+      const countsOf = (items: unknown) =>
+        Object.fromEntries(
+          (items as { id: string; agencyCount: number }[]).map((i) => [i.id, i.agencyCount]),
+        );
+      const list = await t.http().get('/api/v1/listings').expect(200);
+      expect(countsOf(list.body.items)).toEqual({ [id]: 2, [solo]: 1 });
+      const mine = await withSession(
+        t.http().get('/api/v1/agency/listings'),
+        a.ownerSession,
+      ).expect(200);
+      expect(countsOf(mine.body.items)).toEqual({ [id]: 2, [solo]: 1 });
+      const favs = await withSession(t.http().get('/api/v1/me/favorites/listings'), us).expect(200);
+      expect(favs.body.items[0].listing.agencyCount).toBe(2);
+      const recent = await withSession(
+        t.http().get('/api/v1/me/recent-views?targetType=LISTING'),
+        us,
+      ).expect(200);
+      expect(recent.body.items[0].listing.agencyCount).toBe(2);
+
       await t.prisma.agency.update({
         where: { id: b.agency.id },
         data: { status: AgencyStatus.SUSPENDED },
@@ -452,6 +493,8 @@ describe('public listing search (e2e)', () => {
       const pub = await t.http().get(`/api/v1/listings/${id}`).expect(200);
       expect(pub.body.agencyCount).toBe(1);
       expect(pub.body.agencies).toHaveLength(1);
+      const after = await t.http().get('/api/v1/listings').expect(200);
+      expect(countsOf(after.body.items)).toEqual({ [id]: 1, [solo]: 1 });
     });
   });
 

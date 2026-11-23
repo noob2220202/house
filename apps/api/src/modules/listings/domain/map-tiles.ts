@@ -12,19 +12,19 @@ export function tileSizeForZoom(zoom: number): number {
   return gridSizeForZoom(zoom) * 4;
 }
 
-const round6 = (n: number): number => Math.round(n * 1e6) / 1e6;
-
 /**
  * Expands a bbox outward to tile boundaries so nearby viewports share one cached result and grid
- * cells (aligned to the same origin as ST_SnapToGrid) are never split across queries.
+ * cells ([k·size, (k+1)·size), see ListingSearchRepository.gridSql) are never split across tiles.
+ * Edges are exact integer multiples of the tile size (360/2^z is a binary fraction, so k·t is
+ * exact in float64); they must not be rounded, or cell edges and tile edges would drift apart.
  */
 export function tileAlignedBbox(b: Bbox, zoom: number): Bbox {
   const t = tileSizeForZoom(zoom);
   return {
-    swLng: round6(Math.floor(b.swLng / t) * t),
-    swLat: round6(Math.floor(b.swLat / t) * t),
-    neLng: round6(Math.ceil(b.neLng / t) * t),
-    neLat: round6(Math.ceil(b.neLat / t) * t),
+    swLng: Math.floor(b.swLng / t) * t,
+    swLat: Math.floor(b.swLat / t) * t,
+    neLng: Math.ceil(b.neLng / t) * t,
+    neLat: Math.ceil(b.neLat / t) * t,
   };
 }
 

@@ -1,4 +1,10 @@
-import { ErrorCode, ListingStatus, PUBLIC_LISTING_STATUSES } from '@house/shared';
+import {
+  AgencyMemberRole,
+  AgencyMemberStatus,
+  ErrorCode,
+  ListingStatus,
+  PUBLIC_LISTING_STATUSES,
+} from '@house/shared';
 import { Injectable } from '@nestjs/common';
 import { AppException } from '../../../common/errors/app.exception';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
@@ -21,11 +27,7 @@ export class ListingsModerationService {
   /** Hides a listing from the public site (e.g. 허위매물 신고 처리). Returns the previous status. */
   async hide(listingId: string, reason: string, tx?: PrismaTx): Promise<ListingStatus> {
     const run = async (db: PrismaTx): Promise<ListingStatus> => {
-      const current = await db.listing.findFirst({
-        where: { id: listingId, deletedAt: null },
-        select: { status: true, complexId: true },
-      });
-      if (!current) throw AppException.notFound(ErrorCode.LISTING_NOT_FOUND);
+      const current = await this.lockCurrent(db, listingId);
       await db.listing.update({
         where: { id: listingId },
         data: {
@@ -47,11 +49,7 @@ export class ListingsModerationService {
   /** Operator force-close (거래완료 처리). Returns the previous status. */
   async close(listingId: string, reason: string, tx?: PrismaTx): Promise<ListingStatus> {
     const run = async (db: PrismaTx): Promise<ListingStatus> => {
-      const current = await db.listing.findFirst({
-        where: { id: listingId, deletedAt: null },
-        select: { status: true, complexId: true },
-      });
-      if (!current) throw AppException.notFound(ErrorCode.LISTING_NOT_FOUND);
+      const current = await this.lockCurrent(db, listingId);
       await db.listing.update({
         where: { id: listingId },
         data: {
@@ -108,5 +106,51 @@ export class ListingsModerationService {
     const n = tx ? await run(tx) : await this.prisma.$transaction(run);
     if (!tx) await this.counters.invalidateSearch();
     return n;
+  }
+
+  /**
+   * A broker left / was removed from an agency: their name and phone must stop being advertised.
+   * Their listing contacts move to the agency's 대표 (active OWNER member) or are cleared if there
+   * is none. Call inside the caller's transaction; returns the number of listing links changed.
+   */
+  async memberDeparted(tx: PrismaTx, agencyId: string, memberId: string): Promise<number> {
+    const owner = await tx.agencyMember.findFirst({
+      where: {
+        agencyId,
+        role: AgencyMemberRole.OWNER,
+        status: AgencyMemberStatus.ACTIVE,
+        id: { not: memberId },
+      },
+      select: { id: true, displayName: true, phone: true },
+    });
+    const { count } = await tx.listingAgency.updateMany({
+      where: { agencyId, contactMemberId: memberId },
+      data: owner
+        ? { contactMemberId: owner.id, contactName: owner.displayName, contactPhone: owner.phone }
+        : { contactMemberId: null, contactName: null, contactPhone: null },
+    });
+    return count;
+  }
+
+  /**
+   * Reads the listing's status under a row lock. Under READ COMMITTED a FOR UPDATE that had to
+   * wait returns the row as the other transaction committed it, so the status that decides
+   * whether counters need a refresh is the one this transaction actually replaces.
+   */
+  private async lockCurrent(
+    db: PrismaTx,
+    listingId: string,
+  ): Promise<{ status: ListingStatus; complexId: string | null }> {
+    const [current] = await db.$queryRaw<{ status: ListingStatus; complexId: string | null }[]>`
+      SELECT status::text AS "status", complex_id AS "complexId"
+      FROM listings WHERE id = ${listingId}::uuid AND deleted_at IS NULL
+      FOR UPDATE`;
+    if (!current) throw AppException.notFound(ErrorCode.LISTING_NOT_FOUND);
+    return current;
+  }
+
+  /** Map-tile / search cache invalidation; call after a transaction that passed `tx` commits. */
+  invalidateSearch(): Promise<void> {
+    return this.counters.invalidateSearch();
   }
 }

@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { AgenciesModule } from '../agencies/agencies.module';
+import { MediaModule } from '../media/media.module';
 import { DEAL_REQUESTS_QUEUE } from './constants';
 import { AdminDealRequestsController } from './controllers/admin-deal-requests.controller';
 import { AgencyDealRequestsController } from './controllers/agency-deal-requests.controller';
@@ -23,7 +24,7 @@ import {
 } from './ports/agency-directory.port';
 import { DEAL_REQUEST_COMPLEXES, PrismaDealRequestComplexes } from './ports/complexes.port';
 import { DEAL_REQUEST_LISTINGS, PrismaDealRequestListings } from './ports/listings.port';
-import { DEAL_REQUEST_MEDIA, PrismaDealRequestMedia } from './ports/media.port';
+import { DEAL_REQUEST_MEDIA, MediaServiceDealRequestMedia } from './ports/media.port';
 import { AdminDealRequestsService } from './services/admin-deal-requests.service';
 import { AgencyActorService } from './services/agency-actor.service';
 import { AgencyInboxService } from './services/agency-inbox.service';
@@ -38,7 +39,7 @@ import { ProposalsService } from './services/proposals.service';
  * can write in-app notifications through one place.
  */
 @Module({
-  imports: [AgenciesModule, BullModule.registerQueue({ name: DEAL_REQUESTS_QUEUE })],
+  imports: [AgenciesModule, MediaModule, BullModule.registerQueue({ name: DEAL_REQUESTS_QUEUE })],
   controllers: [
     DealRequestsController,
     MyDealRequestsController,
@@ -51,7 +52,7 @@ import { ProposalsService } from './services/proposals.service';
     { provide: DEAL_REQUEST_AGENCIES, useClass: PrismaDealRequestAgencyDirectory },
     { provide: DEAL_REQUEST_COMPLEXES, useClass: PrismaDealRequestComplexes },
     { provide: DEAL_REQUEST_LISTINGS, useClass: PrismaDealRequestListings },
-    { provide: DEAL_REQUEST_MEDIA, useClass: PrismaDealRequestMedia },
+    { provide: DEAL_REQUEST_MEDIA, useClass: MediaServiceDealRequestMedia },
     { provide: NOTIFICATION_DISPATCHER, useClass: InAppOnlyNotificationDispatcher },
     DealRequestMapper,
     NotificationsService,

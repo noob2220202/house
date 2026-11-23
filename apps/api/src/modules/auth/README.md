@@ -13,7 +13,7 @@ back-office login (email + argon2id + mandatory TOTP).
 | `oauth/oauth-http.ts` | `OAUTH_HTTP` — the only network boundary; e2e replaces it with `test/e2e/auth/fakes/fake-oauth-http.ts`                                                                                     |
 | `signup/`             | pending social signup (Redis, httpOnly cookie) → `POST /auth/signup` with terms consents                                                                                                    |
 | `users/`              | `/auth/me`, `/me/*` (profile, identities, consents, withdraw), `UserSessionService` (session start + acting agency)                                                                         |
-| `terms/`              | current terms documents + append-only `UserConsent` records                                                                                                                                 |
+| `terms/`              | current terms documents + append-only `UserConsent` records; `TermsConsentGuard` (global) + `@SkipTermsCheck()`                                                                             |
 | `admin/`              | admin login, TOTP (otplib, AES-256-GCM secret at rest), recovery codes, lockout, IP allowlists (`AdminIpGuard` global + per account in the session)                                         |
 | `jobs/`               | PII scrub of withdrawn members (`auth-maintenance` queue, daily 04:17 KST when `JOBS_ENABLED`)                                                                                              |
 
@@ -36,7 +36,8 @@ Adding a provider: a class implementing `OAuthProvider`, an `AuthProvider` enum 
 | PATCH    | `/me/profile`                                                | User                    | nickname, phone (format only, never verified), marketingOptIn (+ consent row)                    |
 | GET      | `/me/identities` · DELETE `/me/identities/:provider`         | User                    | last identity can't be removed                                                                   |
 | GET/POST | `/me/consents`                                               | User                    | required terms can't be revoked                                                                  |
-| POST     | `/me/withdraw`                                               | User                    | `{confirm: true, reason?}`; blocked while owning an agency or suspended                          |
+| POST     | `/me/withdraw`                                               | User                    | `{confirm: true, reason?}`; blocked (409) while owning an agency                                 |
+| POST     | `/auth/withdraw`                                             | Public (ticket cookie)  | suspended member's withdrawal, `{confirm: true, reason?}`; `house_withdraw` ticket, single use   |
 | GET      | `/terms` · `/terms/:type?version=`                           | Public                  |                                                                                                  |
 | POST     | `/admin/auth/login`                                          | Public                  | → pre-TOTP session (10 min idle)                                                                 |
 | POST     | `/admin/auth/totp/setup` · `/totp/activate` · `/totp/verify` | pre-TOTP admin session  | session rotated on success; rotation: verified session + `{currentPassword, code\|recoveryCode}` |
@@ -49,15 +50,35 @@ Adding a provider: a class implementing `OAuthProvider`, an `AuthProvider` enum 
   the id to still be in its subject index, so a revoke can never be undone by a concurrent request
   and a touch never overwrites a patch. A record missing from its index is not a session.
 - Admin login answers every refusal (unknown email, disabled, outside the account allowlist,
-  locked, wrong password) with the same 401. Password and TOTP failures share one counter that only
-  a completed second factor resets; 5 failures lock for 15 min (audited as `admin.account.lock`).
-  The TOTP step answers 423 when it locks (the caller already proved the password).
+  locked, wrong password) with the same 401. Wrong passwords at the login step count per
+  (admin, client IP; IPv6 by /64) in Redis within a 15-min window; 5 lock only that pair for 15 min
+  (audited as `admin.login.client_lock`) and never touch the account or its sessions, so knowing an
+  admin's email is not enough to lock them out. Second-factor failures (and wrong passwords on
+  re-auth from a verified session) share the account-wide counter that only a completed second
+  factor resets; 5 lock the account for 15 min, end its sessions (audited as `admin.account.lock`)
+  and answer 423 (the caller already proved the password). A completed second factor also clears
+  that client's password counter.
 - Admin path checks (`isAdminPath`) normalize case, escapes and duplicate slashes like the router.
 - Withdrawal: identities are removed, but an HMAC tombstone (`withdrawn_identities`) blocks signup
   with the same social account for 30 days (`AUTH_REJOIN_COOLDOWN`). Live deal requests are
   cancelled and their contacts erased at once; the PII scrub later clears profile fields, consent
-  ip/UA, report phone/ip, notifications, recent views and favorites, and drops expired tombstones.
+  ip/UA, report phone/ip, notifications, recent views, favorites and former staff rows, and drops
+  expired tombstones.
 - Signup requires the 만 14세 이상 confirmation (`ageOver14: true`, stored as `ageConfirmedAt`).
+- Terms re-consent is enforced server-side: once a new required version is effective, a member's
+  state-changing requests (POST/PUT/PATCH/DELETE) answer 403 `AUTH_TERMS_REQUIRED` with
+  `details.missing: TermsType[]` until they agree via `POST /me/consents`. Reads and
+  `@SkipTermsCheck()` routes (`/auth/*`, `/me/*`) stay usable; admin sessions are not affected. Only
+  "agreed" is cached (Redis, keyed by the current required document ids), so publishing needs no
+  cache bust.
+- Suspended members can withdraw (개인정보 보호법 제36·37조). Their refused social login redirects to
+  `/login?error=AUTH_ACCOUNT_SUSPENDED&withdrawable=1` and sets a 10-minute single-use httpOnly
+  ticket (`house_withdraw`, path `/api/v1/auth/withdraw`) good only for `POST /auth/withdraw`. Their
+  PII is kept `SUSPENDED_PII_RETENTION_DAYS` (90) instead of 30 days, the rejoin tombstone lasts as
+  long, and reports / audit rows / `suspendedReason` stay as evidence until the scrub. **State the
+  90-day period in the 개인정보처리방침.**
+- The PII scrub also erases former agency staff rows (`agency_members`: displayName → `탈퇴 회원`,
+  title, phone, licenseNumber) and any listing contact still pointing at them.
 
 ## Frontend contract
 
