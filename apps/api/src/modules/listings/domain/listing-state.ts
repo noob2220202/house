@@ -15,7 +15,11 @@ import type {
 import type { Listing, Property } from '@prisma/client';
 import { decimalToNumber } from '../../../common/utils/decimal';
 import { dateOnlyToDate } from './dates';
-import { listingPriceSort, propertySearchColumns, type PropertySearchColumns } from './search-columns';
+import {
+  listingPriceSort,
+  propertySearchColumns,
+  type PropertySearchColumns,
+} from './search-columns';
 
 /**
  * Plain (number/Date) working copies of a property and a listing. The write path merges patches
@@ -67,7 +71,6 @@ export interface ListingState {
   moveInDate: Date | null;
   floorDisplay: FloorDisplay;
   options: ListingOption[];
-  privateNote: string | null;
 }
 
 const orNull = <T>(v: T | undefined): T | null => (v === undefined ? null : v);
@@ -167,7 +170,6 @@ export function listingStateFromInput(d: ListingDraftInput): ListingState {
     moveInDate: dateOrNull(d.moveInDate),
     floorDisplay: d.floorDisplay,
     options: d.options,
-    privateNote: orNull(d.privateNote),
   };
 }
 
@@ -187,7 +189,6 @@ export function listingStateFromRow(l: Listing): ListingState {
     moveInDate: l.moveInDate,
     floorDisplay: l.floorDisplay,
     options: l.options,
-    privateNote: l.privateNote,
   };
 }
 
@@ -206,7 +207,6 @@ const LISTING_PATCH_KEYS = [
   'moveInDate',
   'floorDisplay',
   'options',
-  'privateNote',
 ] as const satisfies readonly (keyof ListingState & keyof ListingUpdateInput)[];
 
 export function applyListingPatch(s: ListingState, patch: ListingUpdateInput): ListingState {

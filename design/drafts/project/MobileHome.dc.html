@@ -653,9 +653,8 @@ x-dc{display:block}
 .mh-hd .btn-icon{border:0;background:transparent;position:relative;color:var(--text)}
 .mh-dot{position:absolute;top:10px;right:11px;width:7px;height:7px;border-radius:50%;background:var(--danger);box-shadow:0 0 0 2px var(--surface)}
 
-.mh-hero{display:flex;flex-direction:column;gap:16px;padding:12px 16px 0}
-.mh-h1{font-size:26px;line-height:1.3;font-weight:800;letter-spacing:-0.045em;text-wrap:pretty}
-.mh-h1 em{font-style:normal;color:var(--brand)}
+.mh-hero{display:flex;flex-direction:column;gap:12px;padding:8px 16px 0}
+.mh-h1{font-size:20px;line-height:1.4;font-weight:800;letter-spacing:-0.045em;text-wrap:pretty}
 .mh-search{display:flex;align-items:center;gap:10px;height:56px;padding:0 6px 0 16px;border:2px solid var(--brand);border-radius:var(--r-lg);background:var(--surface);box-shadow:0 0 0 4px rgba(29,79,242,.10),var(--sh-2)}
 .mh-search > .ic{color:var(--brand)}
 .mh-search input{flex:1;min-width:0;height:100%;border:0;background:none;font:inherit;font-size:16px;font-weight:500;color:var(--text)}
@@ -668,46 +667,53 @@ x-dc{display:block}
 .qchip::after{content:"";position:absolute;inset:-3px 0}
 .qchip.is-hot{background:var(--brand-soft);color:var(--brand)}
 
-.mh-sec{display:flex;flex-direction:column;gap:16px;padding:22px 16px 26px}
+.mh-sec{display:flex;flex-direction:column;gap:14px;padding:20px 16px 24px}
 .mh-sec + .mh-sec{padding-top:8px}
-.mh-band{height:10px;background:var(--surface-2)}
+.mh-band{height:8px;background:var(--surface-2)}
 .mh-shd{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
 .mh-shd h2{font-size:20px;line-height:1.35;font-weight:800;letter-spacing:-0.04em}
 .mh-shd p{margin-top:2px;font-size:13px;color:var(--text-muted)}
 .mh-more{display:inline-flex;align-items:center;gap:2px;min-height:44px;margin-bottom:-10px;font-size:14px;font-weight:700;color:var(--text-3);white-space:nowrap}
 .mh-more .ic{color:var(--icon-muted)}
 
-/* category grid: 2 large + 3 compact */
-.mcats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
-.mc{grid-column:span 2;display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-width:0;padding:14px 12px 12px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface)}
-.mc--big{grid-column:span 3;flex-direction:row;align-items:center;gap:12px;padding:14px}
-.mc .cat-tile{width:40px;height:40px;border-radius:var(--r-md);margin:0}
-.mc--big .cat-tile{width:48px;height:48px;background:var(--brand-soft)}
-.mc-tx{display:flex;flex-direction:column;gap:1px;min-width:0}
-.mc-t{font-size:15px;font-weight:800;letter-spacing:-0.035em;color:var(--text);white-space:nowrap}
-.mc--big .mc-t{font-size:16px}
-.mc-n{font-size:13px;color:var(--text-3);white-space:nowrap}
-.mc-n b{color:var(--text);font-weight:800}
+/* category row: five equal-language tiles (first column a little wider for its longer label) */
+.mcats{display:grid;grid-template-columns:1.32fr repeat(4,minmax(0,1fr));gap:4px;margin:0 -4px}
+.mc{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;padding:2px 0}
+.mc .cat-tile{width:48px;height:48px;border-radius:15px;margin:0;background:var(--grey-100)}
+.mc-tx{display:flex;flex-direction:column;align-items:center;gap:0;min-width:0}
+.mc-t{font-size:13px;font-weight:800;letter-spacing:-0.045em;color:var(--text);white-space:nowrap}
+.mc-n{font-size:12px;color:var(--text-muted);white-space:nowrap}
+.mc-n b{font-weight:600;color:var(--text-muted)}
 
 /* ad */
+/* sample creative = advertiser's own colours (sand / terracotta); the frame, AD badge and pager are ours */
+.mh-ad{background:#F3EEE4;color:#1F1A14;box-shadow:inset 0 0 0 1px rgba(31,26,20,.06)}
+.mh-ad .ad-link{position:absolute;inset:0;display:block;border-radius:inherit}
 .mh-ad .ad-copy{left:18px;top:auto;bottom:18px;transform:none;max-width:62%;gap:6px}
-.mh-ad .ad-h{font-size:19px;line-height:1.3}
-.mh-ad .ad-k{font-size:12px}
-.mh-ad .ad-art{max-width:50%;height:88%}
+.mh-ad .ad-h{font-size:19px;line-height:1.3;color:#1F1A14}
+.mh-ad .ad-h em{font-style:normal;color:#8A3418}
+.mh-ad .ad-k{font-size:12px;color:#8A3418}
+.mh-ad .ad-art{max-width:52%;height:90%}
 .mh-ad .ad-badge{left:14px;top:14px}
-.mh-ad .ad-pager{right:12px;top:12px}
+.mh-ad .ad-pager{right:12px;top:12px;padding:0 10px;background:rgba(255,255,255,.9);color:#1F1A14;box-shadow:0 0 0 1px rgba(31,26,20,.08)}
 
 /* 내놓기 · 구하기 */
 .deal2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.d2{display:flex;flex-direction:column;gap:2px;min-width:0;padding:14px 14px 16px;border-radius:var(--r-lg);border:1px solid var(--line);background:var(--surface)}
+.d2{display:flex;flex-direction:column;gap:2px;min-width:0;padding:14px 14px 15px;border-radius:var(--r-lg);background:var(--surface)}
 .d2-t{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:800;letter-spacing:-0.04em}
 .d2-ic{display:grid;place-items:center;flex:none;width:32px;height:32px;border-radius:9px;background:var(--brand-soft);color:var(--brand)}
 .d2-t > .ic{margin-left:auto;color:var(--icon-muted)}
-.d2-s{padding-top:6px;font-size:13px;line-height:1.45;color:var(--text-3)}
-.d2.is-ink{background:var(--surface-ink);border-color:var(--surface-ink);color:var(--text-on-ink)}
-.d2.is-ink .d2-ic{background:rgba(233,215,168,.16);color:var(--accent)}
-.d2.is-ink .d2-s{color:var(--text-on-ink-2)}
-.d2.is-ink .d2-t > .ic{color:var(--text-on-ink-2)}
+.d2-s{padding-top:6px;font-size:13px;line-height:1.45;color:var(--text-3);letter-spacing:-0.02em;white-space:nowrap;text-wrap:balance}
+.d2.is-brand{background:var(--brand);color:#fff}
+.d2.is-brand .d2-ic{background:rgba(255,255,255,.16);color:#fff}
+.d2.is-brand .d2-s{color:rgba(255,255,255,.86)}   /* 4.9:1 on #1D4FF2 */
+.d2.is-brand .d2-t > .ic{color:rgba(255,255,255,.86)}
+.d2.is-line{box-shadow:inset 0 0 0 1.5px var(--brand)}
+.d2.is-line .d2-t > .ic{color:var(--brand)}
+
+.qlinks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:-4px -8px -8px}
+.qlinks a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:64px;padding:6px 2px;border-radius:var(--r-md);font-size:12px;font-weight:700;letter-spacing:-0.04em;color:var(--text-2);white-space:nowrap}
+.qlinks .ic{color:var(--text-3)}
 
 /* ranking */
 .mh .tabs{margin:0 -16px;padding:0 8px;gap:2px}
@@ -724,6 +730,13 @@ x-dc{display:block}
 .rk1-p em{font-style:normal;font-size:12px;font-weight:700;color:var(--accent)}
 .rk1-p b{font-family:"Inter","Noto Sans KR",sans-serif;font-size:19px;font-weight:800;letter-spacing:-0.035em;color:#fff;white-space:nowrap}
 .rk1 .kcount{align-self:auto}
+.rk1 .delta.flat{color:var(--text-on-ink-muted);font-size:14px}
+/* deal colours kept on ink: light tints, each >= 8.6:1 on #0A1222 */
+.rk1 .kcount--ink .k-presale em{color:#B8A6F0}
+.rk1 .kcount--ink .k-sale em{color:#F5A27A}
+.rk1 .kcount--ink .k-jeonse em{color:#6FD1A8}
+.rk1 .kcount--ink .k-monthly em{color:#E99AC8}
+.rk1 .kcount--ink .is-zero em,.rk1 .kcount--ink .is-zero b{color:var(--text-on-ink-muted)}
 .rklist{display:flex;flex-direction:column}
 .rklist li + li{border-top:1px solid var(--grey-100)}
 .rk{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px 0}
@@ -739,12 +752,12 @@ x-dc{display:block}
 .hscroll{display:flex;gap:12px;margin:0 -16px;padding:2px 16px 6px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding-inline:16px;scrollbar-width:none}
 .hscroll > li{flex:none;width:212px;scroll-snap-align:start}
 .nl{display:flex;flex-direction:column;height:100%;border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden;background:var(--surface)}
-.nl-ph{position:relative;aspect-ratio:16/10;background:var(--surface-2);overflow:hidden}
+.nl-ph{position:relative;aspect-ratio:16/9;background:var(--surface-2);overflow:hidden}
 .nl-ph > svg{position:absolute;inset:0;width:100%;height:100%;display:block}
 .nl-ph .brokers{position:absolute;left:10px;bottom:10px}
 .nl-like{position:absolute;right:2px;top:2px;display:grid;place-items:center;width:44px;height:44px}
 .nl-like span{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.94);color:var(--text-3);box-shadow:var(--sh-1)}
-.nl-body{display:flex;flex-direction:column;gap:3px;padding:14px 14px 14px}
+.nl-body{display:flex;flex-direction:column;gap:3px;padding:12px 14px}
 .nl-deal{font-size:12px;font-weight:800}
 .nl-price{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:26px}
 .nl-price .prem{height:22px;padding:0 6px;font-size:12px}
@@ -756,7 +769,7 @@ x-dc{display:block}
 .nl .verified{margin-top:8px;padding-top:10px;border-top:1px solid var(--grey-100);font-size:12px}
 
 /* videos (thumbnails shared with Main) */
-.hscroll--v > li{width:256px}
+.hscroll--v > li{width:236px}
 .vcard{display:flex;flex-direction:column;gap:10px;min-width:0}
 .vt{position:relative;display:block;aspect-ratio:16/9;border-radius:var(--r-lg);overflow:hidden}
 .vt-ink{background:var(--surface-ink);color:#fff}
@@ -769,7 +782,7 @@ x-dc{display:block}
 .vt-ink .vt-tag{color:var(--accent)}
 .vt-reed .vt-tag{color:var(--accent-text)}
 .vt-soft .vt-tag{color:var(--brand)}
-.vt-h{font-size:18px;font-weight:800;line-height:1.25;letter-spacing:-0.04em}
+.vt-h{font-size:17px;font-weight:800;line-height:1.25;letter-spacing:-0.04em}
 .vt-h em{font-style:normal}
 .vt-ink .vt-h em{color:var(--accent)}
 .vt-reed .vt-h em{color:var(--accent-text)}
@@ -778,16 +791,17 @@ x-dc{display:block}
 .vt-play svg{margin-left:2px}
 .vt-dur{position:absolute;right:8px;bottom:8px;display:inline-flex;align-items:center;height:22px;padding:0 6px;border-radius:5px;background:rgba(10,18,34,.86);color:#fff;font-family:"Inter",sans-serif;font-size:12px;font-weight:700}
 .vtext{display:flex;flex-direction:column;gap:4px;min-width:0}
-.vt-title{font-size:15px;font-weight:700;line-height:1.45;letter-spacing:-0.025em;color:var(--text)}
+.vt-title{font-size:15px;font-weight:700;line-height:1.45;letter-spacing:-0.025em;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* mini footer */
-.mfoot{display:flex;flex-direction:column;gap:12px;padding:12px 16px 24px;background:var(--grey-50);border-top:1px solid var(--line)}
+.mfoot{display:flex;flex-direction:column;gap:0;padding:8px 16px 24px;background:var(--grey-50);border-top:1px solid var(--line)}
 .mfoot-legal{display:flex;flex-wrap:wrap;gap:0 16px;font-size:13px;font-weight:700;color:var(--text-2)}
 .mfoot-legal a{display:inline-flex;align-items:center;min-height:44px}
 .mfoot-legal a.is-strong{color:var(--text)}
+.mfoot-legal + .mfoot-legal{border-top:1px solid var(--line);font-weight:600;margin-bottom:8px}
 .mfoot-biz{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;padding:0 14px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line);font-size:13px;font-weight:700;color:var(--text-2)}
 .mfoot-biz .ic{color:var(--icon-muted)}
-.mfoot-copy{font-size:12px;line-height:1.6;color:var(--text-muted)}
+.mfoot-copy{padding-top:12px;font-size:12px;line-height:1.6;color:var(--text-muted)}
 
 /* tab bar — 5 tabs, 내놓기·구하기 centre */
 .mh .tabbar{height:68px;padding:0 2px 6px;box-shadow:0 -4px 16px rgba(10,18,34,.04)}
@@ -807,27 +821,35 @@ x-dc{display:block}
 </header>
 
 <section class="mh-hero" aria-labelledby="mh-h1">
-  <h1 id="mh-h1" class="mh-h1">순천의 집,<br><em>한 번의 검색</em>으로</h1>
+  <h1 id="mh-h1" class="mh-h1">순천 어디를 찾으세요?</h1>
   <form class="mh-search" role="search" action="#"><label class="sr" for="mh-q">지역 또는 단지명 검색</label><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg><input id="mh-q" type="search" placeholder="지역 또는 단지명"><button class="btn btn-primary" type="submit">검색</button></form>
   <div class="qrow" aria-label="많이 찾는 검색어"><span class="qrow-l">많이 찾는</span><a class="qchip is-hot" href="MapApt.dc.html">신대지구</a><a class="qchip" href="MapApt.dc.html">오천지구</a><a class="qchip" href="MapApt.dc.html">연향동</a><a class="qchip" href="MapApt.dc.html">조례동</a><a class="qchip" href="MapApt.dc.html">선월 분양권</a><a class="qchip" href="MapApt.dc.html">순천대 원룸</a></div>
 </section>
 
 <section class="mh-sec" aria-label="매물 종류">
-  <div class="mcats"><a class="mc mc--big" href="MapApt.dc.html"><span class="cat-tile"><svg class="ic cat-svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20.5h16"/><rect x="5.5" y="8" width="6" height="12.5" rx=".8"/><rect x="11.5" y="3.5" width="7" height="17" rx=".8"/><path d="M8 11h1M8 14h1M8 17h1M14 7h2M14 10h2M14 13h2"/><rect class="cat-acc" x="14" y="16" width="2" height="4.5"/></svg></span><span class="mc-tx"><span class="mc-t">아파트·분양권</span><span class="mc-n">매물 <b class="num">1,284</b></span></span></a><a class="mc mc--big" href="OneRoom.dc.html"><span class="cat-tile"><svg class="ic cat-svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16.5" rx="1.5"/><path d="M4 13.5h16"/><path d="M8 13.5V10a1.5 1.5 0 0 1 1.5-1.5h5A1.5 1.5 0 0 1 16 10v3.5"/><path d="M6.5 20.5v-2.5M17.5 20.5v-2.5"/><rect class="cat-acc" x="10" y="10.5" width="4" height="3"/></svg></span><span class="mc-tx"><span class="mc-t">원룸·투룸</span><span class="mc-n">매물 <b class="num">936</b></span></span></a><a class="mc" href="#"><span class="cat-tile"><svg class="ic cat-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 11.5 12 4.5l8.5 7"/><path d="M5.5 10v10.5h13V10"/><path d="M16 6.2V4.5h2v3.3"/><rect class="cat-acc" x="10" y="14" width="4" height="6.5"/><path d="M3 20.5h18"/></svg></span><span class="mc-tx"><span class="mc-t">주택</span><span class="mc-n">매물 <b class="num">312</b></span></span></a><a class="mc" href="#"><span class="cat-tile"><svg class="ic cat-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20.5h16"/><rect x="5" y="3.5" width="14" height="17" rx=".8"/><path d="M8 7h2M14 7h2M8 10.5h2M14 10.5h2"/><path d="M5 14h14"/><rect class="cat-acc" x="10" y="16" width="4" height="4.5"/></svg></span><span class="mc-tx"><span class="mc-t">상업·업무</span><span class="mc-n">매물 <b class="num">248</b></span></span></a><a class="mc" href="#"><span class="cat-tile"><svg class="ic cat-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 17 8 14l5 2 8.5-4"/><path d="M2.5 20.5h19"/><path d="M5 20.5 8 14M11 20.5l2-4.5M17 20.5l-1-6"/><path d="M14 3.5V11"/><path class="cat-acc-f" d="M14.5 3.8h5l-1.4 1.9 1.4 1.9h-5z"/></svg></span><span class="mc-tx"><span class="mc-t">토지</span><span class="mc-n">매물 <b class="num">421</b></span></span></a></div>
-  <a class="adframe adframe--mobile mh-ad" href="#" aria-label="광고: 연향들 더 퍼스트 12월 견본주택 오픈"><span class="ad-badge on-dark">AD</span><span class="ad-pager"><span class="num">1 / 3</span><button type="button" aria-label="다음 광고"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button></span><span class="ad-copy"><span class="ad-k">연향들 도시개발구역 · 민간분양</span><span class="ad-h">연향들 더 퍼스트<br>12월 견본주택 오픈</span></span><svg viewBox="0 0 520 220" preserveAspectRatio="xMaxYMax meet" aria-hidden="true" class="ad-art">
-  <g fill="none" stroke="#E9D7A8" stroke-width="1.4" stroke-linecap="round">
-    <path d="M170 220V70h60v150"/><path d="M170 70l30-18 30 18"/><path d="M178 84h44"/><path d="M178 95h44"/><path d="M178 106h44"/><path d="M178 117h44"/><path d="M178 128h44"/><path d="M178 139h44"/><path d="M178 150h44"/><path d="M178 161h44"/><path d="M178 172h44"/><path d="M178 183h44"/><path d="M178 194h44"/><path d="M178 205h44"/>
-    <path d="M250 220V30h74v190"/><path d="M250 30h74M287 30V14"/><path d="M258 44h58"/><path d="M258 55h58"/><path d="M258 66h58"/><path d="M258 77h58"/><path d="M258 88h58"/><path d="M258 99h58"/><path d="M258 110h58"/><path d="M258 121h58"/><path d="M258 132h58"/><path d="M258 143h58"/><path d="M258 154h58"/><path d="M258 165h58"/><path d="M258 176h58"/><path d="M258 187h58"/><path d="M258 198h58"/><path d="M258 209h58"/>
-    <path d="M344 220V92h58v128"/><path d="M352 104h42"/><path d="M352 115h42"/><path d="M352 126h42"/><path d="M352 137h42"/><path d="M352 148h42"/><path d="M352 159h42"/><path d="M352 170h42"/><path d="M352 181h42"/><path d="M352 192h42"/><path d="M352 203h42"/>
-    <path d="M420 220v-74h50v74"/><path d="M428 158h34"/><path d="M428 169h34"/><path d="M428 180h34"/><path d="M428 191h34"/><path d="M428 202h34"/>
-    <path d="M150 220h370" opacity=".5"/>
-    <g opacity=".75"><path d="M18 220 Q22 197 16 174"/><path d="M16 174 l-3 -12" stroke-width="3"/><path d="M31 220 Q35 188.5 39 157"/><path d="M39 157 l3 -12" stroke-width="3"/><path d="M44 220 Q48 195 42 170"/><path d="M42 170 l-3 -12" stroke-width="3"/><path d="M57 220 Q61 186.5 65 153"/><path d="M65 153 l3 -12" stroke-width="3"/><path d="M70 220 Q74 193 68 166"/><path d="M68 166 l-3 -12" stroke-width="3"/><path d="M83 220 Q87 184.5 91 149"/><path d="M91 149 l3 -12" stroke-width="3"/><path d="M96 220 Q100 191 94 162"/><path d="M94 162 l-3 -12" stroke-width="3"/><path d="M109 220 Q113 182.5 117 145"/><path d="M117 145 l3 -12" stroke-width="3"/><path d="M122 220 Q126 189 120 158"/><path d="M120 158 l-3 -12" stroke-width="3"/></g>
-  </g>
-</svg></a>
+  <div class="mcats"><a class="mc" href="MapApt.dc.html"><span class="cat-tile"><svg class="ic cat-svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20.5h16"/><rect x="5.5" y="8" width="6" height="12.5" rx=".8"/><rect x="11.5" y="3.5" width="7" height="17" rx=".8"/><path d="M8 11h1M8 14h1M8 17h1M14 7h2M14 10h2M14 13h2"/><rect class="cat-acc" x="14" y="16" width="2" height="4.5"/></svg></span><span class="mc-tx"><span class="mc-t">아파트·분양권</span><span class="mc-n"><span class="sr">매물 </span><b class="num">1,284</b></span></span></a><a class="mc" href="OneRoom.dc.html"><span class="cat-tile"><svg class="ic cat-svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16.5" rx="1.5"/><path d="M4 13.5h16"/><path d="M8 13.5V10a1.5 1.5 0 0 1 1.5-1.5h5A1.5 1.5 0 0 1 16 10v3.5"/><path d="M6.5 20.5v-2.5M17.5 20.5v-2.5"/><rect class="cat-acc" x="10" y="10.5" width="4" height="3"/></svg></span><span class="mc-tx"><span class="mc-t">원룸·투룸</span><span class="mc-n"><span class="sr">매물 </span><b class="num">936</b></span></span></a><a class="mc" href="MapApt.dc.html?type=house"><span class="cat-tile"><svg class="ic cat-svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 11.5 12 4.5l8.5 7"/><path d="M5.5 10v10.5h13V10"/><path d="M16 6.2V4.5h2v3.3"/><rect class="cat-acc" x="10" y="14" width="4" height="6.5"/><path d="M3 20.5h18"/></svg></span><span class="mc-tx"><span class="mc-t">주택</span><span class="mc-n"><span class="sr">매물 </span><b class="num">312</b></span></span></a><a class="mc" href="MapApt.dc.html?type=commercial"><span class="cat-tile"><svg class="ic cat-svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20.5h16"/><rect x="5" y="3.5" width="14" height="17" rx=".8"/><path d="M8 7h2M14 7h2M8 10.5h2M14 10.5h2"/><path d="M5 14h14"/><rect class="cat-acc" x="10" y="16" width="4" height="4.5"/></svg></span><span class="mc-tx"><span class="mc-t">상업·업무</span><span class="mc-n"><span class="sr">매물 </span><b class="num">248</b></span></span></a><a class="mc" href="MapApt.dc.html?type=land"><span class="cat-tile"><svg class="ic cat-svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 17 8 14l5 2 8.5-4"/><path d="M2.5 20.5h19"/><path d="M5 20.5 8 14M11 20.5l2-4.5M17 20.5l-1-6"/><path d="M14 3.5V11"/><path class="cat-acc-f" d="M14.5 3.8h5l-1.4 1.9 1.4 1.9h-5z"/></svg></span><span class="mc-tx"><span class="mc-t">토지</span><span class="mc-n"><span class="sr">매물 </span><b class="num">421</b></span></span></a></div>
+  <div class="adframe adframe--mobile mh-ad"><a class="ad-link" href="#" aria-label="광고: 연향들 더 퍼스트 12월 견본주택 오픈"><span class="ad-copy"><span class="ad-k">연향들 도시개발구역 · 민간분양</span><span class="ad-h">연향들 더 퍼스트<br><em>12월 견본주택 오픈</em></span></span><svg viewBox="200 0 320 220" preserveAspectRatio="xMaxYMax meet" aria-hidden="true" class="ad-art">
+  <circle cx="452" cy="58" r="30" fill="#EBC9A8"/>
+  <g fill="#E4D6C2"><rect x="318" y="52" width="46" height="148" rx="3"/><rect x="372" y="26" width="52" height="174" rx="3"/><rect x="470" y="84" width="40" height="116" rx="3"/></g>
+  <g stroke="#F3EEE4" stroke-width="3" stroke-linecap="round"><path d="M328 70h26M328 84h26M328 98h26M328 112h26"/><path d="M382 44h32M382 58h32M382 72h32M382 86h32M382 100h32"/><path d="M480 100h20M480 114h20"/></g>
+  <rect x="276" y="132" width="236" height="68" fill="#B4532A"/>
+  <rect x="262" y="118" width="258" height="16" rx="2" fill="#8A3418"/>
+  <g fill="#F6E3D3"><rect x="290" y="146" width="26" height="40" rx="2"/><rect x="324" y="146" width="26" height="40" rx="2"/><rect x="450" y="146" width="26" height="40" rx="2"/><rect x="484" y="146" width="20" height="40" rx="2"/></g>
+  <rect x="360" y="134" width="80" height="12" fill="#1F1A14"/>
+  <path d="M368 141h64" stroke="#F3EEE4" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="6 5"/>
+  <rect x="380" y="152" width="40" height="48" rx="2" fill="#1F1A14"/>
+  <path d="M400 152v48" stroke="#B4532A" stroke-width="2"/>
+  <g stroke="#1F1A14" stroke-width="2.2" stroke-linecap="round"><path d="M226 200V104M250 200V112"/></g>
+  <path d="M227 106h22l-6 9 6 9h-22z" fill="#B4532A"/>
+  <path d="M251 114h20l-5 8 5 8h-20z" fill="#1F1A14"/>
+  <g fill="#D9C2A6"><rect x="278" y="188" width="28" height="12" rx="6"/><rect x="452" y="188" width="34" height="12" rx="6"/></g>
+  <path d="M204 200h316" stroke="#1F1A14" stroke-opacity=".28" stroke-width="2"/>
+</svg></a><span class="ad-badge">AD</span><span class="ad-pager" aria-hidden="true"><span class="num">1 / 3</span></span></div>
   <div class="deal2">
-    <a class="d2 is-ink" href="DealRequest.dc.html"><span class="d2-t"><span class="d2-ic"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9.5h12V10"/><path d="M12 17v-5"/><path d="m9.5 14 2.5-2.5 2.5 2.5"/></svg></span>내놓기<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span><span class="d2-s">집을 내놓을 생각이 있나요?</span></a>
-    <a class="d2" href="DealRequest.dc.html"><span class="d2-t"><span class="d2-ic"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9.5h5"/><circle cx="15.5" cy="15.5" r="2.8"/><path d="m20 20-2.4-2.4"/></svg></span>구하기<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span><span class="d2-s">찾는 조건의 집이 없나요?</span></a>
+    <a class="d2 is-brand" href="DealRequest.dc.html#sell"><span class="d2-t"><span class="d2-ic"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9.5h12V10"/><path d="M12 17v-5"/><path d="m9.5 14 2.5-2.5 2.5 2.5"/></svg></span>내놓기<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span><span class="d2-s">집 내놓을 생각 있으세요?</span></a>
+    <a class="d2 is-line" href="DealRequest.dc.html#find"><span class="d2-t"><span class="d2-ic"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9.5h5"/><circle cx="15.5" cy="15.5" r="2.8"/><path d="m20 20-2.4-2.4"/></svg></span>구하기<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span><span class="d2-s">원하는 집이 없으세요?</span></a>
   </div>
+  <nav class="qlinks" aria-label="바로가기"><a href="Agents.dc.html"><svg class="ic" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20.5h16"/><rect x="5" y="3.5" width="14" height="17" rx=".8"/><path d="M8 7h2M14 7h2M8 10.5h2M14 10.5h2"/><path d="M5 14h14"/><path d="M10 20.5V16h4v4.5"/></svg><span>중개사무소 찾기</span></a><a href="#"><svg class="ic" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M8.5 7.5h7"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 16h.01M12 16h.01M15.5 16h.01" stroke-width="2.4"/></svg><span>계산기</span></a><a href="#"><svg class="ic" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17v-5a5 5 0 0 1 10 0v5"/><path d="M5 20h14v-3H5z"/><path d="M12 3v1.5M4.5 6l1 1M19.5 6l-1 1"/></svg><span>허위매물 신고</span></a><a href="#"><svg class="ic" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10v4h3l8 4.5v-13L7 10z"/><path d="M7 14v4.5h3V15"/><path d="M18.5 9.5a3.5 3.5 0 0 1 0 5"/></svg><span>공지사항</span></a></nav>
 </section>
 
 <div class="mh-band" aria-hidden="true"></div>
@@ -836,10 +858,10 @@ x-dc{display:block}
   <div class="mh-shd"><div><h2 id="rk-h">사람들이 자주 찾는 단지</h2><p>최근 7일 조회 기준 · 11.23 업데이트</p></div><a class="mh-more" href="MapApt.dc.html">전체<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></div>
   <div class="tabs" role="tablist" aria-label="매물 종류"><button class="tab is-on" role="tab" aria-selected="true">아파트·분양권</button><button class="tab" role="tab" aria-selected="false">원룸·투룸</button><button class="tab" role="tab" aria-selected="false">주택</button><button class="tab" role="tab" aria-selected="false">상업·업무</button><button class="tab" role="tab" aria-selected="false">토지</button></div>
   <a class="rk1" href="Complex.dc.html">
-    <span class="rk1-top"><span class="rk1-n">1</span><span style="min-width:0"><b class="rk1-name">신대 레이크파크 1단지</b><span class="rk1-loc">해룡면 신대리 · 1,412세대 · 2019년</span></span><span class="rk1-flat">순위 유지</span></span>
-    <span class="rk1-bot"><span class="rk1-p"><em>매매</em><b>3억 9,000 ~</b></span><span class="kcount kcount--ink" aria-label="분양 0건, 매매 38건, 전세 12건, 월세 6건"><span class="k-presale is-zero"><em>분</em><b>0</b></span><span class="k-sale"><em>매</em><b>38</b></span><span class="k-jeonse"><em>전</em><b>12</b></span><span class="k-monthly"><em>월</em><b>6</b></span></span></span>
+    <span class="rk1-top"><span class="rk1-n">1</span><span style="min-width:0"><b class="rk1-name">신대 레이크파크 1단지</b><span class="rk1-loc">해룡면 신대리 · 1,180만/평 · 1,412세대</span></span><span class="rk1-flat"><span class="delta flat" aria-label="순위 변동 없음">–</span></span></span>
+    <span class="rk1-bot"><span class="rk1-p"><em>매매 최저</em><b>3억 9,000</b></span><span class="kcount kcount--ink" aria-label="분양 0건, 매매 38건, 전세 12건, 월세 6건"><span class="k-presale is-zero"><em>분</em><b>0</b></span><span class="k-sale"><em>매</em><b>38</b></span><span class="k-jeonse"><em>전</em><b>12</b></span><span class="k-monthly"><em>월</em><b>6</b></span></span></span>
   </a>
-  <ol class="rklist" start="2"><li><a class="rk" href="Complex.dc.html"><span class="rk-n"><b class="num">2</b><span class="delta up" aria-label="2계단 상승">▲2</span></span><span class="rk-main"><b class="rk-name">연향 센트럴</b><span class="rk-loc">연향동 · 1,090만/평</span></span><span class="kcount" aria-label="분양 0건, 매매 24건, 전세 9건, 월세 5건"><span class="k-presale is-zero"><em>분</em><b>0</b></span><span class="k-sale"><em>매</em><b>24</b></span><span class="k-jeonse"><em>전</em><b>9</b></span><span class="k-monthly"><em>월</em><b>5</b></span></span></a></li><li><a class="rk" href="Complex.dc.html"><span class="rk-n"><b class="num">3</b><span class="delta down" aria-label="1계단 하락">▼1</span></span><span class="rk-main"><b class="rk-name">선월 하이츠 2차</b><span class="rk-loc">해룡면 선월리 · 1,240만/평</span></span><span class="kcount" aria-label="분양 46건, 매매 5건, 전세 0건, 월세 2건"><span class="k-presale"><em>분</em><b>46</b></span><span class="k-sale"><em>매</em><b>5</b></span><span class="k-jeonse is-zero"><em>전</em><b>0</b></span><span class="k-monthly"><em>월</em><b>2</b></span></span></a></li><li><a class="rk" href="Complex.dc.html"><span class="rk-n"><b class="num">4</b><span class="delta up" aria-label="1계단 상승">▲1</span></span><span class="rk-main"><b class="rk-name">조례 호수마을</b><span class="rk-loc">조례동 · 940만/평</span></span><span class="kcount" aria-label="분양 0건, 매매 19건, 전세 7건, 월세 4건"><span class="k-presale is-zero"><em>분</em><b>0</b></span><span class="k-sale"><em>매</em><b>19</b></span><span class="k-jeonse"><em>전</em><b>7</b></span><span class="k-monthly"><em>월</em><b>4</b></span></span></a></li></ol>
+  <ol class="rklist" start="2"><li><a class="rk" href="Complex.dc.html"><span class="rk-n"><b class="num">2</b><span class="delta up" aria-label="2계단 상승">▲2</span></span><span class="rk-main"><b class="rk-name">연향 센트럴</b><span class="rk-loc">연향동 · 1,090만/평</span></span><span class="kcount" aria-label="분양 0건, 매매 24건, 전세 9건, 월세 5건"><span class="k-presale is-zero"><em>분</em><b>0</b></span><span class="k-sale"><em>매</em><b>24</b></span><span class="k-jeonse"><em>전</em><b>9</b></span><span class="k-monthly"><em>월</em><b>5</b></span></span></a></li><li><a class="rk" href="Complex.dc.html"><span class="rk-n"><b class="num">3</b><span class="delta down" aria-label="1계단 하락">▼1</span></span><span class="rk-main"><b class="rk-name">선월 하이츠 2차</b><span class="rk-loc">해룡면 선월리 · 1,240만/평</span></span><span class="kcount" aria-label="분양 46건, 매매 5건, 전세 0건, 월세 2건"><span class="k-presale"><em>분</em><b>46</b></span><span class="k-sale"><em>매</em><b>5</b></span><span class="k-jeonse is-zero"><em>전</em><b>0</b></span><span class="k-monthly"><em>월</em><b>2</b></span></span></a></li></ol>
 </section>
 
 <div class="mh-band" aria-hidden="true"></div>
@@ -915,34 +937,36 @@ x-dc{display:block}
   <svg class="vt-art" viewBox="0 0 180 120" preserveAspectRatio="xMaxYMax meet" aria-hidden="true"><g fill="#1B2740" opacity="1"><rect x="0" y="62" width="22" height="58"/><rect x="26" y="34" width="30" height="86"/><rect x="60" y="70" width="18" height="50"/><rect x="82" y="18" width="34" height="102"/><rect x="120" y="54" width="24" height="66"/><rect x="148" y="40" width="28" height="80"/></g><g fill="#2A3752"><rect x="30.0" y="42.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="38.5" y="42.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="47.0" y="42.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="30.0" y="52.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="38.5" y="52.0" width="5" height="3" rx=".8" fill="#E9D7A8"/><rect x="47.0" y="52.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="30.0" y="62.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="38.5" y="62.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="47.0" y="62.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="30.0" y="72.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="38.5" y="72.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="47.0" y="72.0" width="5" height="3" rx=".8" fill="#E9D7A8"/><rect x="30.0" y="82.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="38.5" y="82.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="47.0" y="82.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="30.0" y="92.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="38.5" y="92.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="47.0" y="92.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="30.0" y="102.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="38.5" y="102.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="47.0" y="102.0" width="5" height="3" rx=".8" fill="#2A3752"/><rect x="87.0" y="26.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="97.0" y="26.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="107.0" y="26.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="87.0" y="36.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="97.0" y="36.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="107.0" y="36.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="87.0" y="46.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="97.0" y="46.0" width="6" height="3" rx=".8" fill="#E9D7A8"/><rect x="107.0" y="46.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="87.0" y="56.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="97.0" y="56.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="107.0" y="56.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="87.0" y="66.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="97.0" y="66.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="107.0" y="66.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="87.0" y="76.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="97.0" y="76.0" width="6" height="3" rx=".8" fill="#E9D7A8"/><rect x="107.0" y="76.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="87.0" y="86.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="97.0" y="86.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="107.0" y="86.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="87.0" y="96.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="97.0" y="96.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="107.0" y="96.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="87.0" y="106.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="97.0" y="106.0" width="6" height="3" rx=".8" fill="#2A3752"/><rect x="107.0" y="106.0" width="6" height="3" rx=".8" fill="#2A3752"/></g></svg>
   <span class="vt-copy"><span class="vt-tag">시세 점검</span><span class="vt-h">신대 34평,<br><em>지금 사도 될까?</em></span></span>
   <span class="vt-dur"><span class="sr">재생 시간 </span>14:32</span>
-<span class="vt-play" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg></span></span><span class="vtext"><b class="vt-title">신대지구 34평, 지금 사도 될까? 2026 하반기 시세 점검</b><span class="t-cap">조회수 1.2만회 · 3일 전</span></span></a></li><li><a class="vcard" href="#"><span class="vt vt-cobalt">
+<span class="vt-play" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg></span></span><span class="vtext"><b class="vt-title">신대지구 34평 하반기 시세 점검</b><span class="t-cap">조회수 1.2만회 · 3일 전</span></span></a></li><li><a class="vcard" href="#"><span class="vt vt-cobalt">
   <svg class="vt-art" viewBox="0 0 180 120" preserveAspectRatio="xMaxYMax meet" aria-hidden="true"><g fill="none" stroke="#B9CCFF" stroke-width="1.2" opacity=".55"><path d="M10 120 L70 40 L178 52 L150 120z"/><path d="M40 80 L160 90M25 100 L155 108M55 60 L168 70"/><path d="M90 42 L72 120M128 47 L118 120"/></g><path d="M120 50 V14" stroke="#FFFFFF" stroke-width="2"/><path d="M121 14h20l-5 6 5 6h-20z" fill="#E9D7A8"/></svg>
   <span class="vt-copy"><span class="vt-tag">개발 소식</span><span class="vt-h">연향들 토지 분양<br><em>핵심만 5분 정리</em></span></span>
   
   <span class="vt-dur"><span class="sr">재생 시간 </span>5:08</span>
-<span class="vt-play" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg></span></span><span class="vtext"><b class="vt-title">연향들 도시개발사업 토지 분양, 일정과 위치 핵심 정리</b><span class="t-cap">조회수 8,940회 · 1주 전</span></span></a></li><li><a class="vcard" href="#"><span class="vt vt-reed">
+<span class="vt-play" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg></span></span><span class="vtext"><b class="vt-title">연향들 토지 분양 일정·위치 정리</b><span class="t-cap">조회수 8,940회 · 1주 전</span></span></a></li><li><a class="vcard" href="#"><span class="vt vt-reed">
   <svg class="vt-art" viewBox="0 0 180 120" preserveAspectRatio="xMaxYMax meet" aria-hidden="true"><g fill="#E7D9B6" opacity="1"><rect x="0" y="62" width="22" height="58"/><rect x="26" y="34" width="30" height="86"/><rect x="60" y="70" width="18" height="50"/><rect x="82" y="18" width="34" height="102"/><rect x="120" y="54" width="24" height="66"/><rect x="148" y="40" width="28" height="80"/></g><g fill="#F3E8CC"><rect x="30.0" y="42.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="38.5" y="42.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="47.0" y="42.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="30.0" y="52.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="38.5" y="52.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="47.0" y="52.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="30.0" y="62.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="38.5" y="62.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="47.0" y="62.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="30.0" y="72.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="38.5" y="72.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="47.0" y="72.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="30.0" y="82.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="38.5" y="82.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="47.0" y="82.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="30.0" y="92.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="38.5" y="92.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="47.0" y="92.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="30.0" y="102.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="38.5" y="102.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="47.0" y="102.0" width="5" height="3" rx=".8" fill="#F3E8CC"/><rect x="87.0" y="26.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="97.0" y="26.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="107.0" y="26.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="87.0" y="36.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="97.0" y="36.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="107.0" y="36.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="87.0" y="46.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="97.0" y="46.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="107.0" y="46.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="87.0" y="56.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="97.0" y="56.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="107.0" y="56.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="87.0" y="66.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="97.0" y="66.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="107.0" y="66.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="87.0" y="76.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="97.0" y="76.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="107.0" y="76.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="87.0" y="86.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="97.0" y="86.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="107.0" y="86.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="87.0" y="96.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="97.0" y="96.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="107.0" y="96.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="87.0" y="106.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="97.0" y="106.0" width="6" height="3" rx=".8" fill="#F3E8CC"/><rect x="107.0" y="106.0" width="6" height="3" rx=".8" fill="#F3E8CC"/></g></svg>
   <span class="vt-copy"><span class="vt-tag">동네 비교</span><span class="vt-h">오천 vs 선월<br><em>실거주 비교</em></span></span>
   
   <span class="vt-dur"><span class="sr">재생 시간 </span>18:47</span>
-<span class="vt-play" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg></span></span><span class="vtext"><b class="vt-title">오천지구 vs 선월지구, 아이 키우는 집 실거주 비교</b><span class="t-cap">조회수 2.1만회 · 2주 전</span></span></a></li><li><a class="vcard" href="#"><span class="vt vt-soft">
+<span class="vt-play" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg></span></span><span class="vtext"><b class="vt-title">오천 vs 선월, 실거주 비교</b><span class="t-cap">조회수 2.1만회 · 2주 전</span></span></a></li><li><a class="vcard" href="#"><span class="vt vt-soft">
   <svg class="vt-art" viewBox="0 0 180 120" preserveAspectRatio="xMaxYMax meet" aria-hidden="true"><g fill="none" stroke="#B9CCFF" stroke-width="5" stroke-linecap="round"><path d="M0 104 C60 96 100 108 180 98"/><path d="M70 120 C80 80 70 50 90 0"/></g><path d="M104 58c-7-7-10-11-10-16a10 10 0 0 1 20 0c0 5-3 9-10 16z" fill="#1D4FF2"/><circle cx="104" cy="42" r="3.4" fill="#FFFFFF"/><path d="M146 46c-7-7-10-11-10-16a10 10 0 0 1 20 0c0 5-3 9-10 16z" fill="#1D4FF2"/><circle cx="146" cy="30" r="3.4" fill="#FFFFFF"/><path d="M124 84c-7-7-10-11-10-16a10 10 0 0 1 20 0c0 5-3 9-10 16z" fill="#1D4FF2"/><circle cx="124" cy="68" r="3.4" fill="#FFFFFF"/></svg>
   <span class="vt-copy"><span class="vt-tag">원룸</span><span class="vt-h">대학가 원룸<br><em>월세 시세 지도</em></span></span>
   
   <span class="vt-dur"><span class="sr">재생 시간 </span>9:15</span>
-<span class="vt-play" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg></span></span><span class="vtext"><b class="vt-title">순천 원룸 월세, 순천대·청암대·제일대 앞 시세 지도</b><span class="t-cap">조회수 6,320회 · 3주 전</span></span></a></li></ul>
+<span class="vt-play" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg></span></span><span class="vtext"><b class="vt-title">대학가 원룸 월세 시세 지도</b><span class="t-cap">조회수 6,320회 · 3주 전</span></span></a></li></ul>
 </section>
 
 <footer class="mfoot">
+  <nav class="mfoot-legal" aria-label="파트너">
+<a class="is-strong" href="#">중개사 회원 가입</a><a href="#">광고 문의</a><a href="#">고객센터</a></nav>
   <nav class="mfoot-legal" aria-label="약관 및 정책"><a href="#">이용약관</a><a class="is-strong" href="#">개인정보처리방침</a><a href="#">위치기반서비스 이용약관</a></nav>
   <button class="mfoot-biz" type="button" aria-expanded="false">[상호] 사업자 정보<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-  <p class="mfoot-copy">고객센터 [대표번호] · 평일 09:00 – 18:00<br>매물 정보는 각 중개사무소가 등록하며, BRAND는 통신판매중개자로서 거래 당사자가 아닙니다. © 2026 BRAND</p>
+  <p class="mfoot-copy">고객센터 [대표번호] · 평일 09:00 – 18:00 · 매물 정보는 각 중개사무소가 등록하며, BRAND는 통신판매중개자로서 거래 당사자가 아닙니다. © 2026 BRAND</p>
 </footer>
 
 <nav class="tabbar" aria-label="하단 메뉴"><a href="Main.dc.html" class="is-on" aria-current="page"><svg class="ic" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11 12 4.5 20 11"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5.5h4V20"/></svg>홈</a><a href="MapApt.dc.html"><svg class="ic" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>지도</a><a href="DealRequest.dc.html"><span class="tab-deal-ic"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4.5v15"/><path d="m3.5 8 3.5-3.5L10.5 8"/><path d="M17 19.5v-15"/><path d="m13.5 16 3.5 3.5 3.5-3.5"/></svg></span>내놓기·구하기</a><a href="#"><svg class="ic" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></svg>관심</a><a href="Login.dc.html"><svg class="ic" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>MY</a></nav>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":2459}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":2216}}'>
 class Component extends DCLogic {
   renderVals() { return {}; }
 }

@@ -13,22 +13,48 @@ Registered in `AppModule` already — do not edit `app.module.ts`. Read `docs/CO
 - Paginated list with sorts (최신순, 실매물확인순, 가격순, 면적순, 준공년순, 사진순) — every sort has an index.
 - Photos (order, cover; `MAX_LISTING_PHOTOS`), favorites, recent views, view counters (Redis → `counters-flush` job).
 
-## Endpoints to build
+## Endpoints
 
-All paths are under the global prefix `/api/v1`. Default is authenticated; mark public routes with `@Public()`.
+All paths are under the global prefix `/api/v1`. Default is authenticated; public routes are `@Public()`.
 
-| Method            | Path                                                                      | Auth                 |
-| ----------------- | ------------------------------------------------------------------------- | -------------------- |
-| GET               | `/api/v1/map/search?bbox&zoom&…filters`                                   | Public               |
-| GET               | `/api/v1/listings?…filters&sort&page` · `/api/v1/listings/:id`            | Public               |
-| POST/PATCH/DELETE | `/api/v1/agency/listings[/:id]`                                           | AGENT / AGENCY_OWNER |
-| POST              | `/api/v1/agency/listings/:id/publish` · `/status` · `/verifications`      | AGENT / AGENCY_OWNER |
-| POST/DELETE       | `/api/v1/agency/listings/:id/co-brokers`                                  | AGENCY_OWNER         |
-| PUT               | `/api/v1/agency/listings/:id/photos` (order/cover)                        | AGENT / AGENCY_OWNER |
-| PUT/DELETE        | `/api/v1/me/favorites/listings/:id` · GET `/api/v1/me/favorites/listings` | User                 |
-| GET               | `/api/v1/me/recent-views`                                                 | User                 |
+| Method | Path                                                      | Auth                                      |
+| ------ | --------------------------------------------------------- | ----------------------------------------- |
+| GET    | `/map/search?bbox&zoom&…filters`                          | Public (Redis tile cache, 30 s + version) |
+| GET    | `/listings?…filters&bbox&sort&page&pageSize`              | Public                                    |
+| GET    | `/listings/:id` (counts a deduped view + recent view)     | Public                                    |
+| GET    | `/agency/listings?statuses&dealTypes&primaryOnly&page`    | AGENT / AGENCY_OWNER (own agency)         |
+| POST   | `/agency/listings` (DRAFT)                                | AGENT / AGENCY_OWNER                      |
+| GET    | `/agency/listings/:id` (includes 호, private note)        | member of a participating agency          |
+| PATCH  | `/agency/listings/:id`                                    | member of a participating agency          |
+| DELETE | `/agency/listings/:id` (soft delete)                      | primary agency member                     |
+| POST   | `/agency/listings/:id/publish` (명시사항 check)           | primary agency member                     |
+| POST   | `/agency/listings/:id/status`                             | primary agency member                     |
+| POST   | `/agency/listings/:id/verifications` (실매물 확인)        | member of a participating agency          |
+| PUT    | `/agency/listings/:id/photos` (order + cover)             | member of a participating agency          |
+| POST   | `/agency/listings/:id/co-brokers` (join)                  | AGENCY_OWNER                              |
+| DELETE | `/agency/listings/:id/co-brokers` (leave)                 | AGENCY_OWNER (co-broker)                  |
+| DELETE | `/agency/listings/:id/co-brokers/:agencyId` (remove)      | AGENCY_OWNER of the primary agency        |
+| GET    | `/me/favorites/listings` · PUT/DELETE `…/:id`             | User                                      |
+| GET    | `/me/recent-views?targetType` · DELETE `/me/recent-views` | User                                      |
 
-Every endpoint needs e2e coverage: happy path + authz failure (401/403/404-for-not-owner) + validation failure (400).
+Listings of agencies the caller doesn't participate in answer 404; co-brokers calling primary-only
+actions get 403 `LISTING_PRIMARY_AGENCY_ONLY`.
+
+## Design notes
+
+- Status: DRAFT →(publish) ACTIVE ↔ RESERVED → CLOSED → DRAFT; ACTIVE/RESERVED → DRAFT (내리기).
+  HIDDEN is admin-only via the exported `ListingsModerationService.hide/unhide` (unhide → DRAFT).
+  Edits of an ACTIVE/RESERVED listing re-run the publish validator.
+- Publish validator lives in `@house/shared` (`checkPublishRequirements`) so the frontend can show
+  missing items before submitting. Error: `400 LISTING_PUBLISH_REQUIREMENTS`, `details: [{ field, label }]`.
+- Search columns on `listings` are recomputed from the property on every write (`domain/listing-state.ts`).
+- The public list merges one index-ordered branch per (public status × null segment), so every sort
+  uses its `(status, key)` index. `test/e2e/listings/performance.e2e-spec.ts` seeds 20k rows and
+  checks the plans with EXPLAIN ANALYZE.
+- View counts: Redis dedupe per viewer (6 h) + absolute totals hash, flushed by the `counters-flush`
+  job with `GREATEST` (idempotent). Worker + schedule only when `JOBS_ENABLED`.
+- Cross-module reads go through ports (`ports/*.port.ts`) bound to Prisma implementations until the
+  agencies/media modules export equivalent services.
 
 ## Files you own
 

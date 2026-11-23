@@ -136,7 +136,6 @@ export interface AgencyListingDetail extends Omit<ListingDetail, 'agencies' | 'p
     complexId: string | null;
     areaTypeId: string | null;
   };
-  privateNote: string | null;
   hiddenReason: string | null;
   closedAt: string | null;
   createdAt: string;

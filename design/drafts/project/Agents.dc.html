@@ -729,9 +729,19 @@ x-dc{display:block}
 .od-head{display:flex;flex-direction:column;gap:6px;padding:0 24px;margin-top:-50px;position:relative}
 .od-idrow{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:8px}
 .od-av{display:grid;place-items:center;width:68px;height:68px;border-radius:20px;background:var(--surface-ink);color:var(--accent);font-size:20px;font-weight:800;letter-spacing:-0.04em;box-shadow:0 0 0 4px var(--surface),var(--sh-2)}
-.od-acts{display:flex;gap:6px}
-.od-act{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:var(--r-pill);border:1px solid var(--line-strong);background:var(--surface);font-size:13px;font-weight:700;color:var(--text-2)}
-.od-act:hover{background:var(--surface-2)}
+.lp-sum-sub{font-weight:500;color:var(--text-muted)}
+.od-acts{position:absolute;top:12px;right:60px;display:flex;gap:8px}
+.od-act{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.92);color:var(--text);box-shadow:var(--sh-1)}
+.od-act:hover{background:#fff}
+/* mobile peek card (selected office, docked to map bottom) */
+.peek{left:12px;right:12px;bottom:12px;z-index:6;display:flex;align-items:center;gap:12px;padding:12px 12px 12px 14px;border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--sh-3),0 0 0 1px rgba(10,18,34,.06)}
+.peek-av{display:grid;place-items:center;flex:none;width:40px;height:40px;border-radius:12px;background:var(--surface-ink);color:var(--accent);font-size:13px;font-weight:800;letter-spacing:-0.04em}
+.peek-b{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.peek-n{font-size:15px;font-weight:800;letter-spacing:-0.03em;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.peek-m{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-3);white-space:nowrap}
+.peek-m b{color:var(--text);font-weight:800}
+.peek-more{display:inline-grid;place-items:center;flex:none;min-width:44px;height:44px;padding:0 4px;font-size:14px;font-weight:700;color:var(--brand)}
+.peek-call{flex:none;width:44px;height:44px;padding:0;border-radius:50%}
 .od-name{font-size:22px;line-height:1.3;letter-spacing:-0.04em}
 .od-ceo{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;font-size:14px;color:var(--text-3)}
 .od-ceo b{color:var(--text);font-weight:700}
@@ -781,22 +791,18 @@ x-dc{display:block}
   .stage{--sx:50%;--tx:-59.3%}
   .map-top{left:12px;top:12px;right:12px}
   .map-top .map-sum{display:none}
-  .tools{right:12px;bottom:36px}
+  .tools{right:12px;bottom:92px}
   .tools .zoom{display:none}
   .scale{display:none}
-  .od{order:3;position:relative;inset:auto;width:auto;margin-top:-24px;border-radius:var(--r-xl) var(--r-xl) 0 0;box-shadow:0 -8px 24px rgba(10,18,34,.12)}
-  .od-scroll{overflow:visible}
-  .od-cover{height:112px;margin-top:4px}
-  .od-head,.od-intro,.od-sec{padding-inline:16px}
-  .od-info{margin-inline:16px}
-  .od-info > div{grid-template-columns:88px minmax(0,1fr)}
-  .od-act{height:44px}
-  .od-x{width:44px;height:44px}
-  .od-cta{padding:12px 16px 16px}
-  .lp-sum{order:4;margin-top:0;border-top:8px solid var(--surface-2);padding:16px 8px 8px 16px}
-  .lp-list{order:5;overflow:visible;-webkit-mask-image:none;mask-image:none;padding:4px 16px 24px}
+  .od{display:none}
+  .gnb-nav .is-on{order:-2}
+  .gnb-nav .gnb-sep{order:-1}
+  .lp-sum{order:3;margin-top:0;border-top:8px solid var(--surface-2);padding:16px 8px 8px 16px}
+  .lp-list{order:4;overflow:visible;-webkit-mask-image:none;mask-image:none;padding:4px 16px 24px}
   .ocard-call{height:44px}
-  .ocard-foot{align-items:flex-end}
+  .ocard-foot{align-items:center}
+  .cxs{flex-wrap:nowrap;overflow:hidden}
+  .cx{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;display:block;line-height:28px}
 }
 
 </style>
@@ -844,48 +850,23 @@ x-dc{display:block}
       </div>
     </div>
     <div class="lp-sum">
-      <p class="t-cap">아파트 전문 <b class="num">52</b>곳</p>
-      <button class="sortb"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 5v14M4 16l3 3 3-3"/><path d="M17 19V5M14 8l3-3 3 3"/></svg>보유 매물순</button>
+      <p class="t-cap">아파트 전문 <b class="num">52</b>곳 <span class="lp-sum-sub">· 지도 중심 기준</span></p>
+      <button class="sortb"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 5v14M4 16l3 3 3-3"/><path d="M17 19V5M14 8l3-3 3 3"/></svg>가까운순</button>
     </div>
     <ul class="lp-list">
 <li><article class="ocard">
   <div class="ocard-top">
-    <span class="oav" aria-hidden="true"><svg viewBox="0 0 120 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-  <rect width="120" height="120" fill="#EEF2F9"/>
-  <rect x="14" y="12" width="92" height="20" fill="#F7F9FD"/><rect x="22" y="18" width="12" height="8" rx="1" fill="#C9D6EF"/><rect x="40" y="18" width="12" height="8" rx="1" fill="#C9D6EF"/><rect x="58" y="18" width="12" height="8" rx="1" fill="#E9D7A8"/><rect x="76" y="18" width="12" height="8" rx="1" fill="#C9D6EF"/>
-  <rect x="14" y="30" width="92" height="74" fill="#FFFFFF"/>
-  <rect x="14" y="30" width="92" height="16" fill="#0F1B3A"/>
-  <rect x="24" y="35" width="40" height="6" rx="2" fill="#E9D7A8"/><rect x="70" y="35" width="12" height="6" rx="2" fill="#E9D7A8" opacity=".55"/>
-  <rect x="22" y="54" width="48" height="50" fill="#D9E6F8"/><path d="M46 54v50" stroke="#fff" stroke-width="2"/><path d="M26 92h40" stroke="#C3D3EE" stroke-width="1.5"/>
-  <rect x="78" y="54" width="20" height="50" fill="#1D4FF2"/><circle cx="93" cy="80" r="1.6" fill="#FFFFFF"/>
-  <rect x="0" y="104" width="120" height="16" fill="#DCE2EA"/>
-  <rect x="9" y="84" width="2" height="20" fill="#7E9F8C"/><circle cx="10" cy="84" r="9" fill="#A9CDB8"/>
-</svg></span>
+    <span class="oav oav--t oav--brand" aria-hidden="true">연</span>
     <div class="ocard-main">
-      <h3 class="ocard-name"><a href="#">신대중앙 공인중개사사무소</a></h3>
-      <p class="ocard-ceo">대표 공인중개사 <b>김서진</b><span class="dot" aria-hidden="true"></span>매물 <b class="num">62</b></p>
-      <p class="ocard-addr">해룡면 신대1로 18, 105호</p>
-      <p class="ocard-reg">등록번호 <span class="num">46150-2017-00112</span></p>
+      <h3 class="ocard-name"><a href="#">연향센트럴 공인중개사사무소</a></h3>
+      <p class="ocard-ceo">대표 공인중개사 <b>박도현</b><span class="dot" aria-hidden="true"></span>매물 <b class="num">38</b></p>
+      <p class="ocard-addr">연향동 연향3로 41, 102호</p>
+      <p class="ocard-reg">등록번호 <span class="num">46150-2016-00071</span></p>
     </div>
   </div>
   <div class="ocard-foot">
-    <ul class="cxs" aria-label="전문 단지"><li class="cx">신대 레이크파크 1단지</li><li class="cx">레이크파크 3단지</li></ul>
-    <a class="btn btn-secondary btn-sm ocard-call" href="#" aria-label="신대중앙 공인중개사사무소에 전화"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>전화</a>
-  </div>
-</article></li>
-<li><article class="ocard">
-  <div class="ocard-top">
-    <span class="oav oav--t oav--acc" aria-hidden="true">선</span>
-    <div class="ocard-main">
-      <h3 class="ocard-name"><a href="#">선월 분양권 공인중개사사무소</a></h3>
-      <p class="ocard-ceo">대표 공인중개사 <b>정민재</b><span class="dot" aria-hidden="true"></span>매물 <b class="num">51</b></p>
-      <p class="ocard-addr">해룡면 선월로 30, 상가 B동 101호</p>
-      <p class="ocard-reg">등록번호 <span class="num">46150-2021-00045</span></p>
-    </div>
-  </div>
-  <div class="ocard-foot">
-    <ul class="cxs" aria-label="전문 단지"><li class="cx">선월 하이츠 2차</li><li class="cx">연향들 더 퍼스트</li></ul>
-    <a class="btn btn-secondary btn-sm ocard-call" href="#" aria-label="선월 분양권 공인중개사사무소에 전화"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>전화</a>
+    <ul class="cxs" aria-label="전문 단지"><li class="cx">연향 센트럴</li><li class="cx">금당 리버뷰</li></ul>
+    <a class="btn btn-secondary btn-sm ocard-call" href="tel:0610000003" aria-label="연향센트럴 공인중개사사무소에 전화 걸기, 061-000-0003"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>전화</a>
   </div>
 </article></li>
 <li><article class="ocard is-on" aria-current="true">
@@ -910,22 +891,77 @@ x-dc{display:block}
   </div>
   <div class="ocard-foot">
     <ul class="cxs" aria-label="전문 단지"><li class="cx">조례 호수마을</li><li class="cx">연향 센트럴</li></ul>
-    <a class="btn btn-primary btn-sm ocard-call" href="#" aria-label="호수공원 공인중개사사무소에 전화"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>전화</a>
+    <a class="btn btn-secondary btn-sm ocard-call" href="tel:0610000000" aria-label="호수공원 공인중개사사무소에 전화 걸기, 061-000-0000"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>전화</a>
   </div>
 </article></li>
 <li><article class="ocard">
   <div class="ocard-top">
-    <span class="oav oav--t oav--brand" aria-hidden="true">연</span>
+    <span class="oav oav--t oav--grey" aria-hidden="true">금</span>
     <div class="ocard-main">
-      <h3 class="ocard-name"><a href="#">연향센트럴 공인중개사사무소</a></h3>
-      <p class="ocard-ceo">대표 공인중개사 <b>박도현</b><span class="dot" aria-hidden="true"></span>매물 <b class="num">38</b></p>
-      <p class="ocard-addr">연향동 연향3로 41, 102호</p>
-      <p class="ocard-reg">등록번호 <span class="num">46150-2016-00071</span></p>
+      <h3 class="ocard-name"><a href="#">금당리버 공인중개사사무소</a></h3>
+      <p class="ocard-ceo">대표 공인중개사 <b>윤재희</b><span class="dot" aria-hidden="true"></span>매물 <b class="num">22</b></p>
+      <p class="ocard-addr">연향동 금당로 9, 103호</p>
+      <p class="ocard-reg">등록번호 <span class="num">46150-2019-00090</span></p>
     </div>
   </div>
   <div class="ocard-foot">
-    <ul class="cxs" aria-label="전문 단지"><li class="cx">연향 센트럴</li><li class="cx">금당 리버뷰</li></ul>
-    <a class="btn btn-secondary btn-sm ocard-call" href="#" aria-label="연향센트럴 공인중개사사무소에 전화"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>전화</a>
+    <ul class="cxs" aria-label="전문 단지"><li class="cx">금당 리버뷰</li></ul>
+    <a class="btn btn-secondary btn-sm ocard-call" href="tel:0610000007" aria-label="금당리버 공인중개사사무소에 전화 걸기, 061-000-0007"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>전화</a>
+  </div>
+</article></li>
+<li><article class="ocard">
+  <div class="ocard-top">
+    <span class="oav" aria-hidden="true"><svg viewBox="0 0 120 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="120" height="120" fill="#EEF2F9"/>
+  <rect x="14" y="12" width="92" height="20" fill="#F7F9FD"/><rect x="22" y="18" width="12" height="8" rx="1" fill="#C9D6EF"/><rect x="40" y="18" width="12" height="8" rx="1" fill="#C9D6EF"/><rect x="58" y="18" width="12" height="8" rx="1" fill="#E9D7A8"/><rect x="76" y="18" width="12" height="8" rx="1" fill="#C9D6EF"/>
+  <rect x="14" y="30" width="92" height="74" fill="#FFFFFF"/>
+  <rect x="14" y="30" width="92" height="16" fill="#0F1B3A"/>
+  <rect x="24" y="35" width="40" height="6" rx="2" fill="#E9D7A8"/><rect x="70" y="35" width="12" height="6" rx="2" fill="#E9D7A8" opacity=".55"/>
+  <rect x="22" y="54" width="48" height="50" fill="#D9E6F8"/><path d="M46 54v50" stroke="#fff" stroke-width="2"/><path d="M26 92h40" stroke="#C3D3EE" stroke-width="1.5"/>
+  <rect x="78" y="54" width="20" height="50" fill="#1D4FF2"/><circle cx="93" cy="80" r="1.6" fill="#FFFFFF"/>
+  <rect x="0" y="104" width="120" height="16" fill="#DCE2EA"/>
+  <rect x="9" y="84" width="2" height="20" fill="#7E9F8C"/><circle cx="10" cy="84" r="9" fill="#A9CDB8"/>
+</svg></span>
+    <div class="ocard-main">
+      <h3 class="ocard-name"><a href="#">신대중앙 공인중개사사무소</a></h3>
+      <p class="ocard-ceo">대표 공인중개사 <b>김서진</b><span class="dot" aria-hidden="true"></span>매물 <b class="num">62</b></p>
+      <p class="ocard-addr">해룡면 신대1로 18, 105호</p>
+      <p class="ocard-reg">등록번호 <span class="num">46150-2017-00112</span></p>
+    </div>
+  </div>
+  <div class="ocard-foot">
+    <ul class="cxs" aria-label="전문 단지"><li class="cx">신대 레이크파크 1·3단지</li></ul>
+    <a class="btn btn-secondary btn-sm ocard-call" href="tel:0610000001" aria-label="신대중앙 공인중개사사무소에 전화 걸기, 061-000-0001"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>전화</a>
+  </div>
+</article></li>
+<li><article class="ocard">
+  <div class="ocard-top">
+    <span class="oav oav--t oav--acc" aria-hidden="true">선</span>
+    <div class="ocard-main">
+      <h3 class="ocard-name"><a href="#">선월 분양권 공인중개사사무소</a></h3>
+      <p class="ocard-ceo">대표 공인중개사 <b>정민재</b><span class="dot" aria-hidden="true"></span>매물 <b class="num">51</b></p>
+      <p class="ocard-addr">해룡면 선월로 30, 상가 B동 101호</p>
+      <p class="ocard-reg">등록번호 <span class="num">46150-2021-00045</span></p>
+    </div>
+  </div>
+  <div class="ocard-foot">
+    <ul class="cxs" aria-label="전문 단지"><li class="cx">선월 하이츠 2차</li><li class="cx">연향들 더 퍼스트</li></ul>
+    <a class="btn btn-secondary btn-sm ocard-call" href="tel:0610000005" aria-label="선월 분양권 공인중개사사무소에 전화 걸기, 061-000-0005"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>전화</a>
+  </div>
+</article></li>
+<li><article class="ocard">
+  <div class="ocard-top">
+    <span class="oav oav--t oav--brand" aria-hidden="true">왕</span>
+    <div class="ocard-main">
+      <h3 class="ocard-name"><a href="#">왕지숲 공인중개사사무소</a></h3>
+      <p class="ocard-ceo">대표 공인중개사 <b>강태오</b><span class="dot" aria-hidden="true"></span>매물 <b class="num">19</b></p>
+      <p class="ocard-addr">왕지동 왕지2로 33, 1층</p>
+      <p class="ocard-reg">등록번호 <span class="num">46150-2018-00057</span></p>
+    </div>
+  </div>
+  <div class="ocard-foot">
+    <ul class="cxs" aria-label="전문 단지"><li class="cx">왕지 숲속마을</li><li class="cx">조례 호수마을</li></ul>
+    <a class="btn btn-secondary btn-sm ocard-call" href="tel:0610000008" aria-label="왕지숲 공인중개사사무소에 전화 걸기, 061-000-0008"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>전화</a>
   </div>
 </article></li>
 <li><article class="ocard">
@@ -950,37 +986,7 @@ x-dc{display:block}
   </div>
   <div class="ocard-foot">
     <ul class="cxs" aria-label="전문 단지"><li class="cx">오천 그린빌</li></ul>
-    <a class="btn btn-secondary btn-sm ocard-call" href="#" aria-label="오천그린 공인중개사사무소에 전화"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>전화</a>
-  </div>
-</article></li>
-<li><article class="ocard">
-  <div class="ocard-top">
-    <span class="oav oav--t oav--grey" aria-hidden="true">금</span>
-    <div class="ocard-main">
-      <h3 class="ocard-name"><a href="#">금당리버 공인중개사사무소</a></h3>
-      <p class="ocard-ceo">대표 공인중개사 <b>윤재희</b><span class="dot" aria-hidden="true"></span>매물 <b class="num">22</b></p>
-      <p class="ocard-addr">연향동 금당로 9, 103호</p>
-      <p class="ocard-reg">등록번호 <span class="num">46150-2019-00090</span></p>
-    </div>
-  </div>
-  <div class="ocard-foot">
-    <ul class="cxs" aria-label="전문 단지"><li class="cx">금당 리버뷰</li></ul>
-    <a class="btn btn-secondary btn-sm ocard-call" href="#" aria-label="금당리버 공인중개사사무소에 전화"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>전화</a>
-  </div>
-</article></li>
-<li><article class="ocard">
-  <div class="ocard-top">
-    <span class="oav oav--t oav--brand" aria-hidden="true">왕</span>
-    <div class="ocard-main">
-      <h3 class="ocard-name"><a href="#">왕지숲 공인중개사사무소</a></h3>
-      <p class="ocard-ceo">대표 공인중개사 <b>강태오</b><span class="dot" aria-hidden="true"></span>매물 <b class="num">19</b></p>
-      <p class="ocard-addr">왕지동 왕지2로 33, 1층</p>
-      <p class="ocard-reg">등록번호 <span class="num">46150-2018-00057</span></p>
-    </div>
-  </div>
-  <div class="ocard-foot">
-    <ul class="cxs" aria-label="전문 단지"><li class="cx">왕지 숲속마을</li><li class="cx">조례 호수마을</li></ul>
-    <a class="btn btn-secondary btn-sm ocard-call" href="#" aria-label="왕지숲 공인중개사사무소에 전화"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>전화</a>
+    <a class="btn btn-secondary btn-sm ocard-call" href="tel:0610000004" aria-label="오천그린 공인중개사사무소에 전화 걸기, 061-000-0004"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>전화</a>
   </div>
 </article></li>
     </ul>
@@ -1019,7 +1025,7 @@ x-dc{display:block}
       <span class="map-label map-label--park" style="left:57.50%;top:93.33%">순천만국가정원</span>
       <span class="stn" style="left:48.83%;top:75.28%"><i aria-hidden="true"></i>순천역</span>
       <a href="#" class="cluster sm only-lg" style="left:31.00%;top:15.28%" aria-label="석현동 중개사무소 6곳"><span class="n">석현동</span><span class="c">+6</span></a>
-      <a href="#" class="cluster sm" style="left:60.67%;top:82.22%" aria-label="신대지구 중개사무소 12곳"><span class="n">신대지구</span><span class="c">+12</span></a>
+      <a href="#" class="cluster sm only-lg" style="left:60.67%;top:82.22%" aria-label="신대지구 중개사무소 12곳"><span class="n">신대지구</span><span class="c">+12</span></a>
       <a href="#" class="odot" style="left:52.33%;top:41.67%" aria-label="연향역전 공인중개사사무소"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5 5.5 4.5h13L20 9.5"/><path d="M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0"/><path d="M5.5 12v8h13v-8"/><path d="M10 20v-4.5h4V20"/></svg></a>
       <a href="#" class="odot" style="left:40.67%;top:66.94%" aria-label="연향 한빛 공인중개사사무소"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5 5.5 4.5h13L20 9.5"/><path d="M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0"/><path d="M5.5 12v8h13v-8"/><path d="M10 20v-4.5h4V20"/></svg></a>
       <a href="#" class="odot" style="left:55.33%;top:61.11%" aria-label="금당 제일 공인중개사사무소"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5 5.5 4.5h13L20 9.5"/><path d="M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0"/><path d="M5.5 12v8h13v-8"/><path d="M10 20v-4.5h4V20"/></svg></a>
@@ -1040,9 +1046,17 @@ x-dc{display:block}
       <button class="map-tool" aria-label="내 위치로 이동"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7.5"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2"/></svg></button>
     </div>
     <span class="ov scale" aria-hidden="true"><i></i>500m</span>
+    <div class="ov peek only-sm">
+      <span class="peek-av" aria-hidden="true">호수</span>
+      <div class="peek-b">
+        <p class="peek-n">호수공원 공인중개사사무소</p>
+        <p class="peek-m">대표 한서윤<span class="dot" aria-hidden="true"></span><span>매물 <b class="num">46</b>건</span></p>
+      </div>
+      <a class="peek-more" href="#od-name">상세</a>
+      <a class="btn btn-primary peek-call" href="tel:0610000000" aria-label="호수공원 공인중개사사무소에 전화 걸기, 061-000-0000"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg></a>
+    </div>
   </section>
   <aside class="od" aria-labelledby="od-name">
-  <span class="sheet-handle only-sm" aria-hidden="true"></span>
   <div class="od-scroll">
     <div class="od-cover"><svg viewBox="0 0 400 108" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
   <rect width="400" height="108" fill="#E8EEFB"/>
@@ -1067,14 +1081,11 @@ x-dc{display:block}
   <path d="M384 92V50" stroke="#4E5968" stroke-width="2"/><path d="M384 50h-9" stroke="#4E5968" stroke-width="2"/><rect x="370" y="48" width="8" height="4" rx="1" fill="#E9D7A8"/>
 </svg>
       <button class="od-x" aria-label="중개사무소 상세 닫기"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <div class="od-acts"><button class="od-act" aria-pressed="false" aria-label="관심 중개사무소 등록"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></svg></button><button class="od-act" aria-label="공유"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="17.5" cy="6" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><circle cx="17.5" cy="18" r="2.5"/><path d="m8.7 10.8 6.6-3.6M8.7 13.2l6.6 3.6"/></svg></button></div>
     </div>
     <div class="od-head">
       <div class="od-idrow">
         <span class="od-av" aria-hidden="true">호수</span>
-        <div class="od-acts">
-          <button class="od-act" aria-pressed="false"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></svg>관심</button>
-          <button class="od-act"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="17.5" cy="6" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><circle cx="17.5" cy="18" r="2.5"/><path d="m8.7 10.8 6.6-3.6M8.7 13.2l6.6 3.6"/></svg>공유</button>
-        </div>
       </div>
       <span class="bcard-tag"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3.8 2.5 5.1 5.6.8-4 3.9 1 5.6-5.1-2.7-5 2.7.9-5.6-4-3.9 5.6-.8z"/></svg>연향·조례 아파트 전문</span>
       <h2 class="od-name" id="od-name">호수공원 공인중개사사무소</h2>
@@ -1157,7 +1168,7 @@ x-dc{display:block}
   </div>
   <div class="od-cta">
     <a class="btn btn-secondary" href="#"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 18.5V6.5A2 2 0 0 1 7 4.5h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8z"/><path d="M8.5 9.5h7M8.5 12.5h4"/></svg>문의하기</a>
-    <a class="btn btn-primary" href="#"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>061-000-0000</a>
+    <a class="btn btn-primary" href="tel:0610000000" aria-label="호수공원 공인중개사사무소에 전화 걸기, 061-000-0000"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>061-000-0000</a>
   </div>
 </aside>
 </div>

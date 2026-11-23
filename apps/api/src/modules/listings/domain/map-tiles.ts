@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto';
-import { mapResultKindForZoom, type Bbox, type ListingFilter, type MapResultKind } from '@house/shared';
+import {
+  mapResultKindForZoom,
+  type Bbox,
+  type ListingFilter,
+  type MapResultKind,
+} from '@house/shared';
 import { gridSizeForZoom } from '../../../common/geo/geo';
 
 /** Tile edge (degrees) used to align/cache map queries: 4 grid cells of the zoom level. */

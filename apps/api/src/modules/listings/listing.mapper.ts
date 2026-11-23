@@ -52,7 +52,12 @@ export class ListingMapper {
   constructor(@Inject(LISTING_MEDIA) private readonly media: ListingMediaPort) {}
 
   photo(p: PhotoRow): PhotoUrls {
-    return { mediaId: p.mediaId, caption: p.caption, isCover: p.isCover, ...this.media.urls(p.media) };
+    return {
+      mediaId: p.mediaId,
+      caption: p.caption,
+      isCover: p.isCover,
+      ...this.media.urls(p.media),
+    };
   }
 
   summary(row: ListingSummaryRow): ListingSummary {
@@ -168,7 +173,7 @@ export class ListingMapper {
     };
   }
 
-  /** Public detail: never includes 호, private note, hidden reason or member ids. */
+  /** Public detail: never includes 호, hidden reason or member ids. */
   publicDetail(row: ListingPublicDetailRow, isFavorite: boolean): ListingDetail {
     return {
       ...this.detailBase(row, false),
@@ -192,7 +197,6 @@ export class ListingMapper {
         complexId: p.complexId,
         areaTypeId: p.areaTypeId,
       },
-      privateNote: row.privateNote,
       hiddenReason: row.hiddenReason,
       closedAt: iso(row.closedAt),
       createdAt: row.createdAt.toISOString(),

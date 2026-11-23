@@ -190,7 +190,11 @@ export class AdminAuthService {
     if (this.isLocked(admin)) throw locked();
     let ok = false;
     if (dto.code !== undefined) {
-      ok = await this.checkTotp(admin.id, this.box.decrypt(admin.totpSecretEnc, totpAad(admin.id)), dto.code);
+      ok = await this.checkTotp(
+        admin.id,
+        this.box.decrypt(admin.totpSecretEnc, totpAad(admin.id)),
+        dto.code,
+      );
     } else if (dto.recoveryCode !== undefined) {
       ok = await this.consumeRecoveryCode(admin, dto.recoveryCode);
     }
@@ -304,7 +308,13 @@ export class AdminAuthService {
   private async checkTotp(adminId: string, secret: string, code: string): Promise<boolean> {
     const step = this.totp.verify(secret, code);
     if (step === null) return false;
-    const fresh = await this.redis.set(REDIS_KEYS.totpUsedStep(adminId, step), '1', 'EX', 180, 'NX');
+    const fresh = await this.redis.set(
+      REDIS_KEYS.totpUsedStep(adminId, step),
+      '1',
+      'EX',
+      180,
+      'NX',
+    );
     return fresh === 'OK';
   }
 

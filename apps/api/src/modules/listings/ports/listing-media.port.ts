@@ -68,7 +68,10 @@ export class PrismaListingMedia implements ListingMediaPort {
         status: MediaStatus.READY,
         visibility: MediaVisibility.PUBLIC,
         purpose: MediaPurpose.LISTING_PHOTO,
-        OR: [{ ownerUserId: ctx.userId }, { listingPhotos: { some: { listingId: ctx.listingId } } }],
+        OR: [
+          { ownerUserId: ctx.userId },
+          { listingPhotos: { some: { listingId: ctx.listingId } } },
+        ],
       },
     });
     if (usable !== mediaIds.length) throw AppException.badRequest(ErrorCode.LISTING_MEDIA_INVALID);

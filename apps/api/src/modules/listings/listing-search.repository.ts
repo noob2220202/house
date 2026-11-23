@@ -222,25 +222,32 @@ export class ListingSearchRepository {
    * index-ordered scan of `(status, key)` limited to offset+limit rows; the outer query merges
    * them. This keeps every sort index-backed although public = two statuses.
    */
-  listSql(f: ListingFilter, bbox: Bbox | undefined, sort: ListingSort, offset: number, limit: number): Prisma.Sql {
+  listSql(
+    f: ListingFilter,
+    bbox: Bbox | undefined,
+    sort: ListingSort,
+    offset: number,
+    limit: number,
+  ): Prisma.Sql {
     const spec = SORTS[sort];
     const dir = Prisma.raw(spec.dir);
     const filters = filterConditions(f, bbox);
     const n = offset + limit;
-    const segments: { cond: Prisma.Sql | null; order: Prisma.Sql; key: Prisma.Sql }[] = spec.nullable
-      ? [
-          {
-            cond: Prisma.sql`${spec.key} IS NOT NULL`,
-            order: Prisma.sql`${spec.key} ${dir}, l.published_at DESC, l.id DESC`,
-            key: spec.key,
-          },
-          {
-            cond: Prisma.sql`${spec.key} IS NULL`,
-            order: Prisma.sql`l.published_at DESC, l.id DESC`,
-            key: spec.key,
-          },
-        ]
-      : [{ cond: null, order: Prisma.sql`${spec.key} ${dir}, l.id DESC`, key: spec.key }];
+    const segments: { cond: Prisma.Sql | null; order: Prisma.Sql; key: Prisma.Sql }[] =
+      spec.nullable
+        ? [
+            {
+              cond: Prisma.sql`${spec.key} IS NOT NULL`,
+              order: Prisma.sql`${spec.key} ${dir}, l.published_at DESC, l.id DESC`,
+              key: spec.key,
+            },
+            {
+              cond: Prisma.sql`${spec.key} IS NULL`,
+              order: Prisma.sql`l.published_at DESC, l.id DESC`,
+              key: spec.key,
+            },
+          ]
+        : [{ cond: null, order: Prisma.sql`${spec.key} ${dir}, l.id DESC`, key: spec.key }];
     const branches = PUBLIC_LISTING_STATUSES.flatMap((status) =>
       segments.map(
         (seg, i) => Prisma.sql`(

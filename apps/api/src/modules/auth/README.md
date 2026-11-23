@@ -1,47 +1,58 @@
 # Auth module (`apps/api/src/modules/auth`)
 
-Registered in `AppModule` already — do not edit `app.module.ts`. Read `docs/CONVENTIONS.md` first.
+Social login (카카오 / 네이버 / Google **only** — no Apple, no SMS, no phone verification), server-side
+sessions, CSRF, member account (profile, identities, consents, withdrawal), terms read API, and
+back-office login (email + argon2id + mandatory TOTP).
 
-## Responsibilities
+## Layout
 
-- Social login (카카오 / 네이버 / Google **only** — no Apple, no SMS, no phone verification) via in-house OAuth2 authorization-code flows (no Passport).
-- Provider registry: `OAuthProvider` interface (`buildAuthorizeUrl`, `exchangeCode`, `fetchProfile`) + one class per provider registered under a DI token map so another provider can be added later without touching the flow. Google uses PKCE + OIDC `id_token` verified against Google JWKS (cache keys; check `iss`, `aud`, `exp`, `nonce`).
-- `state` + `nonce` (+ PKCE verifier, returnTo) stored in Redis with a short TTL, single use.
-- `identities` (provider, providerUserId) is the only linking key — **never auto-link accounts by email**.
-- Profile prefill: name/nickname/email/phone from the provider when returned with consent (Kakao/Naver). Phone is stored as a plain, unverified contact field (normalize with `phoneSchema`).
-- Server-side sessions: `SessionService` (already implemented in `session/`) — opaque 256-bit token cookie, Redis record, sliding + absolute expiry, logout-all. Keep `SESSION_RESOLVER` binding.
-- Admin accounts: email + argon2id password (`@node-rs/argon2`), mandatory TOTP (`otplib`, secret AES-256-GCM encrypted with `TOTP_ENCRYPTION_KEY`), recovery codes, lockout after failed attempts, optional per-admin + global IP allowlist (`ADMIN_IP_ALLOWLIST`), short admin sessions.
-- Terms documents (versions) read API + per-user consent records; required-terms gate at signup.
-- Member withdrawal: soft delete (`status=WITHDRAWN`), destroy all sessions, schedule PII scrub (`piiScrubAfter`) handled by the `cleanup` queue job.
+| Path                  | What                                                                                                                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `session/`            | `SessionService` (Redis sessions, SESSION_RESOLVER): opaque 256-bit token cookie, SHA-256 id, sliding + absolute expiry, per-subject index (list / revoke one / logout-all), CSRF token     |
+| `oauth/`              | `OAuthProvider` interface + `OAUTH_PROVIDERS` registry, Kakao / Naver / Google providers, `GoogleIdTokenVerifier` (JWKS, RS256, iss/aud/exp/nonce), state store, `OAuthService`, controller |
+| `oauth/oauth-http.ts` | `OAUTH_HTTP` — the only network boundary; e2e replaces it with `test/e2e/auth/fakes/fake-oauth-http.ts`                                                                                     |
+| `signup/`             | pending social signup (Redis, httpOnly cookie) → `POST /auth/signup` with terms consents                                                                                                    |
+| `users/`              | `/auth/me`, `/me/*` (profile, identities, consents, withdraw), `UserSessionService` (session start + acting agency)                                                                         |
+| `terms/`              | current terms documents + append-only `UserConsent` records                                                                                                                                 |
+| `admin/`              | admin login, TOTP (otplib, AES-256-GCM secret at rest), recovery codes, lockout, IP allowlists (`AdminIpGuard` global + per account in the session)                                         |
+| `jobs/`               | PII scrub of withdrawn members (`auth-maintenance` queue, daily 04:17 KST when `JOBS_ENABLED`)                                                                                              |
 
-## Endpoints to build
+Adding a provider: a class implementing `OAuthProvider`, an `AuthProvider` enum value + slug in
+`@house/shared`, env keys, and one entry in the `OAUTH_PROVIDERS` factory. The flow doesn't change.
 
-All paths are under the global prefix `/api/v1`. Default is authenticated; mark public routes with `@Public()`.
+## Endpoints (prefix `/api/v1`)
 
-| Method   | Path                                                                      | Auth                                         |
-| -------- | ------------------------------------------------------------------------- | -------------------------------------------- |
-| GET      | `/api/v1/auth/oauth/{kakao\|naver\|google}/start?returnTo=`               | Public (fixed route, registered in consoles) |
-| GET      | `/api/v1/auth/oauth/{kakao\|naver\|google}/callback`                      | Public (fixed route)                         |
-| GET      | `/api/v1/auth/me`                                                         | User                                         |
-| POST     | `/api/v1/auth/logout` · `/api/v1/auth/logout-all`                         | User                                         |
-| GET      | `/api/v1/auth/csrf` (re-issue CSRF cookie)                                | Public                                       |
-| PATCH    | `/api/v1/me/profile` (nickname, phone, marketingOptIn)                    | User                                         |
-| GET/POST | `/api/v1/terms` · `/api/v1/terms/:type` · `/api/v1/me/consents`           | Public / User                                |
-| POST     | `/api/v1/me/withdraw`                                                     | User                                         |
-| POST     | `/api/v1/admin/auth/login` → `/api/v1/admin/auth/totp/verify`             | Public (admin path)                          |
-| POST     | `/api/v1/admin/auth/totp/setup` · `/logout` · GET `/api/v1/admin/auth/me` | Admin                                        |
+| Method   | Path                                                         | Auth                    | Notes                                                                                      |
+| -------- | ------------------------------------------------------------ | ----------------------- | ------------------------------------------------------------------------------------------ |
+| GET      | `/auth/providers`                                            | Public                  | enabled providers                                                                          |
+| GET      | `/auth/oauth/{kakao,naver,google}/start`                     | Public                  | `?returnTo=/path&intent=login\|link` → 302 to provider (link needs a user session)         |
+| GET      | `/auth/oauth/{kakao,naver,google}/callback`                  | Public                  | 302 to web: `returnTo` / `/signup?provider=` / `/login?error=CODE` / `/my/account?linked=` |
+| GET      | `/auth/signup`                                               | Public (pending cookie) | provider prefill + current terms                                                           |
+| POST     | `/auth/signup`                                               | Public (pending cookie) | `{nickname, phone?, consents[], marketingOptIn}` → user + session (`csrfToken` in body)    |
+| GET      | `/auth/csrf`                                                 | Public                  | re-issues `house_csrf`, returns `{csrfToken}`                                              |
+| GET      | `/auth/me`                                                   | User                    | profile, identities, agency membership, `pendingRequiredTerms`                             |
+| POST     | `/auth/logout` · `/auth/logout-all`                          | User                    |                                                                                            |
+| GET      | `/auth/sessions` · DELETE `/auth/sessions/:id`               | User                    | logged-in devices                                                                          |
+| PATCH    | `/me/profile`                                                | User                    | nickname, phone (format only, never verified), marketingOptIn (+ consent row)              |
+| GET      | `/me/identities` · DELETE `/me/identities/:provider`         | User                    | last identity can't be removed                                                             |
+| GET/POST | `/me/consents`                                               | User                    | required terms can't be revoked                                                            |
+| POST     | `/me/withdraw`                                               | User                    | `{confirm: true, reason?}`; blocked while owning an agency                                 |
+| GET      | `/terms` · `/terms/:type?version=`                           | Public                  |                                                                                            |
+| POST     | `/admin/auth/login`                                          | Public                  | → pre-TOTP session (10 min idle)                                                           |
+| POST     | `/admin/auth/totp/setup` · `/totp/activate` · `/totp/verify` | pre-TOTP admin session  | session rotated on success; `csrfToken` in body                                            |
+| GET      | `/admin/auth/csrf`                                           | admin session           |                                                                                            |
+| GET      | `/admin/auth/me` · POST `/logout` · POST `/password`         | Admin (TOTP verified)   |                                                                                            |
 
-Every endpoint needs e2e coverage: happy path + authz failure (401/403/404-for-not-owner) + validation failure (400).
+## Frontend contract
 
-## Files you own
-
-- `apps/api/src/modules/auth/**`
-- `apps/api/test/e2e/auth/**` (+ your own factories there)
-- Prisma: `auth.prisma` (User, Identity, AdminUser, TermsDocument, UserConsent) — additive edits only, then a new migration (see CONVENTIONS "Schema changes")
-- Shared: `packages/shared/src/schemas/auth.ts`, `packages/shared/src/enums/user.ts`, `packages/shared/src/errors/auth.ts`
-- Queues: `cleanup` (PII scrub of withdrawn users) (names in `src/queue/queue.constants.ts`)
+- After any response that (re)creates a session (signup, admin login/activate/verify/password)
+  use the `csrfToken` from the body for the `x-csrf-token` header; after the OAuth redirect call
+  `GET /auth/csrf`. Don't rely on reading the `house_csrf` cookie: user and admin sessions share
+  that cookie name.
+- Web routes the callback redirects to: `/login`, `/signup`, `/my/account` (`WEB_PATHS`).
 
 ## Tests
 
-- e2e env: `apps/api/test/env/auth.env` → database `house_test_auth`, Redis DB index 1.
-- Run: `pnpm --filter @house/api test:e2e auth` (migrates `house_test_auth` first). Unit: `pnpm --filter @house/api test -- src/modules/auth`.
+- Unit: `pnpm --filter @house/api test -- src/modules/auth`
+- e2e: `pnpm --filter @house/api test:e2e auth` (`house_test_auth`, Redis DB 1; providers faked at
+  the HTTP boundary, Google id_tokens really signed and verified)

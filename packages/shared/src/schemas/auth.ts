@@ -31,7 +31,8 @@ export type OAuthProviderParam = z.infer<typeof oauthProviderParamSchema>;
 export const returnToSchema = z
   .string()
   .max(500)
-  .regex(/^\/(?![/\\])[^\\\s\u0000-\u001f\u007f]*$/, '잘못된 경로입니다.');
+  .regex(/^\/(?![/\\])[^\\\s]*$/, '잘못된 경로입니다.')
+  .refine((v) => !/\p{Cc}/u.test(v), '잘못된 경로입니다.');
 
 export const OAuthIntent = { LOGIN: 'login', LINK: 'link' } as const;
 export type OAuthIntent = (typeof OAuthIntent)[keyof typeof OAuthIntent];

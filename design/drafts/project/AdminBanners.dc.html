@@ -651,15 +651,15 @@ x-dc{display:block}
 .ab-main{display:grid;grid-template-columns:minmax(0,1fr) 480px;min-height:0}
 .ab-col{display:flex;flex-direction:column;min-width:0;min-height:0}
 .ab-col .adm-top{flex:none}
-.ab-content{display:flex;flex-direction:column;gap:16px;padding:18px 24px 20px;min-width:0;min-height:0;overflow:hidden}
+.ab-content{display:flex;flex-direction:column;gap:12px;padding:14px 24px 16px;min-width:0;min-height:0;overflow:hidden}
 .ab-bar{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
 .ab-bar .row{padding-bottom:8px}
 .ab-tabs{border-bottom:0}
-.ab-tabs .tab{height:46px;font-size:16px}
+.ab-tabs .tab{height:42px;font-size:16px}
 
 /* slot overview */
 .slots{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
-.slot{display:flex;flex-direction:column;gap:8px;padding:14px 14px 12px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);min-width:0;transition:border-color .15s,box-shadow .15s}
+.slot{display:flex;flex-direction:column;gap:7px;padding:12px 14px 11px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);min-width:0;transition:border-color .15s,box-shadow .15s}
 .slot:hover{border-color:var(--brand-line);box-shadow:var(--sh-1)}
 .slot-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
 .slot-glyph{display:block;flex:none}
@@ -679,7 +679,7 @@ x-dc{display:block}
 .bt th{height:38px;font-size:12px;padding:0 10px}
 .bt th:first-child{padding-left:16px}
 .bt{table-layout:fixed}
-.bt td{height:70px;padding:0 10px;white-space:normal;vertical-align:middle}
+.bt td{height:60px;padding:0 10px;white-space:normal;vertical-align:middle}
 .bt td:first-child{padding-left:14px;padding-right:0}
 .bt th:first-child{padding-right:0}
 .bt .t-cap{white-space:nowrap}
@@ -688,26 +688,20 @@ x-dc{display:block}
 .bt tbody tr.is-editing:hover td{background:var(--brand-soft)}
 .ord{display:inline-flex;align-items:center;gap:2px;font-size:14px;font-weight:800;color:var(--text-2)}
 .ord .drag{color:var(--icon-muted)}
-.bn{display:flex;align-items:center;gap:12px;min-width:0}
-.bn .thumb{width:84px;height:38px;border-radius:7px;box-shadow:inset 0 0 0 1px rgba(10,18,34,.06)}
-.bn-t{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.bn{display:flex;align-items:center;gap:10px;min-width:0}
+.bn .thumb{width:76px;height:36px;border-radius:7px;box-shadow:inset 0 0 0 1px rgba(10,18,34,.06)}
+.bn-t{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .bn-title{display:flex;align-items:center;gap:6px;min-width:0}
 .bn-title b{font-size:14px;font-weight:800;color:var(--text);letter-spacing:-0.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.editing{flex:none;display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;background:var(--brand);color:#fff;font-size:12px;font-weight:700}
 .bn-sub{display:flex;align-items:center;gap:6px;min-width:0;font-size:12.5px;color:var(--text-3)}
 .slot-tag{flex:none;display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;background:var(--surface-2);color:var(--text-2);font-size:12px;font-weight:700;white-space:nowrap}
 .is-editing .slot-tag{background:#fff}
 .bn-adv{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .bn-meta{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--text-muted);white-space:nowrap;min-width:0}
-.bn-meta > span{display:inline-flex;align-items:center;gap:4px;min-width:0}
+.bn-meta > span{display:inline-flex;align-items:center;gap:4px;min-width:0;flex:none}
+.bn-meta > span:last-child{flex:0 1 auto;display:block;overflow:hidden;text-overflow:ellipsis}
+.bn-meta > span:last-child .ic{display:inline-block;vertical-align:-2px;margin-right:4px}
 .bn-meta .ic{color:var(--icon-muted)}
-.st{display:flex;flex-direction:column;align-items:flex-start;gap:0}
-.st .switch{min-height:30px;gap:8px}
-.st .switch-l{font-size:13px;font-weight:800}
-.st-live{color:var(--success) !important}
-.st-scheduled{color:var(--brand) !important}
-.st-paused{color:var(--text-muted) !important}
-.st .t-cap{padding-left:1px}
 .perf{display:block;font-size:15px;font-weight:800;color:var(--text);letter-spacing:-0.02em}
 .perf-none{color:var(--text-muted)}
 .acts{display:inline-flex;gap:2px}
@@ -716,7 +710,7 @@ x-dc{display:block}
 .act.is-on{background:var(--brand);color:#fff}
 .act-del{color:var(--text-muted)}
 .act-del:hover{background:var(--danger-soft);color:var(--danger)}
-.tfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px 8px 20px;border-top:1px solid var(--line)}
+.tfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:5px 16px 5px 20px;border-top:1px solid var(--line)}
 .tfoot b{color:var(--text);font-weight:800}
 .pager{display:flex;align-items:center;gap:2px}
 .pager a,.pager button{display:grid;place-items:center;min-width:30px;height:30px;padding:0 6px;border-radius:8px;font-size:13px;font-weight:700;color:var(--text-3)}
@@ -724,7 +718,7 @@ x-dc{display:block}
 .pager button[disabled]{color:var(--grey-300);cursor:default}
 
 /* popup quick settings */
-.pp{display:grid;grid-template-columns:184px minmax(0,1fr);gap:20px;padding:14px 20px 16px}
+.pp{display:grid;grid-template-columns:172px minmax(0,1fr);gap:20px;padding:10px 20px 12px}
 .pp-mini{border-radius:14px;overflow:hidden;background:var(--surface);box-shadow:0 0 0 1px var(--line),var(--sh-2);align-self:start}
 .pp-art{position:relative;aspect-ratio:380/300;background:var(--ad-ground);overflow:hidden}
 .pp-art svg{position:absolute;inset:0;width:100%;height:100%}
@@ -732,12 +726,12 @@ x-dc{display:block}
 .pp-copy b{font-size:14px;line-height:1.35;font-weight:800;color:#fff;letter-spacing:-0.03em}
 .pp-badge{display:inline-flex;align-items:center;height:20px;padding:0 6px;border:1px solid rgba(255,255,255,.55);border-radius:4px;font-size:12px;font-weight:700;color:#fff}
 .pp-ft{display:grid;grid-template-columns:1fr auto;border-top:1px solid var(--line);font-size:12px;font-weight:600;color:var(--text-3)}
-.pp-ft span{display:flex;align-items:center;height:30px;padding:0 10px;white-space:nowrap}
+.pp-ft span{display:flex;align-items:center;height:30px;padding:0 8px;white-space:nowrap}
 .pp-ft .b{border-left:1px solid var(--line);color:var(--text);font-weight:800}
 .pp-set{display:flex;flex-direction:column;gap:2px;min-width:0}
-.pp-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-bottom:6px}
+.pp-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-bottom:4px}
 .pp-t{font-size:15px;font-weight:800;letter-spacing:-0.03em}
-.pp-row{display:grid;grid-template-columns:84px minmax(0,1fr);gap:10px;align-items:center;min-height:40px;border-top:1px solid var(--grey-100)}
+.pp-row{display:grid;grid-template-columns:84px minmax(0,1fr);gap:10px;align-items:center;min-height:36px;border-top:1px solid var(--grey-100)}
 .pp-l{font-size:13px;font-weight:700;color:var(--text-3)}
 .pp-v{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
 .date-sm{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px solid var(--line-strong);border-radius:8px;font-size:13px;font-weight:600;color:var(--text)}
@@ -771,8 +765,6 @@ x-dc{display:block}
 .g2-per{grid-template-columns:minmax(0,1.85fr) minmax(0,1fr)}
 .in-md,.sel-md select{height:42px;font-size:14px;border-radius:10px}
 .sel-md select{padding-left:12px}
-.input-affix .in-md{padding-right:52px}
-.input-affix .affix{font-size:12px;right:12px}
 .in-ico{position:relative;display:flex;align-items:center;min-width:0;flex:1}
 .in-ico > .ic{position:absolute;left:12px;color:var(--icon-muted);pointer-events:none}
 .in-ico .in-md{padding-left:38px}
@@ -854,6 +846,35 @@ x-dc{display:block}
 .pv-mbody{display:flex;flex-direction:column;gap:6px;padding:0 2px}
 .pv-mbody .pv-search{width:100%}
 
+/* ---- review fixes ---- */
+.adm-menu,.adm-q-btn,.dw-back,.dw-ctx{display:none}
+.bt tr.grp th{height:28px;padding:0 16px;background:var(--grey-50);border-bottom:1px solid var(--grey-100);text-align:left;white-space:nowrap}
+.bt tr.grp:hover th{background:var(--grey-50)}
+.grp-n{font-size:13px;font-weight:700;color:var(--text)}
+.grp-c{margin-left:8px;font-size:12px;font-weight:600;color:var(--text-muted)}
+.st{display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+.st .status{height:24px;padding:0 9px;font-size:12px}
+.st-sub{display:flex;align-items:center;gap:6px}
+.status.paused{background:var(--surface);color:var(--text-3);box-shadow:inset 0 0 0 1px var(--line-strong)}
+.status.paused::before{background:none;box-shadow:inset 0 0 0 1.5px currentColor}
+.sw-xs{min-height:20px;gap:0}
+.sw-xs input{width:32px;height:18px}
+.sw-xs input::after{top:2px;left:2px;width:14px;height:14px}
+.sw-xs input:checked::after{transform:translateX(14px)}
+.sw-xs input:disabled{background:var(--grey-150);cursor:not-allowed}
+.sw-xs input:disabled::after{box-shadow:none;background:var(--grey-50)}
+.sw-xs[title]{cursor:not-allowed}
+.is-editing .bn .thumb{outline:2px solid var(--brand);outline-offset:1px}
+.is-editing .status.scheduled{background:var(--surface);box-shadow:inset 0 0 0 1px var(--brand-line)}
+.cr-lb{position:relative;display:block;aspect-ratio:358/160;border-radius:5px;overflow:hidden;background:var(--grey-150);box-shadow:inset 0 0 0 1px var(--warn);background-image:repeating-linear-gradient(135deg,rgba(10,18,34,.05) 0 3px,transparent 3px 7px)}
+.cr-lb::after{content:"";position:absolute;inset:0;border:1px dashed var(--warn);border-radius:5px;pointer-events:none}
+.cr-lb .cr-pc{position:absolute;left:0;top:calc(50% - 22.2px);width:250px;transform:scale(.384);transform-origin:left center}
+.cr-lb > .cr-ad{background:#1C2B22;color:#fff;transform:scale(.6)}
+.pv-phone .pv-slot{outline-color:var(--warn)}
+.up-cta{display:inline-flex;align-items:center;gap:4px}
+.up-hint{font-size:12px;line-height:1.35;color:var(--text-3);text-wrap:pretty}
+.up-empty{gap:7px}
+
 /* responsive: stack panels */
 @media (max-width:1180px){
   .app{height:auto;overflow:visible}
@@ -868,7 +889,7 @@ x-dc{display:block}
   .bt,.bt tbody{display:block}
   .bt thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
   .bt colgroup{display:none}
-  .bt tr{display:grid;grid-template-columns:34px minmax(0,1fr) auto;grid-template-areas:"o b b" "o p p" "o s a";row-gap:8px;column-gap:12px;padding:14px 16px;border-bottom:1px solid var(--grey-100)}
+  .bt tr{display:grid;grid-template-columns:34px minmax(0,1fr) auto;grid-template-areas:"o b b" "o s s" "o p a";row-gap:8px;column-gap:12px;padding:14px 16px;border-bottom:1px solid var(--grey-100)}
   .bt tbody tr:last-child{border-bottom:0}
   .bt tr.is-editing{background:var(--brand-soft)}
   .bt td{display:block;height:auto;padding:0 !important;border:0;background:none !important}
@@ -878,7 +899,7 @@ x-dc{display:block}
   .bt td:nth-child(4){grid-area:p;display:flex !important;align-items:baseline;gap:8px;text-align:left}
   .bt td:nth-child(4) .perf{font-size:14px}
   .bt td:nth-child(5){grid-area:a;align-self:center}
-  .st .switch{min-height:44px}
+  .bt td:nth-child(4){align-self:center}
   .tg-chips .x{width:32px;height:32px}
   .tg-chips .chip{height:40px}
   .pp{grid-template-columns:minmax(0,1fr)}
@@ -891,6 +912,23 @@ x-dc{display:block}
   .act{width:44px;height:44px}
   .pager a,.pager button{min-width:44px}
   .chips-sm .chip{height:36px}
+  .adm-menu,.adm-q-btn{display:inline-grid;flex:none}
+  .adm-top{gap:8px}
+  .bt tr.grp{display:block;padding:0;border-bottom:1px solid var(--grey-100);background:var(--grey-50)}
+  .bt tr.grp th{display:flex;align-items:center;height:36px;border:0}
+  .bn-meta{flex-wrap:wrap;row-gap:2px;white-space:normal}
+  .bn-meta > span{white-space:nowrap}
+  .bn-meta > span:last-child{max-width:100%}
+  .sw-xs{min-width:44px;min-height:44px;justify-content:center;margin-left:-6px}
+  .st{flex-direction:row;align-items:center;gap:8px}
+  .dw{margin-top:12px;border-top:0;border-radius:20px 20px 0 0;box-shadow:0 -10px 30px rgba(10,18,34,.10)}
+  .dw-ctx{display:flex;align-items:center;justify-content:center;height:32px;margin:0;border-radius:20px 20px 0 0;background:var(--brand-soft);color:var(--brand);font-size:12.5px;font-weight:700}
+  .dw{height:844px;min-height:0;overflow:hidden}
+  .dw-body{overflow:auto;flex:1;min-height:0}
+  .dw-hd{flex:none;background:var(--surface);padding:8px;justify-content:flex-start}
+  .dw-back{display:inline-grid;flex:none;border:0}
+  .dw-x{display:none}
+  .dw-ft{flex:none;box-shadow:0 -6px 16px rgba(10,18,34,.06)}
 }
 
 </style>
@@ -907,8 +945,10 @@ x-dc{display:block}
 <div class="adm-main ab-main">
 <div class="ab-col">
 <div class="adm-top">
+  <button class="btn-icon adm-menu" aria-label="관리자 메뉴 열기"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   <div style="flex:1;min-width:0"><p class="adm-crumb">콘텐츠</p><h1 class="adm-title">배너·팝업 관리</h1></div>
   <form class="search-sm" role="search" action="#" style="width:260px"><label class="sr" for="adm-q">관리자 검색</label><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg><input id="adm-q" type="search" placeholder="광고주, 배너 ID 검색"></form>
+  <button class="btn-icon adm-q-btn" aria-label="검색"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg></button>
   <button class="btn-icon" aria-label="알림"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg></button>
   <span class="adm-me"><span class="adm-av" aria-hidden="true">운</span><span class="t-sm" style="color:var(--text);font-weight:700">운영자</span></span>
 </div>
@@ -920,7 +960,7 @@ x-dc{display:block}
   <section aria-label="노출 위치별 현황"><div class="slots">
 <a class="slot" href="#">
   <span class="slot-top"><svg class="slot-glyph" width="46" height="34" viewBox="0 0 46 34" aria-hidden="true"><rect x=".75" y=".75" width="44.5" height="32.5" rx="5" fill="#FFFFFF" stroke="#D1D6DB" stroke-width="1.5"/><path d="M1.5 7.5h43" stroke="#E5E8EB" stroke-width="1.5"/><circle cx="6" cy="4.2" r="1.3" fill="#B0B8C1"/><rect x="6" y="11" width="34" height="8" rx="2" fill="#1D4FF2"/><rect x="6" y="22.5" width="10" height="6" rx="1.5" fill="#E5E8EB"/><rect x="18" y="22.5" width="10" height="6" rx="1.5" fill="#E5E8EB"/><rect x="30" y="22.5" width="10" height="6" rx="1.5" fill="#E5E8EB"/></svg><span class="slot-n num">2<small>/ 5</small></span></span>
-  <span class="slot-name">메인 히어로 배너</span>
+  <span class="slot-name">메인 와이드 배너</span>
   <span class="meter" aria-hidden="true"><i style="width:40%"></i></span>
   <span class="slot-cap"><span>PC · 모바일</span></span>
 </a>
@@ -951,7 +991,7 @@ x-dc{display:block}
   </div></section>
   <section class="panel" aria-labelledby="bl-h">
   <div class="panel-hd">
-    <div class="row" style="gap:10px"><h2 class="panel-t" id="bl-h">배너 목록</h2><span class="t-cap">같은 위치 안에서 끌어서 노출 순서를 바꿔요</span></div>
+    <div class="row" style="gap:10px"><h2 class="panel-t" id="bl-h">배너 목록</h2><span class="t-cap">위치별로 묶어 보여요 · 끌어서 순서 변경</span></div>
     <div class="row" style="gap:6px">
       <button class="fchip fchip-sm"><span class="k">노출 위치</span><span class="v">전체</span><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
       <button class="fchip fchip-sm"><span class="k">상태</span><span class="v">전체</span><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
@@ -959,50 +999,53 @@ x-dc{display:block}
   </div>
   <div class="table-scroll"><table class="table bt">
     <caption class="sr">배너 목록 · 노출 위치와 순서 기준 정렬</caption>
-    <colgroup><col style="width:46px"><col><col style="width:94px"><col style="width:100px"><col style="width:120px"></colgroup>
-    <thead><tr><th>순서</th><th>배너 · 노출 위치 · 기간 · 대상</th><th>상태</th><th class="r">노출 · 클릭 · CTR</th><th class="r">관리</th></tr></thead>
+    <colgroup><col style="width:46px"><col><col style="width:112px"><col style="width:92px"><col style="width:108px"></colgroup>
+    <thead><tr><th>순서</th><th>배너 · 노출 위치 · 기간 · 대상</th><th>상태 · 노출</th><th class="r">노출 · 클릭 · CTR</th><th class="r">관리</th></tr></thead>
     <tbody>
+<tr class="grp"><th colspan="5" scope="colgroup"><span class="grp-n">메인 와이드 배너</span><span class="grp-c num">2 / 5자리</span></th></tr>
 <tr>
   <td class="c-ord"><span class="ord"><span class="drag" aria-hidden="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="3"/></svg></span><span class="num">1</span></span><button class="sr">AD-01 순서 이동</button></td>
   <td><div class="bn"><span class="thumb"><svg viewBox="0 0 96 36" aria-hidden="true"><g fill="none" stroke="#E9D7A8" stroke-width="1"><path d="M60 36V14h8v22M72 36V6h10v30M86 36V18h6v18"/><path d="M62 18h4M62 22h4M62 26h4M74 10h6M74 14h6M74 18h6M74 22h6"/></g><rect x="8" y="12" width="34" height="4" rx="2" fill="#fff" opacity=".9"/><rect x="8" y="20" width="22" height="3" rx="1.5" fill="#E9D7A8" opacity=".85"/></svg></span><div class="bn-t">
     <p class="bn-title"><b>연향들 더 퍼스트 견본주택 오픈</b></p>
-    <p class="bn-sub"><span class="slot-tag">메인 히어로 1</span><span class="bn-adv">분양 광고주 A</span></p>
+    <p class="bn-sub"><span class="bn-adv">분양 광고주 A</span></p>
     <p class="bn-meta"><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><span class="num">11.01 – 11.30</span></span><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>전체</span></p>
   </div></div></td>
-  <td><div class="st"><label class="switch"><input type="checkbox" checked aria-label="AD-01 노출 켜기"><span class="switch-l st-live">노출</span></label><span class="t-cap">7일 남음</span></div></td>
+  <td><div class="st"><span class="status live">게시중</span><span class="st-sub"><label class="switch sw-xs"><input type="checkbox" checked aria-label="AD-01 노출 끄기"></label><span class="t-cap">7일 남음</span></span></div></td>
   <td class="r"><b class="perf num">48,210</b><span class="t-cap num">1,126 · 2.3%</span></td>
   <td class="r"><span class="acts"><button class="act" aria-label="AD-01 수정"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="m13.5 6.5 4 4"/></svg></button><button class="act" aria-label="AD-01 복제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg></button><button class="act act-del" aria-label="AD-01 삭제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10.5 11v5.5M13.5 11v5.5"/></svg></button></span></td>
 </tr>
 <tr class="is-editing">
   <td class="c-ord"><span class="ord"><span class="drag" aria-hidden="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="3"/></svg></span><span class="num">2</span></span><button class="sr">AD-03 순서 이동</button></td>
   <td><div class="bn"><span class="thumb" style="background:#1C2B22"><svg viewBox="0 0 96 36" aria-hidden="true"><g fill="none" stroke="#F2C78B" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"><rect x="62" y="15" width="22" height="16" rx="1.5"/><path d="M62 21h22M73 15v16"/><path d="M58 31h30"/><path d="M67 15v-5h12v5"/></g><rect x="8" y="12" width="36" height="4" rx="2" fill="#fff" opacity=".9"/><rect x="8" y="20" width="24" height="3" rx="1.5" fill="#F2C78B" opacity=".85"/></svg></span><div class="bn-t">
-    <p class="bn-title"><b>순천 이사·입주청소 한 번에 예약</b><span class="editing">수정 중</span></p>
-    <p class="bn-sub"><span class="slot-tag">메인 히어로 2</span><span class="bn-adv">늘봄 이사·청소</span></p>
+    <p class="bn-title"><b>순천 이사·입주청소 한 번에 예약</b></p>
+    <p class="bn-sub"><span class="bn-adv">늘봄 이사·청소</span><span class="sr">· 지금 편집 중</span></p>
     <p class="bn-meta"><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><span class="num">12.01 – 12.31</span></span><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>신대·선월·연향</span></p>
   </div></div></td>
-  <td><div class="st"><label class="switch"><input type="checkbox" checked aria-label="AD-03 노출 켜기"><span class="switch-l st-scheduled">예약</span></label><span class="t-cap">12.01 시작</span></div></td>
+  <td><div class="st"><span class="status scheduled">예약</span><span class="st-sub"><label class="switch sw-xs" title="예약 시작 전에는 켤 수 없어요"><input type="checkbox" disabled aria-disabled="true" aria-label="AD-03 노출 · 예약 시작 전"></label><span class="t-cap num">12.01 시작</span></span></div></td>
   <td class="r"><b class="perf perf-none">–</b><span class="t-cap">게시 전</span></td>
   <td class="r"><span class="acts"><button class="act is-on" aria-label="AD-03 수정"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="m13.5 6.5 4 4"/></svg></button><button class="act" aria-label="AD-03 복제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg></button><button class="act act-del" aria-label="AD-03 삭제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10.5 11v5.5M13.5 11v5.5"/></svg></button></span></td>
 </tr>
+<tr class="grp"><th colspan="5" scope="colgroup"><span class="grp-n">메인 띠배너</span><span class="grp-c num">1 / 2자리</span></th></tr>
 <tr>
   <td class="c-ord"><span class="ord"><span class="drag" aria-hidden="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="3"/></svg></span><span class="num">1</span></span><button class="sr">AD-07 순서 이동</button></td>
   <td><div class="bn"><span class="thumb" style="background:#F2F4F6"><svg viewBox="0 0 96 36" aria-hidden="true"><rect x="0" y="11" width="96" height="14" fill="#1D4FF2"/><g fill="none" stroke="#FFFFFF" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21v-3.5a3 3 0 0 1 6 0V21l.8 1H8.2z"/></g><rect x="20" y="15.5" width="34" height="3" rx="1.5" fill="#fff"/><rect x="74" y="14.5" width="16" height="7" rx="3.5" fill="#fff" opacity=".9"/></svg></span><div class="bn-t">
     <p class="bn-title"><b>관심 단지 새 매물 알림 받기</b></p>
-    <p class="bn-sub"><span class="slot-tag">메인 띠배너 1</span><span class="bn-adv">운영사 캠페인</span></p>
+    <p class="bn-sub"><span class="bn-adv">운영사 캠페인</span></p>
     <p class="bn-meta"><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><span class="num">11.10 – 12.31</span></span><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>전체</span></p>
   </div></div></td>
-  <td><div class="st"><label class="switch"><input type="checkbox" checked aria-label="AD-07 노출 켜기"><span class="switch-l st-live">노출</span></label><span class="t-cap">38일 남음</span></div></td>
+  <td><div class="st"><span class="status live">게시중</span><span class="st-sub"><label class="switch sw-xs"><input type="checkbox" checked aria-label="AD-07 노출 끄기"></label><span class="t-cap">38일 남음</span></span></div></td>
   <td class="r"><b class="perf num">31,402</b><span class="t-cap num">408 · 1.3%</span></td>
   <td class="r"><span class="acts"><button class="act" aria-label="AD-07 수정"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="m13.5 6.5 4 4"/></svg></button><button class="act" aria-label="AD-07 복제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg></button><button class="act act-del" aria-label="AD-07 삭제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10.5 11v5.5M13.5 11v5.5"/></svg></button></span></td>
 </tr>
+<tr class="grp"><th colspan="5" scope="colgroup"><span class="grp-n">지도 광고 카드</span><span class="grp-c num">3 / 6자리 · 1개는 다음 페이지</span></th></tr>
 <tr>
   <td class="c-ord"><span class="ord"><span class="drag" aria-hidden="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="3"/></svg></span><span class="num">1</span></span><button class="sr">AD-02 순서 이동</button></td>
   <td><div class="bn"><span class="thumb" style="background:#F3F5F8"><svg viewBox="0 0 96 36" aria-hidden="true"><path d="M60 0c-6 10 10 16 2 26s-8 8-6 12" fill="none" stroke="#C9DCF5" stroke-width="5"/><path d="M0 24h96M40 0v36" stroke="#FFFFFF" stroke-width="3"/><rect x="6" y="5" width="34" height="24" rx="3" fill="#0A1222"/><rect x="10" y="9" width="18" height="3" rx="1.5" fill="#fff"/><rect x="10" y="15" width="12" height="2.5" rx="1.2" fill="#E9D7A8"/><rect x="10" y="21" width="26" height="4.5" rx="2" fill="#1D4FF2"/><circle cx="74" cy="12" r="3" fill="#B0B8C1"/><circle cx="82" cy="28" r="3" fill="#B0B8C1"/></svg></span><div class="bn-t">
     <p class="bn-title"><b>호수공원 공인중개사사무소</b></p>
-    <p class="bn-sub"><span class="slot-tag">지도 광고 카드 1</span><span class="bn-adv">대표 한서윤</span></p>
+    <p class="bn-sub"><span class="bn-adv">대표 한서윤</span></p>
     <p class="bn-meta"><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><span class="num">11.15 – 12.14</span></span><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>조례동·연향동</span></p>
   </div></div></td>
-  <td><div class="st"><label class="switch"><input type="checkbox" checked aria-label="AD-02 노출 켜기"><span class="switch-l st-live">노출</span></label><span class="t-cap">21일 남음</span></div></td>
+  <td><div class="st"><span class="status live">게시중</span><span class="st-sub"><label class="switch sw-xs"><input type="checkbox" checked aria-label="AD-02 노출 끄기"></label><span class="t-cap">21일 남음</span></span></div></td>
   <td class="r"><b class="perf num">12,880</b><span class="t-cap num">341 · 2.6%</span></td>
   <td class="r"><span class="acts"><button class="act" aria-label="AD-02 수정"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="m13.5 6.5 4 4"/></svg></button><button class="act" aria-label="AD-02 복제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg></button><button class="act act-del" aria-label="AD-02 삭제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10.5 11v5.5M13.5 11v5.5"/></svg></button></span></td>
 </tr>
@@ -1010,10 +1053,10 @@ x-dc{display:block}
   <td class="c-ord"><span class="ord"><span class="drag" aria-hidden="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="3"/></svg></span><span class="num">2</span></span><button class="sr">AD-09 순서 이동</button></td>
   <td><div class="bn"><span class="thumb" style="background:#F3F5F8"><svg viewBox="0 0 96 36" aria-hidden="true"><path d="M30 0c-6 10 10 16 2 26s-8 8-6 12" fill="none" stroke="#C9DCF5" stroke-width="5"/><path d="M0 14h96M66 0v36" stroke="#FFFFFF" stroke-width="3"/><rect x="50" y="6" width="38" height="24" rx="3" fill="#0A1222"/><rect x="54" y="10" width="20" height="3" rx="1.5" fill="#fff"/><rect x="54" y="16" width="12" height="2.5" rx="1.2" fill="#E9D7A8"/><rect x="54" y="22" width="30" height="4.5" rx="2" fill="#1D4FF2"/><circle cx="14" cy="24" r="3" fill="#B0B8C1"/></svg></span><div class="bn-t">
     <p class="bn-title"><b>신대중앙 공인중개사사무소</b></p>
-    <p class="bn-sub"><span class="slot-tag">지도 광고 카드 2</span><span class="bn-adv">대표 김서진</span></p>
+    <p class="bn-sub"><span class="bn-adv">대표 김서진</span></p>
     <p class="bn-meta"><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><span class="num">11.01 – 12.31</span></span><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>신대지구</span></p>
   </div></div></td>
-  <td><div class="st"><label class="switch"><input type="checkbox" aria-label="AD-09 노출 켜기"><span class="switch-l st-paused">중지</span></label><span class="t-cap">광고주 요청</span></div></td>
+  <td><div class="st"><span class="status paused">중지</span><span class="st-sub"><label class="switch sw-xs"><input type="checkbox" aria-label="AD-09 노출 켜기"></label><span class="t-cap">광고주 요청</span></span></div></td>
   <td class="r"><b class="perf num">8,214</b><span class="t-cap num">197 · 2.4%</span></td>
   <td class="r"><span class="acts"><button class="act" aria-label="AD-09 수정"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="m13.5 6.5 4 4"/></svg></button><button class="act" aria-label="AD-09 복제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg></button><button class="act act-del" aria-label="AD-09 삭제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10.5 11v5.5M13.5 11v5.5"/></svg></button></span></td>
 </tr>
@@ -1038,7 +1081,7 @@ x-dc{display:block}
       <div class="pp-ft"><span>일주일 동안 보지 않기</span><span class="b">닫기</span></div>
     </div>
     <div class="pp-set">
-      <div class="pp-hd"><div><p class="pp-t">허위매물 신고 포상 안내</p><p class="t-cap">AD-04 · 운영사 · 760 × 600</p></div><span class="status live">게시중</span></div>
+      <div class="pp-hd"><div><p class="pp-t">허위매물 신고 포상 안내</p><p class="t-cap num">PU-01 · 운영사 · 760×600 · 1일 1회</p></div><span class="status live">게시중</span></div>
       <div class="pp-row"><span class="pp-l" id="pp-per">기간</span><span class="pp-v" aria-labelledby="pp-per"><button class="date-sm" aria-label="시작일 2026.11.10 변경"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><span class="num">2026.11.10</span></button><span class="t-cap">–</span><button class="date-sm" aria-label="종료일 2026.11.30 변경"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><span class="num">2026.11.30</span></button></span></div>
       <div class="pp-row"><span class="pp-l">노출 페이지</span><span class="pp-v chips-sm" role="group" aria-label="노출 페이지"><button class="chip is-on" aria-pressed="true">메인</button><button class="chip is-on" aria-pressed="true">아파트 지도</button><button class="chip" aria-pressed="false">원룸·투룸</button><button class="chip" aria-pressed="false">매물 상세</button></span></div>
       <div class="pp-row"><span class="pp-l">닫기 옵션</span><span class="pp-v"><label class="check check-sm"><input type="checkbox" checked><svg class="check-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>‘일주일 동안 보지 않기’ 표시</label><span class="t-cap">하루 1회 · 첫 방문 시</span></span></div>
@@ -1047,9 +1090,11 @@ x-dc{display:block}
 </section>
 </div>
 </div>
-<aside class="dw" aria-labelledby="dw-h">
+<aside class="dw" id="dw" aria-labelledby="dw-h">
+  <p class="dw-ctx" aria-hidden="true">선택한 배너 편집 · AD-03</p>
   <div class="dw-hd">
-    <div class="stack" style="gap:2px;min-width:0"><p class="t-cap num">AD-03 · 메인 히어로 배너</p><div class="row" style="gap:8px;flex-wrap:nowrap"><h2 id="dw-h" class="dw-title">배너 수정</h2><span class="status scheduled">예약</span></div></div>
+    <button class="btn-icon dw-back" aria-label="목록으로"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
+    <div class="stack" style="gap:2px;min-width:0;flex:1"><p class="t-cap num">AD-03 · 메인 와이드 배너</p><div class="row" style="gap:8px;flex-wrap:nowrap"><h2 id="dw-h" class="dw-title">배너 수정</h2><span class="status scheduled">예약</span></div></div>
     <button class="btn-icon dw-x" aria-label="편집 닫기"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   </div>
   <div class="dw-body">
@@ -1066,22 +1111,23 @@ x-dc{display:block}
           <div class="pv-cards"><i></i><i></i><i></i><i></i><i></i></div>
         </div>
       </div>
-      <figcaption><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="11.5" rx="1.8"/><path d="M9 20h6M12 16v4"/></svg>PC · 메인 히어로 2번째</figcaption>
+      <figcaption><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="11.5" rx="1.8"/><path d="M9 20h6M12 16v4"/></svg>PC · 메인 와이드 2번째</figcaption>
     </figure>
     <figure class="pv-fig pv-fig-m">
       <div class="pv-phone" aria-hidden="true">
         <div class="pv-mgnb"><svg class="logo-mark" width="9" height="9" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1D4FF2"/><path d="M9 24v-7a7 7 0 0 1 14 0v7" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/><rect x="13.6" y="17.6" width="4.8" height="6.4" rx="1.2" fill="#FFFFFF"/><rect x="21.6" y="6" width="4.4" height="4.4" rx="1.3" fill="#E9D7A8"/></svg><i class="sk dk" style="width:16px;height:4px"></i><span class="pv-sp"></span><i class="pv-pill b"></i><i class="pv-pill"></i></div>
-        <div class="pv-mbody"><i class="sk dk" style="width:62%;height:6px"></i><i class="pv-search"></i><div class="pv-slot"><span class="cr cr-m"><span class="cr-ad">AD</span><span class="cr-copy"><span class="cr-h">이사·청소 예약</span></span><svg class="cr-art" viewBox="0 0 160 120" aria-hidden="true"><g fill="none" stroke="#F2C78B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="46" y="48" width="70" height="52" rx="4"/><path d="M46 66h70M81 48v52"/><path d="M30 100h106"/><path d="M62 48V32h38v16"/><path d="M124 34l6-6M132 44h8M122 22v-8" opacity=".8"/></g></svg></span></div><i class="sk card" style="width:100%;height:22px"></i><i class="sk card" style="width:100%;height:22px"></i></div>
+        <div class="pv-mbody"><i class="sk dk" style="width:62%;height:6px"></i><i class="pv-search"></i><div class="pv-slot"><span class="cr-lb"><span class="cr-ad">AD</span><span class="cr cr-pc"><span class="cr-copy"><span class="cr-h">순천 이사·입주청소<br>한 번에 예약</span></span><svg class="cr-art" viewBox="0 0 160 120" aria-hidden="true"><g fill="none" stroke="#F2C78B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="46" y="48" width="70" height="52" rx="4"/><path d="M46 66h70M81 48v52"/><path d="M30 100h106"/><path d="M62 48V32h38v16"/><path d="M124 34l6-6M132 44h8M122 22v-8" opacity=".8"/></g></svg></span></span></div><i class="sk card" style="width:100%;height:22px"></i><i class="sk card" style="width:100%;height:22px"></i></div>
       </div>
-      <figcaption class="warn"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 21 19.5H3z"/><path d="M12 10v4.5M12 17h.01"/></svg>PC 이미지로 대체 중</figcaption>
+      <figcaption class="warn" title="모바일 이미지가 없어 PC 이미지를 줄여서 보여주는 중"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 21 19.5H3z"/><path d="M12 10v4.5M12 17h.01"/></svg>PC 이미지로 대체 중</figcaption>
     </figure>
   </div>
 </section>
     <div class="dw-form">
-      <div class="fld"><label class="lb" for="f-pos">노출 위치</label><span class="select sel-md"><select id="f-pos"><option>메인 히어로 배너 · PC 1240×220 / 모바일 358×160</option></select><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></div>
-      <div class="g2">
-        <div class="fld"><label class="lb" for="f-tit">제목 <span class="t-cap">관리용</span></label><span class="input-affix"><input id="f-tit" class="input in-md" value="순천 이사·입주청소 한 번에 예약"><span class="affix num">17/40</span></span></div>
+      <div class="fld"><label class="lb" for="f-pos">노출 위치</label><span class="select sel-md"><select id="f-pos"><option>메인 와이드 배너 · PC 1240×220 / 모바일 358×160</option></select><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></div>
+      <div class="fld"><span class="lb lb-row"><label for="f-tit">제목 <span class="t-cap">관리용</span></label><span class="t-cap num" aria-hidden="true">17/40</span></span><input id="f-tit" class="input in-md" maxlength="40" value="순천 이사·입주청소 한 번에 예약"></div>
+      <div class="g2 g2-per">
         <div class="fld"><label class="lb" for="f-adv">광고주</label><span class="in-ico"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg><input id="f-adv" class="input in-md" value="늘봄 이사·청소" placeholder="중개사무소·업체 검색"><span class="badge">업체</span></span></div>
+        <div class="fld"><label class="lb" for="f-ord">노출 순서</label><span class="select sel-md"><select id="f-ord"><option>2번째 / 2개</option></select><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></div>
       </div>
       <div class="g2">
         <div class="fld"><span class="lb" id="up-pc">PC 이미지</span>
@@ -1092,20 +1138,17 @@ x-dc{display:block}
             <button class="up-re">교체</button>
           </div></div>
         <div class="fld"><span class="lb" id="up-m">모바일 이미지</span>
-          <label class="up up-empty" for="f-mimg"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4.5"/><path d="m7 9 5-5 5 5"/><path d="M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/></svg><span><b>파일 선택</b> 또는 끌어다 놓기</span><span class="spec num">권장 1074 × 480 · 600KB</span><input id="f-mimg" class="sr" type="file" accept="image/*"></label></div>
+          <label class="up up-empty" for="f-mimg"><span class="up-cta"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4.5"/><path d="m7 9 5-5 5 5"/><path d="M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/></svg><span><b>파일 선택</b> 또는 끌어다 놓기</span></span><span class="spec num">권장 1074 × 480 · 600KB</span><span class="up-hint">비워 두면 PC 이미지를 줄여서 보여줘요</span><input id="f-mimg" class="sr" type="file" accept="image/*"></label></div>
       </div>
       <div class="fld"><span class="lb lb-row"><label for="f-url">링크 URL</label><label class="check check-sm"><input type="checkbox" checked><svg class="check-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>새 창에서 열기</label></span><span class="in-ico"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><input id="f-url" class="input in-md num" value="https://example.com/nulbom?utm_source=brand"></span></div>
-      <div class="g2 g2-per">
-        <div class="fld"><span class="lb" id="f-per">노출 기간</span><span class="daterange" role="group" aria-labelledby="f-per"><label class="sr" for="f-s">시작일</label><span class="in-ico"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><input id="f-s" class="input in-md num" value="2026.12.01"></span><span class="t-cap">–</span><label class="sr" for="f-e">종료일</label><span class="in-ico"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><input id="f-e" class="input in-md num" value="2026.12.31"></span></span></div>
-        <div class="fld"><label class="lb" for="f-ord">노출 순서</label><span class="select sel-md"><select id="f-ord"><option>2번째 / 2개</option></select><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></div>
+      <div class="fld"><span class="lb" id="f-per">노출 기간</span><span class="daterange" role="group" aria-labelledby="f-per"><label class="sr" for="f-s">시작일</label><span class="in-ico"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><input id="f-s" class="input in-md num" value="2026.12.01"></span><span class="t-cap">–</span><label class="sr" for="f-e">종료일</label><span class="in-ico"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><input id="f-e" class="input in-md num" value="2026.12.31"></span></span></div>
+      <div class="fld"><span class="lb lb-row"><span id="f-st">상태</span><span class="t-cap row" style="gap:4px"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>2026.12.01 00:00 자동 노출</span></span>
+        <div class="seg seg-full" role="radiogroup" aria-labelledby="f-st"><button class="seg-b" role="radio" aria-checked="false">지금 게시</button><button class="seg-b is-on" role="radio" aria-checked="true">예약</button><button class="seg-b" role="radio" aria-checked="false">중지</button></div>
       </div>
       <div class="fld"><span class="lb" id="f-tg">노출 대상</span>
         <div class="seg seg-full" role="radiogroup" aria-labelledby="f-tg"><button class="seg-b" role="radio" aria-checked="false">전체</button><button class="seg-b is-on" role="radio" aria-checked="true">특정 지역</button><button class="seg-b" role="radio" aria-checked="false">특정 단지</button></div>
         <div class="tg-chips"><span class="chip is-on">신대지구<button class="x" aria-label="신대지구 빼기"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span><span class="chip is-on">선월지구<button class="x" aria-label="선월지구 빼기"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span><span class="chip is-on">연향동<button class="x" aria-label="연향동 빼기"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span><button class="chip chip-add"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>지역 추가</button></div>
         <p class="t-cap">관심 지역을 이곳으로 둔 회원과, 이 지역 지도를 본 방문자에게 보여요</p>
-      </div>
-      <div class="fld"><span class="lb lb-row"><span id="f-st">상태</span><span class="t-cap row" style="gap:4px"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>2026.12.01 00:00 자동 노출</span></span>
-        <div class="seg seg-full" role="radiogroup" aria-labelledby="f-st"><button class="seg-b" role="radio" aria-checked="false">노출</button><button class="seg-b" role="radio" aria-checked="false">중지</button><button class="seg-b is-on" role="radio" aria-checked="true">예약</button></div>
       </div>
     </div>
   </div>

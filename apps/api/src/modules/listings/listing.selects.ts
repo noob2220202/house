@@ -2,8 +2,8 @@ import { ListingAgencyStatus } from '@house/shared';
 import type { Prisma } from '@prisma/client';
 
 /**
- * Explicit Prisma selects. PUBLIC selects never include Property.ho, Listing.privateNote,
- * hiddenReason or member ids; only AGENCY_* selects do (served to agency members only).
+ * Explicit Prisma selects. PUBLIC selects never include Property.ho, Listing.hiddenReason
+ * or member ids; only AGENCY_* selects do (served to agency members only).
  */
 
 const mediaRef = { select: { storageKey: true, variants: true } } as const;
@@ -136,7 +136,6 @@ export type ListingPublicDetailRow = Prisma.ListingGetPayload<{
 export const LISTING_AGENCY_DETAIL_SELECT = {
   ...LISTING_SUMMARY_SELECT,
   ...DETAIL_EXTRA,
-  privateNote: true,
   hiddenReason: true,
   closedAt: true,
   createdAt: true,

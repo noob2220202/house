@@ -135,10 +135,7 @@ export class MapSearchService {
       .sort((a, b) => b.count - a.count);
   }
 
-  private async gridClusters(
-    where: Prisma.Sql,
-    size: number,
-  ): Promise<MapCluster[]> {
+  private async gridClusters(where: Prisma.Sql, size: number): Promise<MapCluster[]> {
     const rows = await this.repo.gridAggregates(where, size);
     const groups = new Map<string, Group>();
     for (const r of rows) {
@@ -158,9 +155,7 @@ export class MapSearchService {
     }));
   }
 
-  private async complexMarkers(
-    where: Prisma.Sql,
-  ): Promise<MapComplexMarker[]> {
+  private async complexMarkers(where: Prisma.Sql): Promise<MapComplexMarker[]> {
     const rows = await this.repo.complexAggregates(where);
     const markers = new Map<string, MapComplexMarker>();
     for (const r of rows) {

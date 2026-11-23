@@ -24,7 +24,9 @@ export class SecretBox {
     cipher.setAAD(Buffer.from(aad));
     const ct = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
     const tag = cipher.getAuthTag();
-    return [VERSION, iv, tag, ct].map((p) => (typeof p === 'string' ? p : p.toString('base64url'))).join('.');
+    return [VERSION, iv, tag, ct]
+      .map((p) => (typeof p === 'string' ? p : p.toString('base64url')))
+      .join('.');
   }
 
   /** Throws when the payload was tampered with, belongs to another aad, or uses another key. */

@@ -693,8 +693,12 @@ x-dc{display:block}
 .rc-price{font-size:21px;font-weight:800;letter-spacing:-0.035em;line-height:1.3}
 .rc-price a::after{content:"";position:absolute;inset:0;border-radius:20px}
 .rc-heart{z-index:1}
-.rc-meta{display:flex;flex-wrap:wrap;gap:0 7px;font-size:14px;font-weight:600;color:var(--text-2)}
-.rc-meta span + span::before{content:"·";margin-right:7px;color:var(--grey-300)}
+.rc-meta{display:flex;flex-wrap:wrap;margin-left:-14px;clip-path:inset(0 0 0 14px);font-size:14px;font-weight:600;color:var(--text-2)}
+.rc-meta > span{position:relative;margin-left:14px}
+.rc-meta > span::before{content:"·";position:absolute;left:-9px;color:var(--grey-400)}
+.dots{display:flex;flex-wrap:wrap;margin-left:-12px;clip-path:inset(0 0 0 12px)}
+.dots > span{position:relative;margin-left:12px}
+.dots > span::before{content:"·";position:absolute;left:-8px}
 .rc-sub{font-size:13px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rc-near{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--text-3)}
 .rc-near .ic{color:var(--brand)}
@@ -728,7 +732,7 @@ x-dc{display:block}
 .stage .pmk.is-on{height:36px;padding:0 14px;font-size:15px;background:var(--surface-ink);color:#fff;box-shadow:var(--sh-3);z-index:3}
 .pmk.is-on i{background:var(--accent);width:9px;height:9px}
 /* selected room preview */
-.rpop{position:absolute;z-index:4;transform:translate(58px,calc(-50% - 27px));width:272px;display:flex;flex-direction:column;gap:12px;padding:12px;border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--sh-3)}
+.rpop{position:absolute;z-index:4;transform:translate(58px,calc(-50% - 27px));width:288px;display:flex;flex-direction:column;gap:12px;padding:12px;border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--sh-3)}
 .rpop::before{content:"";position:absolute;left:-6px;top:50%;width:12px;height:12px;background:var(--surface);transform:translateY(-50%) rotate(45deg);border-radius:2px}
 .rpop-row{display:grid;grid-template-columns:76px minmax(0,1fr);gap:12px;align-items:center}
 .rpop-th{position:relative;width:76px;height:76px;border-radius:12px;overflow:hidden;background:var(--surface-2)}
@@ -768,6 +772,7 @@ x-dc{display:block}
   .layers{top:72px}
   .tools{top:auto;bottom:56px}
   .legend{white-space:nowrap}
+  .filterbar{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 40px),transparent)}
 }
 @media (max-width:1180px){
   .gnb-sep,.gnb-x{display:none}
@@ -777,9 +782,27 @@ x-dc{display:block}
   .bodyx{grid-template-columns:minmax(340px,42%) minmax(0,1fr)}
   .rlist{grid-template-columns:1fr}
   .map-sum{display:none !important}
+  .map-top{max-width:calc(100% - 120px)}
+  .map > .map-ad.is-min{left:16px;right:auto;top:68px}
+  .layers{top:16px}
+  .lp-bar .seg{display:none}
+}
+@media (max-width:900px){
+  .gnb-y{display:none}
+  .gnb-cta .ic{display:none}
+}
+/* tablet: the map viewport crops the stage, so drop markers that would sit on the crop edge */
+@media (min-width:721px) and (max-width:1280px){
+  .stage .edge-md{display:none}
+}
+@media (min-width:721px) and (max-width:900px){
+  .stage .pmk.edge-sm{display:none}
+  .rpop{transform:translate(-40%,24px)}
+  .rpop::before{left:40%}
 }
 @media (max-width:720px){
   .app{height:auto;overflow:visible}
+  .gnb-nav > .gnb-y{display:inline-flex}
   .fg{padding:0 0 0 14px}
   .fg-b{height:44px;padding:0 14px}
   .fg,.ochip,.app .fchip{height:44px}
@@ -827,9 +850,9 @@ x-dc{display:block}
       <nav class="gnb-nav" aria-label="주요 메뉴">
         <a class="gnb-a" href="MapApt.dc.html">아파트·분양권</a>
         <a class="gnb-a is-on" href="OneRoom.dc.html" aria-current="page">원룸·투룸</a>
-        <a class="gnb-a" href="#">주택</a>
-        <a class="gnb-a" href="#">상업·업무</a>
-        <a class="gnb-a" href="#">토지</a>
+        <a class="gnb-a gnb-y" href="#">주택</a>
+        <a class="gnb-a gnb-y" href="#">상업·업무</a>
+        <a class="gnb-a gnb-y" href="#">토지</a>
         <span class="gnb-sep" aria-hidden="true"></span>
         <a class="gnb-a gnb-x" href="Agents.dc.html">중개사무소</a>
         <a class="gnb-a gnb-x" href="#">커뮤니티</a>
@@ -861,7 +884,7 @@ x-dc{display:block}
   <section class="lp" aria-label="원룸·투룸 매물 목록">
     <span class="sheet-handle only-sm" aria-hidden="true"></span>
     <div class="lp-search">
-      <form class="search-sm" role="search" action="#"><label class="sr" for="room-q">학교, 역, 동네 또는 건물명 검색</label><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg><input id="room-q" type="search" placeholder="학교·역·건물명 (예: 순천대, 순천역, 청암하우스)"></form>
+      <form class="search-sm" role="search" action="#"><label class="sr" for="room-q">학교, 역, 동네 또는 건물명 검색</label><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg><input id="room-q" type="search" placeholder="순천대, 순천역, 청암하우스 검색"></form>
     </div>
     <div class="lp-hd">
       <div>
@@ -896,7 +919,7 @@ x-dc{display:block}
     </div>
     <div class="rc-body">
       <h3 class="rc-price"><a href="Listing.dc.html"><span class="t-monthly">월세</span> <span class="num">300/32</span></a></h3>
-      <p class="rc-meta"><span>원룸</span><span class="num">전용 19㎡</span><span class="num">2/5층</span><span>관리비 5만</span></p>
+      <p class="rc-meta"><span>원룸</span><span class="num"><span class="only-lg">전용 </span>19㎡</span><span class="num">2/5층</span><span>관리비 5만</span></p>
       <p class="rc-sub">덕월동 · 2015년 준공 · 청암하우스</p>
       <p class="rc-near"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="4.5" r="1.8"/><path d="m9 21 2.6-7.2"/><path d="m11.6 13.8 2.9 2.6.9 4.6"/><path d="M11.6 13.8 12.8 8.6l-3.3 1.6-1.3 3"/><path d="m12.8 8.6 2.2 2.6 3 .8"/></svg>청암대 후문 도보 4분</p>
       <div class="rc-ver"><span class="verified"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>실매물 확인 <span class="num">26.11.22</span></span><button class="rc-agents" aria-haspopup="listbox" aria-expanded="false" aria-label="청암하우스 보유 중개사 2곳 보기">중개사 <b class="num">2</b>곳<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
@@ -919,7 +942,7 @@ x-dc{display:block}
     </div>
     <div class="rc-body">
       <h3 class="rc-price"><a href="Listing.dc.html"><span class="t-monthly">월세</span> <span class="num">500/42</span></a></h3>
-      <p class="rc-meta"><span>투룸</span><span class="num">전용 36㎡</span><span class="num">3/4층</span><span>관리비 7만</span></p>
+      <p class="rc-meta"><span>투룸</span><span class="num"><span class="only-lg">전용 </span>36㎡</span><span class="num">3/4층</span><span>관리비 7만</span></p>
       <p class="rc-sub">석현동 · 2019년 준공 · 해오름빌</p>
       <p class="rc-near"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="4.5" r="1.8"/><path d="m9 21 2.6-7.2"/><path d="m11.6 13.8 2.9 2.6.9 4.6"/><path d="M11.6 13.8 12.8 8.6l-3.3 1.6-1.3 3"/><path d="m12.8 8.6 2.2 2.6 3 .8"/></svg>순천대 정문 도보 6분</p>
       <div class="rc-ver"><span class="verified"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>실매물 확인 <span class="num">26.11.21</span></span><button class="rc-agents" aria-haspopup="listbox" aria-expanded="false" aria-label="해오름빌 보유 중개사 4곳 보기">중개사 <b class="num">4</b>곳<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
@@ -943,7 +966,7 @@ x-dc{display:block}
     </div>
     <div class="rc-body">
       <h3 class="rc-price"><a href="Listing.dc.html"><span class="t-monthly">월세</span> <span class="num">500/38</span></a></h3>
-      <p class="rc-meta"><span>1.5룸</span><span class="num">전용 28㎡</span><span class="num">4/5층</span><span>관리비 6만</span></p>
+      <p class="rc-meta"><span>1.5룸</span><span class="num"><span class="only-lg">전용 </span>28㎡</span><span class="num">4/5층</span><span>관리비 6만</span></p>
       <p class="rc-sub">석현동 · 2021년 준공 · 그린캠퍼스</p>
       <p class="rc-near"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="4.5" r="1.8"/><path d="m9 21 2.6-7.2"/><path d="m11.6 13.8 2.9 2.6.9 4.6"/><path d="M11.6 13.8 12.8 8.6l-3.3 1.6-1.3 3"/><path d="m12.8 8.6 2.2 2.6 3 .8"/></svg>순천대 도보 9분</p>
       <div class="rc-ver"><span class="verified"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>실매물 확인 <span class="num">26.11.20</span></span><button class="rc-agents" aria-haspopup="listbox" aria-expanded="false" aria-label="그린캠퍼스 보유 중개사 3곳 보기">중개사 <b class="num">3</b>곳<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
@@ -967,7 +990,7 @@ x-dc{display:block}
     </div>
     <div class="rc-body">
       <h3 class="rc-price"><a href="Listing.dc.html"><span class="t-monthly">월세</span> <span class="num">1,000/45</span></a></h3>
-      <p class="rc-meta"><span>원룸</span><span class="num">전용 23㎡</span><span class="num">9/15층</span><span>관리비 10만</span></p>
+      <p class="rc-meta"><span>원룸</span><span class="num"><span class="only-lg">전용 </span>23㎡</span><span class="num">9/15층</span><span>관리비 10만</span></p>
       <p class="rc-sub">조례동 · 2018년 준공 · 호수뷰 오피스텔</p>
       <p class="rc-near"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>조례호수공원 앞</p>
       <div class="rc-ver"><span class="verified"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>실매물 확인 <span class="num">26.11.20</span></span><button class="rc-agents" aria-haspopup="listbox" aria-expanded="false" aria-label="호수뷰 오피스텔 보유 중개사 1곳 보기">중개사 <b class="num">1</b>곳<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
@@ -989,7 +1012,7 @@ x-dc{display:block}
     </div>
     <div class="rc-body">
       <h3 class="rc-price"><a href="Listing.dc.html"><span class="t-jeonse">전세</span> <span class="num">9,500</span></a></h3>
-      <p class="rc-meta"><span>투룸</span><span class="num">전용 42㎡</span><span class="num">2/4층</span><span>관리비 3만</span></p>
+      <p class="rc-meta"><span>투룸</span><span class="num"><span class="only-lg">전용 </span>42㎡</span><span class="num">2/4층</span><span>관리비 3만</span></p>
       <p class="rc-sub">연향동 · 2012년 준공 · 센트로빌</p>
       <p class="rc-near"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>연향 패션거리 인근</p>
       <div class="rc-ver"><span class="verified"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>실매물 확인 <span class="num">26.11.19</span></span><button class="rc-agents" aria-haspopup="listbox" aria-expanded="false" aria-label="센트로빌 보유 중개사 2곳 보기">중개사 <b class="num">2</b>곳<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
@@ -1011,7 +1034,7 @@ x-dc{display:block}
     </div>
     <div class="rc-body">
       <h3 class="rc-price"><a href="Listing.dc.html"><span class="t-monthly">월세</span> <span class="num">200/35</span></a></h3>
-      <p class="rc-meta"><span>원룸</span><span class="num">전용 17㎡</span><span class="num">3/6층</span><span>관리비 5만</span></p>
+      <p class="rc-meta"><span>원룸</span><span class="num"><span class="only-lg">전용 </span>17㎡</span><span class="num">3/6층</span><span>관리비 5만</span></p>
       <p class="rc-sub">장천동 · 2016년 준공 · 역세권 스테이</p>
       <p class="rc-near"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="3.5" width="12" height="13" rx="3"/><path d="M6 10.5h12"/><path d="M9.5 13.5h.01M14.5 13.5h.01"/><path d="m9 16.5-2 4M15 16.5l2 4M8 19h8"/></svg>순천역 도보 8분</p>
       <div class="rc-ver"><span class="verified"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>실매물 확인 <span class="num">26.11.18</span></span><button class="rc-agents" aria-haspopup="listbox" aria-expanded="false" aria-label="역세권 스테이 보유 중개사 1곳 보기">중개사 <b class="num">1</b>곳<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
@@ -1060,21 +1083,21 @@ x-dc{display:block}
       <span class="map-label map-label--water" style="left:56.59%;top:27.91%">동천</span>
       <span class="map-label map-label--park only-lg" style="left:85.23%;top:57.04%">조례호수공원</span>
       <span class="poi" style="left:29.09%;top:27.43%"><span class="poi-ic"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 9.5 12 5l9.5 4.5L12 14z"/><path d="M6.5 11.6v4.2c0 1.3 2.5 2.7 5.5 2.7s5.5-1.4 5.5-2.7v-4.2"/><path d="M21.5 9.5v5"/></svg></span>국립순천대학교</span>
-      <span class="poi is-sub only-lg" style="left:10.91%;top:83.50%"><span class="poi-ic"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 9.5 12 5l9.5 4.5L12 14z"/><path d="M6.5 11.6v4.2c0 1.3 2.5 2.7 5.5 2.7s5.5-1.4 5.5-2.7v-4.2"/><path d="M21.5 9.5v5"/></svg></span>청암대학교</span>
+      <span class="poi is-sub only-lg edge-md" style="left:10.91%;top:83.50%"><span class="poi-ic"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 9.5 12 5l9.5 4.5L12 14z"/><path d="M6.5 11.6v4.2c0 1.3 2.5 2.7 5.5 2.7s5.5-1.4 5.5-2.7v-4.2"/><path d="M21.5 9.5v5"/></svg></span>청암대학교</span>
       <span class="poi is-sub is-rail" style="left:67.05%;top:97.09%"><span class="poi-ic"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="3.5" width="12" height="13" rx="3"/><path d="M6 10.5h12"/><path d="M9.5 13.5h.01M14.5 13.5h.01"/><path d="m9 16.5-2 4M15 16.5l2 4M8 19h8"/></svg></span>순천역</span>
       <span class="gate" style="left:33.18%;top:41.50%">순천대 정문</span>
-      <span class="walk-l only-lg" style="left:15.91%;top:43.20%"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="4.5" r="1.8"/><path d="m9 21 2.6-7.2"/><path d="m11.6 13.8 2.9 2.6.9 4.6"/><path d="M11.6 13.8 12.8 8.6l-3.3 1.6-1.3 3"/><path d="m12.8 8.6 2.2 2.6 3 .8"/></svg>정문 도보 10분</span>
+      <span class="walk-l only-lg edge-md" style="left:15.91%;top:43.20%"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="4.5" r="1.8"/><path d="m9 21 2.6-7.2"/><path d="m11.6 13.8 2.9 2.6.9 4.6"/><path d="M11.6 13.8 12.8 8.6l-3.3 1.6-1.3 3"/><path d="m12.8 8.6 2.2 2.6 3 .8"/></svg>정문 도보 10분</span>
       <a href="Listing.dc.html" class="pmk is-on" style="left:42.27%;top:57.04%" aria-label="석현동 해오름빌 투룸 월세 보증금 500만 원, 월세 42만 원 (선택됨)" aria-current="true"><i aria-hidden="true"></i><span class="num">500/42</span></a>
-      <a href="#" class="pmk only-lg" style="left:25.68%;top:52.43%" aria-label="석현동 원룸 월세 300/35 외 2개"><i aria-hidden="true"></i><span class="num">300/35</span><em class="num">+2</em></a>
-      <a href="#" class="pmk only-lg" style="left:12.73%;top:52.43%" aria-label="석현동 투룸 월세 500/40"><i aria-hidden="true"></i><span class="num">500/40</span></a>
-      <a href="#" class="pmk" style="left:18.18%;top:58.98%" aria-label="석현동 그린캠퍼스 1.5룸 월세 500/38"><i aria-hidden="true"></i><span class="num">500/38</span></a>
-      <a href="#" class="pmk only-lg" style="left:29.77%;top:65.53%" aria-label="석현동 원룸 월세 300/30"><i aria-hidden="true"></i><span class="num">300/30</span></a>
+      <a href="#" class="pmk only-lg edge-sm" style="left:25.68%;top:52.43%" aria-label="석현동 원룸 월세 300/35 외 2개"><i aria-hidden="true"></i><span class="num">300/35</span><em class="num">+2</em></a>
+      <a href="#" class="pmk only-lg edge-md" style="left:12.73%;top:52.43%" aria-label="석현동 투룸 월세 500/40"><i aria-hidden="true"></i><span class="num">500/40</span></a>
+      <a href="#" class="pmk edge-md" style="left:19.77%;top:58.98%" aria-label="석현동 그린캠퍼스 1.5룸 월세 500/38"><i aria-hidden="true"></i><span class="num">500/38</span></a>
+      <a href="#" class="pmk only-lg edge-sm" style="left:29.77%;top:65.53%" aria-label="석현동 원룸 월세 300/30"><i aria-hidden="true"></i><span class="num">300/30</span></a>
       <a href="#" class="pmk" style="left:43.64%;top:69.42%" aria-label="매곡동 원룸 월세 200/30 외 3개"><i aria-hidden="true"></i><span class="num">200/30</span><em class="num">+3</em></a>
-      <a href="#" class="pmk only-lg" style="left:14.55%;top:74.03%" aria-label="덕월동 청암하우스 원룸 월세 300/32"><i aria-hidden="true"></i><span class="num">300/32</span></a>
+      <a href="#" class="pmk only-lg edge-md" style="left:14.55%;top:74.03%" aria-label="덕월동 청암하우스 원룸 월세 300/32"><i aria-hidden="true"></i><span class="num">300/32</span></a>
       <a href="#" class="pmk only-lg" style="left:34.09%;top:78.88%" aria-label="매곡동 원룸 월세 300/33"><i aria-hidden="true"></i><span class="num">300/33</span></a>
-      <a href="#" class="pmk" style="left:80.00%;top:73.30%" aria-label="조례동 호수뷰 오피스텔 원룸 월세 1,000/45"><i aria-hidden="true"></i><span class="num">1,000/45</span></a>
-      <a href="#" class="pmk" style="left:72.73%;top:42.72%" aria-label="조례동 투룸 월세 500/45 외 1개"><i aria-hidden="true"></i><span class="num">500/45</span><em class="num">+1</em></a>
-      <a href="#" class="pmk jeonse only-lg" style="left:87.73%;top:84.95%" aria-label="연향동 센트로빌 투룸 전세 9,500만 원"><i aria-hidden="true"></i><span class="num">9,500</span></a>
+      <a href="#" class="pmk edge-md" style="left:78.86%;top:73.30%" aria-label="조례동 호수뷰 오피스텔 원룸 월세 1,000/45"><i aria-hidden="true"></i><span class="num">1,000/45</span></a>
+      <a href="#" class="pmk edge-sm" style="left:72.73%;top:42.72%" aria-label="조례동 투룸 월세 500/45 외 1개"><i aria-hidden="true"></i><span class="num">500/45</span><em class="num">+1</em></a>
+      <a href="#" class="pmk jeonse only-lg edge-md" style="left:87.73%;top:84.95%" aria-label="연향동 센트로빌 투룸 전세 9,500만 원"><i aria-hidden="true"></i><span class="num">9,500</span></a>
       <a href="#" class="pmk" style="left:62.27%;top:87.62%" aria-label="장천동 역세권 스테이 원룸 월세 200/35"><i aria-hidden="true"></i><span class="num">200/35</span></a>
       <div class="rpop only-lg" style="left:42.27%;top:57.04%" role="dialog" aria-label="석현동 해오름빌 투룸 미리보기">
         <button class="rpop-x" aria-label="미리보기 닫기"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
@@ -1092,8 +1115,8 @@ x-dc{display:block}
 </svg></span>
           <div class="rpop-tx">
             <p class="rpop-p"><span class="t-monthly">월세</span> <span class="num">500/42</span></p>
-            <p class="rpop-m">투룸 · <span class="num">전용 36㎡</span> · <span class="num">3/4층</span> · 관리비 7만</p>
-            <p class="rpop-s">2019년 준공 · 해오름빌</p>
+            <p class="rpop-m dots"><span>투룸</span><span class="num">전용 36㎡</span><span class="num">3/4층</span></p>
+            <p class="rpop-s dots"><span>관리비 7만</span><span>2019년 준공</span><span>해오름빌</span></p>
           </div>
         </div>
         <div class="rpop-acts"><a class="btn btn-ink btn-sm" href="Listing.dc.html">매물 상세 보기<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a><button class="btn-icon" aria-label="해오름빌 관심 매물에 추가"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></svg></button></div>

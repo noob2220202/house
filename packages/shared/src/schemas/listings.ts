@@ -214,8 +214,6 @@ const listingShape = {
   moveInDate: dateOnlySchema,
   floorDisplay: z.enum(FloorDisplay),
   options: z.array(z.enum(ListingOption)).max(50),
-  /** Agency-internal memo — PRIVATE. */
-  privateNote: text(2000),
 };
 type ListingShape = typeof listingShape;
 type ListingKey = keyof ListingShape;
@@ -317,3 +315,8 @@ export const recentViewsQuerySchema = z.object({
   targetType: z.enum(RecentViewTarget).default(RecentViewTarget.LISTING),
 });
 export type RecentViewsQuery = z.infer<typeof recentViewsQuerySchema>;
+
+export const recentViewsClearQuerySchema = z.object({
+  targetType: z.enum(RecentViewTarget).optional(),
+});
+export type RecentViewsClearQuery = z.infer<typeof recentViewsClearQuerySchema>;

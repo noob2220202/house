@@ -401,6 +401,8 @@ x-dc{display:block}
 .gnb-cta.find{background:var(--surface);color:var(--brand);box-shadow:inset 0 0 0 1.5px var(--brand)}
 .gnb-login{display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:var(--r-pill);background:var(--surface-ink);color:#fff;font-size:15px;font-weight:700}
 .gnb-user{display:none}
+.gnb-me{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 14px 0 6px;border-radius:var(--r-pill);border:1px solid var(--line-strong);background:var(--surface);color:var(--text);font-size:15px;font-weight:700;white-space:nowrap}
+.gnb-av{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--brand-soft);color:var(--brand);font-size:14px;font-weight:800;flex:none}
 /* Sub-bar: 내놓기 / 구하기 band directly under the hero */
 .subbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:16px}
 .subbar-c{display:flex;align-items:center;gap:18px;padding:22px 24px;border-radius:var(--r-xl);border:1px solid var(--line);background:var(--surface)}
@@ -620,8 +622,8 @@ x-dc{display:block}
   :root{--gutter:16px;--section:40px}
   .only-lg{display:none !important}
   .utilbar{display:none}
-  .gnb-login,.gnb-cta .ic{display:none}
-  .gnb-user{display:inline-grid;border:0}
+  .gnb-login,.gnb-me,.gnb-cta .ic{display:none}
+  .gnb-user{display:inline-grid;place-items:center;border:0}
   .gnb-cta{height:40px;padding:0 14px;font-size:14px}
   .ad-copy{max-width:70%;gap:6px}
   .ad-s{display:none}
@@ -730,7 +732,7 @@ x-dc{display:block}
 .dr-group + .dr-group{border-top:8px solid var(--grey-50)}
 .dr-legend{display:flex;align-items:center;gap:10px;padding:0;font-size:19px;font-weight:800;letter-spacing:-0.035em;color:var(--text);float:left;width:100%;margin-bottom:8px}
 .dr-legend + *{clear:both}
-.dr-legend-n{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--surface-ink);color:var(--accent);font-family:"Inter",sans-serif;font-size:13px;font-weight:800}
+.dr-legend-n{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--brand-soft);color:var(--brand);flex:none}
 .dr-row{display:grid;grid-template-columns:148px minmax(0,1fr);gap:12px 24px;padding:20px 0;border-top:1px solid var(--grey-100)}
 .dr-group .dr-row:first-of-type{border-top:0}
 .dr-row-l{display:flex;flex-direction:column;gap:4px;padding-top:12px}
@@ -860,6 +862,38 @@ x-dc{display:block}
 .dr-reach-foot{display:flex;gap:8px;padding:12px 14px;border-radius:var(--r-md);background:var(--surface-ink-2);font-size:13px;line-height:1.55;color:var(--text-on-ink-2)}
 .dr-reach-foot .ic{color:var(--accent);margin-top:2px}
 
+.dr-priv{display:flex;flex-direction:column;gap:18px;padding:24px;border-radius:var(--r-2xl)}
+.dr-priv-hd{display:flex;align-items:center;gap:10px}
+.dr-priv-ic{display:grid;place-items:center;width:36px;height:36px;border-radius:10px;background:var(--brand-soft);color:var(--brand);flex:none}
+.dr-priv-list{display:flex;flex-direction:column;gap:16px}
+.dr-priv-list li{display:grid;grid-template-columns:16px minmax(0,1fr);gap:10px;align-items:start}
+.dr-priv-list .ic{color:var(--brand);margin-top:3px}
+.dr-priv-list li > span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dr-priv-list li > span > b{font-size:14px;font-weight:800;color:var(--text);letter-spacing:-0.02em}
+.dr-priv-list li > span > span{font-size:13px;line-height:1.55;color:var(--text-muted)}
+.dr-priv-list li > span > span b{font-weight:700;color:var(--text-2)}
+.dr-priv-a{align-self:flex-start;font-size:14px;min-height:44px;display:inline-flex;align-items:center;margin:-10px 0 -12px}
+.dr-help{display:flex;flex-direction:column;gap:10px;padding:24px;border-radius:var(--r-2xl)}
+.dr-help-btns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:6px}
+.dr-help-btns .btn{padding-inline:10px}
+.dr-strip{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface)}
+.dr-strip-ph{width:40px;height:40px;border-radius:10px;overflow:hidden;background:var(--surface-2)}
+.dr-strip-ph svg{display:block;width:100%;height:100%}
+.dr-strip-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dr-strip-t > b{font-size:14px;font-weight:800;letter-spacing:-0.025em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-strip-t > span{display:flex;align-items:center;gap:6px;font-size:14px}
+.dr-strip-t > span b{color:var(--brand);font-weight:800}
+.dr-strip-p{display:flex;flex-direction:column;align-items:flex-end;gap:2px;padding-left:12px;border-left:1px solid var(--line);font-size:12px;font-weight:600;color:var(--text-muted)}
+.dr-strip-p b{font-size:14px;font-weight:800;color:var(--success)}
+.dr-reach-mini{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--r-md);background:var(--surface-2);font-size:13px;line-height:1.45;color:var(--text-3)}
+.dr-reach-mini b{color:var(--text);font-weight:800}
+.dr-reach-mini-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dr-reach-mini b .num{color:var(--brand)}
+.dr-av-stack{display:flex;flex:none}
+.dr-av-stack > span{width:32px;height:32px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 2px var(--surface-2)}
+.dr-av-stack > span + span{margin-left:-8px}
+.dr-av-stack svg{display:block;width:100%;height:100%}
+
 /* FAQ */
 .dr-faq{padding-block:80px}
 .dr-faq-in{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));gap:32px 64px;align-items:start}
@@ -890,7 +924,7 @@ x-dc{display:block}
   .dr-choice-ic{width:48px;height:48px}
   .dr-choice-body{gap:20px}
   .dr-hero-head{grid-template-columns:1fr}
-  .dr-sum{display:none !important}
+  .dr-sum,.dr-reach{display:none !important}
   .dr-choice-t{font-size:28px}
   .dr-choice-d{font-size:16px}
   .dr-choice-ft .btn{width:100%}
@@ -914,11 +948,13 @@ x-dc{display:block}
   .dr-group{padding:24px 16px 8px}
   .dr-row{grid-template-columns:1fr;gap:10px;padding:16px 0}
   .dr-row-l{padding-top:0;flex-direction:row;align-items:baseline;gap:8px;flex-wrap:wrap}
-  .dr-types{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .dr-types{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .dr-type:nth-child(-n+2){grid-column:span 3}
+  .dr-type:nth-child(n+3){grid-column:span 2}
   .dr-type{min-height:84px;font-size:13px}
   .dr-match{grid-template-columns:56px minmax(0,1fr)}
   .dr-match-ph{width:56px;height:56px}
-  .dr-match-a{grid-column:1 / -1;min-height:32px}
+  .dr-match-a{grid-column:1 / -1;min-height:44px;width:100%;justify-content:flex-start;margin:-4px 0 -8px;padding-top:6px;border-top:1px solid var(--brand-line)}
   .dr-inline > .btn{flex:1 1 auto}
   .dr-price-in{flex:1 1 100%}
   .dr-inline--price .check{margin-left:0}
@@ -965,8 +1001,8 @@ x-dc{display:block}
       <div class="gnb-act">
         <a class="gnb-cta sell" href="DealRequest.dc.html"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9.5h12V10"/><path d="M12 17v-5"/><path d="m9.5 14 2.5-2.5 2.5 2.5"/></svg>내놓기</a>
         <a class="gnb-cta find" href="DealRequest.dc.html"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9.5h5"/><circle cx="15.5" cy="15.5" r="2.8"/><path d="m20 20-2.4-2.4"/></svg>구하기</a>
-        <a class="gnb-login" href="Login.dc.html">로그인</a>
-        <a class="gnb-user btn-icon" href="Login.dc.html" aria-label="로그인"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg></a>
+        <a class="gnb-me" href="#" aria-label="내 메뉴 (김*진 님)"><span class="gnb-av" aria-hidden="true">김</span><span class="gnb-me-n">김*진 님</span></a>
+        <a class="gnb-user btn-icon" href="#" aria-label="내 메뉴"><span class="gnb-av" aria-hidden="true">김</span></a>
       </div>
     </div>
   </div>
@@ -1116,6 +1152,23 @@ x-dc{display:block}
   <li class="is-on" aria-current="step"><span class="dr-sp-c">2</span><span class="dr-sp-t"><em>2단계 · 작성 중</em>매물 정보 입력</span></li>
   <li><span class="dr-sp-c">3</span><span class="dr-sp-t"><em>3단계</em>중개사 확인·전달</span></li>
 </ol>
+    <div class="dr-strip only-sm" role="group" aria-label="내놓기 요약"><span class="dr-strip-ph"><svg viewBox="0 0 300 188" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="300" height="188" fill="#E8EEFB"/>
+  <circle cx="246" cy="40" r="16" fill="#F7F0DE"/>
+  <path d="M0 120 C50 100 90 112 130 104 S210 92 300 108 V188 H0z" fill="#D6E0F4"/>
+  <rect x="40" y="46" width="62" height="102" fill="#FFFFFF"/><rect x="102" y="46" width="18" height="102" fill="#C9D6EF"/>
+  <rect x="48.0" y="56.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="56.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="56.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="56.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="64.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="64.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="64.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="64.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="72.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="72.8" width="10" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="76.0" y="72.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="72.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="81.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="81.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="81.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="81.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="89.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="89.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="89.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="89.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="98.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="98.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="98.0" width="10" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="90.0" y="98.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="106.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="106.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="106.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="106.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="114.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="114.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="114.8" width="10" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="90.0" y="114.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="123.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="123.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="123.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="123.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="131.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="131.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="131.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="131.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="140.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="140.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="140.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="140.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/>
+  <rect x="136" y="18" width="74" height="130" fill="#FFFFFF"/><rect x="210" y="18" width="22" height="130" fill="#C2D1EE"/>
+  <rect x="144.0" y="28.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="28.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="28.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="28.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="36.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="36.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="36.2" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="193.8" y="36.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="44.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="44.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="44.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="44.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="52.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="52.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="52.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="52.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="60.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="60.8" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="177.2" y="60.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="60.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="69.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="69.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="69.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="69.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="77.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="77.2" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="177.2" y="77.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="77.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="85.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="85.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="85.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="85.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="93.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="93.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="93.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="93.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="101.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="101.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="101.8" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="193.8" y="101.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="110.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="110.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="110.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="110.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="118.2" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="160.6" y="118.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="118.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="118.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="126.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="126.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="126.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="126.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="134.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="134.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="134.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="134.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/>
+  <rect x="136" y="12" width="96" height="6" fill="#1D4FF2"/>
+  <rect x="246" y="86" width="40" height="62" fill="#F7F9FD"/><rect x="286" y="86" width="14" height="62" fill="#CBD7EE"/>
+  <rect x="252.0" y="94.0" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="94.0" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="102.6" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="102.6" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="111.2" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="111.2" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="119.8" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="119.8" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="128.4" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="128.4" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="137.0" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="137.0" width="11" height="4" rx=".8" fill="#AFC0E3"/>
+  <rect x="25" y="140" width="2" height="11" fill="#7E9F8C"/><circle cx="26" cy="140" r="9" fill="#A9CDB8"/><rect x="125" y="142" width="2" height="9" fill="#7E9F8C"/><circle cx="126" cy="142" r="7" fill="#9CC2AD"/><rect x="237" y="140" width="2" height="10" fill="#7E9F8C"/><circle cx="238" cy="140" r="8" fill="#A9CDB8"/>
+  <rect x="0" y="148" width="300" height="40" fill="#C9DCF5"/>
+  <path d="M0 148h300" stroke="#B5CCEC" stroke-width="2"/>
+  <g stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" opacity=".8"><path d="M30 160h40M150 158h56M96 170h30M218 172h44M20 178h26"/></g>
+  <g opacity=".35"><rect x="144.0" y="154.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="160.6" y="154.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="177.2" y="154.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="193.8" y="154.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="144.0" y="161.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="160.6" y="161.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="177.2" y="161.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="193.8" y="161.0" width="12" height="3" rx=".8" fill="#93AAD9"/></g>
+</svg></span><span class="dr-strip-t"><b>신대 레이크파크 1단지</b><span><span class="deal deal-sale">매매</span><b class="num">4억 4,500</b></span></span><span class="dr-strip-p"><span>필수</span><b class="num">9/9</b></span></div>
     <div class="dr-login">
       <span class="dr-login-k"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="#191600" d="M12 4C7 4 3 7.2 3 11.1c0 2.5 1.6 4.7 4.1 5.9l-.9 3.3c-.1.3.2.5.5.3l3.9-2.6c.5.1.9.1 1.4.1 5 0 9-3.2 9-7.1S17 4 12 4z"/></svg></span>
       <span>카카오로 로그인됨 · <b>김*진</b> 님</span>
@@ -1124,7 +1177,7 @@ x-dc{display:block}
   </div>
 
   <fieldset class="dr-group">
-    <legend class="dr-legend"><span class="dr-legend-n">A</span>매물 기본 정보</legend>
+    <legend class="dr-legend"><span class="dr-legend-n"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11 12 4.5 20 11"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5.5h4V20"/></svg></span>매물 기본 정보</legend>
     <div class="dr-row">
   <div class="dr-row-l"><span class="label">매물 유형<span class="req" aria-hidden="true">*</span></span></div>
   <div class="dr-row-c"><div class="dr-types" role="radiogroup" aria-label="매물 유형">
@@ -1167,14 +1220,14 @@ x-dc{display:block}
   <div class="dr-row-l"><label class="label" for="dong">동 / 호<span class="req" aria-hidden="true">*</span></label></div>
   <div class="dr-row-c"><div class="dr-pair">
         <div class="input-affix"><input class="input" id="dong" value="103" inputmode="numeric"><span class="affix">동</span></div>
-        <div class="input-affix"><label class="sr" for="ho">호</label><input class="input" id="ho" value="1502" inputmode="numeric"><span class="affix">호</span></div>
+        <div class="input-affix"><label class="sr" for="ho">호</label><input class="input" id="ho" value="2102" inputmode="numeric"><span class="affix">호</span></div>
       </div>
       <p class="dr-help-ic"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/><path d="M12 14.5v2.5"/></svg><span>동·호수는 연락받는 중개사에게만 보이고, 사이트에는 <b>고/25층</b>으로만 표시돼요.</span></p></div>
 </div>
   </fieldset>
 
   <fieldset class="dr-group">
-    <legend class="dr-legend"><span class="dr-legend-n">B</span>거래 조건</legend>
+    <legend class="dr-legend"><span class="dr-legend-n"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m7.8 9 1.7 6 2.5-4.6 2.5 4.6 1.7-6"/><path d="M7 12h10"/></svg></span>거래 조건</legend>
     <div class="dr-row">
   <div class="dr-row-l"><span class="label">거래 유형<span class="req" aria-hidden="true">*</span></span></div>
   <div class="dr-row-c"><div class="seg dr-seg" role="radiogroup" aria-label="거래 유형">
@@ -1193,9 +1246,9 @@ x-dc{display:block}
       <div class="dr-market">
         <span class="dr-market-h"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16v-5M12 16V6M17 16v-8"/></svg>이 단지 34평 시세 참고</span>
         <dl>
-          <div><dt>최근 실거래</dt><dd class="num">4억 3,500 <span>26.10</span></dd></div>
+          <div><dt>최근 실거래</dt><dd class="num">4억 3,500 <span>2026.10</span></dd></div>
           <div><dt>현재 매물 호가</dt><dd class="num">3억 9,000 ~ 4억 8,500</dd></div>
-          <div><dt>평당가</dt><dd class="num">1,180만</dd></div>
+          <div><dt>신대지구 평균</dt><dd class="num">1,180만<span>/평</span></dd></div>
         </dl>
       </div></div>
 </div>
@@ -1217,7 +1270,7 @@ x-dc{display:block}
   </fieldset>
 
   <fieldset class="dr-group">
-    <legend class="dr-legend"><span class="dr-legend-n">C</span>사진 · 연락처</legend>
+    <legend class="dr-legend"><span class="dr-legend-n"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2.2L9.2 5h5.6l1.5 2h2.2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.8" r="3.3"/></svg></span>사진 · 연락처</legend>
     <div class="dr-row">
   <div class="dr-row-l"><label class="label" for="photo">매물 사진</label><span class="help">선택 · 연락 받을 확률이 높아져요</span></div>
   <div class="dr-row-c"><label class="dropzone dr-drop" for="photo">
@@ -1284,13 +1337,38 @@ x-dc{display:block}
   </fieldset>
 
   <fieldset class="dr-group">
-    <legend class="dr-legend"><span class="dr-legend-n">D</span>전달 범위 · 동의</legend>
+    <legend class="dr-legend"><span class="dr-legend-n"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5 19 6v5.5c0 4.3-3 7.6-7 9-4-1.4-7-4.7-7-9V6z"/><path d="m9 12 2.2 2.2L15.5 10"/></svg></span>전달 범위 · 동의</legend>
     <div class="dr-row">
   <div class="dr-row-l"><span class="label">공개 범위<span class="req" aria-hidden="true">*</span></span></div>
   <div class="dr-row-c"><div class="dr-scope" role="radiogroup" aria-label="공개 범위">
         <label class="dr-opt is-on"><input class="sr" type="radio" name="scope" checked><span class="dr-radio" aria-hidden="true"></span><span class="dr-opt-t"><b>전체 중개사 <span class="dr-rec">추천</span></b><span>매물 근처 신대·선월 중개사무소 <b class="num">12곳</b>에 함께 전달돼요</span></span></label>
         <label class="dr-opt"><input class="sr" type="radio" name="scope"><span class="dr-radio" aria-hidden="true"></span><span class="dr-opt-t"><b>선택한 중개사</b><span>직접 고른 중개사무소에만 전달돼요 (최대 5곳)</span></span></label>
-      </div></div>
+      </div>
+      <div class="dr-reach-mini only-sm"><span class="dr-av-stack" aria-hidden="true"><span><svg viewBox="0 0 120 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="120" height="120" fill="#EEF2F9"/>
+  <rect x="14" y="30" width="92" height="74" fill="#FFFFFF"/>
+  <rect x="14" y="30" width="92" height="16" fill="#0F1B3A"/>
+  <rect x="24" y="35" width="40" height="6" rx="2" fill="#E9D7A8"/>
+  <rect x="22" y="54" width="48" height="50" fill="#D9E6F8"/><path d="M46 54v50" stroke="#fff" stroke-width="2"/>
+  <rect x="78" y="54" width="20" height="50" fill="#1D4FF2"/>
+  <rect x="0" y="104" width="120" height="16" fill="#DCE2EA"/>
+</svg></span><span><svg viewBox="0 0 120 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="120" height="120" fill="#EEF2F9"/>
+  <rect x="14" y="30" width="92" height="74" fill="#FFFFFF"/>
+  <rect x="14" y="30" width="92" height="16" fill="#0F1B3A"/>
+  <rect x="24" y="35" width="40" height="6" rx="2" fill="#E9D7A8"/>
+  <rect x="22" y="54" width="48" height="50" fill="#D9E6F8"/><path d="M46 54v50" stroke="#fff" stroke-width="2"/>
+  <rect x="78" y="54" width="20" height="50" fill="#1D4FF2"/>
+  <rect x="0" y="104" width="120" height="16" fill="#DCE2EA"/>
+</svg></span><span><svg viewBox="0 0 120 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="120" height="120" fill="#EEF2F9"/>
+  <rect x="14" y="30" width="92" height="74" fill="#FFFFFF"/>
+  <rect x="14" y="30" width="92" height="16" fill="#0F1B3A"/>
+  <rect x="24" y="35" width="40" height="6" rx="2" fill="#E9D7A8"/>
+  <rect x="22" y="54" width="48" height="50" fill="#D9E6F8"/><path d="M46 54v50" stroke="#fff" stroke-width="2"/>
+  <rect x="78" y="54" width="20" height="50" fill="#1D4FF2"/>
+  <rect x="0" y="104" width="120" height="16" fill="#DCE2EA"/>
+</svg></span></span><span class="dr-reach-mini-t"><b>신대·선월 중개사무소 <span class="num">12</span>곳</b><span>평균 응답 12분 · 인증 회원만 받아요</span></span></div></div>
 </div>
     <div class="dr-row">
   <div class="dr-row-l"><span class="label">약관 동의<span class="req" aria-hidden="true">*</span></span></div>
@@ -1335,7 +1413,7 @@ x-dc{display:block}
       <div class="stack" style="gap:4px;min-width:0">
         <span class="row" style="gap:6px"><span class="deal deal-sale">매매</span><span class="t-cap">아파트</span></span>
         <b class="dr-sum-name">신대 레이크파크 1단지</b>
-        <span class="t-cap">103동 1502호 · 고/25층</span>
+        <span class="t-cap">103동 2102호 · 고/25층</span>
       </div>
     </div>
     <div class="dr-sum-price"><span class="t-cap">희망 매매가</span><p class="price">4억 4,500</p><span class="dr-sum-nego">협의 가능</span></div>
@@ -1382,6 +1460,24 @@ x-dc{display:block}
     </ul>
     <p class="dr-reach-more">외 9곳 · <a href="Agents.dc.html">전체 보기</a></p>
     <p class="dr-reach-foot"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5 19 6v5.5c0 4.3-3 7.6-7 9-4-1.4-7-4.7-7-9V6z"/><path d="m9 12 2.2 2.2L15.5 10"/></svg><span>중개사는 인증된 회원만 받을 수 있고, 연락은 오전 9시 – 오후 8시에만 와요.</span></p>
+  </section>
+  <section class="card dr-priv" aria-labelledby="dr-priv-t">
+    <div class="dr-priv-hd"><span class="dr-priv-ic"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/><path d="M12 14.5v2.5"/></svg></span><h2 id="dr-priv-t" class="t-title">개인정보는 이렇게 지켜요</h2></div>
+    <ul class="dr-priv-list">
+      <li><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg><span><b>050 안심번호</b><span>중개사에게는 실제 번호 대신 안심번호만 보이고, 요청이 끝나면 연결이 자동으로 끊겨요.</span></span></li>
+      <li><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11 12 4.5 20 11"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5.5h4V20"/></svg><span><b>동·호수 비공개</b><span>사이트에는 단지명과 <b class="num">고/25층</b>까지만 보이고, 동·호수는 연락받는 중개사만 확인해요.</span></span></li>
+      <li><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10.5 11v5.5M13.5 11v5.5"/></svg><span><b>요청 종료 30일 후 파기</b><span>거래가 끝나거나 내리기를 누르면 30일 뒤 연락처와 주소를 지워요.</span></span></li>
+      <li><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10"/><path d="m8 10 4 4 4-4"/><path d="M5 19.5h14"/></svg><span><b>언제든 내리기</b><span>내 메뉴에서 한 번에 내리면 받은 중개사 모두에게 바로 중단 알림이 가요.</span></span></li>
+    </ul>
+    <a class="link dr-priv-a" href="#">개인정보처리방침 보기</a>
+  </section>
+  <section class="card dr-help" aria-labelledby="dr-help-t">
+    <h2 id="dr-help-t" class="t-title">입력이 번거로우신가요?</h2>
+    <p class="t-sm">상담 매니저가 통화로 대신 작성해 드려요. 평일 오전 9시 – 오후 6시, 요청 후 10분 안에 전화드려요.</p>
+    <div class="dr-help-btns">
+      <a class="btn btn-secondary" href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg>전화 등록 요청</a>
+      <a class="btn btn-secondary" href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 18.5V6.5A2 2 0 0 1 7 4.5h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9z"/><path d="M9 9.5h6M9 12.5h4"/></svg>1:1 채팅</a>
+    </div>
   </section>
 </aside>
     </div>

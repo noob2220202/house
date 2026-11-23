@@ -50,11 +50,7 @@ export class SignupService {
     };
   }
 
-  async complete(
-    req: Request,
-    res: Response,
-    dto: SignupInput,
-  ): Promise<SignupResponse> {
+  async complete(req: Request, res: Response, dto: SignupInput): Promise<SignupResponse> {
     const { token, pending } = await this.load(req);
     const profile = pending.profile;
 

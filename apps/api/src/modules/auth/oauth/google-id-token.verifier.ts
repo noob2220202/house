@@ -13,7 +13,11 @@ const DEFAULT_JWKS_TTL_MS = 60 * 60 * 1000;
 /** Unknown `kid` triggers a refetch (key rotation), but at most this often. */
 const MIN_REFETCH_INTERVAL_MS = 30_000;
 
-const headerSchema = z.object({ alg: z.string(), kid: z.string().min(1), typ: z.string().optional() });
+const headerSchema = z.object({
+  alg: z.string(),
+  kid: z.string().min(1),
+  typ: z.string().optional(),
+});
 
 const claimsSchema = z.object({
   iss: z.string(),
@@ -81,12 +85,7 @@ export class GoogleIdTokenVerifier {
 
     const key = await this.getKey(header.data.kid, opts.now ?? Date.now());
     if (!key) return fail('signed by an unknown key');
-    const ok = verify(
-      'RSA-SHA256',
-      Buffer.from(`${h}.${p}`),
-      key,
-      Buffer.from(s, 'base64url'),
-    );
+    const ok = verify('RSA-SHA256', Buffer.from(`${h}.${p}`), key, Buffer.from(s, 'base64url'));
     if (!ok) fail('signature is invalid');
 
     const claims = claimsSchema.safeParse(decodeJson(p));
