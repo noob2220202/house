@@ -23,6 +23,12 @@ corepack enable
 git config --global core.longpaths true
 ```
 
+그다음 **일반 PowerShell**에서 아래를 실행하고, 확인 질문에 `Y`를 입력합니다. PowerShell이 `pnpm` 스크립트 실행을 막는 기본 설정을 풀어 줍니다(내 계정, 내 PC의 스크립트만 허용).
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
 - 첫 번째 명령은 pnpm(패키지 관리자)을 켭니다. 프로젝트가 정한 버전(pnpm 10.28.0)이 자동으로 쓰입니다.
 - 두 번째 명령은 윈도우의 긴 경로 문제를 막습니다.
 
