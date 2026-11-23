@@ -268,11 +268,18 @@ for ((i = 0; i < KEEP_FROM; i++)); do
 done
 
 ELAPSED=$(($(date +%s) - START_TS))
+if [[ -n "$MIGRATED" ]]; then
+  MIGRATION_NOTE="${#PENDING[@]}개 적용${PRE_DUMP:+ (사전 백업: $PRE_DUMP)}"
+elif $SKIP_MIGRATE; then
+  MIGRATION_NOTE="생략 (--skip-migrate)"
+else
+  MIGRATION_NOTE="변경 없음"
+fi
 cat <<EOF
 
 ${C_GRN}✔ 배포 성공${C_RST}  ${RELEASE_NAME}  (${ELAPSED}초)
   커밋     ${SHORT} ${SUBJECT}
   이전     ${PREV_RELEASE:+$(basename "$PREV_RELEASE")}
-  마이그레이션 ${MIGRATED:+적용됨}${MIGRATED:-없음}${PRE_DUMP:+ (백업: $PRE_DUMP)}
+  마이그레이션 ${MIGRATION_NOTE}
   되돌리기  sudo $HOUSE_ROOT/rollback.sh
 EOF

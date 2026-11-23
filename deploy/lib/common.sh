@@ -120,8 +120,13 @@ ensure_house_user() {
     id "$HOUSE_USER" >/dev/null 2>&1 || die "사용자 '$HOUSE_USER'가 없습니다. 먼저 install.sh를 실행하세요."
     local self
     self="$(readlink -f "$0")"
-    exec runuser -u "$HOUSE_USER" -- env HOME="/home/$HOUSE_USER" PATH="$PATH" \
-      HOUSE_LOCK_FD="${HOUSE_LOCK_FD:-}" bash "$self" "$@"
+    # Clean environment: nothing from root's shell (npm/pnpm config, tokens) reaches the build.
+    local -a keep=() v
+    for v in LANG LC_ALL TERM http_proxy https_proxy no_proxy HTTP_PROXY HTTPS_PROXY NO_PROXY; do
+      [[ -n "${!v:-}" ]] && keep+=("$v=${!v}")
+    done
+    exec runuser -u "$HOUSE_USER" -- env -i HOME="/home/$HOUSE_USER" USER="$HOUSE_USER" \
+      LOGNAME="$HOUSE_USER" SHELL=/bin/bash PATH="$PATH" "${keep[@]}" bash "$self" "$@"
   fi
   die "이 스크립트는 '$HOUSE_USER' 사용자(또는 root)로 실행해야 합니다."
 }
@@ -175,7 +180,7 @@ worker_uses_http() {
 
 http_ok() {
   local url="$1"
-  curl -fsS -o /dev/null --max-time 5 "$url"
+  curl -fs -o /dev/null --max-time 5 "$url"
 }
 
 # Every app must be "online" in PM2 and every HTTP probe must pass, within the retry budget.
