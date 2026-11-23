@@ -218,6 +218,8 @@ model Listing {
   closedAt            DateTime?       @map("closed_at") @db.Timestamptz(3)
   expiresAt           DateTime?       @map("expires_at") @db.Timestamptz(3)
   hiddenReason        String?         @map("hidden_reason") @db.VarChar(500)
+  /// Agency-internal memo (owner contact, key location…). PRIVATE: only agency members see it.
+  privateNote         String?         @map("private_note") @db.VarChar(2000)
   /// Latest 실매물 확인 date.
   verifiedAt          DateTime?       @map("verified_at") @db.Timestamptz(3)
   viewCount           Int             @default(0) @map("view_count")
