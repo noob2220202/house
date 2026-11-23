@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>메인 - B 클린 프로덕트</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Noto+Sans+KR:wght@400;500;700;800;900&amp;display=swap">
+<style>
+:root{
+  --blue:#1D4FF2; --blue-700:#1539C4; --blue-800:#102C99; --blue-50:#EEF3FF; --blue-100:#DCE6FF; --blue-200:#B9CCFF;
+  --ink:#0A1222; --g800:#1F2836; --g700:#333D4B; --g600:#4E5968; --g500:#646F7C; --g400:#8B95A1; --g300:#B0B8C1; --g200:#D1D6DB; --line:#E5E8EB; --g100:#F2F4F6; --g50:#F8F9FB; --white:#FFFFFF;
+  --c-bun:#7B3FE4; --c-mae:#1D4FF2; --c-jeon:#08805F; --c-wol:#C2410C; --up:#D92633; --down:#1D4FF2;
+  --r-xs:6px; --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:24px; --r-2xl:32px; --r-pill:999px;
+  --sh-1:0 1px 2px rgba(10,18,34,.06),0 0 0 1px rgba(10,18,34,.04);
+  --sh-2:0 2px 4px rgba(10,18,34,.04),0 6px 16px rgba(10,18,34,.07);
+  --sh-3:0 4px 8px rgba(10,18,34,.05),0 16px 40px rgba(10,18,34,.12);
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:20px; --s-6:24px; --s-8:32px; --s-10:40px; --s-14:56px; --s-20:80px;
+  --font:"Inter","Noto Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#fff}
+x-dc{display:block}
+.root{font-family:var(--font);color:var(--ink);background:#fff;-webkit-font-smoothing:antialiased;letter-spacing:-0.01em;line-height:1.5;font-feature-settings:"tnum" 1}
+:where(.root) a{color:inherit;text-decoration:none}
+:where(.root) button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+:where(.root) :is(h1,h2,h3,h4,p){margin:0}
+:where(.root) :is(h1,h2,h3){text-wrap:pretty;letter-spacing:-0.03em}
+.ic{flex:none;display:block}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.logo{display:inline-flex;align-items:center;gap:10px;flex:none}
+.logo-word{font-family:"Inter",sans-serif;font-weight:800;font-size:21px;letter-spacing:-0.04em;color:var(--ink)}
+.num{font-family:"Inter","Noto Sans KR",sans-serif;font-feature-settings:"tnum" 1}
+.bun{color:var(--c-bun)} .mae{color:var(--c-mae)} .jeon{color:var(--c-jeon)} .wol{color:var(--c-wol)}
+
+.wrap{width:100%;max-width:1288px;margin:0 auto;padding:0 24px}
+/* header */
+.hd{position:relative;z-index:5;background:rgba(255,255,255,.96);border-bottom:1px solid var(--line)}
+.hd-in{display:flex;align-items:center;gap:40px;height:72px}
+.gnb{display:flex;align-items:center;gap:4px;flex:1;min-width:0}
+.gnb-a{display:inline-flex;align-items:center;height:40px;padding:0 12px;border-radius:var(--r-sm);font-size:15.5px;font-weight:600;color:var(--g700);white-space:nowrap}
+.gnb-a:hover{background:var(--g100);color:var(--ink)}
+.gnb-sep{width:1px;height:16px;background:var(--line);margin:0 8px}
+.hd-act{display:flex;align-items:center;gap:8px;margin-left:auto}
+.btn-sell,.btn-find{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:var(--r-pill);font-size:14.5px;font-weight:700;white-space:nowrap}
+.btn-sell{background:var(--blue-50);color:var(--blue-700)}
+.btn-find{background:var(--g100);color:var(--g800)}
+.btn-login{display:inline-flex;align-items:center;height:40px;padding:0 18px;border-radius:var(--r-pill);background:var(--ink);color:#fff;font-size:14.5px;font-weight:700;margin-left:4px}
+/* hero */
+.hero{padding:56px 0 24px}
+.hero-in{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(500px,100%),1fr));gap:48px;align-items:center}
+.hero-copy{display:flex;flex-direction:column;gap:24px;align-items:flex-start;min-width:0}
+.eyebrow{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px 0 10px;border-radius:var(--r-pill);background:var(--blue-50);color:var(--blue-700);font-size:13.5px;font-weight:700}
+.hero-h{font-size:clamp(36px,3.9vw,56px);line-height:1.16;font-weight:800;letter-spacing:-0.045em;color:var(--ink)}
+.hero-h .hl{color:var(--blue)}
+.hero-p{font-size:17px;line-height:1.65;color:var(--g600);max-width:30em;margin-top:-4px}
+.search{display:flex;align-items:center;gap:8px;width:100%;max-width:560px;height:68px;padding:0 8px 0 22px;border-radius:20px;background:#fff;border:2px solid var(--blue);box-shadow:0 10px 30px rgba(29,79,242,.14)}
+.search-ic{color:var(--blue);display:flex}
+.search-in{flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;font:inherit;font-size:18px;font-weight:500;color:var(--ink)}
+.search-in::placeholder{color:var(--g500)}
+.search-btn{height:52px;padding:0 26px;border-radius:14px;background:var(--blue);color:#fff;font-size:16px;font-weight:700}
+.kw{display:flex;flex-wrap:wrap;align-items:center;gap:8px;max-width:560px}
+.kw-l{font-size:13.5px;font-weight:600;color:var(--g500);margin-right:4px}
+.chip{display:inline-flex;align-items:center;height:34px;padding:0 13px;border-radius:var(--r-pill);background:#fff;border:1px solid var(--line);font-size:13.5px;font-weight:600;color:var(--g700)}
+.hmap{position:relative;aspect-ratio:640/540;width:100%;border-radius:var(--r-2xl);overflow:hidden;background:#F2F5F9;box-shadow:inset 0 0 0 1px rgba(10,18,34,.06)}
+.hmap-svg{position:absolute;inset:0;width:100%;height:100%}
+.hpill{position:absolute;transform:translate(-50%,-50%);display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 6px 0 12px;border-radius:var(--r-pill);background:#fff;box-shadow:var(--sh-2);font-size:13px;white-space:nowrap}
+.hpill b{font-weight:700;color:var(--g800)}
+.hpill span{display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:var(--r-pill);background:var(--blue-50);color:var(--blue-700);font-weight:700;font-size:12.5px}
+.hpill-on{background:var(--blue);height:38px;padding:0 7px 0 14px;font-size:14px;box-shadow:0 8px 20px rgba(29,79,242,.35)}
+.hpill-on b{color:#fff}
+.hpill-on span{background:#fff;color:var(--blue-700);height:26px}
+.hpill-on::after{content:"";position:absolute;left:50%;bottom:-6px;width:12px;height:12px;background:var(--blue);transform:translateX(-50%) rotate(45deg);border-radius:2px;z-index:-1}
+.hstation{position:absolute;transform:translate(-50%,-50%);display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--g700);background:rgba(255,255,255,.85);padding:2px 8px 2px 4px;border-radius:var(--r-pill)}
+.hstation i{width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid var(--g700)}
+.hmap-cta{position:absolute;right:20px;top:20px;display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 16px 0 18px;border-radius:var(--r-pill);background:var(--ink);color:#fff;font-size:14.5px;font-weight:700;box-shadow:var(--sh-2)}
+.hcard{position:absolute;left:20px;bottom:20px;width:min(300px,calc(100% - 40px));padding:16px 18px 16px;border-radius:var(--r-lg);background:#fff;box-shadow:var(--sh-3);display:flex;flex-direction:column;gap:2px}
+.hcard-top{display:flex;align-items:center;gap:8px}
+.hcard-n{font-size:14px;font-weight:700;color:var(--g700)}
+.tag-sm{display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:6px;font-size:12px;font-weight:700}
+.mae-bg{background:var(--blue-50);color:var(--blue-700)}
+.hcard-price{font-size:30px;font-weight:800;letter-spacing:-0.035em;line-height:1.25;margin-top:6px}
+.hcard-meta{font-size:13px;color:var(--g500);font-weight:500}
+/* sections */
+.sec{padding:48px 0}
+.sec-tight{padding:24px 0}
+.sec-hd{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+.sec-t{font-size:28px;font-weight:800;line-height:1.3}
+.sec-s{font-size:15px;color:var(--g500);margin-top:6px}
+.more{display:inline-flex;align-items:center;gap:2px;height:44px;font-size:15px;font-weight:600;color:var(--g600)}
+.seg{display:inline-flex;padding:4px;border-radius:var(--r-pill);background:var(--g100);gap:2px}
+.seg-b{height:36px;padding:0 16px;border-radius:var(--r-pill);font-size:14px;font-weight:600;color:var(--g600)}
+.seg-b.on{background:#fff;color:var(--ink);box-shadow:var(--sh-1);font-weight:700}
+/* categories */
+.cats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:16px}
+.cat{display:flex;flex-direction:column;gap:4px;padding:22px 22px 18px;border-radius:var(--r-xl);background:var(--g50);border:1px solid var(--line);transition:box-shadow .2s}
+.cat:hover{box-shadow:var(--sh-2);background:#fff}
+.cat-ill{display:flex;width:64px;height:64px;align-items:center;justify-content:center;border-radius:18px;background:#fff;box-shadow:var(--sh-1);margin-bottom:14px}
+.cat-t{font-size:20px;font-weight:800;letter-spacing:-0.03em}
+.cat-s{font-size:13.5px;color:var(--g500)}
+.cat-f{display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding-top:14px;border-top:1px solid var(--line);color:var(--g500)}
+.cat-n{font-size:14px;color:var(--g600)}
+.cat-n b{color:var(--ink);font-weight:700}
+/* duo */
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(330px,100%),1fr));gap:16px;margin-top:16px}
+.duo-c{position:relative;display:flex;flex-direction:column;gap:8px;padding:26px 26px 24px;border-radius:var(--r-xl);min-height:236px}
+.duo-ic{display:flex;width:48px;height:48px;align-items:center;justify-content:center;border-radius:14px;margin-bottom:10px}
+.duo-k{font-size:14.5px;font-weight:700}
+.duo-t{font-size:22px;font-weight:800;line-height:1.4;letter-spacing:-0.035em}
+.duo-b{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;margin-top:auto;height:44px;padding:0 18px;border-radius:var(--r-pill);font-size:15px;font-weight:700}
+.duo-sell{background:var(--blue);color:#fff}
+.duo-sell .duo-ic{background:rgba(255,255,255,.16);color:#fff}
+.duo-sell .duo-k{color:#DCE6FF}
+.duo-sell .duo-b{background:#fff;color:var(--blue-700)}
+.duo-find{background:var(--blue-50);color:var(--ink)}
+.duo-find .duo-ic{background:#fff;color:var(--blue)}
+.duo-find .duo-k{color:var(--blue-700)}
+.duo-find .duo-b{background:var(--ink);color:#fff}
+.duo-calc{background:#fff;border:1px solid var(--line);padding:24px 16px 12px}
+.calc-h{font-size:18px;font-weight:800;padding:0 10px 6px}
+.calc-l{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.calc-a{display:flex;align-items:center;gap:12px;height:44px;padding:0 10px;border-radius:var(--r-md);font-size:15px;font-weight:600;color:var(--g800)}
+.calc-a:hover{background:var(--g50)}
+.calc-a .ic:last-child{margin-left:auto;color:var(--g400)}
+.calc-i{display:flex;width:32px;height:32px;align-items:center;justify-content:center;border-radius:10px;background:var(--g100);color:var(--g700)}
+/* listing cards */
+.lcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:20px}
+.lc{display:flex;flex-direction:column;border-radius:var(--r-xl);background:#fff;border:1px solid var(--line);overflow:hidden;box-shadow:0 1px 2px rgba(10,18,34,.04)}
+.lc-ph{position:relative;aspect-ratio:300/188;overflow:hidden}
+.ph{position:absolute;inset:0;width:100%;height:100%;display:block}
+.lc-br{position:absolute;left:12px;top:12px;display:inline-flex;align-items:center;height:26px;padding:0 9px;border-radius:8px;background:rgba(10,18,34,.78);color:#fff;font-size:12.5px;font-weight:700}
+.lc-heart{position:absolute;right:8px;top:8px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;color:var(--g600)}
+.lc-heart::before{content:"";position:absolute;inset:4px;border-radius:50%;background:rgba(255,255,255,.92);box-shadow:var(--sh-1)}
+.lc-heart .ic{position:relative}
+.lc-b{display:flex;flex-direction:column;gap:4px;padding:18px 20px 18px}
+.lc-type{font-size:14px;font-weight:700}
+.lc-price{display:flex;align-items:center;gap:8px;font-size:30px;font-weight:800;letter-spacing:-0.04em;line-height:1.2}
+.prem{display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:7px;background:#FDECEE;color:var(--up);font-size:13px;font-weight:700;letter-spacing:-0.01em}
+.lc-name{font-size:15px;font-weight:700;color:var(--g800);margin-top:6px}
+.lc-name span{font-weight:500;color:var(--g500);font-size:14px}
+.lc-meta{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--g600)}
+.lc-meta i{width:2px;height:2px;border-radius:50%;background:var(--g400);display:block}
+.lc-ok{display:flex;align-items:center;gap:5px;margin-top:10px;padding-top:12px;border-top:1px solid var(--g100);font-size:13px;font-weight:600;color:var(--c-jeon)}
+/* ad */
+.ad{position:relative;display:grid;grid-template-columns:1fr auto;align-items:center;gap:32px;min-height:168px;padding:30px 380px 30px 40px;border-radius:var(--r-xl);background:#0F1B3A;color:#fff;overflow:hidden}
+.ad-tag{position:absolute;left:14px;top:12px;font-size:10.5px;font-weight:700;letter-spacing:.06em;color:#C9D2E6;border:1px solid rgba(201,210,230,.6);border-radius:4px;padding:0 5px;line-height:16px}
+.ad-copy{display:flex;flex-direction:column;gap:6px}
+.ad-k{font-size:14px;font-weight:600;color:#E9D7A8}
+.ad-t{font-size:28px;font-weight:800;letter-spacing:-0.04em;line-height:1.3}
+.ad-t span{color:#E9D7A8}
+.ad-s{font-size:15px;color:#C9D2E6}
+.ad-cta{display:flex;flex-direction:column;align-items:flex-end;gap:8px;position:relative;z-index:1}
+.ad-btn{display:inline-flex;align-items:center;height:48px;padding:0 22px;border-radius:var(--r-pill);background:#E9D7A8;color:#0F1B3A;font-size:15px;font-weight:800}
+.ad-ph{font-size:15px;font-weight:700;color:#fff;letter-spacing:.02em}
+.ad-art{position:absolute;right:16px;bottom:0;width:340px;height:151px}
+.ad-pg{position:absolute;right:16px;top:14px;display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:var(--r-pill);background:rgba(255,255,255,.14);font-size:12px;font-weight:600;color:#fff}
+/* ranking */
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.tab{height:40px;padding:0 16px;border-radius:var(--r-pill);border:1px solid var(--line);background:#fff;font-size:14.5px;font-weight:600;color:var(--g600)}
+.tab.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:700}
+.rank{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(520px,100%),1fr));gap:16px}
+.rt-wrap{border:1px solid var(--line);border-radius:var(--r-xl);overflow-x:auto;background:#fff}
+.rt{width:100%;min-width:500px;border-collapse:collapse;font-size:14.5px}
+.rt th{height:44px;font-size:13px;font-weight:700;color:var(--g500);background:var(--g50);border-bottom:1px solid var(--line);text-align:center;padding:0 6px}
+.rt th.bun{color:var(--c-bun)} .rt th.mae{color:var(--c-mae)} .rt th.jeon{color:var(--c-jeon)} .rt th.wol{color:var(--c-wol)}
+.rt td{height:68px;border-bottom:1px solid var(--g100);text-align:center;padding:0 6px}
+.rt tbody tr:last-child td{border-bottom:0}
+.c-r{width:56px;font-weight:800;font-size:17px;color:var(--g500)}
+.c-r.top{color:var(--blue)}
+.rt td.c-n{text-align:left}
+.rt th.c-n{text-align:left}
+.c-n a{display:flex;flex-direction:column;gap:2px}
+.c-n b{font-size:15.5px;font-weight:700;color:var(--ink);letter-spacing:-0.02em}
+.c-n span{font-size:13px;color:var(--g500)}
+.c-k{width:52px;font-weight:700;color:var(--g800)}
+.c-k.z{color:var(--g500);font-weight:400}
+.c-p{width:112px;text-align:right;padding-right:20px}
+.c-p b{display:block;font-size:16px;font-weight:800;letter-spacing:-0.03em}
+.c-p span{font-size:12.5px;color:var(--g500)}
+/* videos */
+.vids{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:20px}
+.vc{display:flex;flex-direction:column;gap:10px}
+.vth{position:relative;display:block;aspect-ratio:16/9;border-radius:var(--r-lg);overflow:hidden;padding:18px 18px}
+.vth-tag{display:inline-flex;align-items:center;height:22px;padding:0 8px;border:1.5px solid;border-radius:6px;font-size:12px;font-weight:700}
+.vth-t{position:relative;z-index:1;display:block;margin-top:10px;font-size:23px;font-weight:900;line-height:1.25;letter-spacing:-0.05em}
+.vth-t em{font-style:normal}
+.vth-art{position:absolute;right:0;bottom:0;width:58%;height:auto}
+.vth-play{position:absolute;left:18px;bottom:14px;display:flex;width:36px;height:36px;border-radius:50%;align-items:center;justify-content:center;background:rgba(255,255,255,.92);color:#0A1222}
+.vth-play .ic{fill:currentColor;margin-left:2px}
+.vth-dur{position:absolute;right:10px;bottom:10px;height:22px;padding:0 6px;border-radius:5px;background:rgba(10,18,34,.82);color:#fff;font-size:12px;font-weight:600;line-height:22px}
+.vc-t{font-size:15.5px;font-weight:700;line-height:1.45;color:var(--ink);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.vc-m{font-size:13px;color:var(--g500);margin-top:-4px}
+/* app */
+.app{position:relative;display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap;padding:44px 56px 0;border-radius:var(--r-2xl);background:var(--g100);overflow:hidden}
+.app-copy{display:flex;flex-direction:column;gap:12px;padding-bottom:44px}
+.app-k{font-size:14px;font-weight:700;color:var(--blue-700)}
+.app-t{font-size:30px;font-weight:800;line-height:1.36}
+.app-btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.store{display:inline-flex;align-items:center;gap:10px;height:52px;padding:0 20px 0 16px;border-radius:14px;background:var(--ink);color:#fff;font-size:16px;font-weight:700;line-height:1.1}
+.store span{display:flex;flex-direction:column}
+.store small{font-size:10.5px;font-weight:500;opacity:.85}
+.phone{width:300px;height:236px;margin-right:40px;align-self:flex-end;border-radius:40px 40px 0 0;background:var(--ink);padding:12px 12px 0}
+.ph-scr{height:100%;border-radius:30px 30px 0 0;background:#EEF2F8;padding:40px 12px 0;display:flex;flex-direction:column;gap:8px}
+.ph-noti{display:flex;gap:10px;align-items:flex-start;padding:12px;border-radius:16px;background:#fff;box-shadow:var(--sh-2)}
+.ph-noti2{opacity:.75;transform:scale(.96)}
+.ph-ic svg{width:28px;height:28px;display:block}
+.ph-tx{display:flex;flex-direction:column;font-size:12px;color:var(--g600);line-height:1.45}
+.ph-tx b{font-size:13px;color:var(--ink)}
+/* footer */
+.ft{margin-top:56px;background:var(--g50);border-top:1px solid var(--line)}
+.ft-in{display:flex;flex-direction:column;gap:20px;padding-top:40px;padding-bottom:48px}
+.ft-top{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.ft-nav{display:flex;flex-wrap:wrap;gap:4px 20px;font-size:14px;color:var(--g600)}
+.ft-nav a{display:inline-flex;align-items:center;min-height:32px}
+.ft-nav b{color:var(--ink)}
+.ft-info{display:flex;flex-wrap:wrap;gap:6px 20px;margin:0;font-size:13.5px;color:var(--g600)}
+.ft-info div{display:flex;gap:6px}
+.ft-info dt{font-weight:600;color:var(--g700)}
+.ft-info dd{margin:0}
+.ft-note{font-size:13px;color:var(--g500);max-width:60em;line-height:1.6}
+.ft-copy{font-size:13px;color:var(--g500)}
+@media (max-width:1180px){.gnb{display:none} }
+@media (max-width:720px){
+  .hd-in{gap:12px}
+  .btn-find{display:none}
+  .btn-sell{padding:0 12px}
+  .hero{padding-top:32px}
+  .ad{grid-template-columns:1fr;padding:32px 24px 140px}
+  .ad-cta{align-items:flex-start}
+  .ad-art{width:300px;height:133px}
+  .app{padding:32px 24px 0}
+  .phone{margin:0 auto}
+  .duo-t{font-size:20px}
+  .cats{gap:10px}
+  .cat{padding:16px 16px 12px;border-radius:var(--r-lg)}
+  .cat-ill{width:48px;height:48px;border-radius:14px;margin-bottom:8px}
+  .cat-ill svg{width:40px;height:40px}
+  .cat-t{font-size:17px}
+  .cat-s{display:none}
+  .cat-f{margin-top:10px;padding-top:10px}
+  .hcard,.hpill,.hstation{display:none}
+  .hpill-on{display:inline-flex}
+  .search{height:60px;padding-left:16px}
+  .search-in{font-size:16px}
+  .search-btn{height:46px;padding:0 18px}
+}
+
+</style>
+</helmet>
+<div class="root">
+<header class="hd">
+  <div class="wrap hd-in">
+    <a class="logo" href="#" aria-label="BRAND 홈">
+  <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1D4FF2"/><path d="M9 23v-6.5a7 7 0 0 1 14 0V23" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="16" cy="17" r="2.6" fill="#fff"/><rect x="21.5" y="6.5" width="4" height="4" rx="1.2" fill="#9DB7FF"/></svg>
+  <span class="logo-word">BRAND</span>
+</a>
+    <nav class="gnb" aria-label="주요 메뉴">
+      <a href="#" class="gnb-a">아파트·분양권</a><a href="#" class="gnb-a">원룸·투룸</a><a href="#" class="gnb-a">주택</a><a href="#" class="gnb-a">상업·업무</a><a href="#" class="gnb-a">토지</a>
+      <span class="gnb-sep" aria-hidden="true"></span>
+      <a href="#" class="gnb-a">중개업소</a>
+      <a href="#" class="gnb-a">커뮤니티</a>
+    </nav>
+    <div class="hd-act">
+      <a href="#" class="btn-sell"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9.5h12V10"/><path d="M12 17v-5"/><path d="m9.5 14 2.5-2.5 2.5 2.5"/></svg>내놓기</a>
+      <a href="#" class="btn-find"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9.5h5"/><circle cx="15.5" cy="15.5" r="2.8"/><path d="m20 20-2.4-2.4"/></svg>구하기</a>
+      <a href="#" class="btn-login">로그인</a>
+    </div>
+  </div>
+</header>
+<main>
+<section class="hero">
+  <div class="wrap hero-in">
+    <div class="hero-copy">
+      <span class="eyebrow"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>순천 공인중개사들이 함께 올리는 실매물</span>
+      <h1 class="hero-h">순천의 집,<br><span class="hl">한 번의 검색</span>으로<br>전부 찾아보세요</h1>
+      <p class="hero-p">같은 집을 여러 중개사무소가 가지고 있어도 한 번만 보여드려요. 실매물 확인 날짜와 보유 중개사까지 한눈에.</p>
+      <form class="search" role="search" action="#">
+        <label for="q" class="sr">지역 또는 단지명 검색</label>
+        <span class="search-ic"><svg class="ic" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg></span>
+        <input id="q" class="search-in" type="search" placeholder="지역 또는 단지명을 입력하세요" value="">
+        <button type="submit" class="search-btn">검색</button>
+      </form>
+      <div class="kw">
+        <span class="kw-l">많이 찾는</span>
+        <a href="#" class="chip">신대지구</a><a href="#" class="chip">연향 센트럴</a><a href="#" class="chip">조례호수공원</a><a href="#" class="chip">순천대 원룸</a>
+      </div>
+    </div>
+    <div class="hmap" role="img" aria-label="순천시 동네별 매물 수를 표시한 지도 미리보기">
+      <svg class="hmap-svg" viewBox="0 0 640 540" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="640" height="540" fill="#F2F5F9"/>
+  <!-- hills -->
+  <path d="M120 150 q40 -40 92 -18 q30 22 6 60 q-40 30 -86 12 q-30 -20 -12 -54z" fill="#E4EEE8"/>
+  <path d="M520 40 q60 -20 100 10 v70 q-50 20 -96 -10 q-24 -40 -4 -70z" fill="#E4EEE8"/>
+  <!-- bay + wetland -->
+  <path d="M0 430 Q90 410 150 452 Q210 492 300 486 Q360 482 400 540 H0z" fill="#D5E4F8"/>
+  <path d="M0 430 Q90 410 150 452 Q210 492 300 486 Q360 482 400 540" fill="none" stroke="#C3D6F1" stroke-width="10" stroke-dasharray="1 6" stroke-linecap="round"/>
+  <!-- garden + lake park -->
+  <path d="M318 318 q50 -22 110 -6 q20 26 -6 52 q-60 18 -108 -4 q-14 -22 4 -42z" fill="#DFEDE4"/>
+  <ellipse cx="398" cy="158" rx="44" ry="30" fill="#DFEDE4"/>
+  <ellipse cx="398" cy="158" rx="22" ry="13" fill="#CFE0F6"/>
+  <!-- districts -->
+  <path d="M250 0 V120 L340 210 L300 300 L180 330 L60 300 M340 210 L520 180 L640 220 M300 300 L460 420 L640 380" fill="none" stroke="#CBD3DE" stroke-width="1.2" stroke-dasharray="4 5"/>
+  <!-- roads -->
+  <g fill="none" stroke-linecap="round">
+    <g stroke="#E1E6ED" stroke-width="9"><path d="M0 236 Q200 222 340 250 T640 262"/><path d="M430 0 Q420 160 446 300 T470 540"/><path d="M300 270 Q420 340 640 440"/><path d="M180 0 Q200 140 160 300 T120 540"/><path d="M0 120 Q200 110 350 140 T640 130"/></g>
+    <g stroke="#FFFFFF" stroke-width="6"><path d="M0 236 Q200 222 340 250 T640 262"/><path d="M430 0 Q420 160 446 300 T470 540"/><path d="M300 270 Q420 340 640 440"/><path d="M180 0 Q200 140 160 300 T120 540"/><path d="M0 120 Q200 110 350 140 T640 130"/></g>
+    <path d="M0 392 Q240 360 400 384 T640 352" stroke="#EADFC2" stroke-width="7"/>
+  </g>
+  <!-- river 동천 + 이사천 -->
+  <path d="M296 0 Q284 70 306 130 Q330 200 290 262 Q252 320 236 380 Q224 430 190 470" fill="none" stroke="#C9DCF5" stroke-width="11" stroke-linecap="round"/>
+  <path d="M0 278 Q90 300 150 334 Q200 362 236 380" fill="none" stroke="#C9DCF5" stroke-width="7" stroke-linecap="round"/>
+  <!-- railway -->
+  <path d="M560 0 Q480 150 360 286 Q300 340 0 352" fill="none" stroke="#9AA5B5" stroke-width="2" stroke-dasharray="7 5"/>
+  <text x="248" y="118" font-size="11" fill="#6F8FBF" font-family="Noto Sans KR, sans-serif" transform="rotate(-80 248 118)">동천</text>
+  <text x="352" y="372" font-size="11" fill="#5E8A6E" font-family="Noto Sans KR, sans-serif">순천만국가정원</text>
+  <text x="70" y="482" font-size="11" fill="#5F82B5" font-family="Noto Sans KR, sans-serif">순천만</text>
+  <text x="140" y="178" font-size="11" fill="#5E8A6E" font-family="Noto Sans KR, sans-serif">봉화산</text>
+</svg>
+      <span class="hpill" style="left:69%;top:14%"><b>왕지동</b><span class="num">154</span></span><span class="hpill" style="left:62%;top:24.5%"><b>조례동</b><span class="num">286</span></span><span class="hpill" style="left:37%;top:13%"><b>석현동</b><span class="num">121</span></span><span class="hpill" style="left:70%;top:39%"><b>연향동</b><span class="num">412</span></span><span class="hpill" style="left:22%;top:37%"><b>덕연동</b><span class="num">88</span></span><span class="hpill" style="left:21%;top:57%"><b>오천지구</b><span class="num">201</span></span><span class="hpill" style="left:65%;top:57%"><b>풍덕동</b><span class="num">76</span></span><span class="hpill" style="left:88%;top:87%"><b>선월지구</b><span class="num">97</span></span>
+      <span class="hpill hpill-on" style="left:80%;top:73%"><b>신대지구</b><span class="num">318</span></span>
+      <span class="hstation" style="left:51%;top:50%"><i aria-hidden="true"></i>순천역</span>
+      <a href="#" class="hmap-cta">지도에서 찾기<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>
+      <div class="hcard">
+        <div class="hcard-top"><span class="tag-sm mae-bg">매매</span><span class="hcard-n">신대 레이크파크 1단지</span></div>
+        <p class="hcard-price num">4억 4,500</p>
+        <p class="hcard-meta">34평 · 고/25층 · 남향 · 중개사 3곳</p>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="sec sec-tight" aria-labelledby="cat-h">
+  <div class="wrap">
+    <h2 id="cat-h" class="sr">매물 종류</h2>
+    <div class="cats">
+      <a href="#" class="cat">
+        <span class="cat-ill"><svg viewBox="0 0 56 56" width="56" height="56" aria-hidden="true"><rect x="8" y="16" width="16" height="32" rx="2" fill="#B9CCFF"/><rect x="24" y="8" width="20" height="40" rx="2" fill="#1D4FF2"/><rect x="28" y="13" width="3" height="3" rx="1" fill="#fff"/><rect x="33.5" y="13" width="3" height="3" rx="1" fill="#fff"/><rect x="39" y="13" width="3" height="3" rx="1" fill="#fff"/><rect x="28" y="19" width="3" height="3" rx="1" fill="#fff"/><rect x="33.5" y="19" width="3" height="3" rx="1" fill="#fff"/><rect x="39" y="19" width="3" height="3" rx="1" fill="#fff"/><rect x="28" y="25" width="3" height="3" rx="1" fill="#fff"/><rect x="33.5" y="25" width="3" height="3" rx="1" fill="#fff"/><rect x="39" y="25" width="3" height="3" rx="1" fill="#fff"/><rect x="28" y="31" width="3" height="3" rx="1" fill="#fff"/><rect x="33.5" y="31" width="3" height="3" rx="1" fill="#fff"/><rect x="39" y="31" width="3" height="3" rx="1" fill="#fff"/><rect x="28" y="37" width="3" height="3" rx="1" fill="#fff"/><rect x="33.5" y="37" width="3" height="3" rx="1" fill="#fff"/><rect x="39" y="37" width="3" height="3" rx="1" fill="#fff"/><rect x="28" y="43" width="3" height="3" rx="1" fill="#fff"/><rect x="33.5" y="43" width="3" height="3" rx="1" fill="#fff"/><rect x="39" y="43" width="3" height="3" rx="1" fill="#fff"/><rect x="12" y="21" width="3" height="3" rx="1" fill="#fff"/><rect x="18" y="21" width="3" height="3" rx="1" fill="#fff"/><rect x="12" y="28" width="3" height="3" rx="1" fill="#fff"/><rect x="18" y="28" width="3" height="3" rx="1" fill="#fff"/><rect x="12" y="35" width="3" height="3" rx="1" fill="#fff"/><rect x="18" y="35" width="3" height="3" rx="1" fill="#fff"/><rect x="12" y="42" width="3" height="3" rx="1" fill="#fff"/><rect x="18" y="42" width="3" height="3" rx="1" fill="#fff"/><rect x="4" y="47" width="48" height="2" rx="1" fill="#1539C4"/></svg></span>
+        <span class="cat-t">아파트·분양권</span>
+        <span class="cat-s">매매 · 전세 · 월세 · 분양권</span>
+        <span class="cat-f"><span class="cat-n">매물 <b class="num">1,284</b></span><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></span>
+      </a><a href="#" class="cat">
+        <span class="cat-ill"><svg viewBox="0 0 56 56" width="56" height="56" aria-hidden="true"><rect x="12" y="14" width="32" height="34" rx="2" fill="#1D4FF2"/><rect x="10" y="11" width="36" height="5" rx="1.5" fill="#1539C4"/><rect x="17" y="20" width="5" height="4" rx="1" fill="#fff"/><rect x="25.5" y="20" width="5" height="4" rx="1" fill="#fff"/><rect x="34" y="20" width="5" height="4" rx="1" fill="#fff"/><rect x="17" y="28" width="5" height="4" rx="1" fill="#fff"/><rect x="25.5" y="28" width="5" height="4" rx="1" fill="#fff"/><rect x="34" y="28" width="5" height="4" rx="1" fill="#fff"/><rect x="17" y="36" width="5" height="4" rx="1" fill="#fff"/><rect x="25.5" y="36" width="5" height="4" rx="1" fill="#fff"/><rect x="34" y="36" width="5" height="4" rx="1" fill="#fff"/><rect x="24" y="38" width="8" height="10" rx="1" fill="#B9CCFF"/><rect x="4" y="47" width="48" height="2" rx="1" fill="#1539C4"/></svg></span>
+        <span class="cat-t">원룸·투룸</span>
+        <span class="cat-s">대학가 · 역세권 · 오피스텔</span>
+        <span class="cat-f"><span class="cat-n">매물 <b class="num">936</b></span><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></span>
+      </a><a href="#" class="cat">
+        <span class="cat-ill"><svg viewBox="0 0 56 56" width="56" height="56" aria-hidden="true"><rect x="13" y="26" width="30" height="22" fill="#B9CCFF"/><path d="M8 28 L28 12 L48 28z" fill="#1D4FF2"/><rect x="24" y="34" width="8" height="14" rx="1" fill="#1D4FF2"/><rect x="16" y="31" width="6" height="5" rx="1" fill="#fff"/><rect x="34" y="31" width="6" height="5" rx="1" fill="#fff"/><rect x="4" y="47" width="48" height="2" rx="1" fill="#1539C4"/></svg></span>
+        <span class="cat-t">주택</span>
+        <span class="cat-s">단독 · 다가구 · 전원주택</span>
+        <span class="cat-f"><span class="cat-n">매물 <b class="num">312</b></span><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></span>
+      </a><a href="#" class="cat">
+        <span class="cat-ill"><svg viewBox="0 0 56 56" width="56" height="56" aria-hidden="true"><rect x="10" y="10" width="36" height="38" rx="2" fill="#B9CCFF"/><rect x="15" y="15" width="5" height="4" rx="1" fill="#1D4FF2"/><rect x="23" y="15" width="5" height="4" rx="1" fill="#1D4FF2"/><rect x="31" y="15" width="5" height="4" rx="1" fill="#1D4FF2"/><rect x="39" y="15" width="5" height="4" rx="1" fill="#1D4FF2"/><rect x="15" y="22.5" width="5" height="4" rx="1" fill="#1D4FF2"/><rect x="23" y="22.5" width="5" height="4" rx="1" fill="#1D4FF2"/><rect x="31" y="22.5" width="5" height="4" rx="1" fill="#1D4FF2"/><rect x="39" y="22.5" width="5" height="4" rx="1" fill="#1D4FF2"/><rect x="15" y="30" width="5" height="4" rx="1" fill="#1D4FF2"/><rect x="23" y="30" width="5" height="4" rx="1" fill="#1D4FF2"/><rect x="31" y="30" width="5" height="4" rx="1" fill="#1D4FF2"/><rect x="39" y="30" width="5" height="4" rx="1" fill="#1D4FF2"/><path d="M8 32h40l-3 6H11z" fill="#1D4FF2"/><rect x="14" y="38" width="28" height="10" fill="#fff"/><rect x="25" y="40" width="6" height="8" fill="#1539C4"/><rect x="4" y="47" width="48" height="2" rx="1" fill="#1539C4"/></svg></span>
+        <span class="cat-t">상업·업무</span>
+        <span class="cat-s">상가 · 사무실 · 건물</span>
+        <span class="cat-f"><span class="cat-n">매물 <b class="num">248</b></span><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></span>
+      </a><a href="#" class="cat">
+        <span class="cat-ill"><svg viewBox="0 0 56 56" width="56" height="56" aria-hidden="true"><path d="M4 38 L22 30 L52 36 L34 46z" fill="#B9CCFF"/><path d="M13 34 L31 41 M22 30 L43 41" stroke="#fff" stroke-width="1.6"/><path d="M28 10v20" stroke="#1539C4" stroke-width="2.4" stroke-linecap="round"/><path d="M29 10h13l-3 4 3 4H29z" fill="#1D4FF2"/></svg></span>
+        <span class="cat-t">토지</span>
+        <span class="cat-s">대지 · 전 · 답 · 임야</span>
+        <span class="cat-f"><span class="cat-n">매물 <b class="num">421</b></span><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></span>
+      </a>
+    </div>
+    <div class="duo">
+      <a href="#" class="duo-c duo-sell">
+        <span class="duo-ic"><svg class="ic" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9.5h12V10"/><path d="M12 17v-5"/><path d="m9.5 14 2.5-2.5 2.5 2.5"/></svg></span>
+        <span class="duo-k">집을 내놓을 생각이 있나요?</span>
+        <span class="duo-t">한 번 등록하면<br>동네 중개사가 먼저 연락드려요</span>
+        <span class="duo-b">내놓기<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></span>
+      </a>
+      <a href="#" class="duo-c duo-find">
+        <span class="duo-ic"><svg class="ic" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9.5h5"/><circle cx="15.5" cy="15.5" r="2.8"/><path d="m20 20-2.4-2.4"/></svg></span>
+        <span class="duo-k">찾으시는 조건의 집이 없나요?</span>
+        <span class="duo-t">원하는 조건을 남기면<br>맞는 매물을 가진 중개사가 제안해요</span>
+        <span class="duo-b">구하기<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></span>
+      </a>
+      <div class="duo-c duo-calc">
+        <h3 class="calc-h">부동산 계산기</h3>
+        <ul class="calc-l">
+          <li><a href="#" class="calc-a"><span class="calc-i"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M9.5 9.5h3.2a1.8 1.8 0 0 1 0 3.6H10a1.8 1.8 0 0 0 0 3.6h3.5"/><path d="M12 7.5v1.5M12 16.7v1.5"/></svg></span>중개보수<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></li><li><a href="#" class="calc-a"><span class="calc-i"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 18 12-12"/><circle cx="7.5" cy="7.5" r="2"/><circle cx="16.5" cy="16.5" r="2"/></svg></span>취득세<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></li><li><a href="#" class="calc-a"><span class="calc-i"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M8.5 7.5h7"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 16h.01M12 16h.01M15.5 16h.01"/></svg></span>양도소득세<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></li><li><a href="#" class="calc-a"><span class="calc-i"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5 12 5l8 4.5"/><path d="M5 19.5h14"/><path d="M7 11v6M12 11v6M17 11v6"/></svg></span>대출 이자<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></li><li><a href="#" class="calc-a"><span class="calc-i"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="8" width="17" height="8" rx="1.5"/><path d="M7 8v3M10.5 8v4M14 8v3M17.5 8v4"/></svg></span>평 · ㎡ 환산<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="sec" aria-labelledby="new-h">
+  <div class="wrap">
+    <div class="sec-hd">
+      <div>
+        <h2 id="new-h" class="sec-t">방금 확인된 실매물</h2>
+        <p class="sec-s">중개사가 현장 확인을 마친 매물만 보여드려요</p>
+      </div>
+      <div class="seg" role="tablist" aria-label="매물 종류">
+        <button role="tab" aria-selected="true" class="seg-b on">전체</button><button role="tab" aria-selected="false" class="seg-b">아파트</button><button role="tab" aria-selected="false" class="seg-b">원룸</button><button role="tab" aria-selected="false" class="seg-b">주택</button><button role="tab" aria-selected="false" class="seg-b">토지</button>
+      </div>
+    </div>
+    <div class="lcards">
+      <article class="lc">
+        <div class="lc-ph"><svg class="ph" viewBox="0 0 300 188" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="300" height="188" fill="#E4ECFB"/>
+  <path d="M0 132 Q60 104 120 118 T240 108 T300 116 V188 H0z" fill="#D3DEF4"/>
+  <rect x="44" y="40" width="70" height="132" fill="#F8FAFE"/><rect x="114" y="40" width="22" height="132" fill="#C6D4EE"/>
+  <rect x="52" y="50" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="67" y="50" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="82" y="50" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="97" y="50" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="52" y="58.6" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="67" y="58.6" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="82" y="58.6" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="97" y="58.6" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="52" y="67.2" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="67" y="67.2" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="82" y="67.2" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="97" y="67.2" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="52" y="75.8" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="67" y="75.8" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="82" y="75.8" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="97" y="75.8" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="52" y="84.4" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="67" y="84.4" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="82" y="84.4" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="97" y="84.4" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="52" y="93" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="67" y="93" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="82" y="93" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="97" y="93" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="52" y="101.6" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="67" y="101.6" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="82" y="101.6" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="97" y="101.6" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="52" y="110.19999999999999" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="67" y="110.19999999999999" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="82" y="110.19999999999999" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="97" y="110.19999999999999" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="52" y="118.8" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="67" y="118.8" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="82" y="118.8" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="97" y="118.8" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="52" y="127.39999999999999" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="67" y="127.39999999999999" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="82" y="127.39999999999999" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="97" y="127.39999999999999" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="52" y="136" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="67" y="136" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="82" y="136" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="97" y="136" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="52" y="144.6" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="67" y="144.6" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="82" y="144.6" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="97" y="144.6" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="52" y="153.2" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="67" y="153.2" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="82" y="153.2" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="97" y="153.2" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="52" y="161.8" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="67" y="161.8" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="82" y="161.8" width="11" height="5" rx="1" fill="#A9BCE2"/><rect x="97" y="161.8" width="11" height="5" rx="1" fill="#A9BCE2"/>
+  <rect x="152" y="22" width="78" height="150" fill="#FFFFFF"/><rect x="230" y="22" width="24" height="150" fill="#BDCCEA"/>
+  <rect x="160" y="32" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="32" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="32" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="32" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="160" y="40.3" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="40.3" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="40.3" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="40.3" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="160" y="48.6" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="48.6" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="48.6" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="48.6" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="160" y="56.900000000000006" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="56.900000000000006" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="56.900000000000006" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="56.900000000000006" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="160" y="65.2" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="65.2" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="65.2" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="65.2" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="160" y="73.5" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="73.5" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="73.5" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="73.5" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="160" y="81.80000000000001" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="81.80000000000001" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="81.80000000000001" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="81.80000000000001" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="160" y="90.10000000000001" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="90.10000000000001" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="90.10000000000001" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="90.10000000000001" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="160" y="98.4" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="98.4" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="98.4" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="98.4" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="160" y="106.7" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="106.7" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="106.7" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="106.7" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="160" y="115" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="115" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="115" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="115" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="160" y="123.30000000000001" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="123.30000000000001" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="123.30000000000001" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="123.30000000000001" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="160" y="131.60000000000002" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="131.60000000000002" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="131.60000000000002" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="131.60000000000002" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="160" y="139.9" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="139.9" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="139.9" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="139.9" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="160" y="148.20000000000002" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="148.20000000000002" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="148.20000000000002" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="148.20000000000002" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="160" y="156.5" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="156.5" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="156.5" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="156.5" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="160" y="164.8" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="178" y="164.8" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="196" y="164.8" width="13" height="5" rx="1" fill="#8FA8DA"/><rect x="214" y="164.8" width="13" height="5" rx="1" fill="#8FA8DA"/>
+  <rect x="152" y="16" width="102" height="6" fill="#1D4FF2"/>
+  <rect x="0" y="168" width="300" height="20" fill="#D9E1EC"/>
+  <circle cx="30" cy="160" r="10" fill="#9CC4AE"/><rect x="29" y="168" width="2" height="7" fill="#6E8F7E"/><circle cx="130" cy="162" r="8" fill="#8DBAA2"/><rect x="129" y="168" width="2" height="7" fill="#6E8F7E"/><circle cx="264" cy="158" r="12" fill="#9CC4AE"/><rect x="263" y="168" width="2" height="7" fill="#6E8F7E"/><circle cx="284" cy="164" r="8" fill="#8DBAA2"/><rect x="283" y="170" width="2" height="7" fill="#6E8F7E"/>
+</svg>
+          <span class="lc-br">중개사 3곳</span>
+          <button class="lc-heart" aria-label="관심 매물에 추가"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></svg></button>
+        </div>
+        <div class="lc-b">
+          <p class="lc-type mae">매매</p>
+          <p class="lc-price"><span class="num">4억 4,500</span></p>
+          <p class="lc-name">신대 레이크파크 1단지 <span>103동</span></p>
+          <p class="lc-meta">34평<i aria-hidden="true"></i>고/25층<i aria-hidden="true"></i>남향</p>
+          <p class="lc-ok"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>실매물 확인 <span class="num">26.11.22</span></p>
+        </div>
+      </article><article class="lc">
+        <div class="lc-ph"><svg class="ph" viewBox="0 0 300 188" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="300" height="188" fill="#DCE6F9"/>
+  <circle cx="246" cy="44" r="18" fill="#F3F6FD"/>
+  <path d="M0 140 Q80 120 150 132 T300 124 V188 H0z" fill="#CBD8F0"/>
+  <path d="M96 30 h64 v142 h-64z" fill="#FFFFFF"/><path d="M160 30 h18 v142 h-18z" fill="#B6C7EA"/>
+  <path d="M96 30 l32 -14 l50 14z" fill="#1D4FF2"/>
+  <rect x="104" y="42" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="119" y="42" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="134" y="42" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="149" y="42" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="104" y="50.6" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="119" y="50.6" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="134" y="50.6" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="149" y="50.6" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="104" y="59.2" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="119" y="59.2" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="134" y="59.2" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="149" y="59.2" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="104" y="67.8" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="119" y="67.8" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="134" y="67.8" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="149" y="67.8" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="104" y="76.4" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="119" y="76.4" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="134" y="76.4" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="149" y="76.4" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="104" y="85" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="119" y="85" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="134" y="85" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="149" y="85" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="104" y="93.6" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="119" y="93.6" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="134" y="93.6" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="149" y="93.6" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="104" y="102.19999999999999" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="119" y="102.19999999999999" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="134" y="102.19999999999999" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="149" y="102.19999999999999" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="104" y="110.8" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="119" y="110.8" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="134" y="110.8" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="149" y="110.8" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="104" y="119.39999999999999" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="119" y="119.39999999999999" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="134" y="119.39999999999999" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="149" y="119.39999999999999" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="104" y="128" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="119" y="128" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="134" y="128" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="149" y="128" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="104" y="136.6" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="119" y="136.6" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="134" y="136.6" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="149" y="136.6" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="104" y="145.2" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="119" y="145.2" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="134" y="145.2" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="149" y="145.2" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="104" y="153.8" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="119" y="153.8" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="134" y="153.8" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="149" y="153.8" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="104" y="162.39999999999998" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="119" y="162.39999999999998" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="134" y="162.39999999999998" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="149" y="162.39999999999998" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="104" y="171" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="119" y="171" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="134" y="171" width="10" height="6" rx="1" fill="#7F9AD3"/><rect x="149" y="171" width="10" height="6" rx="1" fill="#7F9AD3"/>
+  <path d="M40 172 V58 M40 62 h120 M40 62 l20 -10 M150 62 v18" stroke="#33415C" stroke-width="2" fill="none"/>
+  <path d="M40 66 l10 -4 M40 78 l10 -4 M40 90 l10 -4 M40 102 l10 -4 M40 114 l10 -4 M40 126 l10 -4 M40 138 l10 -4 M40 150 l10 -4" stroke="#33415C" stroke-width="1.2"/>
+  <rect x="146" y="80" width="8" height="8" fill="#33415C"/>
+  <rect x="196" y="98" width="62" height="74" fill="#F4F7FC"/><rect x="258" y="98" width="16" height="74" fill="#BFCDEA"/>
+  <rect x="204" y="108" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="222" y="108" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="240" y="108" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="204" y="117" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="222" y="117" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="240" y="117" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="204" y="126" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="222" y="126" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="240" y="126" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="204" y="135" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="222" y="135" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="240" y="135" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="204" y="144" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="222" y="144" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="240" y="144" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="204" y="153" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="222" y="153" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="240" y="153" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="204" y="162" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="222" y="162" width="12" height="5" rx="1" fill="#9FB4DD"/><rect x="240" y="162" width="12" height="5" rx="1" fill="#9FB4DD"/>
+  <rect x="0" y="170" width="300" height="18" fill="#D5DDEA"/>
+</svg>
+          <span class="lc-br">중개사 2곳</span>
+          <button class="lc-heart" aria-label="관심 매물에 추가"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></svg></button>
+        </div>
+        <div class="lc-b">
+          <p class="lc-type bun">분양권</p>
+          <p class="lc-price"><span class="num">4억 1,900</span><span class="prem num">P +2,700</span></p>
+          <p class="lc-name">선월 하이츠 2차 <span>205동</span></p>
+          <p class="lc-meta">33평<i aria-hidden="true"></i>중/20층<i aria-hidden="true"></i>남동향</p>
+          <p class="lc-ok"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>실매물 확인 <span class="num">26.11.22</span></p>
+        </div>
+      </article><article class="lc">
+        <div class="lc-ph"><svg class="ph" viewBox="0 0 300 188" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="300" height="188" fill="#E9EEF6"/>
+  <rect x="58" y="44" width="184" height="128" fill="#FBFCFE"/>
+  <rect x="58" y="38" width="184" height="8" fill="#2B3A55"/>
+  <rect x="58" y="74" width="184" height="3" fill="#D9E1EE"/><rect x="58" y="100" width="184" height="3" fill="#D9E1EE"/><rect x="58" y="126" width="184" height="3" fill="#D9E1EE"/><rect x="58" y="152" width="184" height="3" fill="#D9E1EE"/>
+  <rect x="72" y="52" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="107" y="52" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="142" y="52" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="177" y="52" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="212" y="52" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="72" y="78" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="107" y="78" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="142" y="78" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="177" y="78" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="212" y="78" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="72" y="104" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="107" y="104" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="142" y="104" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="177" y="104" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="212" y="104" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="72" y="130" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="107" y="130" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="142" y="130" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="177" y="130" width="22" height="14" rx="1" fill="#8EA6CF"/><rect x="212" y="130" width="22" height="14" rx="1" fill="#8EA6CF"/>
+  <rect x="132" y="142" width="36" height="30" fill="#2B3A55"/><rect x="138" y="148" width="24" height="24" fill="#5D7096"/>
+  <rect x="0" y="172" width="300" height="16" fill="#D6DDE8"/>
+  <circle cx="36" cy="158" r="14" fill="#9CC4AE"/><rect x="35" y="170" width="2" height="7" fill="#6E8F7E"/><circle cx="262" cy="160" r="12" fill="#8DBAA2"/><rect x="261" y="170" width="2" height="7" fill="#6E8F7E"/><circle cx="284" cy="166" r="8" fill="#9CC4AE"/><rect x="283" y="172" width="2" height="7" fill="#6E8F7E"/>
+</svg>
+          <span class="lc-br">중개사 4곳</span>
+          <button class="lc-heart" aria-label="관심 매물에 추가"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></svg></button>
+        </div>
+        <div class="lc-b">
+          <p class="lc-type wol">월세</p>
+          <p class="lc-price"><span class="num">500/42</span></p>
+          <p class="lc-name">석현동 해오름빌 <span>순천대 정문 도보 6분</span></p>
+          <p class="lc-meta">투룸<i aria-hidden="true"></i>3/4층<i aria-hidden="true"></i>2019년 준공</p>
+          <p class="lc-ok"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>실매물 확인 <span class="num">26.11.21</span></p>
+        </div>
+      </article><article class="lc">
+        <div class="lc-ph"><svg class="ph" viewBox="0 0 300 188" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="300" height="188" fill="#E7EDF8"/>
+  <path d="M0 150 Q90 128 170 140 T300 134 V188 H0z" fill="#D3DEEF"/>
+  <rect x="84" y="92" width="132" height="80" fill="#FBFCFE"/>
+  <path d="M70 96 L150 46 L230 96 z" fill="#24324D"/>
+  <rect x="184" y="52" width="14" height="26" fill="#24324D"/>
+  <rect x="100" y="108" width="30" height="24" fill="#8EA6CF"/><rect x="170" y="108" width="30" height="24" fill="#8EA6CF"/>
+  <rect x="138" y="128" width="24" height="44" fill="#1D4FF2"/><circle cx="156" cy="151" r="1.6" fill="#fff"/>
+  <path d="M20 172 V156 M34 172 V156 M48 172 V156 M62 172 V156 M238 172 V156 M252 172 V156 M266 172 V156 M280 172 V156 M14 160 H68 M232 160 H286" stroke="#B3C0D6" stroke-width="2"/>
+  <rect x="0" y="172" width="300" height="16" fill="#CFD8E6"/>
+  <circle cx="250" cy="140" r="16" fill="#9CC4AE"/><rect x="249" y="154" width="2" height="7" fill="#6E8F7E"/><circle cx="42" cy="138" r="13" fill="#8DBAA2"/><rect x="41" y="149" width="2" height="7" fill="#6E8F7E"/>
+</svg>
+          <span class="lc-br">중개사 1곳</span>
+          <button class="lc-heart" aria-label="관심 매물에 추가"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></svg></button>
+        </div>
+        <div class="lc-b">
+          <p class="lc-type mae">매매</p>
+          <p class="lc-price"><span class="num">3억 1,500</span></p>
+          <p class="lc-name">덕월동 단독주택 <span>청암대 인근</span></p>
+          <p class="lc-meta">대지 62평<i aria-hidden="true"></i>2층<i aria-hidden="true"></i>2008년 준공</p>
+          <p class="lc-ok"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>실매물 확인 <span class="num">26.11.20</span></p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+<section class="sec sec-tight" aria-label="광고">
+  <div class="wrap">
+    <a href="#" class="ad">
+      <span class="ad-tag">AD</span>
+      <div class="ad-copy">
+        <p class="ad-k">연향들 도시개발구역 · 민간분양</p>
+        <p class="ad-t">연향들 더 퍼스트 견본주택 <span>11월 28일 그랜드 오픈</span></p>
+        <p class="ad-s">전용 84 · 102㎡ · 612세대 · 2029년 입주 예정</p>
+      </div>
+      <div class="ad-cta">
+        <span class="ad-btn">관심고객 등록</span>
+        <span class="ad-ph num">1600-0000</span>
+      </div>
+      <svg class="ad-art" viewBox="0 0 360 160" aria-hidden="true">
+        <g fill="none" stroke="#E9D7A8" stroke-width="1.4" opacity=".9">
+          <path d="M60 160 V44 h56 v116"/><path d="M60 44 l28 -16 l28 16"/>
+          <path d="M68 56 h40"/><path d="M68 66 h40"/><path d="M68 76 h40"/><path d="M68 86 h40"/><path d="M68 96 h40"/><path d="M68 106 h40"/><path d="M68 116 h40"/><path d="M68 126 h40"/><path d="M68 136 h40"/><path d="M68 146 h40"/>
+          <path d="M140 160 V18 h64 v142"/><path d="M140 18 h64"/><path d="M172 18 V6"/>
+          <path d="M148 30 h48"/><path d="M148 40 h48"/><path d="M148 50 h48"/><path d="M148 60 h48"/><path d="M148 70 h48"/><path d="M148 80 h48"/><path d="M148 90 h48"/><path d="M148 100 h48"/><path d="M148 110 h48"/><path d="M148 120 h48"/><path d="M148 130 h48"/><path d="M148 140 h48"/><path d="M148 150 h48"/>
+          <path d="M228 160 V64 h52 v96"/>
+          <path d="M236 76 h36"/><path d="M236 86 h36"/><path d="M236 96 h36"/><path d="M236 106 h36"/><path d="M236 116 h36"/><path d="M236 126 h36"/><path d="M236 136 h36"/><path d="M236 146 h36"/>
+          <path d="M300 160 V100 h40 v60"/>
+        </g>
+      </svg>
+      <span class="ad-pg num" aria-label="광고 3개 중 1번째">1 / 3</span>
+    </a>
+  </div>
+</section>
+<section class="sec" aria-labelledby="rank-h">
+  <div class="wrap">
+    <div class="sec-hd">
+      <div>
+        <h2 id="rank-h" class="sec-t">사람들이 자주 찾는 단지</h2>
+        <p class="sec-s">최근 7일 조회 기준 · 2026.11.23 업데이트</p>
+      </div>
+      <div class="seg" role="tablist" aria-label="단지 또는 지역">
+        <button role="tab" aria-selected="true" class="seg-b on">단지</button><button role="tab" aria-selected="false" class="seg-b">지역</button>
+      </div>
+    </div>
+    <div class="tabs" role="tablist" aria-label="매물 종류">
+      <button role="tab" aria-selected="true" class="tab on">아파트·분양권</button><button role="tab" aria-selected="false" class="tab">원룸·투룸</button><button role="tab" aria-selected="false" class="tab">주택</button><button role="tab" aria-selected="false" class="tab">상업·업무</button><button role="tab" aria-selected="false" class="tab">토지</button>
+    </div>
+    <div class="rank">
+      <div class="rt-wrap"><table class="rt">
+    <caption class="sr">자주 찾는 단지 1위부터 5위</caption>
+    <thead><tr><th scope="col" class="c-r">순위</th><th scope="col" class="c-n">단지</th><th scope="col" class="c-k bun">분양</th><th scope="col" class="c-k mae">매매</th><th scope="col" class="c-k jeon">전세</th><th scope="col" class="c-k wol">월세</th><th scope="col" class="c-p">최근 거래</th></tr></thead>
+    <tbody>
+    <tr><td class="c-r num top">1</td><td class="c-n"><a href="#"><b>신대 레이크파크 1단지</b><span>해룡면 신대리 · 1,412세대</span></a></td><td class="c-k num z">0</td><td class="c-k num">38</td><td class="c-k num">12</td><td class="c-k num">6</td><td class="c-p"><b class="num">4억 3,500</b><span>34평</span></td></tr><tr><td class="c-r num top">2</td><td class="c-n"><a href="#"><b>연향 센트럴</b><span>연향동 · 980세대</span></a></td><td class="c-k num z">0</td><td class="c-k num">24</td><td class="c-k num">9</td><td class="c-k num">5</td><td class="c-p"><b class="num">3억 6,000</b><span>32평</span></td></tr><tr><td class="c-r num top">3</td><td class="c-n"><a href="#"><b>선월 하이츠 2차</b><span>해룡면 선월리 · 1,120세대</span></a></td><td class="c-k num">46</td><td class="c-k num">5</td><td class="c-k num z">0</td><td class="c-k num">2</td><td class="c-p"><b class="num">4억 1,900</b><span>분양권</span></td></tr><tr><td class="c-r num">4</td><td class="c-n"><a href="#"><b>조례 호수마을</b><span>조례동 · 860세대</span></a></td><td class="c-k num z">0</td><td class="c-k num">19</td><td class="c-k num">7</td><td class="c-k num">4</td><td class="c-p"><b class="num">2억 9,800</b><span>32평</span></td></tr><tr><td class="c-r num">5</td><td class="c-n"><a href="#"><b>오천 그린빌</b><span>오천동 · 724세대</span></a></td><td class="c-k num z">0</td><td class="c-k num">17</td><td class="c-k num">6</td><td class="c-k num">8</td><td class="c-p"><b class="num">2억 5,200</b><span>24평</span></td></tr>
+    </tbody></table></div>
+      <div class="rt-wrap"><table class="rt">
+    <caption class="sr">자주 찾는 단지 6위부터 10위</caption>
+    <thead><tr><th scope="col" class="c-r">순위</th><th scope="col" class="c-n">단지</th><th scope="col" class="c-k bun">분양</th><th scope="col" class="c-k mae">매매</th><th scope="col" class="c-k jeon">전세</th><th scope="col" class="c-k wol">월세</th><th scope="col" class="c-p">최근 거래</th></tr></thead>
+    <tbody>
+    <tr><td class="c-r num">6</td><td class="c-n"><a href="#"><b>금당 리버뷰</b><span>연향동 · 808세대</span></a></td><td class="c-k num z">0</td><td class="c-k num">14</td><td class="c-k num">5</td><td class="c-k num">3</td><td class="c-p"><b class="num">2억 7,500</b><span>31평</span></td></tr><tr><td class="c-r num">7</td><td class="c-n"><a href="#"><b>왕지 숲속마을</b><span>왕지동 · 652세대</span></a></td><td class="c-k num z">0</td><td class="c-k num">12</td><td class="c-k num">4</td><td class="c-k num">6</td><td class="c-p"><b class="num">2억 3,800</b><span>25평</span></td></tr><tr><td class="c-r num">8</td><td class="c-n"><a href="#"><b>신대 레이크파크 3단지</b><span>해룡면 신대리 · 1,036세대</span></a></td><td class="c-k num z">0</td><td class="c-k num">21</td><td class="c-k num">8</td><td class="c-k num">2</td><td class="c-p"><b class="num">4억 1,000</b><span>33평</span></td></tr><tr><td class="c-r num">9</td><td class="c-n"><a href="#"><b>연향들 더 퍼스트</b><span>연향동 · 612세대</span></a></td><td class="c-k num">58</td><td class="c-k num z">0</td><td class="c-k num z">0</td><td class="c-k num z">0</td><td class="c-p"><b class="num">4억 2,800</b><span>분양가</span></td></tr><tr><td class="c-r num">10</td><td class="c-n"><a href="#"><b>덕연 스카이</b><span>덕연동 · 498세대</span></a></td><td class="c-k num z">0</td><td class="c-k num">9</td><td class="c-k num">3</td><td class="c-k num">5</td><td class="c-p"><b class="num">1억 9,500</b><span>24평</span></td></tr>
+    </tbody></table></div>
+    </div>
+  </div>
+</section>
+<section class="sec" aria-labelledby="vid-h">
+  <div class="wrap">
+    <div class="sec-hd">
+      <div>
+        <h2 id="vid-h" class="sec-t">순천 부동산 이야기</h2>
+        <p class="sec-s">지역 중개사가 직접 다니며 전하는 동네 소식</p>
+      </div>
+      <a href="#" class="more">채널 전체 보기<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
+    </div>
+    <div class="vids">
+      <a href="#" class="vc">
+        <span class="vth" style="background:#0E1B3D;color:#fff">
+          <span class="vth-tag" style="color:#FFD25C;border-color:#FFD25C">시세 점검</span>
+          <span class="vth-t">신대 34평<br><em style="color:#FFD25C">지금 사도 될까?</em></span>
+          <svg class="vth-art" viewBox="0 0 120 80" aria-hidden="true"><g opacity=".16"><g fill="#fff"><path d="M2 80V46l13-9 13 9v34z"/><rect x="32" y="16" width="24" height="64"/><path d="M60 80V34h12v46z"/><path d="M76 80V26h16l8 8v46z"/><rect x="104" y="50" width="16" height="30"/></g><rect x="36" y="22" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="43.5" y="22" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="51" y="22" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="36" y="28.8" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="43.5" y="28.8" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="51" y="28.8" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="36" y="35.6" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="43.5" y="35.6" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="51" y="35.6" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="36" y="42.4" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="43.5" y="42.4" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="51" y="42.4" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="36" y="49.2" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="43.5" y="49.2" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="51" y="49.2" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="36" y="56" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="43.5" y="56" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="51" y="56" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="36" y="62.8" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="43.5" y="62.8" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="51" y="62.8" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="36" y="69.6" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="43.5" y="69.6" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="51" y="69.6" width="3.5" height="3" rx="1" fill="#0E1B3D"/><rect x="80" y="32" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="85.6" y="32" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="91.2" y="32" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="80" y="39.5" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="85.6" y="39.5" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="91.2" y="39.5" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="80" y="47" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="85.6" y="47" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="91.2" y="47" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="80" y="54.5" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="85.6" y="54.5" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="91.2" y="54.5" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="80" y="62" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="85.6" y="62" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="91.2" y="62" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="80" y="69.5" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="85.6" y="69.5" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="91.2" y="69.5" width="3" height="3" rx="1" fill="#0E1B3D"/><rect x="11" y="60" width="8" height="20" fill="#0E1B3D"/></g></svg>
+          <span class="vth-play" aria-hidden="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+          <span class="vth-dur num">14:32</span>
+        </span>
+        <span class="vc-t">신대지구 34평, 지금 사도 될까? 2026 하반기 시세 점검</span>
+        <span class="vc-m">조회수 1.2만회 · 3일 전</span>
+      </a><a href="#" class="vc">
+        <span class="vth" style="background:#1D4FF2;color:#fff">
+          <span class="vth-tag" style="color:#FFFFFF;border-color:#FFFFFF">개발 소식</span>
+          <span class="vth-t">연향들 토지 분양<br><em style="color:#FFFFFF">핵심만 5분 정리</em></span>
+          <svg class="vth-art" viewBox="0 0 120 80" aria-hidden="true"><g opacity=".16"><g fill="#fff"><path d="M2 80V46l13-9 13 9v34z"/><rect x="32" y="16" width="24" height="64"/><path d="M60 80V34h12v46z"/><path d="M76 80V26h16l8 8v46z"/><rect x="104" y="50" width="16" height="30"/></g><rect x="36" y="22" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="43.5" y="22" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="51" y="22" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="36" y="28.8" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="43.5" y="28.8" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="51" y="28.8" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="36" y="35.6" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="43.5" y="35.6" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="51" y="35.6" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="36" y="42.4" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="43.5" y="42.4" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="51" y="42.4" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="36" y="49.2" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="43.5" y="49.2" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="51" y="49.2" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="36" y="56" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="43.5" y="56" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="51" y="56" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="36" y="62.8" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="43.5" y="62.8" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="51" y="62.8" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="36" y="69.6" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="43.5" y="69.6" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="51" y="69.6" width="3.5" height="3" rx="1" fill="#1D4FF2"/><rect x="80" y="32" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="85.6" y="32" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="91.2" y="32" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="80" y="39.5" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="85.6" y="39.5" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="91.2" y="39.5" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="80" y="47" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="85.6" y="47" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="91.2" y="47" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="80" y="54.5" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="85.6" y="54.5" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="91.2" y="54.5" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="80" y="62" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="85.6" y="62" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="91.2" y="62" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="80" y="69.5" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="85.6" y="69.5" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="91.2" y="69.5" width="3" height="3" rx="1" fill="#1D4FF2"/><rect x="11" y="60" width="8" height="20" fill="#1D4FF2"/></g></svg>
+          <span class="vth-play" aria-hidden="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+          <span class="vth-dur num">5:08</span>
+        </span>
+        <span class="vc-t">연향들 도시개발사업 토지 분양, 청약 일정과 위치 핵심 정리</span>
+        <span class="vc-m">조회수 8,940회 · 1주 전</span>
+      </a><a href="#" class="vc">
+        <span class="vth" style="background:#F2F4F6;color:#0A1222">
+          <span class="vth-tag" style="color:#1D4FF2;border-color:#1D4FF2">동네 비교</span>
+          <span class="vth-t">오천 vs 선월<br><em style="color:#1D4FF2">실거주 비교</em></span>
+          <svg class="vth-art" viewBox="0 0 120 80" aria-hidden="true"><g opacity=".16"><g fill="#0A1222"><path d="M2 80V46l13-9 13 9v34z"/><rect x="32" y="16" width="24" height="64"/><path d="M60 80V34h12v46z"/><path d="M76 80V26h16l8 8v46z"/><rect x="104" y="50" width="16" height="30"/></g><rect x="36" y="22" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="43.5" y="22" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="51" y="22" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="36" y="28.8" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="43.5" y="28.8" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="51" y="28.8" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="36" y="35.6" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="43.5" y="35.6" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="51" y="35.6" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="36" y="42.4" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="43.5" y="42.4" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="51" y="42.4" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="36" y="49.2" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="43.5" y="49.2" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="51" y="49.2" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="36" y="56" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="43.5" y="56" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="51" y="56" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="36" y="62.8" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="43.5" y="62.8" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="51" y="62.8" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="36" y="69.6" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="43.5" y="69.6" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="51" y="69.6" width="3.5" height="3" rx="1" fill="#F2F4F6"/><rect x="80" y="32" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="85.6" y="32" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="91.2" y="32" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="80" y="39.5" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="85.6" y="39.5" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="91.2" y="39.5" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="80" y="47" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="85.6" y="47" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="91.2" y="47" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="80" y="54.5" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="85.6" y="54.5" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="91.2" y="54.5" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="80" y="62" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="85.6" y="62" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="91.2" y="62" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="80" y="69.5" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="85.6" y="69.5" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="91.2" y="69.5" width="3" height="3" rx="1" fill="#F2F4F6"/><rect x="11" y="60" width="8" height="20" fill="#F2F4F6"/></g></svg>
+          <span class="vth-play" aria-hidden="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+          <span class="vth-dur num">18:47</span>
+        </span>
+        <span class="vc-t">오천지구 vs 선월지구, 아이 키우는 집 실거주 비교</span>
+        <span class="vc-m">조회수 2.1만회 · 2주 전</span>
+      </a><a href="#" class="vc">
+        <span class="vth" style="background:#13223F;color:#fff">
+          <span class="vth-tag" style="color:#8FB0FF;border-color:#8FB0FF">원룸</span>
+          <span class="vth-t">대학가 원룸<br><em style="color:#8FB0FF">월세 시세 지도</em></span>
+          <svg class="vth-art" viewBox="0 0 120 80" aria-hidden="true"><g opacity=".16"><g fill="#fff"><path d="M2 80V46l13-9 13 9v34z"/><rect x="32" y="16" width="24" height="64"/><path d="M60 80V34h12v46z"/><path d="M76 80V26h16l8 8v46z"/><rect x="104" y="50" width="16" height="30"/></g><rect x="36" y="22" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="43.5" y="22" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="51" y="22" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="36" y="28.8" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="43.5" y="28.8" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="51" y="28.8" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="36" y="35.6" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="43.5" y="35.6" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="51" y="35.6" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="36" y="42.4" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="43.5" y="42.4" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="51" y="42.4" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="36" y="49.2" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="43.5" y="49.2" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="51" y="49.2" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="36" y="56" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="43.5" y="56" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="51" y="56" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="36" y="62.8" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="43.5" y="62.8" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="51" y="62.8" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="36" y="69.6" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="43.5" y="69.6" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="51" y="69.6" width="3.5" height="3" rx="1" fill="#13223F"/><rect x="80" y="32" width="3" height="3" rx="1" fill="#13223F"/><rect x="85.6" y="32" width="3" height="3" rx="1" fill="#13223F"/><rect x="91.2" y="32" width="3" height="3" rx="1" fill="#13223F"/><rect x="80" y="39.5" width="3" height="3" rx="1" fill="#13223F"/><rect x="85.6" y="39.5" width="3" height="3" rx="1" fill="#13223F"/><rect x="91.2" y="39.5" width="3" height="3" rx="1" fill="#13223F"/><rect x="80" y="47" width="3" height="3" rx="1" fill="#13223F"/><rect x="85.6" y="47" width="3" height="3" rx="1" fill="#13223F"/><rect x="91.2" y="47" width="3" height="3" rx="1" fill="#13223F"/><rect x="80" y="54.5" width="3" height="3" rx="1" fill="#13223F"/><rect x="85.6" y="54.5" width="3" height="3" rx="1" fill="#13223F"/><rect x="91.2" y="54.5" width="3" height="3" rx="1" fill="#13223F"/><rect x="80" y="62" width="3" height="3" rx="1" fill="#13223F"/><rect x="85.6" y="62" width="3" height="3" rx="1" fill="#13223F"/><rect x="91.2" y="62" width="3" height="3" rx="1" fill="#13223F"/><rect x="80" y="69.5" width="3" height="3" rx="1" fill="#13223F"/><rect x="85.6" y="69.5" width="3" height="3" rx="1" fill="#13223F"/><rect x="91.2" y="69.5" width="3" height="3" rx="1" fill="#13223F"/><rect x="11" y="60" width="8" height="20" fill="#13223F"/></g></svg>
+          <span class="vth-play" aria-hidden="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg></span>
+          <span class="vth-dur num">9:15</span>
+        </span>
+        <span class="vc-t">순천 원룸 월세, 순천대·청암대·제일대 앞 시세 지도</span>
+        <span class="vc-m">조회수 6,320회 · 3주 전</span>
+      </a>
+    </div>
+  </div>
+</section>
+<section class="sec sec-tight" aria-labelledby="app-h">
+  <div class="wrap">
+    <div class="app">
+      <div class="app-copy">
+        <p class="app-k">BRAND 앱</p>
+        <h2 id="app-h" class="app-t">관심 단지에 새 매물이 올라오면<br>가장 먼저 알려드려요</h2>
+        <div class="app-btns">
+          <a href="#" class="store"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.9-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2-1.1 2.8-2.3.9-1.3 1.2-2.5 1.2-2.6 0 0-2.4-.9-2.4-3.8zM14.2 5.8c.6-.8 1.1-1.8 1-2.8-.9 0-2 .6-2.7 1.4-.6.7-1.1 1.7-1 2.7 1 .1 2-.5 2.7-1.3z"/></svg><span><small>Download on the</small>App Store</span></a>
+          <a href="#" class="store"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="#34A853" d="M4 3.3 13.6 12 4 20.7c-.3-.2-.5-.6-.5-1.1V4.4c0-.5.2-.9.5-1.1z"/><path fill="#FBBC04" d="m16.8 15.2-3.2-3.2 3.2-3.2 3.6 2c1 .6 1 1.8 0 2.4z"/><path fill="#4285F4" d="M13.6 12 4 3.3c.3-.2.8-.2 1.3 0l11.5 5.5z"/><path fill="#EA4335" d="M13.6 12l3.2 3.2-11.5 5.5c-.5.2-1 .2-1.3 0z"/></svg><span><small>GET IT ON</small>Google Play</span></a>
+        </div>
+      </div>
+      <div class="phone" aria-hidden="true">
+        <div class="ph-scr">
+          <div class="ph-noti">
+            <span class="ph-ic"><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1D4FF2"/><path d="M9 23v-6.5a7 7 0 0 1 14 0V23" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="16" cy="17" r="2.6" fill="#fff"/><rect x="21.5" y="6.5" width="4" height="4" rx="1.2" fill="#9DB7FF"/></svg></span>
+            <span class="ph-tx"><b>신대 레이크파크 1단지 새 매물</b>34평 · 매매 4억 3,800 · 중/25층</span>
+          </div>
+          <div class="ph-noti ph-noti2">
+            <span class="ph-ic"><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1D4FF2"/><path d="M9 23v-6.5a7 7 0 0 1 14 0V23" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="16" cy="17" r="2.6" fill="#fff"/><rect x="21.5" y="6.5" width="4" height="4" rx="1.2" fill="#9DB7FF"/></svg></span>
+            <span class="ph-tx"><b>조례 호수마을 가격 변경</b>32평 · 전세 2억 1,000</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="ft">
+  <div class="wrap ft-in">
+    <div class="ft-top">
+      <a class="logo" href="#" aria-label="BRAND 홈">
+  <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1D4FF2"/><path d="M9 23v-6.5a7 7 0 0 1 14 0V23" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="16" cy="17" r="2.6" fill="#fff"/><rect x="21.5" y="6.5" width="4" height="4" rx="1.2" fill="#9DB7FF"/></svg>
+  <span class="logo-word">BRAND</span>
+</a>
+      <nav class="ft-nav" aria-label="하단 메뉴">
+        <a href="#">회사소개</a><a href="#">이용약관</a><a href="#"><b>개인정보처리방침</b></a><a href="#">위치기반서비스 이용약관</a><a href="#">공지사항</a><a href="#">광고 · 제휴 문의</a><a href="#">허위매물 신고</a>
+      </nav>
+    </div>
+    <dl class="ft-info">
+      <div><dt>상호</dt><dd>[상호]</dd></div>
+      <div><dt>대표</dt><dd>[대표자명]</dd></div>
+      <div><dt>사업자등록번호</dt><dd>[000-00-00000]</dd></div>
+      <div><dt>통신판매업신고</dt><dd>[제0000-전남순천-0000호]</dd></div>
+      <div><dt>주소</dt><dd>[주소] 전라남도 순천시</dd></div>
+      <div><dt>개인정보보호책임자</dt><dd>[성명]</dd></div>
+      <div><dt>고객센터</dt><dd>[000-0000-0000] · 평일 09:00 - 18:00</dd></div>
+    </dl>
+    <p class="ft-note">BRAND는 매물 정보를 중개하는 플랫폼으로 거래 당사자가 아니며, 등록된 매물 정보와 거래에 대한 책임은 각 중개사무소에 있습니다.</p>
+    <p class="ft-copy">© 2026 BRAND. All rights reserved.</p>
+  </div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":3754}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

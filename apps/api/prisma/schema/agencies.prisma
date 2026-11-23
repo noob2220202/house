@@ -1,0 +1,173 @@
+// Owned by the agencies module team: 중개사무소, staff, documents, approval history.
+
+enum AgencyStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+
+  @@map("agency_status")
+}
+
+enum AgencyMemberRole {
+  OWNER
+  AGENT
+
+  @@map("agency_member_role")
+}
+
+enum AgencyMemberStatus {
+  INVITED
+  ACTIVE
+  REMOVED
+
+  @@map("agency_member_status")
+}
+
+enum AgencyDocumentType {
+  REGISTRATION_CERT
+  BUSINESS_REG_CERT
+  BROKER_LICENSE
+  OTHER
+
+  @@map("agency_document_type")
+}
+
+model Agency {
+  id                 String                                 @id @default(uuid(7)) @db.Uuid
+  ownerUserId        String                                 @map("owner_user_id") @db.Uuid
+  name               String                                 @db.VarChar(100)
+  /// 대표 개업공인중개사 성명
+  representativeName String                                 @map("representative_name") @db.VarChar(50)
+  /// 중개사무소 등록번호
+  registrationNumber String                                 @unique @map("registration_number") @db.VarChar(40)
+  businessNumber     String?                                @map("business_number") @db.VarChar(20)
+  phone              String                                 @db.VarChar(20)
+  mobile             String?                                @db.VarChar(20)
+  email              String?                                @db.VarChar(254)
+  roadAddress        String                                 @map("road_address") @db.VarChar(200)
+  jibunAddress       String?                                @map("jibun_address") @db.VarChar(200)
+  addressDetail      String?                                @map("address_detail") @db.VarChar(100)
+  zipCode            String?                                @map("zip_code") @db.VarChar(10)
+  sggCode            String                                 @map("sgg_code") @db.VarChar(5)
+  emdCode            String?                                @map("emd_code") @db.VarChar(10)
+  lat                Float
+  lng                Float
+  location           Unsupported("geography(Point, 4326)")?
+  intro              String?
+  /// { mon: { open: "09:00", close: "18:00" }, ... }
+  businessHours      Json?                                  @map("business_hours")
+  specialties        AssetType[]                            @default([])
+  logoMediaId        String?                                @map("logo_media_id") @db.Uuid
+  status             AgencyStatus                           @default(PENDING)
+  statusReason       String?                                @map("status_reason") @db.VarChar(1000)
+  approvedAt         DateTime?                              @map("approved_at") @db.Timestamptz(3)
+  suspendedAt        DateTime?                              @map("suspended_at") @db.Timestamptz(3)
+  /// Denormalized counters (maintained by services/jobs).
+  activeListingCount Int                                    @default(0) @map("active_listing_count")
+  viewCount          Int                                    @default(0) @map("view_count")
+  warningCount       Int                                    @default(0) @map("warning_count")
+  createdAt          DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt          DateTime?                              @map("deleted_at") @db.Timestamptz(3)
+
+  owner           User                      @relation("AgencyOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
+  logo            Media?                    @relation("AgencyLogo", fields: [logoMediaId], references: [id], onDelete: SetNull)
+  members         AgencyMember[]
+  documents       AgencyDocument[]
+  statusHistory   AgencyStatusHistory[]
+  warnings        AgencyWarning[]
+  listingAgencies ListingAgency[]
+  primaryListings Listing[]                 @relation("ListingPrimaryAgency")
+  dealTargets     DealRequestTarget[]
+  proposals       Proposal[]
+  contactGrants   DealRequestContactGrant[]
+  banners         Banner[]
+  reports         Report[]
+
+  @@index([status, sggCode])
+  @@index([emdCode, status])
+  @@index([ownerUserId])
+  @@index([location], type: Gist)
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "agencies_name_trgm_idx")
+  @@index([roadAddress(ops: raw("gin_trgm_ops"))], type: Gin, map: "agencies_road_address_trgm_idx")
+  @@map("agencies")
+}
+
+/// Staff of an agency (AGENT users) including the owner.
+model AgencyMember {
+  id            String             @id @default(uuid(7)) @db.Uuid
+  agencyId      String             @map("agency_id") @db.Uuid
+  userId        String             @map("user_id") @db.Uuid
+  role          AgencyMemberRole   @default(AGENT)
+  status        AgencyMemberStatus @default(ACTIVE)
+  displayName   String             @map("display_name") @db.VarChar(50)
+  title         String?            @db.VarChar(30)
+  phone         String?            @db.VarChar(20)
+  /// 소속공인중개사 여부 (false = 중개보조원)
+  isLicensed    Boolean            @default(false) @map("is_licensed")
+  licenseNumber String?            @map("license_number") @db.VarChar(40)
+  joinedAt      DateTime           @default(now()) @map("joined_at") @db.Timestamptz(3)
+  removedAt     DateTime?          @map("removed_at") @db.Timestamptz(3)
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  agency          Agency          @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingContacts ListingAgency[]
+  proposals       Proposal[]
+
+  @@unique([agencyId, userId])
+  @@index([userId, status])
+  @@map("agency_members")
+}
+
+/// Private documents (registration certificate etc.). Media is PRIVATE visibility.
+model AgencyDocument {
+  id           String             @id @default(uuid(7)) @db.Uuid
+  agencyId     String             @map("agency_id") @db.Uuid
+  type         AgencyDocumentType
+  mediaId      String             @map("media_id") @db.Uuid
+  uploadedById String?            @map("uploaded_by_id") @db.Uuid
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  agency     Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  media      Media  @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+  uploadedBy User?  @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([agencyId, type])
+  @@map("agency_documents")
+}
+
+/// Admin decision history (approve/reject/suspend).
+model AgencyStatusHistory {
+  id               String        @id @default(uuid(7)) @db.Uuid
+  agencyId         String        @map("agency_id") @db.Uuid
+  fromStatus       AgencyStatus? @map("from_status")
+  toStatus         AgencyStatus  @map("to_status")
+  reason           String?       @db.VarChar(1000)
+  decidedByAdminId String?       @map("decided_by_admin_id") @db.Uuid
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  agency    Agency     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  decidedBy AdminUser? @relation(fields: [decidedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([agencyId, createdAt(sort: Desc)])
+  @@map("agency_status_history")
+}
+
+model AgencyWarning {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  agencyId  String   @map("agency_id") @db.Uuid
+  reportId  String?  @map("report_id") @db.Uuid
+  adminId   String?  @map("admin_id") @db.Uuid
+  reason    String   @db.VarChar(1000)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  agency Agency     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  report Report?    @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  admin  AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([agencyId, createdAt(sort: Desc)])
+  @@map("agency_warnings")
+}

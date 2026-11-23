@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>아파트 지도 - B 클린 프로덕트</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Noto+Sans+KR:wght@400;500;700;800;900&amp;display=swap">
+<style>
+:root{
+  --blue:#1D4FF2; --blue-700:#1539C4; --blue-800:#102C99; --blue-50:#EEF3FF; --blue-100:#DCE6FF; --blue-200:#B9CCFF;
+  --ink:#0A1222; --g800:#1F2836; --g700:#333D4B; --g600:#4E5968; --g500:#646F7C; --g400:#8B95A1; --g300:#B0B8C1; --g200:#D1D6DB; --line:#E5E8EB; --g100:#F2F4F6; --g50:#F8F9FB; --white:#FFFFFF;
+  --c-bun:#7B3FE4; --c-mae:#1D4FF2; --c-jeon:#08805F; --c-wol:#C2410C; --up:#D92633; --down:#1D4FF2;
+  --r-xs:6px; --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:24px; --r-2xl:32px; --r-pill:999px;
+  --sh-1:0 1px 2px rgba(10,18,34,.06),0 0 0 1px rgba(10,18,34,.04);
+  --sh-2:0 2px 4px rgba(10,18,34,.04),0 6px 16px rgba(10,18,34,.07);
+  --sh-3:0 4px 8px rgba(10,18,34,.05),0 16px 40px rgba(10,18,34,.12);
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:20px; --s-6:24px; --s-8:32px; --s-10:40px; --s-14:56px; --s-20:80px;
+  --font:"Inter","Noto Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:#fff}
+x-dc{display:block}
+.root{font-family:var(--font);color:var(--ink);background:#fff;-webkit-font-smoothing:antialiased;letter-spacing:-0.01em;line-height:1.5;font-feature-settings:"tnum" 1}
+:where(.root) a{color:inherit;text-decoration:none}
+:where(.root) button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+:where(.root) :is(h1,h2,h3,h4,p){margin:0}
+:where(.root) :is(h1,h2,h3){text-wrap:pretty;letter-spacing:-0.03em}
+.ic{flex:none;display:block}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.logo{display:inline-flex;align-items:center;gap:10px;flex:none}
+.logo-word{font-family:"Inter",sans-serif;font-weight:800;font-size:21px;letter-spacing:-0.04em;color:var(--ink)}
+.num{font-family:"Inter","Noto Sans KR",sans-serif;font-feature-settings:"tnum" 1}
+.bun{color:var(--c-bun)} .mae{color:var(--c-mae)} .jeon{color:var(--c-jeon)} .wol{color:var(--c-wol)}
+
+.app-root{height:900px;display:flex;flex-direction:column;overflow:hidden;background:#fff}
+/* top nav */
+.tn{flex:none;display:flex;align-items:center;gap:24px;height:64px;padding:0 24px;border-bottom:1px solid var(--line);background:#fff;position:relative;z-index:4}
+.tsearch{display:flex;align-items:center;gap:8px;width:300px;height:42px;padding:0 14px;border-radius:12px;background:var(--g100);color:var(--g500);flex:none}
+.tsearch input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:15px;color:var(--ink)}
+.tsearch input::placeholder{color:var(--g500)}
+.ttabs{display:flex;align-items:center;gap:2px;height:64px;min-width:0}
+.tt{position:relative;display:inline-flex;align-items:center;height:64px;padding:0 12px;font-size:15px;font-weight:600;color:var(--g600);white-space:nowrap}
+.tt.on{color:var(--ink);font-weight:800}
+.tt.on::after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:3px;border-radius:3px 3px 0 0;background:var(--blue)}
+.tt-sep{width:1px;height:16px;background:var(--line);margin:0 6px}
+.tact{display:flex;align-items:center;gap:6px;margin-left:auto}
+.tb{display:inline-flex;align-items:center;height:38px;padding:0 14px;border-radius:var(--r-pill);background:var(--g100);font-size:14px;font-weight:700;color:var(--g800);white-space:nowrap}
+.tb-sell{background:var(--blue-50);color:var(--blue-700)}
+.tb-ic{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;color:var(--g700)}
+.tb-login{display:inline-flex;align-items:center;height:38px;padding:0 16px;border-radius:var(--r-pill);background:var(--ink);color:#fff;font-size:14px;font-weight:700;white-space:nowrap}
+/* filter bar */
+.fb{flex:none;display:flex;align-items:center;justify-content:space-between;gap:16px;height:60px;padding:0 24px;border-bottom:1px solid var(--line);background:#fff;position:relative;z-index:3}
+.fb-l{display:flex;align-items:center;gap:8px;min-width:0;overflow-x:auto}
+.fc{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 12px 0 14px;border-radius:var(--r-pill);border:1px solid var(--g200);background:#fff;font-size:14px;font-weight:600;color:var(--g800);white-space:nowrap;flex:none}
+.fc .ic{color:var(--g500)}
+.fc.on{background:var(--blue-50);border-color:var(--blue-200);color:var(--blue-700);font-weight:700}
+.fc.on .ic{color:var(--blue-700)}
+.fc-reset{border-color:transparent;color:var(--g600);padding:0 10px}
+.fc-reset .ic{color:var(--g600)}
+.fb-sep{width:1px;height:20px;background:var(--line);flex:none}
+.unit{display:inline-flex;padding:3px;border-radius:var(--r-pill);background:var(--g100)}
+.unit button{height:32px;min-width:44px;padding:0 12px;border-radius:var(--r-pill);font-size:13.5px;font-weight:600;color:var(--g600)}
+.unit button.on{background:#fff;color:var(--ink);font-weight:700;box-shadow:var(--sh-1)}
+/* body */
+.bd{flex:1;min-height:0;display:flex}
+.lp{flex:none;width:380px;display:flex;flex-direction:column;border-right:1px solid var(--line);background:#fff;position:relative;z-index:2}
+.lp-tabs{display:flex;gap:4px;padding:12px 16px 0;border-bottom:1px solid var(--line)}
+.lt{position:relative;height:44px;padding:0 10px;font-size:14.5px;font-weight:600;color:var(--g500)}
+.lt span{color:var(--g500);font-weight:600}
+.lt.on{color:var(--ink);font-weight:800}
+.lt.on::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:2px;background:var(--ink);border-radius:2px}
+.lp-sum{display:flex;align-items:center;justify-content:space-between;padding:14px 24px 6px;font-size:13px;color:var(--g500)}
+.lp-sum b{color:var(--ink)}
+.legend{display:flex;gap:10px;font-weight:700;font-size:12px}
+.lp-list{list-style:none;margin:0;padding:4px 12px 16px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;flex:1;min-height:0}
+.it{display:flex;flex-direction:column;gap:6px;padding:16px 14px;border-radius:var(--r-lg)}
+.it:hover{background:var(--g50)}
+.it.on{background:var(--blue-50);box-shadow:inset 0 0 0 1.5px var(--blue-200)}
+.it-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.it-n{font-size:16.5px;font-weight:800;letter-spacing:-0.03em;color:var(--ink)}
+.it-d{font-size:13px;color:var(--g500);font-weight:500;flex:none}
+.it-meta{font-size:13px;color:var(--g500);margin-top:-4px}
+.it-k{display:flex;gap:14px;font-size:14px;font-weight:700}
+.it-k em{font-style:normal;margin-right:4px;font-weight:600}
+.it-k .z{color:var(--g500);font-weight:500}
+.it-k .z em{color:var(--g500)}
+.it-p{display:flex;align-items:baseline;gap:8px;margin-top:2px}
+.it-p em{font-style:normal;font-size:12.5px;font-weight:600;color:var(--g500)}
+.it-p b{font-size:17px;font-weight:800;letter-spacing:-0.03em;color:var(--ink)}
+.it.on .it-p em,.it.on .it-d,.it.on .it-meta{color:#4A5876}
+/* map */
+.mp{position:relative;flex:1;min-width:0;overflow:hidden;background:#F3F5F8}
+.map-svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.crumb{position:absolute;left:50%;top:20px;transform:translateX(-50%);display:flex;align-items:center;gap:4px;height:44px;padding:0 18px 0 8px;border-radius:var(--r-pill);background:#fff;box-shadow:var(--sh-2);font-size:14.5px;font-weight:600;color:var(--g600);white-space:nowrap;z-index:3}
+.crumb-i{display:flex;width:30px;height:30px;align-items:center;justify-content:center;border-radius:50%;background:var(--blue);color:#fff;margin-right:4px}
+.crumb .ic{color:var(--g400)}
+.crumb b{color:var(--ink);font-weight:800}
+.crumb-i .ic{color:#fff}
+.mlayer{position:absolute;left:20px;top:20px;display:flex;padding:4px;gap:2px;border-radius:var(--r-pill);background:#fff;box-shadow:var(--sh-2);z-index:3}
+.mlayer button{height:36px;padding:0 14px;border-radius:var(--r-pill);font-size:13.5px;font-weight:600;color:var(--g600)}
+.mlayer button.on{background:var(--ink);color:#fff;font-weight:700}
+.station{position:absolute;transform:translate(-50%,-50%);display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px 0 4px;border-radius:var(--r-pill);background:#fff;box-shadow:var(--sh-1);font-size:12.5px;font-weight:700;color:var(--g700);white-space:nowrap}
+.station i{width:16px;height:16px;border-radius:50%;background:#fff;border:4px solid #4E5968}
+.mk{position:absolute;transform:translate(-50%,-100%);display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px 0 4px;border-radius:12px;background:#fff;box-shadow:0 1px 2px rgba(10,18,34,.08),0 6px 14px rgba(10,18,34,.10);font-size:13.5px;white-space:nowrap;z-index:1}
+.mk::after{content:"";position:absolute;left:50%;bottom:-5px;width:10px;height:10px;background:inherit;transform:translateX(-50%) rotate(45deg);border-radius:0 0 2px 0;box-shadow:2px 2px 3px rgba(10,18,34,.06)}
+.mk-c{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 6px;border-radius:9px;background:var(--blue);color:#fff;font-weight:800;font-size:13.5px}
+.mk-n{font-weight:700;color:var(--g800)}
+.mk-p{font-weight:800;color:var(--ink);letter-spacing:-0.02em}
+.mk-on{height:44px;padding:0 16px 0 6px;border-radius:14px;background:var(--blue);z-index:2;font-size:15px;box-shadow:0 10px 24px rgba(29,79,242,.38)}
+.mk-on .mk-c{background:#fff;color:var(--blue-700);height:32px;min-width:34px;font-size:15px}
+.mk-on .mk-n,.mk-on .mk-p{color:#fff}
+.mk-new .mk-c{background:var(--c-bun)}
+.mk-new .mk-p{display:inline-flex;align-items:center;height:22px;padding:0 7px;border-radius:6px;background:#F1EAFD;color:var(--c-bun);font-size:12px}
+.cl{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:50%;background:rgba(29,79,242,.92);color:#fff;box-shadow:0 0 0 8px rgba(29,79,242,.14),0 8px 20px rgba(29,79,242,.3);line-height:1.2}
+.cl-n{font-size:13px;font-weight:700}
+.cl-c{font-size:17px;font-weight:800}
+.pop{position:absolute;transform:translate(-50%,0);width:272px;padding:16px 16px 12px;border-radius:var(--r-lg);background:#fff;box-shadow:var(--sh-3);z-index:3;display:flex;flex-direction:column;gap:12px}
+.pop-hd{display:flex;flex-direction:column;gap:2px}
+.pop-hd b{font-size:16px;font-weight:800}
+.pop-hd span{font-size:12.5px;color:var(--g500)}
+.pop-g{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pop-g div{display:flex;flex-direction:column;padding:10px 12px;border-radius:var(--r-md);background:var(--g50)}
+.pop-g em{font-style:normal;font-size:12px;font-weight:700;color:var(--g500)}
+.pop-g div:first-child em{color:var(--c-mae)}
+.pop-g div:last-child em{color:var(--c-jeon)}
+.pop-g b{font-size:17px;font-weight:800;letter-spacing:-0.03em}
+.pop-a{display:flex;align-items:center;justify-content:center;gap:6px;height:44px;border-radius:var(--r-md);background:var(--ink);color:#fff;font-size:14.5px;font-weight:700}
+.mad{position:absolute;right:20px;top:20px;width:308px;padding:16px;border-radius:var(--r-lg);background:#fff;box-shadow:var(--sh-3);z-index:3;display:flex;flex-direction:column;gap:12px}
+.mad-tag{position:absolute;left:16px;top:-9px;height:18px;padding:0 6px;border-radius:4px;background:#0F1B3A;color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.06em;line-height:18px}
+.mad-x{position:absolute;right:4px;top:4px;display:flex;width:36px;height:36px;align-items:center;justify-content:center;border-radius:50%;color:var(--g500)}
+.mad-row{display:flex;gap:12px;align-items:center}
+.mad-logo svg{display:block}
+.mad-tx{display:flex;flex-direction:column;gap:1px;min-width:0}
+.mad-k{font-size:12px;font-weight:700;color:#8A6A1E}
+.mad-n{font-size:15.5px;font-weight:800;letter-spacing:-0.03em}
+.mad-s{font-size:12.5px;color:var(--g500)}
+.mad-cta{display:flex;align-items:center;justify-content:center;gap:6px;height:44px;border-radius:var(--r-md);background:var(--blue-50);color:var(--blue-700);font-size:15px;font-weight:800}
+.zoom{position:absolute;right:20px;bottom:84px;display:flex;flex-direction:column;border-radius:var(--r-md);background:#fff;box-shadow:var(--sh-2);overflow:hidden;z-index:3}
+.zoom button{display:flex;width:44px;height:44px;align-items:center;justify-content:center;color:var(--g800)}
+.zoom button+button{border-top:1px solid var(--line)}
+.locate{position:absolute;right:20px;bottom:28px;display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:var(--r-md);background:#fff;box-shadow:var(--sh-2);color:var(--blue);z-index:3}
+.scale{position:absolute;left:20px;bottom:24px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--g600);z-index:3}
+.scale i{display:block;width:64px;height:6px;border:2px solid var(--g600);border-top:0}
+@media (max-width:1200px){.ttabs{display:none} }
+@media (max-width:760px){
+  .app-root{height:auto;overflow:visible}
+  .tn{flex-wrap:wrap;height:auto;padding:12px 16px;gap:12px}
+  .tsearch{order:3;width:100%}
+  .tact .tb{display:none}
+  .fb{padding:0 16px;height:auto;min-height:60px}
+  .fb-r{display:none}
+  .bd{flex-direction:column}
+  .lp{width:100%;border-right:0;border-bottom:1px solid var(--line)}
+  .lp-tabs{overflow-x:auto}
+  .lt{flex:none}
+  .lp-list{max-height:420px}
+  .mp{height:560px;flex:none}
+  .mad{left:12px;right:12px;width:auto;top:auto;bottom:12px}
+  .crumb{top:72px}
+  .zoom,.locate,.scale{display:none}
+  .pop{display:none}
+  .mk:not(.mk-on){padding:0 4px;gap:0}
+  .mk:not(.mk-on) .mk-n,.mk:not(.mk-on) .mk-p{display:none}
+  .cl{transform:translate(-50%,-50%) scale(.75)}
+}
+
+</style>
+</helmet>
+<div class="root app-root">
+<header class="tn">
+  <a class="logo" href="#" aria-label="BRAND 홈">
+  <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1D4FF2"/><path d="M9 23v-6.5a7 7 0 0 1 14 0V23" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="16" cy="17" r="2.6" fill="#fff"/><rect x="21.5" y="6.5" width="4" height="4" rx="1.2" fill="#9DB7FF"/></svg>
+  <span class="logo-word">BRAND</span>
+</a>
+  <form class="tsearch" role="search" action="#">
+    <label for="tq" class="sr">지역 또는 단지명 검색</label>
+    <svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
+    <input id="tq" type="search" placeholder="지역 또는 단지명" value="">
+  </form>
+  <nav class="ttabs" aria-label="매물 종류">
+    <a href="#" class="tt on" aria-current="page">아파트·분양권</a><a href="#" class="tt">원룸·투룸</a><a href="#" class="tt">주택</a><a href="#" class="tt">상업·업무</a><a href="#" class="tt">토지</a><span class="tt-sep" aria-hidden="true"></span><a href="#" class="tt">중개업소</a>
+  </nav>
+  <div class="tact">
+    <a href="#" class="tb tb-sell">내놓기</a>
+    <a href="#" class="tb">구하기</a>
+    <a href="#" class="tb-ic" aria-label="관심 매물"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/></svg></a>
+    <a href="#" class="tb-login">로그인</a>
+  </div>
+</header>
+<div class="fb" role="toolbar" aria-label="매물 필터">
+  <div class="fb-l">
+    <button class="fc on" aria-label="매물종류: 아파트·분양권" aria-haspopup="listbox">아파트·분양권<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><button class="fc on" aria-label="거래방식: 매매 · 전세" aria-haspopup="listbox">매매 · 전세<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><button class="fc" aria-label="면적" aria-haspopup="listbox">면적<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><button class="fc" aria-label="금액" aria-haspopup="listbox">금액<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><button class="fc" aria-label="방향" aria-haspopup="listbox">방향<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><button class="fc" aria-label="방" aria-haspopup="listbox">방<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><button class="fc" aria-label="욕실" aria-haspopup="listbox">욕실<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+    <span class="fb-sep" aria-hidden="true"></span>
+    <button class="fc fc-reset"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/></svg>초기화</button>
+  </div>
+  <div class="fb-r">
+    <div class="unit" role="group" aria-label="면적 단위"><button class="on" aria-pressed="true">평</button><button aria-pressed="false">㎡</button></div>
+  </div>
+</div>
+<div class="bd">
+  <aside class="lp" aria-label="단지 목록">
+    <div class="lp-tabs" role="tablist">
+      <button role="tab" aria-selected="true" class="lt on">자주 방문한 단지</button>
+      <button role="tab" aria-selected="false" class="lt">관심 단지 <span class="num">3</span></button>
+      <button role="tab" aria-selected="false" class="lt">지도 내 단지 <span class="num">11</span></button>
+    </div>
+    <div class="lp-sum">
+      <p>최근 30일 · <b class="num">7</b>개 단지</p>
+      <span class="legend"><span class="bun">분양</span><span class="mae">매매</span><span class="jeon">전세</span><span class="wol">월세</span></span>
+    </div>
+    <ul class="lp-list"><li><a href="#" class="it on">
+  <span class="it-top"><b class="it-n">연향 센트럴</b><span class="it-d">연향동</span></span>
+  <span class="it-meta">980세대 · 2016년</span>
+  <span class="it-k"><span class="z"><em>분</em><span class="num">0</span></span><span class="mae"><em>매</em><span class="num">24</span></span><span class="jeon"><em>전</em><span class="num">9</span></span><span class="wol"><em>월</em><span class="num">5</span></span></span>
+  <span class="it-p"><em>매매</em><b class="num">3억 2,000 ~ 3억 9,500</b></span>
+</a></li><li><a href="#" class="it">
+  <span class="it-top"><b class="it-n">조례 호수마을</b><span class="it-d">조례동</span></span>
+  <span class="it-meta">860세대 · 2009년</span>
+  <span class="it-k"><span class="z"><em>분</em><span class="num">0</span></span><span class="mae"><em>매</em><span class="num">19</span></span><span class="jeon"><em>전</em><span class="num">7</span></span><span class="wol"><em>월</em><span class="num">4</span></span></span>
+  <span class="it-p"><em>매매</em><b class="num">2억 6,500 ~ 3억 1,000</b></span>
+</a></li><li><a href="#" class="it">
+  <span class="it-top"><b class="it-n">신대 레이크파크 1단지</b><span class="it-d">해룡면</span></span>
+  <span class="it-meta">1,412세대 · 2019년</span>
+  <span class="it-k"><span class="z"><em>분</em><span class="num">0</span></span><span class="mae"><em>매</em><span class="num">38</span></span><span class="jeon"><em>전</em><span class="num">12</span></span><span class="wol"><em>월</em><span class="num">6</span></span></span>
+  <span class="it-p"><em>매매</em><b class="num">3억 9,000 ~ 4억 8,500</b></span>
+</a></li><li><a href="#" class="it">
+  <span class="it-top"><b class="it-n">선월 하이츠 2차</b><span class="it-d">해룡면</span></span>
+  <span class="it-meta">1,120세대 · 2027년 입주</span>
+  <span class="it-k"><span class="bun"><em>분</em><span class="num">46</span></span><span class="mae"><em>매</em><span class="num">5</span></span><span class="z"><em>전</em><span class="num">0</span></span><span class="wol"><em>월</em><span class="num">2</span></span></span>
+  <span class="it-p"><em>분양권</em><b class="num">3억 9,000 ~ 4억 3,500</b></span>
+</a></li><li><a href="#" class="it">
+  <span class="it-top"><b class="it-n">금당 리버뷰</b><span class="it-d">연향동</span></span>
+  <span class="it-meta">808세대 · 2005년</span>
+  <span class="it-k"><span class="z"><em>분</em><span class="num">0</span></span><span class="mae"><em>매</em><span class="num">14</span></span><span class="jeon"><em>전</em><span class="num">5</span></span><span class="wol"><em>월</em><span class="num">3</span></span></span>
+  <span class="it-p"><em>매매</em><b class="num">2억 4,000 ~ 2억 9,800</b></span>
+</a></li><li><a href="#" class="it">
+  <span class="it-top"><b class="it-n">왕지 숲속마을</b><span class="it-d">왕지동</span></span>
+  <span class="it-meta">652세대 · 2011년</span>
+  <span class="it-k"><span class="z"><em>분</em><span class="num">0</span></span><span class="mae"><em>매</em><span class="num">12</span></span><span class="jeon"><em>전</em><span class="num">4</span></span><span class="wol"><em>월</em><span class="num">6</span></span></span>
+  <span class="it-p"><em>매매</em><b class="num">2억 1,000 ~ 2억 6,000</b></span>
+</a></li><li><a href="#" class="it">
+  <span class="it-top"><b class="it-n">덕연 스카이</b><span class="it-d">덕연동</span></span>
+  <span class="it-meta">498세대 · 2003년</span>
+  <span class="it-k"><span class="z"><em>분</em><span class="num">0</span></span><span class="mae"><em>매</em><span class="num">9</span></span><span class="jeon"><em>전</em><span class="num">3</span></span><span class="wol"><em>월</em><span class="num">5</span></span></span>
+  <span class="it-p"><em>매매</em><b class="num">1억 7,000 ~ 2억 1,500</b></span>
+</a></li></ul>
+  </aside>
+  <section class="mp" aria-label="순천시 아파트 지도">
+    <svg class="map-svg" viewBox="0 0 1060 776" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="1060" height="776" fill="#F3F5F8"/>
+  <!-- parks / hills -->
+  <path d="M0 270 C 60 250 130 290 140 350 S 100 440 40 440 L0 440z" fill="#E1EEE5"/>
+  <text x="34" y="358" font-size="12" fill="#5D8A6C" font-family="Noto Sans KR, sans-serif">봉화산</text>
+  <path d="M520 700 C 600 660 760 670 840 700 S 900 776 900 776 H 500z" fill="#E1EEE5"/>
+  <text x="600" y="742" font-size="12" fill="#4F7D60" font-family="Noto Sans KR, sans-serif" font-weight="700">순천만국가정원</text>
+  <path d="M612 136 C 640 96 740 92 770 130 S 760 214 700 220 S 590 190 612 136z" fill="#E1EEE5"/>
+  <path d="M650 150 C 668 128 724 126 738 150 S 716 192 690 190 S 640 172 650 150z" fill="#D1E2F7"/>
+  <text x="664" y="244" font-size="12" fill="#4F7D60" font-family="Noto Sans KR, sans-serif" font-weight="700">조례호수공원</text>
+  <!-- building texture -->
+  <rect x="176.0" y="26.0" width="17.9" height="9.4" rx="1.5" fill="#E7EAEF"/><rect x="176.0" y="60.0" width="16.2" height="14.1" rx="1.5" fill="#E7EAEF"/><rect x="176.0" y="128.0" width="18.3" height="12.9" rx="1.5" fill="#E7EAEF"/><rect x="176.0" y="162.0" width="20.9" height="15.9" rx="1.5" fill="#E7EAEF"/><rect x="176.0" y="230.0" width="13.3" height="16.1" rx="1.5" fill="#E7EAEF"/><rect x="210.0" y="60.0" width="16.8" height="10.1" rx="1.5" fill="#E7EAEF"/><rect x="210.0" y="128.0" width="23.6" height="9.4" rx="1.5" fill="#E7EAEF"/><rect x="210.0" y="162.0" width="23.4" height="10.3" rx="1.5" fill="#E7EAEF"/><rect x="210.0" y="196.0" width="17.7" height="16.1" rx="1.5" fill="#E7EAEF"/><rect x="210.0" y="230.0" width="12.4" height="19.8" rx="1.5" fill="#E7EAEF"/><rect x="244.0" y="26.0" width="13.3" height="14.6" rx="1.5" fill="#E7EAEF"/><rect x="244.0" y="60.0" width="12.2" height="17.3" rx="1.5" fill="#E7EAEF"/><rect x="244.0" y="94.0" width="14.9" height="9.0" rx="1.5" fill="#E7EAEF"/><rect x="244.0" y="128.0" width="13.3" height="18.6" rx="1.5" fill="#E7EAEF"/><rect x="244.0" y="162.0" width="13.3" height="15.2" rx="1.5" fill="#E7EAEF"/><rect x="244.0" y="196.0" width="20.6" height="15.8" rx="1.5" fill="#E7EAEF"/><rect x="278.0" y="26.0" width="16.3" height="9.1" rx="1.5" fill="#E7EAEF"/><rect x="278.0" y="94.0" width="19.5" height="15.8" rx="1.5" fill="#E7EAEF"/><rect x="278.0" y="128.0" width="14.5" height="13.3" rx="1.5" fill="#E7EAEF"/><rect x="278.0" y="162.0" width="16.1" height="18.1" rx="1.5" fill="#E7EAEF"/><rect x="278.0" y="196.0" width="16.2" height="11.2" rx="1.5" fill="#E7EAEF"/><rect x="278.0" y="230.0" width="20.4" height="9.6" rx="1.5" fill="#E7EAEF"/>
+  <rect x="176.0" y="296.0" width="20.7" height="18.3" rx="1.5" fill="#E7EAEF"/><rect x="176.0" y="330.0" width="23.0" height="18.3" rx="1.5" fill="#E7EAEF"/><rect x="176.0" y="364.0" width="19.0" height="14.7" rx="1.5" fill="#E7EAEF"/><rect x="176.0" y="432.0" width="15.0" height="10.6" rx="1.5" fill="#E7EAEF"/><rect x="210.0" y="296.0" width="19.6" height="16.8" rx="1.5" fill="#E7EAEF"/><rect x="210.0" y="330.0" width="23.4" height="8.1" rx="1.5" fill="#E7EAEF"/><rect x="210.0" y="364.0" width="18.2" height="13.3" rx="1.5" fill="#E7EAEF"/><rect x="210.0" y="432.0" width="16.4" height="18.5" rx="1.5" fill="#E7EAEF"/><rect x="244.0" y="296.0" width="16.6" height="9.5" rx="1.5" fill="#E7EAEF"/><rect x="244.0" y="330.0" width="22.5" height="11.2" rx="1.5" fill="#E7EAEF"/><rect x="244.0" y="432.0" width="19.8" height="15.9" rx="1.5" fill="#E7EAEF"/><rect x="278.0" y="296.0" width="13.2" height="18.0" rx="1.5" fill="#E7EAEF"/>
+  <rect x="176.0" y="506.0" width="21.6" height="18.1" rx="1.5" fill="#E7EAEF"/><rect x="176.0" y="574.0" width="10.7" height="11.4" rx="1.5" fill="#E7EAEF"/><rect x="176.0" y="608.0" width="10.9" height="12.3" rx="1.5" fill="#E7EAEF"/><rect x="176.0" y="642.0" width="14.1" height="17.5" rx="1.5" fill="#E7EAEF"/><rect x="210.0" y="608.0" width="11.2" height="12.8" rx="1.5" fill="#E7EAEF"/><rect x="244.0" y="506.0" width="15.8" height="8.1" rx="1.5" fill="#E7EAEF"/><rect x="244.0" y="540.0" width="16.3" height="16.9" rx="1.5" fill="#E7EAEF"/><rect x="244.0" y="574.0" width="23.0" height="16.6" rx="1.5" fill="#E7EAEF"/><rect x="244.0" y="608.0" width="13.8" height="12.3" rx="1.5" fill="#E7EAEF"/>
+  <rect x="406.0" y="286.0" width="10.8" height="8.5" rx="1.5" fill="#E7EAEF"/><rect x="406.0" y="316.0" width="13.0" height="8.2" rx="1.5" fill="#E7EAEF"/><rect x="406.0" y="346.0" width="14.4" height="11.0" rx="1.5" fill="#E7EAEF"/><rect x="406.0" y="376.0" width="19.1" height="12.2" rx="1.5" fill="#E7EAEF"/><rect x="406.0" y="406.0" width="11.2" height="15.2" rx="1.5" fill="#E7EAEF"/><rect x="406.0" y="436.0" width="15.0" height="15.3" rx="1.5" fill="#E7EAEF"/><rect x="436.0" y="286.0" width="14.6" height="15.7" rx="1.5" fill="#E7EAEF"/><rect x="436.0" y="316.0" width="14.2" height="12.0" rx="1.5" fill="#E7EAEF"/><rect x="436.0" y="346.0" width="17.9" height="15.3" rx="1.5" fill="#E7EAEF"/><rect x="436.0" y="376.0" width="19.9" height="13.1" rx="1.5" fill="#E7EAEF"/><rect x="436.0" y="406.0" width="14.4" height="8.6" rx="1.5" fill="#E7EAEF"/><rect x="436.0" y="436.0" width="15.5" height="13.2" rx="1.5" fill="#E7EAEF"/><rect x="466.0" y="286.0" width="17.5" height="14.3" rx="1.5" fill="#E7EAEF"/><rect x="466.0" y="316.0" width="14.4" height="15.1" rx="1.5" fill="#E7EAEF"/><rect x="466.0" y="346.0" width="10.5" height="11.0" rx="1.5" fill="#E7EAEF"/><rect x="466.0" y="376.0" width="19.9" height="13.3" rx="1.5" fill="#E7EAEF"/><rect x="466.0" y="436.0" width="11.7" height="9.6" rx="1.5" fill="#E7EAEF"/><rect x="496.0" y="286.0" width="13.1" height="8.2" rx="1.5" fill="#E7EAEF"/><rect x="496.0" y="316.0" width="15.1" height="8.3" rx="1.5" fill="#E7EAEF"/><rect x="496.0" y="346.0" width="11.8" height="13.3" rx="1.5" fill="#E7EAEF"/><rect x="496.0" y="376.0" width="17.4" height="10.4" rx="1.5" fill="#E7EAEF"/><rect x="496.0" y="406.0" width="16.0" height="11.2" rx="1.5" fill="#E7EAEF"/><rect x="496.0" y="436.0" width="11.8" height="10.8" rx="1.5" fill="#E7EAEF"/><rect x="526.0" y="286.0" width="18.9" height="12.5" rx="1.5" fill="#E7EAEF"/><rect x="526.0" y="376.0" width="12.5" height="11.2" rx="1.5" fill="#E7EAEF"/><rect x="526.0" y="406.0" width="13.3" height="8.2" rx="1.5" fill="#E7EAEF"/>
+  <rect x="336.0" y="506.0" width="14.6" height="12.4" rx="1.5" fill="#E7EAEF"/><rect x="336.0" y="536.0" width="11.0" height="11.2" rx="1.5" fill="#E7EAEF"/><rect x="336.0" y="566.0" width="13.9" height="8.3" rx="1.5" fill="#E7EAEF"/><rect x="336.0" y="626.0" width="18.5" height="8.2" rx="1.5" fill="#E7EAEF"/><rect x="366.0" y="506.0" width="12.8" height="10.8" rx="1.5" fill="#E7EAEF"/><rect x="366.0" y="536.0" width="17.3" height="11.9" rx="1.5" fill="#E7EAEF"/><rect x="366.0" y="566.0" width="16.3" height="15.1" rx="1.5" fill="#E7EAEF"/><rect x="366.0" y="596.0" width="13.8" height="15.6" rx="1.5" fill="#E7EAEF"/><rect x="366.0" y="626.0" width="14.1" height="8.7" rx="1.5" fill="#E7EAEF"/><rect x="396.0" y="506.0" width="11.3" height="13.8" rx="1.5" fill="#E7EAEF"/><rect x="396.0" y="536.0" width="19.6" height="10.2" rx="1.5" fill="#E7EAEF"/><rect x="396.0" y="566.0" width="13.2" height="9.3" rx="1.5" fill="#E7EAEF"/><rect x="396.0" y="596.0" width="16.2" height="14.3" rx="1.5" fill="#E7EAEF"/><rect x="396.0" y="626.0" width="12.8" height="12.7" rx="1.5" fill="#E7EAEF"/><rect x="426.0" y="536.0" width="19.6" height="12.9" rx="1.5" fill="#E7EAEF"/><rect x="426.0" y="566.0" width="13.4" height="12.5" rx="1.5" fill="#E7EAEF"/><rect x="426.0" y="596.0" width="11.2" height="11.1" rx="1.5" fill="#E7EAEF"/><rect x="426.0" y="626.0" width="17.4" height="12.2" rx="1.5" fill="#E7EAEF"/>
+  <rect x="570" y="290" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="570" y="306" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="570" y="322" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="570" y="338" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="570" y="354" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="570" y="370" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="570" y="386" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="570" y="402" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="570" y="418" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="592" y="290" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="592" y="306" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="592" y="322" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="592" y="338" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="592" y="354" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="592" y="370" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="592" y="386" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="592" y="402" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="592" y="418" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="614" y="290" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="614" y="306" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="614" y="322" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="614" y="338" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="614" y="354" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="614" y="370" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="614" y="386" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="614" y="402" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="614" y="418" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="660" y="290" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="660" y="306" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="660" y="322" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="660" y="338" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="660" y="354" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="682" y="290" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="682" y="306" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="682" y="322" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="682" y="338" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="682" y="354" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="704" y="290" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="704" y="306" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="704" y="322" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="704" y="338" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="704" y="354" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="726" y="290" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="726" y="306" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="726" y="322" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="726" y="338" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="726" y="354" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="570" y="180" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="570" y="196" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="570" y="212" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="570" y="228" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="592" y="180" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="592" y="196" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="592" y="212" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="592" y="228" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="790" y="180" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="790" y="196" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="790" y="212" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="790" y="228" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="812" y="180" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="812" y="196" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="812" y="212" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="812" y="228" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="834" y="180" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="834" y="196" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="834" y="212" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="834" y="228" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="856" y="180" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="856" y="196" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="856" y="212" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="856" y="228" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="878" y="180" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="878" y="196" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="878" y="212" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="878" y="228" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="860" y="300" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="860" y="316" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="860" y="332" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="860" y="348" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="860" y="364" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="860" y="380" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="860" y="396" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="860" y="412" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="882" y="300" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="882" y="316" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="882" y="332" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="882" y="348" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="882" y="364" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="882" y="380" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="882" y="396" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="882" y="412" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="904" y="300" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="904" y="316" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="904" y="332" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="904" y="348" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="904" y="364" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="904" y="380" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="904" y="396" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="904" y="412" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="926" y="300" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="926" y="316" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="926" y="332" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="926" y="348" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="926" y="364" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="926" y="380" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="926" y="396" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="926" y="412" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="580" y="500" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="580" y="516" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="580" y="532" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="580" y="548" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="580" y="564" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="580" y="580" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="580" y="596" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="602" y="500" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="602" y="516" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="602" y="532" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="602" y="548" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="602" y="564" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="602" y="580" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="602" y="596" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="624" y="500" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="624" y="516" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="624" y="532" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="624" y="548" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="624" y="564" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="624" y="580" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="624" y="596" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="646" y="500" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="646" y="516" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="646" y="532" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="646" y="548" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="646" y="564" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="646" y="580" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="646" y="596" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="760" y="510" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="760" y="526" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="760" y="542" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="760" y="558" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="760" y="574" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="782" y="510" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="782" y="526" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="782" y="542" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="782" y="558" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="782" y="574" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="804" y="510" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="804" y="526" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="804" y="542" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="804" y="558" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="804" y="574" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="826" y="510" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="826" y="526" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="826" y="542" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="826" y="558" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="826" y="574" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="848" y="510" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="848" y="526" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="848" y="542" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="848" y="558" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="848" y="574" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="870" y="510" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="870" y="526" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="870" y="542" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="870" y="558" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="870" y="574" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="190" y="180" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="190" y="196" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="190" y="212" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="212" y="180" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="212" y="196" width="14" height="7" rx="1" fill="#DDE3EC"/><rect x="212" y="212" width="14" height="7" rx="1" fill="#DDE3EC"/>
+  <rect x="826.0" y="646.0" width="18.5" height="12.6" rx="1.5" fill="#E7EAEF"/><rect x="826.0" y="748.0" width="22.9" height="17.0" rx="1.5" fill="#E7EAEF"/><rect x="860.0" y="646.0" width="16.3" height="18.4" rx="1.5" fill="#E7EAEF"/><rect x="860.0" y="680.0" width="11.2" height="18.7" rx="1.5" fill="#E7EAEF"/><rect x="860.0" y="714.0" width="13.5" height="10.9" rx="1.5" fill="#E7EAEF"/><rect x="894.0" y="646.0" width="14.9" height="19.7" rx="1.5" fill="#E7EAEF"/><rect x="894.0" y="680.0" width="18.6" height="14.5" rx="1.5" fill="#E7EAEF"/><rect x="894.0" y="748.0" width="12.2" height="13.8" rx="1.5" fill="#E7EAEF"/><rect x="928.0" y="646.0" width="13.4" height="14.3" rx="1.5" fill="#E7EAEF"/><rect x="928.0" y="680.0" width="13.0" height="15.0" rx="1.5" fill="#E7EAEF"/><rect x="928.0" y="714.0" width="16.9" height="9.1" rx="1.5" fill="#E7EAEF"/><rect x="962.0" y="646.0" width="16.4" height="8.0" rx="1.5" fill="#E7EAEF"/><rect x="962.0" y="680.0" width="11.4" height="9.1" rx="1.5" fill="#E7EAEF"/><rect x="962.0" y="714.0" width="16.1" height="16.0" rx="1.5" fill="#E7EAEF"/><rect x="962.0" y="748.0" width="22.2" height="10.0" rx="1.5" fill="#E7EAEF"/><rect x="996.0" y="680.0" width="23.9" height="18.2" rx="1.5" fill="#E7EAEF"/><rect x="996.0" y="714.0" width="18.0" height="19.0" rx="1.5" fill="#E7EAEF"/><rect x="1030.0" y="646.0" width="18.6" height="8.8" rx="1.5" fill="#E7EAEF"/><rect x="1030.0" y="680.0" width="15.2" height="11.6" rx="1.5" fill="#E7EAEF"/><rect x="1030.0" y="714.0" width="18.3" height="9.7" rx="1.5" fill="#E7EAEF"/><rect x="1030.0" y="748.0" width="19.9" height="8.2" rx="1.5" fill="#E7EAEF"/><rect x="1064.0" y="646.0" width="11.7" height="11.9" rx="1.5" fill="#E7EAEF"/><rect x="1064.0" y="714.0" width="17.0" height="14.4" rx="1.5" fill="#E7EAEF"/><rect x="1064.0" y="748.0" width="23.2" height="9.1" rx="1.5" fill="#E7EAEF"/>
+  <!-- river (동천) -->
+  <path d="M300 0 C 290 120 340 200 322 300 S 250 470 270 560 S 330 700 300 776" fill="none" stroke="#E3EFE6" stroke-width="52"/>
+  <path d="M300 0 C 290 120 340 200 322 300 S 250 470 270 560 S 330 700 300 776" fill="none" stroke="#C9DCF5" stroke-width="20"/>
+  <text x="332" y="226" font-size="13" fill="#5A80B8" font-family="Noto Sans KR, sans-serif" font-weight="700">동천</text>
+  <!-- roads -->
+  <g fill="none" stroke-linecap="round">
+    <g stroke="#E0E5EC" stroke-width="9"><path d="M330 360 H 1060"/><path d="M560 170 C 700 160 860 150 1060 160"/><path d="M640 262 V 480"/><path d="M700 480 C 690 560 700 660 720 776"/><path d="M0 640 C 200 630 420 650 640 640 S 900 620 1060 630"/><path d="M380 0 C 400 90 420 160 430 262"/><path d="M0 150 C 120 150 220 160 300 150"/><path d="M160 360 H 300"/><path d="M960 262 V 776"/><path d="M440 480 V 776"/></g>
+    <g stroke="#FFFFFF" stroke-width="6"><path d="M330 360 H 1060"/><path d="M560 170 C 700 160 860 150 1060 160"/><path d="M640 262 V 480"/><path d="M700 480 C 690 560 700 660 720 776"/><path d="M0 640 C 200 630 420 650 640 640 S 900 620 1060 630"/><path d="M380 0 C 400 90 420 160 430 262"/><path d="M0 150 C 120 150 220 160 300 150"/><path d="M160 360 H 300"/><path d="M960 262 V 776"/><path d="M440 480 V 776"/></g>
+    <g stroke="#DCE2EA" stroke-width="17"><path d="M0 262 C 200 250 360 270 520 262 S 860 250 1060 270"/><path d="M0 478 C 180 470 380 492 560 480 S 880 470 1060 492"/><path d="M548 0 C 540 140 560 300 548 480 S 520 680 540 776"/><path d="M760 0 C 780 120 800 260 840 380 S 920 620 960 776"/><path d="M120 0 C 150 160 170 320 160 480 S 140 660 160 776"/></g>
+    <g stroke="#FFFFFF" stroke-width="13"><path d="M0 262 C 200 250 360 270 520 262 S 860 250 1060 270"/><path d="M0 478 C 180 470 380 492 560 480 S 880 470 1060 492"/><path d="M548 0 C 540 140 560 300 548 480 S 520 680 540 776"/><path d="M760 0 C 780 120 800 260 840 380 S 920 620 960 776"/><path d="M120 0 C 150 160 170 320 160 480 S 140 660 160 776"/></g>
+  </g>
+  <!-- railway -->
+  <path d="M1060 70 C 900 200 700 380 600 520 S 300 620 0 650" fill="none" stroke="#FFFFFF" stroke-width="7"/>
+  <path d="M1060 70 C 900 200 700 380 600 520 S 300 620 0 650" fill="none" stroke="#8C97A8" stroke-width="3" stroke-dasharray="10 7"/>
+  <!-- dong boundaries -->
+  <g fill="none" stroke="#B8C2CF" stroke-width="1.4" stroke-dasharray="5 6">
+    <path d="M310 0 C 330 200 300 330 270 560 S 300 700 300 776"/>
+    <path d="M322 300 C 460 320 600 300 760 300 S 1000 290 1060 300"/>
+    <path d="M820 0 C 820 120 820 200 800 300"/>
+    <path d="M560 300 C 570 420 560 560 560 776"/>
+    <path d="M0 470 C 100 470 200 470 280 470"/>
+  </g>
+  <g font-family="Noto Sans KR, sans-serif" font-size="14" font-weight="700" fill="#7A8594" letter-spacing="2">
+    <text x="470" y="60">조례동</text><text x="900" y="60">왕지동</text><text x="420" y="350">연향동</text><text x="1000" y="400" text-anchor="end">금당지구</text>
+    <text x="190" y="120">덕연동</text><text x="186" y="424">장천동</text><text x="186" y="560">남정동</text><text x="540" y="706">풍덕동</text>
+  </g>
+</svg>
+    <div class="crumb"><span class="crumb-i"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span><a href="#">순천시</a><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg><a href="#">연향동</a><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg><b>연향 센트럴</b></div>
+    <div class="mlayer" role="group" aria-label="지도 표시"><button class="on" aria-pressed="true">매물</button><button aria-pressed="false">실거래가</button><button aria-pressed="false">학교</button></div>
+    <span class="station" style="left:40.00%;top:75.26%"><i aria-hidden="true"></i>순천역</span>
+    <a href="#" class="cl" style="left:9.81%;top:25.26%;width:64px;height:64px"><span class="cl-n">석현동</span><span class="cl-c num">64</span></a><a href="#" class="cl" style="left:12.26%;top:87.11%;width:84px;height:84px"><span class="cl-n">오천동</span><span class="cl-c num">201</span></a><a href="#" class="cl" style="left:83.40%;top:91.75%;width:92px;height:92px"><span class="cl-n">신대지구</span><span class="cl-c num">318</span></a>
+    <a href="#" class="mk" style="left:69.81%;top:42.53%"><span class="mk-c num">30</span><span class="mk-n">조례 호수마을</span><span class="mk-p num">2.9억</span></a><a href="#" class="mk" style="left:83.02%;top:25.26%"><span class="mk-c num">22</span><span class="mk-n">왕지 숲속마을</span><span class="mk-p num">2.4억</span></a><a href="#" class="mk" style="left:56.60%;top:23.45%"><span class="mk-c num">15</span><span class="mk-n">조례 파크힐스</span><span class="mk-p num">3.1억</span></a><a href="#" class="mk" style="left:86.79%;top:45.36%"><span class="mk-c num">22</span><span class="mk-n">금당 리버뷰</span><span class="mk-p num">2.7억</span></a><a href="#" class="mk" style="left:80.19%;top:66.49%"><span class="mk-c num">11</span><span class="mk-n">연향 하늘채움</span><span class="mk-p num">2.6억</span></a><a href="#" class="mk" style="left:36.23%;top:57.22%"><span class="mk-c num">9</span><span class="mk-n">장천 스카이뷰</span><span class="mk-p num">2.1억</span></a><a href="#" class="mk" style="left:20.94%;top:29.64%"><span class="mk-c num">17</span><span class="mk-n">덕연 스카이</span><span class="mk-p num">1.9억</span></a><a href="#" class="mk" style="left:20.00%;top:66.24%"><span class="mk-c num">12</span><span class="mk-n">남정 리버힐</span><span class="mk-p num">1.8억</span></a><a href="#" class="mk" style="left:39.62%;top:85.31%"><span class="mk-c num">14</span><span class="mk-n">풍덕 가든하임</span><span class="mk-p num">3.3억</span></a>
+    <a href="#" class="mk mk-on" style="left:57.74%;top:51.03%"><span class="mk-c num">38</span><span class="mk-n">연향 센트럴</span><span class="mk-p num">3.6억</span></a>
+    <div class="pop" style="left:57.74%;top:53.35%">
+      <div class="pop-hd"><b>연향 센트럴</b><span>연향동 · 980세대 · 2016년</span></div>
+      <div class="pop-g">
+        <div><em>매매</em><b class="num">3억 2,000~</b></div>
+        <div><em>전세</em><b class="num">2억 1,000~</b></div>
+      </div>
+      <a href="#" class="pop-a">매물 38건 보기<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>
+    </div>
+    <a href="#" class="mk mk-new" style="left:84.91%;top:79.38%"><span class="mk-c num">58</span><span class="mk-n">연향들 더 퍼스트</span><span class="mk-p">분양</span></a>
+    <aside class="mad" aria-label="광고">
+      <span class="mad-tag">AD</span>
+      <button class="mad-x" aria-label="광고 닫기"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <div class="mad-row">
+        <span class="mad-logo" aria-hidden="true"><svg width="44" height="44" viewBox="0 0 44 44"><rect width="44" height="44" rx="12" fill="#0F1B3A"/><path d="M12 30V20l10-7 10 7v10" fill="none" stroke="#E9D7A8" stroke-width="2.4" stroke-linejoin="round"/><path d="M18 30v-6h8v6" fill="none" stroke="#E9D7A8" stroke-width="2.4"/></svg></span>
+        <div class="mad-tx">
+          <p class="mad-k">연향 · 조례 아파트 전문</p>
+          <p class="mad-n">호수공원 공인중개사사무소</p>
+          <p class="mad-s">대표 공인중개사 한서윤 · 매물 46건</p>
+        </div>
+      </div>
+      <a href="#" class="mad-cta"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg><span class="num">061-000-0000</span></a>
+    </aside>
+    <div class="zoom" role="group" aria-label="지도 확대 축소">
+      <button aria-label="지도 확대"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button aria-label="지도 축소"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+    </div>
+    <button class="locate" aria-label="내 위치로 이동"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7.5"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2"/></svg></button>
+    <div class="scale" aria-hidden="true"><i></i>500m</div>
+  </section>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

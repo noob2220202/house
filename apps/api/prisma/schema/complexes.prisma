@@ -1,0 +1,221 @@
+// Owned by the complexes module team: 단지, 평형, 실거래가, stats, sync runs.
+
+enum TradeDealType {
+  SALE
+  JEONSE
+  MONTHLY
+
+  @@map("trade_deal_type")
+}
+
+enum TradeSyncKind {
+  APT_TRADE
+  APT_RENT
+
+  @@map("trade_sync_kind")
+}
+
+enum TradeSyncStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+
+  @@map("trade_sync_status")
+}
+
+model Complex {
+  id                    String                                 @id @default(uuid(7)) @db.Uuid
+  assetType             AssetType                              @default(APT) @map("asset_type")
+  name                  String                                 @db.VarChar(100)
+  roadAddress           String?                                @map("road_address") @db.VarChar(200)
+  jibunAddress          String?                                @map("jibun_address") @db.VarChar(200)
+  sggCode               String                                 @map("sgg_code") @db.VarChar(5)
+  emdCode               String?                                @map("emd_code") @db.VarChar(10)
+  /// 법정동명 as returned by 국토교통부 APIs (umdNm), used to match trades.
+  emdName               String?                                @map("emd_name") @db.VarChar(50)
+  /// 지번 (본번-부번) as used by 국토교통부 APIs.
+  jibun                 String?                                @db.VarChar(20)
+  lat                   Float
+  lng                   Float
+  location              Unsupported("geography(Point, 4326)")?
+  households            Int?
+  buildings             Int?
+  floorsMin             Int?                                   @map("floors_min")
+  floorsMax             Int?                                   @map("floors_max")
+  /// 사용승인일
+  approvalDate          DateTime?                              @map("approval_date") @db.Date
+  builtYear             Int?                                   @map("built_year")
+  parkingTotal          Int?                                   @map("parking_total")
+  parkingPerHousehold   Decimal?                               @map("parking_per_household") @db.Decimal(5, 2)
+  /// 용적률 (%)
+  floorAreaRatio        Decimal?                               @map("floor_area_ratio") @db.Decimal(7, 2)
+  /// 건폐율 (%)
+  buildingCoverageRatio Decimal?                               @map("building_coverage_ratio") @db.Decimal(5, 2)
+  heatingType           String?                                @map("heating_type") @db.VarChar(50)
+  builder               String?                                @db.VarChar(100)
+  /// 국토교통부 단지 일련번호 (aptSeq) or K-apt code when known.
+  externalCode          String?                                @unique @map("external_code") @db.VarChar(40)
+  /// Popularity counters for "자주 찾는 단지".
+  viewCount             Int                                    @default(0) @map("view_count")
+  favoriteCount         Int                                    @default(0) @map("favorite_count")
+  activeListingCount    Int                                    @default(0) @map("active_listing_count")
+  createdAt             DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt             DateTime?                              @map("deleted_at") @db.Timestamptz(3)
+
+  areaTypes     ComplexAreaType[]
+  photos        ComplexPhoto[]
+  trades        TradeRecord[]
+  stats         ComplexTradeStat[]
+  properties    Property[]
+  listings      Listing[]
+  favorites     FavoriteComplex[]
+  dealRequests  DealRequest[]
+  bannerTargets BannerTargetComplex[]
+  videos        LocalVideo[]
+
+  @@index([sggCode, emdCode])
+  @@index([sggCode, viewCount(sort: Desc)])
+  @@index([location], type: Gist)
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "complexes_name_trgm_idx")
+  @@index([roadAddress(ops: raw("gin_trgm_ops"))], type: Gin, map: "complexes_road_address_trgm_idx")
+  @@map("complexes")
+}
+
+/// 평형 (area type) within a complex.
+model ComplexAreaType {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  complexId     String   @map("complex_id") @db.Uuid
+  /// 전용면적 ㎡
+  exclusiveArea Decimal  @map("exclusive_area") @db.Decimal(10, 2)
+  /// 공급면적 ㎡
+  supplyArea    Decimal? @map("supply_area") @db.Decimal(10, 2)
+  /// e.g. "84A", "32평"
+  typeName      String   @default("") @map("type_name") @db.VarChar(20)
+  pyeongLabel   String?  @map("pyeong_label") @db.VarChar(20)
+  households    Int?
+  rooms         Int?
+  baths         Int?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  complex    Complex       @relation(fields: [complexId], references: [id], onDelete: Cascade)
+  trades     TradeRecord[]
+  properties Property[]
+
+  @@unique([complexId, exclusiveArea, typeName])
+  @@map("complex_area_types")
+}
+
+model ComplexPhoto {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  complexId String   @map("complex_id") @db.Uuid
+  mediaId   String   @map("media_id") @db.Uuid
+  sortOrder Int      @default(0) @map("sort_order")
+  caption   String?  @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  complex Complex @relation(fields: [complexId], references: [id], onDelete: Cascade)
+  media   Media   @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@unique([complexId, mediaId])
+  @@index([complexId, sortOrder])
+  @@map("complex_photos")
+}
+
+/// 실거래가 from 국토교통부 (data.go.kr). Upserted idempotently by sourceKey.
+model TradeRecord {
+  id            String        @id @default(uuid(7)) @db.Uuid
+  /// Deterministic hash of the source row identity (see complexes README).
+  sourceKey     String        @unique @map("source_key") @db.VarChar(64)
+  kind          TradeSyncKind
+  complexId     String?       @map("complex_id") @db.Uuid
+  areaTypeId    String?       @map("area_type_id") @db.Uuid
+  sggCode       String        @map("sgg_code") @db.VarChar(5)
+  emdName       String?       @map("emd_name") @db.VarChar(50)
+  aptName       String        @map("apt_name") @db.VarChar(100)
+  jibun         String?       @db.VarChar(20)
+  dealType      TradeDealType @map("deal_type")
+  dealDate      DateTime      @map("deal_date") @db.Date
+  /// YYYYMM for monthly aggregation.
+  dealYm        Int           @map("deal_ym")
+  exclusiveArea Decimal       @map("exclusive_area") @db.Decimal(10, 2)
+  floor         Int?
+  /// 매매 거래금액 (만원)
+  price         Int?
+  /// 보증금 (만원)
+  deposit       Int?
+  /// 월세 (만원)
+  monthlyRent   Int?          @map("monthly_rent")
+  builtYear     Int?          @map("built_year")
+  /// 해제여부
+  cancelled     Boolean       @default(false)
+  cancelledAt   DateTime?     @map("cancelled_at") @db.Date
+  /// 신규/갱신 (rent)
+  contractType  String?       @map("contract_type") @db.VarChar(10)
+  raw           Json?
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  complex  Complex?         @relation(fields: [complexId], references: [id], onDelete: SetNull)
+  areaType ComplexAreaType? @relation(fields: [areaTypeId], references: [id], onDelete: SetNull)
+
+  @@index([complexId, dealType, dealDate(sort: Desc)])
+  @@index([areaTypeId, dealType, dealDate(sort: Desc)])
+  @@index([sggCode, dealYm])
+  @@map("trade_records")
+}
+
+/// Monthly aggregates per complex / 전용면적 / deal type (recomputed by the sync job).
+model ComplexTradeStat {
+  id                String        @id @default(uuid(7)) @db.Uuid
+  complexId         String        @map("complex_id") @db.Uuid
+  exclusiveArea     Decimal       @map("exclusive_area") @db.Decimal(10, 2)
+  dealType          TradeDealType @map("deal_type")
+  yearMonth         Int           @map("year_month")
+  tradeCount        Int           @map("trade_count")
+  /// For SALE: 거래금액; for JEONSE/MONTHLY: 보증금 (만원)
+  medianPrice       Int           @map("median_price")
+  minPrice          Int           @map("min_price")
+  maxPrice          Int           @map("max_price")
+  avgPrice          Int           @map("avg_price")
+  medianMonthlyRent Int?          @map("median_monthly_rent")
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  complex Complex @relation(fields: [complexId], references: [id], onDelete: Cascade)
+
+  @@unique([complexId, exclusiveArea, dealType, yearMonth])
+  @@index([complexId, dealType, yearMonth(sort: Desc)])
+  @@map("complex_trade_stats")
+}
+
+model TradeSyncRun {
+  id            String          @id @default(uuid(7)) @db.Uuid
+  kind          TradeSyncKind
+  sggCode       String          @map("sgg_code") @db.VarChar(5)
+  yearMonth     Int             @map("year_month")
+  status        TradeSyncStatus @default(RUNNING)
+  fetchedCount  Int             @default(0) @map("fetched_count")
+  upsertedCount Int             @default(0) @map("upserted_count")
+  matchedCount  Int             @default(0) @map("matched_count")
+  error         String?         @db.VarChar(2000)
+  startedAt     DateTime        @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt    DateTime?       @map("finished_at") @db.Timestamptz(3)
+
+  @@index([kind, sggCode, yearMonth, startedAt(sort: Desc)])
+  @@map("trade_sync_runs")
+}
+
+model FavoriteComplex {
+  userId    String   @map("user_id") @db.Uuid
+  complexId String   @map("complex_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  complex Complex @relation(fields: [complexId], references: [id], onDelete: Cascade)
+
+  @@id([userId, complexId])
+  @@index([complexId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("favorite_complexes")
+}

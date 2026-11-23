@@ -1,0 +1,1129 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>배너·팝업 관리</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=Noto+Sans+KR:wght@400;500;600;700;800;900&amp;display=swap">
+<style>
+body{margin:0}
+x-dc{display:block}
+/* =====================================================================
+   BRAND Design System v1.0  ·  순천 공동중개 부동산 플랫폼
+   ---------------------------------------------------------------------
+   Canonical CSS. Paste the whole file inside <helmet><style> of every
+   artboard (no @import here; the font <link> lives in fonts-link.html).
+   Fonts: Inter (Latin, numerals, tnum) + Noto Sans KR (Hangul).
+   Wrap every screen in <div class="ui"> … </div>.
+   Rename / recolour the brand = edit the 4 lines under "1b. Brand".
+   ===================================================================== */
+
+/* ---------- 1a. Palette (raw values — do not use directly in components) ---------- */
+:root{
+  --cobalt-900:#0B1F73; --cobalt-800:#102C99; --cobalt-700:#1539C4; --cobalt-600:#1D4FF2;
+  --cobalt-200:#B9CCFF; --cobalt-100:#DCE6FF; --cobalt-50:#EEF3FF;
+  --ink-950:#070D19; --ink-900:#0A1222; --ink-800:#111B2E; --ink-700:#1B2740; --ink-600:#2A3752;
+  --grey-800:#1F2836; --grey-700:#333D4B; --grey-600:#4E5968; --grey-500:#646F7C; --grey-400:#8B95A1;
+  --grey-300:#B0B8C1; --grey-200:#D1D6DB; --grey-150:#E5E8EB; --grey-100:#F2F4F6; --grey-50:#F8F9FB;
+  --champagne-300:#E9D7A8; --champagne-200:#F3E8CC; --reed-700:#7A5C14; --navy-ad:#0F1B3A;
+}
+
+/* ---------- 1b. Semantic tokens (components use ONLY these) ---------- */
+:root{
+  /* Brand — the only accent for actions, links, focus, selected state */
+  --brand:#1D4FF2;            /* white text 6.1:1 */
+  --brand-hover:#1539C4;
+  --brand-press:#102C99;
+  --brand-soft:#EEF3FF;       /* brand text on it 5.5:1 */
+  --brand-soft-2:#DCE6FF;
+  --brand-line:#B9CCFF;
+  --brand-contrast:#FFFFFF;
+  --focus:0 0 0 3px rgba(29,79,242,.32);
+
+  /* Surfaces */
+  --ground:#F8F9FB;           /* page background behind cards */
+  --surface:#FFFFFF;          /* cards, panels, inputs */
+  --surface-2:#F2F4F6;        /* inset wells, hover rows, segmented tracks */
+  --surface-ink:#0A1222;      /* dark premium surface: admin sidebar, app band, map broker card */
+  --surface-ink-2:#111B2E;
+  --surface-ink-3:#1B2740;
+
+  /* Text */
+  --text:#0A1222;             /* 18.7:1 */
+  --text-2:#333D4B;           /* body copy 11.6:1 */
+  --text-3:#4E5968;           /* secondary 7.4:1 */
+  --text-muted:#646F7C;       /* smallest captions, 12px min · 5.1:1 on white, 4.6:1 on surface-2 */
+  --icon-muted:#8B95A1;       /* icons & decorative only — never text on white */
+  --text-on-ink:#FFFFFF;
+  --text-on-ink-2:#B0B8C1;    /* 9.3:1 on ink */
+  --text-on-ink-muted:#8B95A1;/* 6.2:1 on ink */
+
+  /* Lines */
+  --line:#E5E8EB;
+  --line-strong:#D1D6DB;
+  --line-ink:rgba(255,255,255,.10);
+
+  /* Local warmth — champagne / reed. Decorative on ink; reed-700 is the text-safe version */
+  --accent:#E9D7A8;
+  --accent-soft:#F7F0DE;
+  --accent-text:#7A5C14;      /* 6.2:1 on white */
+
+  /* Status */
+  --success:#067A50; --success-soft:#E6F4EE;
+  --warn:#A35200;    --warn-soft:#FFF3E2;
+  --danger:#C81E2C;  --danger-soft:#FDECEE;
+
+  /* Deal types — fixed meaning, NEVER equal to --brand. Lightness ladder:
+     분양 darkest → 월세 → 전세 → 매매 lightest, so they still separate in greyscale.
+     Each pairs with a soft tint; label text always accompanies colour.            */
+  --deal-presale:#4A26A8;  --deal-presale-soft:#F1ECFD;   /* 분양·분양권 */
+  --deal-monthly:#8F2466;  --deal-monthly-soft:#FBEDF5;   /* 월세 */
+  --deal-jeonse:#06664A;   --deal-jeonse-soft:#E8F5EF;    /* 전세 */
+  --deal-sale:#C2410C;     --deal-sale-soft:#FFF1E8;      /* 매매 */
+
+  /* Price movement / 분양권 premium (Korean convention: up red, down blue) */
+  --up:#C81E2C;   --up-soft:#FDECEE;
+  --down:#1C46D8; --down-soft:#EEF3FF;
+
+  /* Ads — inside the fixed ad frame the advertiser's own palette is used; this is the house sample */
+  --ad-ground:#0F1B3A; --ad-accent:#E9D7A8;
+
+  /* Map */
+  --map-land:#F3F5F8; --map-block:#E7EAEF; --map-park:#E1EEE5; --map-park-text:#3F6B50;
+  --map-water:#C9DCF5; --map-water-2:#D9E7F8; --map-water-text:#3E6497;
+  --map-road:#FFFFFF; --map-road-casing:#DCE2EA; --map-rail:#8C97A8; --map-boundary:#B8C2CF;
+  --map-label:#5E6977;
+
+  /* Type */
+  --font:"Inter","Noto Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --fs-display:clamp(36px,3.9vw,56px);
+  --fs-h1:clamp(28px,2.6vw,40px);
+  --fs-h2:clamp(22px,1.9vw,28px);
+  --fs-h3:20px;
+  --fs-title:17px;
+  --fs-body:15px;
+  --fs-sm:14px;
+  --fs-cap:12px;               /* floor — no text below 12px */
+  --fs-price-xl:40px;
+  --fs-price:30px;
+  --fs-price-sm:20px;
+
+  /* Radii */
+  --r-xs:6px; --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:24px; --r-2xl:32px; --r-pill:999px;
+
+  /* Elevation */
+  --sh-1:0 1px 2px rgba(10,18,34,.06),0 0 0 1px rgba(10,18,34,.04);
+  --sh-2:0 2px 4px rgba(10,18,34,.04),0 6px 16px rgba(10,18,34,.07);
+  --sh-3:0 4px 8px rgba(10,18,34,.05),0 16px 40px rgba(10,18,34,.12);
+  --sh-brand:0 6px 18px rgba(29,79,242,.30);
+
+  /* Spacing */
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:20px; --s-6:24px; --s-8:32px; --s-10:40px; --s-14:56px; --s-20:80px;
+  --container:1288px; --gutter:24px; --section:56px;
+  --hit:44px;                  /* minimum touch target */
+}
+
+/* ---------- 2. Base ---------- */
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--surface)}
+x-dc{display:block}
+.ui{font-family:var(--font);font-size:var(--fs-body);line-height:1.5;color:var(--text);background:var(--surface);letter-spacing:-0.01em;word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1}
+:where(.ui) a{color:inherit;text-decoration:none}
+:where(.ui) button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+:where(.ui) :is(h1,h2,h3,h4,p,ul,ol,figure,dl,dd){margin:0}
+:where(.ui) :is(ul,ol){padding:0;list-style:none}
+:where(.ui) :is(h1,h2,h3,h4){text-wrap:pretty;letter-spacing:-0.035em;font-weight:800}
+:where(.ui) :is(a,button,input,select,textarea):focus-visible{outline:none;box-shadow:var(--focus)}
+:where(.ui) table{border-collapse:collapse}
+.ic{flex:none;display:block}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.num{font-family:"Inter","Noto Sans KR",sans-serif;font-feature-settings:"tnum" 1}
+
+/* ---------- 3. Layout helpers ---------- */
+.container{width:100%;max-width:var(--container);margin-inline:auto;padding-inline:var(--gutter)}
+.section{padding-block:var(--section)}
+.stack{display:flex;flex-direction:column;gap:var(--s-4)}
+.row{display:flex;align-items:center;gap:var(--s-3);flex-wrap:wrap}
+.grid-auto{display:grid;gap:var(--s-6);grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr))}
+.divider{height:1px;background:var(--line);border:0;margin:0}
+
+/* ---------- 4. Typography ---------- */
+.t-display{font-size:var(--fs-display);font-weight:800;line-height:1.14;letter-spacing:-0.045em}
+.t-h1{font-size:var(--fs-h1);font-weight:800;line-height:1.2;letter-spacing:-0.04em}
+.t-h2{font-size:var(--fs-h2);font-weight:800;line-height:1.3;letter-spacing:-0.035em}
+.t-h3{font-size:var(--fs-h3);font-weight:700;line-height:1.4;letter-spacing:-0.03em}
+.t-title{font-size:var(--fs-title);font-weight:700;line-height:1.45;letter-spacing:-0.025em}
+.t-body{font-size:var(--fs-body);line-height:1.65;color:var(--text-2)}
+.t-sm{font-size:var(--fs-sm);line-height:1.55;color:var(--text-3)}
+.t-cap{font-size:var(--fs-cap);line-height:1.5;color:var(--text-muted)}
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:.02em;color:var(--brand)}
+.price{font-family:"Inter","Noto Sans KR",sans-serif;font-feature-settings:"tnum" 1;font-size:var(--fs-price);font-weight:800;line-height:1.1;letter-spacing:-0.04em;color:var(--text)}
+.price-xl{font-size:var(--fs-price-xl)}
+.price-sm{font-size:var(--fs-price-sm);letter-spacing:-0.03em}
+.price .unit{font-size:.62em;font-weight:700;letter-spacing:-0.02em;color:var(--text-3)}
+.link{color:var(--brand);font-weight:600}
+.link:hover{color:var(--brand-hover);text-decoration:underline}
+
+/* ---------- 5. Brand lockup (swap name here) ---------- */
+.logo{display:inline-flex;align-items:center;gap:10px;flex:none;min-height:var(--hit)}
+.logo-mark{display:block;flex:none}
+.logo-word{font-family:"Inter",sans-serif;font-weight:800;font-size:21px;letter-spacing:-0.045em;color:var(--text)}
+.logo--ink .logo-word{color:var(--text-on-ink)}
+
+/* ---------- 6. Buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:var(--hit);padding:0 18px;border-radius:var(--r-md);font-size:15px;font-weight:700;letter-spacing:-0.02em;white-space:nowrap;border:1px solid transparent;transition:background .15s,border-color .15s,color .15s}
+.btn-sm{height:36px;padding:0 14px;font-size:14px;border-radius:var(--r-sm)}
+.btn-lg{height:56px;padding:0 24px;font-size:17px;border-radius:var(--r-lg)}
+.btn-block{display:flex;width:100%}
+.btn-pill{border-radius:var(--r-pill)}
+.btn-primary{background:var(--brand);color:var(--brand-contrast)}
+.btn-primary:hover{background:var(--brand-hover)}
+.btn-primary:active{background:var(--brand-press)}
+.btn-secondary{background:var(--surface);color:var(--text);border-color:var(--line-strong)}
+.btn-secondary:hover{background:var(--surface-2)}
+.btn-soft{background:var(--brand-soft);color:var(--brand)}
+.btn-soft:hover{background:var(--brand-soft-2)}
+.btn-ink{background:var(--surface-ink);color:var(--text-on-ink)}
+.btn-ink:hover{background:var(--surface-ink-3)}
+.btn-ghost{background:transparent;color:var(--text-3)}
+.btn-ghost:hover{background:var(--surface-2);color:var(--text)}
+.btn-danger{background:var(--surface);color:var(--danger);border-color:#F4C5CA}
+.btn[disabled],.btn.is-disabled{background:var(--surface-2);color:var(--text-muted);border-color:transparent;cursor:not-allowed}
+.btn-icon{width:var(--hit);height:var(--hit);padding:0;border-radius:var(--r-md);display:inline-grid;place-items:center;color:var(--text-2);background:var(--surface);border:1px solid var(--line)}
+.btn-icon:hover{background:var(--surface-2)}
+.btn-icon.is-on{color:var(--danger);border-color:#F4C5CA;background:var(--danger-soft)}
+
+/* Social login — each follows its provider's colour rule */
+.btn-sns{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:52px;border-radius:var(--r-md);font-size:16px;font-weight:700;letter-spacing:-0.02em;border:1px solid transparent;position:relative}
+.btn-sns svg{position:absolute;left:18px}
+.sns-kakao{background:#FEE500;color:rgba(0,0,0,.88)}
+.sns-naver{background:var(--surface);color:var(--text);border-color:var(--line-strong)}  /* white text on #03C75A is 2.3:1 — so the label stays ink and the green lives in the N tile */
+.sns-round.sns-naver{background:#03C75A;border-color:#03C75A}
+.sns-google{background:var(--surface);color:var(--text);border-color:var(--line-strong)}
+.sns-apple{background:#000000;color:#FFFFFF}
+.sns-round{width:52px;height:52px;border-radius:50%;padding:0;display:inline-grid;place-items:center}
+.sns-round svg{position:static}
+
+/* ---------- 7. Inputs ---------- */
+.field{display:flex;flex-direction:column;gap:8px;min-width:0}
+.label{font-size:14px;font-weight:700;color:var(--text-2)}
+.label .req{color:var(--danger);margin-left:2px}
+.help{font-size:13px;color:var(--text-muted)}
+.input,.select select,.textarea{width:100%;height:48px;padding:0 14px;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--surface);font:inherit;font-size:15px;color:var(--text);transition:border-color .15s,box-shadow .15s}
+.input::placeholder,.textarea::placeholder{color:var(--text-muted)}
+.input:focus,.select select:focus,.textarea:focus{outline:none;border-color:var(--brand);box-shadow:var(--focus)}
+.input.is-error{border-color:var(--danger)}
+.field-error{font-size:13px;font-weight:600;color:var(--danger)}
+.textarea{height:auto;min-height:112px;padding:12px 14px;line-height:1.6;resize:vertical}
+.input-affix{position:relative;display:flex;align-items:center}
+.input-affix .input{padding-right:48px}
+.input-affix .affix{position:absolute;right:14px;font-size:14px;font-weight:600;color:var(--text-muted)}
+.select{position:relative;display:block}
+.select select{appearance:none;-webkit-appearance:none;padding-right:40px;cursor:pointer}
+.select .ic{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--icon-muted);pointer-events:none}
+
+/* Hero search (with deal-type tabs above) */
+.search{display:flex;align-items:center;gap:12px;height:64px;padding:0 8px 0 20px;border:2px solid var(--brand);border-radius:var(--r-lg);background:var(--surface);box-shadow:0 0 0 6px rgba(29,79,242,.10),var(--sh-2)}
+.search > .ic{color:var(--brand)}
+.search input{flex:1;min-width:0;height:100%;border:0;background:none;font:inherit;font-size:17px;font-weight:500;color:var(--text)}
+.search input::placeholder{color:var(--text-muted)}
+.search input:focus{outline:none}
+.search .btn{height:48px;border-radius:var(--r-md);padding:0 22px}
+/* Header search pill */
+.search-sm{display:flex;align-items:center;gap:10px;height:44px;padding:0 16px;border-radius:var(--r-pill);background:var(--surface-2);color:var(--icon-muted);min-width:0}
+.search-sm input{flex:1;min-width:0;border:0;background:none;font:inherit;font-size:15px;color:var(--text)}
+.search-sm input::placeholder{color:var(--text-muted)}
+.search-sm input:focus{outline:none}
+.search-sm:focus-within{background:var(--surface);box-shadow:inset 0 0 0 2px var(--brand)}
+
+/* Checkbox / radio / switch */
+.check{display:inline-flex;align-items:center;gap:10px;min-height:var(--hit);font-size:15px;color:var(--text-2);cursor:pointer}
+.check input{appearance:none;-webkit-appearance:none;width:22px;height:22px;margin:0;border:1.5px solid var(--line-strong);border-radius:6px;background:var(--surface) center/14px no-repeat;flex:none}
+.check input[type="radio"]{border-radius:50%}
+.check{position:relative}
+.check input:checked{background:var(--brand);border-color:var(--brand)}
+.check input[type="radio"]:checked{background:var(--surface);border:7px solid var(--brand)}
+.check-mark{position:absolute;left:3px;top:50%;width:16px;height:16px;transform:translateY(-50%);color:#fff;display:none;pointer-events:none}
+.check input:checked + .check-mark{display:block}
+.switch{position:relative;display:inline-flex;align-items:center;gap:10px;min-height:var(--hit);cursor:pointer}
+.switch input{appearance:none;-webkit-appearance:none;width:44px;height:26px;margin:0;border-radius:var(--r-pill);background:var(--grey-200);position:relative;transition:background .15s;flex:none}
+.switch input::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(10,18,34,.25);transition:transform .15s}
+.switch input:checked{background:var(--brand)}
+.switch input:checked::after{transform:translateX(18px)}
+.switch .switch-l{font-size:14px;font-weight:600;color:var(--text-2)}
+
+/* ---------- 8. Tabs, segmented, chips, filter chips ---------- */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.tab{position:relative;display:inline-flex;align-items:center;height:48px;padding:0 14px;font-size:15px;font-weight:600;color:var(--text-muted);white-space:nowrap}
+.tab.is-on,.tab[aria-selected="true"]{color:var(--text);font-weight:800}
+.tab.is-on::after,.tab[aria-selected="true"]::after{content:"";position:absolute;left:14px;right:14px;bottom:-1px;height:2px;border-radius:2px;background:var(--text)}
+.tab .count{margin-left:6px;font-weight:700;color:var(--brand)}
+.seg{display:inline-flex;gap:2px;padding:4px;border-radius:var(--r-pill);background:var(--surface-2)}
+.seg-b{height:36px;padding:0 16px;border-radius:var(--r-pill);font-size:14px;font-weight:600;color:var(--text-3);white-space:nowrap}
+.seg-b.is-on,.seg-b[aria-selected="true"]{background:var(--surface);color:var(--text);font-weight:800;box-shadow:var(--sh-1)}
+.seg--ink .seg-b.is-on{background:var(--surface-ink);color:var(--text-on-ink);box-shadow:none}
+/* Deal tabs above the hero search */
+.deal-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.deal-tab{height:36px;padding:0 14px;border-radius:var(--r-pill);font-size:14px;font-weight:700;color:var(--text-3);background:transparent}
+.deal-tab.is-on{background:var(--surface-ink);color:var(--text-on-ink)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--surface);font-size:14px;font-weight:600;color:var(--text-2);white-space:nowrap}
+.chip:hover{border-color:var(--line-strong)}
+.chip.is-on{background:var(--brand-soft);border-color:var(--brand-line);color:var(--brand);font-weight:700}
+.chip .x{color:inherit;opacity:.7}
+/* Filter chip — always "field + value" so active filters describe themselves */
+.fchip{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px 0 14px;border:1px solid var(--line-strong);border-radius:var(--r-pill);background:var(--surface);font-size:14px;color:var(--text-3);white-space:nowrap}
+.fchip .k{font-weight:600}
+.fchip .v{font-weight:800;color:var(--text)}
+.fchip .ic{color:var(--icon-muted)}
+.fchip.is-set{border-color:var(--brand);background:var(--brand-soft);color:var(--brand)}
+.fchip.is-set .v{color:var(--brand)}
+.fchip.is-set .ic{color:var(--brand)}
+.filterbar{display:flex;align-items:center;gap:8px;padding:12px var(--gutter);border-bottom:1px solid var(--line);background:var(--surface);overflow-x:auto;scrollbar-width:none}
+.filterbar .reset{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 10px;font-size:14px;font-weight:600;color:var(--text-3);white-space:nowrap}
+
+/* ---------- 9. Badges & tags ---------- */
+.badge{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:var(--r-xs);font-size:12px;font-weight:700;letter-spacing:-0.01em;white-space:nowrap;background:var(--surface-2);color:var(--text-3)}
+.deal{display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:var(--r-xs);font-size:12px;font-weight:800;white-space:nowrap}
+.deal-sale{background:var(--deal-sale-soft);color:var(--deal-sale)}
+.deal-jeonse{background:var(--deal-jeonse-soft);color:var(--deal-jeonse)}
+.deal-monthly{background:var(--deal-monthly-soft);color:var(--deal-monthly)}
+.deal-presale{background:var(--deal-presale-soft);color:var(--deal-presale)}
+.deal.is-solid.deal-sale{background:var(--deal-sale);color:#fff}
+.deal.is-solid.deal-jeonse{background:var(--deal-jeonse);color:#fff}
+.deal.is-solid.deal-monthly{background:var(--deal-monthly);color:#fff}
+.deal.is-solid.deal-presale{background:var(--deal-presale);color:#fff}
+.t-sale{color:var(--deal-sale)} .t-jeonse{color:var(--deal-jeonse)} .t-monthly{color:var(--deal-monthly)} .t-presale{color:var(--deal-presale)}
+.prem{display:inline-flex;align-items:center;height:26px;padding:0 9px;border-radius:var(--r-xs);font-family:"Inter","Noto Sans KR",sans-serif;font-size:13px;font-weight:800;letter-spacing:-0.02em;font-feature-settings:"tnum" 1;white-space:nowrap}
+.prem.up{background:var(--up-soft);color:var(--up)}
+.prem.down{background:var(--down-soft);color:var(--down)}
+.delta{display:inline-flex;align-items:center;gap:2px;font-size:12px;font-weight:800;font-feature-settings:"tnum" 1}
+.delta.up{color:var(--up)} .delta.down{color:var(--down)} .delta.flat{color:var(--text-muted)}
+.ad-badge{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;font-family:"Inter",sans-serif;font-size:11px;font-weight:800;letter-spacing:.06em;border:1px solid currentColor;color:var(--text-muted);background:var(--surface)}
+.ad-badge.on-dark{color:var(--text-on-ink);background:transparent;border-color:rgba(255,255,255,.55)}
+.verified{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;color:var(--success);white-space:nowrap}
+.brokers{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 9px;border-radius:var(--r-pill);background:rgba(10,18,34,.78);color:#fff;font-size:12px;font-weight:700;white-space:nowrap}
+.brokers.is-light{background:var(--surface-2);color:var(--text-2)}
+.status{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:var(--r-pill);font-size:12.5px;font-weight:700;white-space:nowrap}
+.status::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.status.live{background:var(--success-soft);color:var(--success)}
+.status.scheduled{background:var(--brand-soft);color:var(--brand)}
+.status.review{background:var(--warn-soft);color:var(--warn)}
+.status.ended{background:var(--surface-2);color:var(--text-muted)}
+.status.rejected{background:var(--danger-soft);color:var(--danger)}
+/* 4-cell deal count — one component for map list, ranking, broker profile, admin */
+.kcount{align-self:flex-start;justify-self:start;display:inline-grid;grid-template-columns:repeat(4,minmax(40px,1fr));border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;background:var(--surface)}
+.kcount > span{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:5px 6px;border-left:1px solid var(--line)}
+.kcount > span:first-child{border-left:0}
+.kcount em{font-style:normal;font-size:12px;font-weight:700}
+.kcount b{font-family:"Inter",sans-serif;font-feature-settings:"tnum" 1;font-size:14px;font-weight:800;color:var(--text)}
+.kcount .k-presale em{color:var(--deal-presale)} .kcount .k-sale em{color:var(--deal-sale)} .kcount .k-jeonse em{color:var(--deal-jeonse)} .kcount .k-monthly em{color:var(--deal-monthly)}
+.kcount .is-zero em,.kcount .is-zero b{color:var(--text-muted);font-weight:600}
+.kcount--ink{background:transparent;border-color:var(--line-ink)}
+.kcount--ink > span{border-color:var(--line-ink)}
+.kcount--ink em,.kcount--ink .k-presale em,.kcount--ink .k-sale em,.kcount--ink .k-jeonse em,.kcount--ink .k-monthly em{color:var(--text-on-ink-2)}
+.kcount--ink b{color:#fff}
+.kcount--ink .is-zero em,.kcount--ink .is-zero b{color:var(--text-on-ink-muted)}
+
+/* ---------- 10. Cards ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden}
+.card-pad{padding:var(--s-6)}
+/* Listing card */
+.lcard{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden;transition:box-shadow .15s,transform .15s;min-width:0}
+.lcard:hover{box-shadow:var(--sh-2);transform:translateY(-2px)}
+.lcard-ph{position:relative;aspect-ratio:16/10;background:var(--surface-2);overflow:hidden}
+.lcard-ph > svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.lcard-ph .brokers{position:absolute;left:12px;top:12px}
+.lcard-ph .btn-icon{position:absolute;right:10px;top:10px;border:0;box-shadow:var(--sh-1)}
+.lcard-body{display:flex;flex-direction:column;gap:6px;padding:18px 20px 0}
+.lcard-price{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lcard-name{font-size:15px;font-weight:700;color:var(--text)}
+.lcard-name span{font-weight:500;color:var(--text-muted)}
+.lcard-meta{display:flex;flex-wrap:wrap;gap:0 8px;font-size:14px;color:var(--text-3)}
+.lcard-meta span + span::before{content:"·";margin-right:8px;color:var(--grey-300)}
+.lcard-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:14px 20px 0;padding:12px 0 16px;border-top:1px solid var(--grey-100)}
+/* Complex row (map left list) */
+.crow{display:grid;grid-template-columns:64px 1fr;gap:14px;padding:16px;border-radius:var(--r-lg);border:1px solid transparent;background:var(--surface)}
+.crow:hover{background:var(--grey-50)}
+.crow.is-on{border-color:var(--brand-line);background:var(--brand-soft)}
+.crow-thumb{width:64px;height:64px;border-radius:var(--r-md);overflow:hidden;background:var(--surface-2)}
+.crow-thumb svg{display:block;width:100%;height:100%}
+.crow-main{display:flex;flex-direction:column;gap:6px;min-width:0}
+.crow-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.crow-name{font-size:16px;font-weight:800;letter-spacing:-0.03em}
+.crow-dong{font-size:13px;color:var(--text-muted);white-space:nowrap}
+.crow-meta{font-size:13px;color:var(--text-muted)}
+.crow-price{display:flex;align-items:baseline;gap:6px;font-size:16px;font-weight:800;letter-spacing:-0.03em}
+.crow-price em{font-style:normal;font-size:12px;font-weight:700}
+/* Broker card */
+.bcard{display:grid;grid-template-columns:56px 1fr auto;gap:14px;align-items:center;padding:16px 18px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface)}
+.bcard-ph{width:56px;height:56px;border-radius:var(--r-md);overflow:hidden;background:var(--surface-2)}
+.bcard-ph svg{display:block;width:100%;height:100%}
+.bcard-name{font-size:16px;font-weight:800;letter-spacing:-0.03em}
+.bcard-meta{font-size:13px;color:var(--text-muted);line-height:1.5}
+.bcard-tag{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--accent-text)}
+.bcard--feature{background:var(--surface-ink);border-color:var(--surface-ink);color:var(--text-on-ink)}
+.bcard--feature .bcard-meta{color:var(--text-on-ink-2)}
+.bcard--feature .bcard-tag{color:var(--accent)}
+
+/* ---------- 11. Tables (site ranking + admin) ---------- */
+.table-wrap{position:relative;border:1px solid var(--line);border-radius:var(--r-lg);overflow-x:auto;background:var(--surface)}
+.table-scroll{position:relative;overflow-x:auto}
+.table{width:100%;font-size:14px}
+.table th{height:44px;padding:0 14px;text-align:left;font-size:13px;font-weight:700;color:var(--text-muted);background:var(--grey-50);border-bottom:1px solid var(--line);white-space:nowrap}
+.table td{height:60px;padding:0 14px;border-bottom:1px solid var(--grey-100);color:var(--text-2);white-space:nowrap}
+.table tbody tr:last-child td{border-bottom:0}
+.table tbody tr:hover td{background:var(--grey-50)}
+.table .r{text-align:right}
+.table .c{text-align:center}
+.table .strong{font-weight:800;color:var(--text)}
+.table th.t-sale{color:var(--deal-sale)} .table th.t-jeonse{color:var(--deal-jeonse)} .table th.t-monthly{color:var(--deal-monthly)} .table th.t-presale{color:var(--deal-presale)}
+.table .zero{color:var(--grey-300);font-weight:500}
+.rank-n{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--surface-2);font-family:"Inter",sans-serif;font-weight:800;font-size:14px}
+.rank-n.top{background:var(--surface-ink);color:#fff}
+
+/* ---------- 12. Header, sub-bar, footer ---------- */
+.utilbar{background:var(--grey-50);border-bottom:1px solid var(--line);font-size:13px;color:var(--text-3)}
+.utilbar .container{display:flex;align-items:center;justify-content:space-between;gap:16px;height:36px}
+.utilbar nav{display:flex;gap:18px}
+.utilbar a:hover{color:var(--text)}
+.gnb{position:relative;background:var(--surface);border-bottom:1px solid var(--line)}
+.gnb .container{display:flex;align-items:center;gap:28px;min-height:72px;flex-wrap:wrap}
+.gnb-nav{display:flex;align-items:center;gap:4px;flex:1;min-width:0;flex-wrap:wrap}
+.gnb-a{display:inline-flex;align-items:center;height:44px;padding:0 12px;border-radius:var(--r-sm);font-size:16px;font-weight:700;color:var(--text-2);white-space:nowrap}
+.gnb-a:hover{background:var(--surface-2);color:var(--text)}
+.gnb-a.is-on{color:var(--brand)}
+.gnb-sep{width:1px;height:16px;background:var(--line-strong);margin:0 8px}
+.gnb-act{display:flex;align-items:center;gap:8px}
+.gnb-cta{display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 16px;border-radius:var(--r-pill);font-size:15px;font-weight:800;white-space:nowrap}
+.gnb-cta.sell{background:var(--brand);color:#fff}
+.gnb-cta.find{background:var(--surface);color:var(--brand);box-shadow:inset 0 0 0 1.5px var(--brand)}
+.gnb-login{display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:var(--r-pill);background:var(--surface-ink);color:#fff;font-size:15px;font-weight:700}
+.gnb-user{display:none}
+/* Sub-bar: 내놓기 / 구하기 band directly under the hero */
+.subbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:16px}
+.subbar-c{display:flex;align-items:center;gap:18px;padding:22px 24px;border-radius:var(--r-xl);border:1px solid var(--line);background:var(--surface)}
+.subbar-ic{display:grid;place-items:center;width:56px;height:56px;border-radius:var(--r-lg);background:var(--brand-soft);color:var(--brand);flex:none}
+.subbar-t{flex:1;min-width:0}
+.subbar-t b{display:block;font-size:18px;font-weight:800;letter-spacing:-0.03em}
+.subbar-t span{font-size:14px;color:var(--text-3)}
+.subbar-c.is-primary{background:var(--surface-ink);border-color:var(--surface-ink);color:var(--text-on-ink)}
+.subbar-c.is-primary .subbar-ic{background:rgba(233,215,168,.14);color:var(--accent)}
+.subbar-c.is-primary .subbar-t span{color:var(--text-on-ink-2)}
+/* Footer */
+.footer{background:var(--grey-50);border-top:1px solid var(--line);color:var(--text-3);font-size:14px}
+.footer .container{display:flex;flex-direction:column;gap:32px;padding-block:48px 40px}
+.footer-top{display:grid;grid-template-columns:minmax(220px,1.3fr) repeat(auto-fit,minmax(140px,1fr));gap:32px}
+.footer h4{font-size:14px;font-weight:800;color:var(--text);margin-bottom:12px;letter-spacing:-0.02em}
+.footer li a{display:inline-flex;min-height:32px;align-items:center;color:var(--text-3)}
+.footer li a:hover{color:var(--text)}
+.footer-legal{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:14px;font-weight:700;color:var(--text-2)}
+.footer-legal a.is-strong{color:var(--text)}
+.footer-biz{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;line-height:1.7;color:var(--text-muted)}
+.footer-copy{font-size:13px;color:var(--text-muted)}
+
+/* ---------- 13. Map pieces ---------- */
+.map{position:relative;overflow:hidden;background:var(--map-land);isolation:isolate}
+.map-svg{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.map > :not(.map-svg){z-index:1}
+.map-label{position:absolute;transform:translate(-50%,-50%);font-size:13px;font-weight:700;letter-spacing:.12em;color:var(--map-label);pointer-events:none;white-space:nowrap}
+.map-label--water{color:var(--map-water-text);letter-spacing:.04em}
+.map-label--park{color:var(--map-park-text);letter-spacing:0;font-size:12px}
+/* District cluster (zoomed out) */
+.cluster{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;align-content:center;width:84px;height:84px;border-radius:50%;background:var(--brand);color:#fff;box-shadow:0 0 0 8px rgba(29,79,242,.16),var(--sh-2);text-align:center;line-height:1.15}
+.cluster .n{font-size:12px;font-weight:700;opacity:.92}
+.cluster .c{font-family:"Inter",sans-serif;font-size:20px;font-weight:800;letter-spacing:-0.03em}
+.cluster.is-outer{background:var(--surface);color:var(--text);box-shadow:0 0 0 6px rgba(10,18,34,.06),var(--sh-2)}
+.cluster.is-outer .c{color:var(--brand)}
+.cluster.sm{width:64px;height:64px}
+.cluster.sm .c{font-size:17px}
+/* Complex marker: count badge + name + 평형·price */
+.mk{position:absolute;transform:translate(-50%,-100%);display:inline-flex;align-items:center;gap:8px;padding:5px 12px 5px 5px;border-radius:var(--r-md);background:var(--surface);box-shadow:var(--sh-2),0 0 0 1px rgba(10,18,34,.06);white-space:nowrap;margin-top:-8px}
+.mk::after{content:"";position:absolute;left:50%;bottom:-6px;width:12px;height:12px;background:inherit;transform:translateX(-50%) rotate(45deg);border-radius:2px;box-shadow:2px 2px 2px rgba(10,18,34,.05)}
+.mk-c{display:grid;place-items:center;min-width:30px;height:30px;padding:0 6px;border-radius:8px;background:var(--brand);color:#fff;font-family:"Inter",sans-serif;font-size:14px;font-weight:800}
+.mk-t{display:flex;flex-direction:column;line-height:1.2}
+.mk-n{font-size:13px;font-weight:700;color:var(--text)}
+.mk-p{font-size:12px;font-weight:600;color:var(--text-3);font-feature-settings:"tnum" 1}
+.mk-p b{font-family:"Inter",sans-serif;font-weight:800;color:var(--text)}
+.mk.is-presale .mk-c{background:var(--deal-presale)}
+.mk.is-on{background:var(--surface-ink);box-shadow:var(--sh-3)}
+.mk.is-on .mk-n,.mk.is-on .mk-p b{color:#fff}
+.mk.is-on .mk-p{color:var(--text-on-ink-2)}
+.mk.is-on .mk-c{background:var(--accent);color:var(--ink-900)}
+/* Count-only pin (mobile / dense zoom) */
+.pin{position:absolute;transform:translate(-50%,-100%);display:grid;place-items:center;min-width:36px;height:32px;padding:0 8px;border-radius:10px;background:var(--brand);color:#fff;font-family:"Inter",sans-serif;font-size:14px;font-weight:800;box-shadow:var(--sh-2);margin-top:-6px}
+.pin::after{content:"";position:absolute;left:50%;bottom:-5px;width:10px;height:10px;background:inherit;transform:translateX(-50%) rotate(45deg);border-radius:2px}
+.pin.is-on{background:var(--surface-ink)}
+/* Price marker (one-room / land single listing) */
+.pmk{position:absolute;transform:translate(-50%,-100%);display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:var(--r-pill);background:var(--surface);box-shadow:var(--sh-2),0 0 0 1px rgba(10,18,34,.06);font-size:13px;font-weight:800;white-space:nowrap;margin-top:-4px}
+.pmk i{width:8px;height:8px;border-radius:50%;background:var(--deal-monthly);flex:none}
+.pmk.sale i{background:var(--deal-sale)} .pmk.jeonse i{background:var(--deal-jeonse)}
+/* Selected-area polygon is drawn in SVG: stroke var(--brand) 2px dash 6 5, fill rgba(29,79,242,.06) */
+/* Breadcrumb + summary bar */
+.crumb{display:inline-flex;align-items:center;gap:2px;height:44px;padding:0 6px 0 14px;border-radius:var(--r-pill);background:var(--surface);box-shadow:var(--sh-2);font-size:14px;font-weight:600;color:var(--text-3);white-space:nowrap}
+.crumb .ic{color:var(--icon-muted)}
+.crumb-b{display:inline-flex;align-items:center;gap:4px;height:36px;padding:0 8px;border-radius:var(--r-pill)}
+.crumb-b:hover{background:var(--surface-2)}
+.crumb-b.is-on{color:var(--text);font-weight:800}
+.map-sum{display:inline-flex;align-items:center;gap:12px;height:44px;padding:0 16px;border-radius:var(--r-pill);background:var(--surface-ink);color:var(--text-on-ink-2);font-size:13px;font-weight:600;white-space:nowrap}
+.map-sum b{color:#fff;font-family:"Inter",sans-serif;font-weight:800}
+.map-sum i{width:1px;height:12px;background:rgba(255,255,255,.22)}
+/* Zoom / tools */
+.zoom{display:flex;flex-direction:column;border-radius:var(--r-md);background:var(--surface);box-shadow:var(--sh-2);overflow:hidden}
+.zoom button{display:grid;place-items:center;width:44px;height:44px;color:var(--text-2)}
+.zoom button + button{border-top:1px solid var(--line)}
+.map-tool{display:grid;place-items:center;width:44px;height:44px;border-radius:var(--r-md);background:var(--surface);box-shadow:var(--sh-2);color:var(--text-2)}
+/* Selected-complex popover */
+.map-pop{position:absolute;width:280px;padding:16px;border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--sh-3)}
+.map-pop-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.map-pop-tile{padding:10px 12px;border-radius:var(--r-md);background:var(--surface-2)}
+.map-pop-tile em{display:block;font-style:normal;font-size:12px;font-weight:700}
+.map-pop-tile b{font-family:"Inter","Noto Sans KR",sans-serif;font-size:17px;font-weight:800;letter-spacing:-0.03em}
+/* Floating ad card on map (admin slot) — minimisable */
+.map-ad{position:absolute;width:300px;padding:16px;border-radius:var(--r-lg);background:var(--surface-ink);color:var(--text-on-ink);box-shadow:var(--sh-3)}
+.map-ad-top{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.map-ad-min{margin-left:auto;display:grid;place-items:center;width:32px;height:32px;border-radius:8px;color:var(--text-on-ink-2)}
+.map-ad-name{font-size:16px;font-weight:800;letter-spacing:-0.03em}
+.map-ad-meta{font-size:13px;color:var(--text-on-ink-2)}
+.map-ad-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:12px 0}
+.map-ad-stats span{padding:8px;border-radius:var(--r-sm);background:rgba(255,255,255,.06);font-size:12px;color:var(--text-on-ink-2);line-height:1.3}
+.map-ad-stats b{display:block;font-family:"Inter",sans-serif;font-size:16px;font-weight:800;color:#fff}
+.map-ad .btn{height:40px;font-size:14px}
+.map-ad.is-min{width:auto;padding:8px 8px 8px 12px;display:inline-flex;align-items:center;gap:10px;border-radius:var(--r-pill)}
+
+/* ---------- 14. Ad frame (fixed ratios; admin validates uploads against these) ---------- */
+.adframe{position:relative;display:block;overflow:hidden;border-radius:var(--r-xl);background:var(--ad-ground);color:#fff}
+.adframe--main{aspect-ratio:1240/220}      /* 메인 와이드 배너 · 업로드 2480×440 */
+.adframe--mobile{aspect-ratio:358/160}
+.adframe--mobile .ad-art{max-width:44%;height:86%}
+.adframe--mobile .ad-copy{left:18px;max-width:58%}     /* 모바일 배너 · 업로드 1074×480 */
+.adframe--side{aspect-ratio:300/250}       /* 목록 사이드 · 업로드 600×500 */
+.adframe .ad-badge{position:absolute;left:16px;top:16px;z-index:2}
+.ad-copy{position:absolute;left:6%;top:50%;transform:translateY(-50%);z-index:1;display:flex;flex-direction:column;gap:10px;max-width:56%}
+.ad-k{font-size:13px;font-weight:700;color:var(--ad-accent);letter-spacing:.02em}
+.ad-h{font-size:clamp(20px,2.4vw,32px);font-weight:800;line-height:1.25;letter-spacing:-0.04em;color:#fff}
+.ad-s{font-size:14px;color:rgba(255,255,255,.78)}
+.ad-art{position:absolute;right:0;bottom:0;height:100%;width:auto;max-width:60%}
+.ad-pager{position:absolute;right:16px;top:14px;z-index:2;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 4px 0 10px;border-radius:var(--r-pill);background:rgba(0,0,0,.32);font-family:"Inter",sans-serif;font-size:12px;font-weight:700;color:#fff}
+.ad-pager button{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;color:#fff}
+
+/* ---------- 15. Overlays: modal, notice popup, drawer, toast ---------- */
+.scrim{position:absolute;inset:0;background:rgba(10,18,34,.48)}
+.modal{position:relative;width:min(440px,100%);border-radius:var(--r-xl);background:var(--surface);box-shadow:var(--sh-3);overflow:hidden}
+.modal-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 20px 0 24px}
+.modal-bd{padding:12px 24px 24px}
+.modal-ft{display:flex;gap:8px;padding:0 24px 24px}
+.notice{width:min(380px,100%);border-radius:var(--r-xl);overflow:hidden;background:var(--surface);box-shadow:var(--sh-3)}
+.notice-art{position:relative;aspect-ratio:380/300;background:var(--ad-ground);overflow:hidden}
+.notice-ft{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}
+.notice-ft button{height:52px;font-size:14px;font-weight:600;color:var(--text-3)}
+.notice-ft button + button{border-left:1px solid var(--line);color:var(--text);font-weight:800}
+.drawer{width:min(400px,100%);background:var(--surface);box-shadow:var(--sh-3);border-radius:var(--r-xl) 0 0 var(--r-xl);display:flex;flex-direction:column}
+.drawer-hd{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 16px 24px;border-bottom:1px solid var(--line)}
+.toast{display:inline-flex;align-items:center;gap:10px;min-height:48px;padding:12px 16px 12px 14px;border-radius:var(--r-md);background:var(--surface-ink);color:#fff;font-size:14px;font-weight:600;box-shadow:var(--sh-3)}
+.toast .ic{color:#5BD6A0}
+.toast a{color:var(--accent);font-weight:800;margin-left:8px}
+
+/* ---------- 16. Admin shell ---------- */
+.adm{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100%;background:var(--ground)}
+.adm-side{display:flex;flex-direction:column;gap:24px;padding:20px 14px;background:var(--surface-ink);color:var(--text-on-ink-2)}
+.adm-side .logo{padding:0 8px}
+.adm-group{display:flex;flex-direction:column;gap:2px}
+.adm-group-t{padding:0 12px 6px;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--text-on-ink-muted)}
+.adm-a{display:flex;align-items:center;gap:10px;height:42px;padding:0 12px;border-radius:var(--r-sm);font-size:14px;font-weight:600;color:var(--text-on-ink-2)}
+.adm-a:hover{background:rgba(255,255,255,.05);color:#fff}
+.adm-a.is-on{background:rgba(255,255,255,.08);color:#fff;font-weight:800}
+.adm-a.is-on .ic{color:var(--accent)}
+.adm-a .n{margin-left:auto;min-width:22px;height:20px;padding:0 6px;border-radius:var(--r-pill);background:var(--brand);color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center}
+.adm-main{display:flex;flex-direction:column;min-width:0}
+.adm-top{display:flex;align-items:center;gap:12px;height:64px;padding:0 28px;background:var(--surface);border-bottom:1px solid var(--line)}
+.adm-me{display:inline-flex;align-items:center;gap:8px}
+.adm-av{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--surface-ink);color:var(--accent);font-size:14px;font-weight:800}
+.adm-crumb{font-size:13px;color:var(--text-muted)}
+.adm-title{font-size:20px;font-weight:800;letter-spacing:-0.035em}
+.adm-body{display:flex;flex-direction:column;gap:20px;padding:24px 28px}
+.kpis{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr))}
+.kpi{display:flex;flex-direction:column;gap:6px;padding:18px 20px;border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--line)}
+.kpi-l{font-size:13px;font-weight:700;color:var(--text-muted)}
+.kpi-v{font-family:"Inter","Noto Sans KR",sans-serif;font-size:28px;font-weight:800;letter-spacing:-0.04em;line-height:1.1}
+.kpi-v small{font-size:15px;font-weight:700;color:var(--text-3);margin-left:2px}
+.kpi-d{font-size:12.5px;font-weight:700}
+.panel{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg)}
+.panel-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:16px 20px;border-bottom:1px solid var(--line)}
+.panel-t{font-size:16px;font-weight:800;letter-spacing:-0.03em}
+.thumb{display:block;width:96px;height:36px;border-radius:6px;overflow:hidden;background:var(--ad-ground);flex:none}
+.thumb svg{display:block;width:100%;height:100%}
+.drag{color:var(--grey-300);cursor:grab}
+.form-row{display:grid;grid-template-columns:160px 1fr;gap:16px;align-items:start;padding:16px 0;border-bottom:1px solid var(--grey-100)}
+.form-row > .label{padding-top:12px}
+.form-row:last-child{border-bottom:0}
+.dropzone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:28px 20px;border:1.5px dashed var(--brand-line);border-radius:var(--r-lg);background:var(--brand-soft);text-align:center;color:var(--text-3);font-size:14px}
+.dropzone .ic{color:var(--brand)}
+.dropzone b{color:var(--brand)}
+.spec{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:var(--r-pill);background:var(--surface-2);font-size:12.5px;font-weight:700;color:var(--text-3);font-feature-settings:"tnum" 1}
+
+/* ---------- 17. Mobile pieces (390 artboards) ---------- */
+.m-header{display:flex;align-items:center;gap:8px;height:56px;padding:0 8px 0 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.m-header .logo{min-height:44px}
+.m-header .logo-word{font-size:19px}
+.m-header .logo-mark{width:28px;height:28px}
+.m-header-act{margin-left:auto;display:flex;align-items:center;gap:4px}
+.m-cta{display:inline-flex;align-items:center;height:36px;padding:0 12px;border-radius:var(--r-pill);font-size:14px;font-weight:800;white-space:nowrap}
+.m-cta.sell{background:var(--brand);color:#fff}
+.m-cta.find{box-shadow:inset 0 0 0 1.5px var(--brand);color:var(--brand)}
+.m-header .btn-icon{border:0}
+.tabbar{display:grid;grid-template-columns:repeat(5,1fr);height:64px;padding-bottom:4px;background:var(--surface);border-top:1px solid var(--line)}
+.tabbar a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:var(--hit);font-size:12px;font-weight:600;color:var(--text-muted)}
+.tabbar a.is-on{color:var(--text);font-weight:800}
+.tabbar a.is-on .ic{color:var(--brand)}
+.sheet{position:relative;border-radius:var(--r-xl) var(--r-xl) 0 0;background:var(--surface);box-shadow:0 -8px 24px rgba(10,18,34,.10)}
+.sheet-handle{display:block;width:40px;height:5px;margin:8px auto 4px;border-radius:3px;background:var(--grey-200)}
+.sheet-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 16px 12px}
+.cta-bar{display:flex;gap:8px;padding:12px 16px 16px;background:var(--surface);border-top:1px solid var(--line)}
+.cta-bar .btn{height:52px;flex:1}
+.cta-bar .btn-icon{width:52px;height:52px;flex:none}
+
+/* ---------- 17b. Page modules (main page) ---------- */
+.sec-hd{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+.sec-hd .t-sm{margin-top:6px}
+/* Category card — line icon tile with one cobalt detail */
+.cat{display:flex;flex-direction:column;gap:6px;padding:22px;border:1px solid var(--line);border-radius:var(--r-xl);background:var(--surface);min-width:0;transition:box-shadow .15s,border-color .15s}
+.cat:hover{border-color:var(--brand-line);box-shadow:var(--sh-2)}
+.cat-tile{display:grid;place-items:center;width:56px;height:56px;border-radius:var(--r-lg);background:var(--grey-100);color:var(--text);margin-bottom:10px}
+.cat-svg .cat-acc{fill:var(--brand);stroke:var(--brand)}
+.cat-svg .cat-acc-f{fill:var(--brand);stroke:var(--brand)}
+.cat-t{font-size:18px;font-weight:800;letter-spacing:-0.035em}
+.cat-s{font-size:13px;color:var(--text-muted)}
+.cat-f{display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--grey-100);font-size:14px;color:var(--text-3)}
+.cat-f b{font-family:"Inter",sans-serif;color:var(--text);font-weight:800}
+/* Hero map district chip (count + 평당 시세) */
+.dchip{position:absolute;transform:translate(-50%,-50%);display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 6px 0 12px;border-radius:var(--r-pill);background:var(--surface);box-shadow:var(--sh-2);font-size:13px;font-weight:700;white-space:nowrap}
+.dchip .c{display:grid;place-items:center;height:24px;padding:0 8px;border-radius:var(--r-pill);background:var(--brand-soft);color:var(--brand);font-family:"Inter",sans-serif;font-weight:800}
+.dchip .p{font-size:12px;font-weight:600;color:var(--text-muted)}
+.dchip.is-on{background:var(--brand);color:#fff;box-shadow:var(--sh-brand)}
+.dchip.is-on .c{background:#fff}
+.dchip.is-on .p{color:var(--brand-soft-2)}
+/* Ink band — app download, premium moments */
+.band-ink{position:relative;overflow:hidden;border-radius:var(--r-2xl);background:var(--surface-ink);color:var(--text-on-ink)}
+.band-ink .t-sm,.band-ink .t-body{color:var(--text-on-ink-2)}
+/* Ranking: featured #1 card */
+.rank-feature{display:flex;flex-direction:column;gap:12px;padding:24px;border-radius:var(--r-xl);background:var(--surface-ink);color:var(--text-on-ink)}
+.rank-feature .t-cap{color:var(--text-on-ink-muted)}
+.rank-feature .price{color:#fff}
+
+/* ---------- 18. Responsive ---------- */
+@media (min-width:721px){
+  .only-sm{display:none !important}
+}
+@media (max-width:720px){
+  :root{--gutter:16px;--section:40px}
+  .only-lg{display:none !important}
+  .utilbar{display:none}
+  .gnb-login,.gnb-cta .ic{display:none}
+  .gnb-user{display:inline-grid;border:0}
+  .gnb-cta{height:40px;padding:0 14px;font-size:14px}
+  .ad-copy{max-width:70%;gap:6px}
+  .ad-s{display:none}
+  .gnb .container{gap:12px;min-height:60px}
+  .gnb-nav{order:3;flex-basis:100%;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin:0 -8px}
+  .gnb-a{font-size:15px;padding:0 10px}
+  .gnb-act{margin-left:auto}
+  .form-row{grid-template-columns:1fr;gap:8px}
+  .form-row > .label{padding-top:0}
+  .adm{grid-template-columns:minmax(0,1fr)}
+  .adm-top .search-sm,.adm-me .t-sm{display:none}
+  .adm-side{display:none}
+  .adm-top,.adm-body{padding-inline:16px}
+  .footer-top{grid-template-columns:1fr 1fr}
+  .search{height:58px;padding-left:16px}
+  .search input{font-size:16px}
+  .search .btn{padding:0 16px}
+}
+
+
+/* ===== AdminBanners page ===== */
+.app{height:1100px;overflow:hidden}
+.app .adm{height:100%;min-height:0}
+.app .adm-side{overflow:hidden}
+.ab-main{display:grid;grid-template-columns:minmax(0,1fr) 480px;min-height:0}
+.ab-col{display:flex;flex-direction:column;min-width:0;min-height:0}
+.ab-col .adm-top{flex:none}
+.ab-content{display:flex;flex-direction:column;gap:16px;padding:18px 24px 20px;min-width:0;min-height:0;overflow:hidden}
+.ab-bar{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.ab-bar .row{padding-bottom:8px}
+.ab-tabs{border-bottom:0}
+.ab-tabs .tab{height:46px;font-size:16px}
+
+/* slot overview */
+.slots{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.slot{display:flex;flex-direction:column;gap:8px;padding:14px 14px 12px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);min-width:0;transition:border-color .15s,box-shadow .15s}
+.slot:hover{border-color:var(--brand-line);box-shadow:var(--sh-1)}
+.slot-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
+.slot-glyph{display:block;flex:none}
+.slot-n{font-size:22px;font-weight:800;letter-spacing:-0.04em;line-height:1;color:var(--text);white-space:nowrap}
+.slot-n small{margin-left:2px;font-size:13px;font-weight:700;color:var(--text-muted);letter-spacing:0}
+.slot-name{font-size:14px;font-weight:800;letter-spacing:-0.03em;line-height:1.3;min-height:36px;color:var(--text)}
+.meter{display:block;height:4px;border-radius:var(--r-pill);background:var(--surface-2);overflow:hidden}
+.meter i{display:block;height:100%;border-radius:inherit;background:var(--brand)}
+.meter.is-warn i{background:var(--warn)}
+.slot-cap{display:flex;gap:4px;font-size:12px;color:var(--text-muted);white-space:nowrap}
+.slot-cap b{font-weight:700;color:var(--text-3)}
+.slot-cap b.warn{color:var(--warn)}
+
+/* banner table */
+.panel-hd{padding:12px 16px 12px 20px}
+.fchip-sm{height:34px;font-size:13px;padding:0 8px 0 12px}
+.bt th{height:38px;font-size:12px;padding:0 10px}
+.bt th:first-child{padding-left:16px}
+.bt{table-layout:fixed}
+.bt td{height:70px;padding:0 10px;white-space:normal;vertical-align:middle}
+.bt td:first-child{padding-left:14px;padding-right:0}
+.bt th:first-child{padding-right:0}
+.bt .t-cap{white-space:nowrap}
+.bt td:last-child,.bt th:last-child{padding-right:16px}
+.bt tbody tr.is-editing td{background:var(--brand-soft)}
+.bt tbody tr.is-editing:hover td{background:var(--brand-soft)}
+.ord{display:inline-flex;align-items:center;gap:2px;font-size:14px;font-weight:800;color:var(--text-2)}
+.ord .drag{color:var(--icon-muted)}
+.bn{display:flex;align-items:center;gap:12px;min-width:0}
+.bn .thumb{width:84px;height:38px;border-radius:7px;box-shadow:inset 0 0 0 1px rgba(10,18,34,.06)}
+.bn-t{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+.bn-title{display:flex;align-items:center;gap:6px;min-width:0}
+.bn-title b{font-size:14px;font-weight:800;color:var(--text);letter-spacing:-0.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.editing{flex:none;display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;background:var(--brand);color:#fff;font-size:12px;font-weight:700}
+.bn-sub{display:flex;align-items:center;gap:6px;min-width:0;font-size:12.5px;color:var(--text-3)}
+.slot-tag{flex:none;display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;background:var(--surface-2);color:var(--text-2);font-size:12px;font-weight:700;white-space:nowrap}
+.is-editing .slot-tag{background:#fff}
+.bn-adv{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.bn-meta{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--text-muted);white-space:nowrap;min-width:0}
+.bn-meta > span{display:inline-flex;align-items:center;gap:4px;min-width:0}
+.bn-meta .ic{color:var(--icon-muted)}
+.st{display:flex;flex-direction:column;align-items:flex-start;gap:0}
+.st .switch{min-height:30px;gap:8px}
+.st .switch-l{font-size:13px;font-weight:800}
+.st-live{color:var(--success) !important}
+.st-scheduled{color:var(--brand) !important}
+.st-paused{color:var(--text-muted) !important}
+.st .t-cap{padding-left:1px}
+.perf{display:block;font-size:15px;font-weight:800;color:var(--text);letter-spacing:-0.02em}
+.perf-none{color:var(--text-muted)}
+.acts{display:inline-flex;gap:2px}
+.act{display:grid;place-items:center;width:30px;height:30px;border-radius:8px;color:var(--text-3)}
+.act:hover{background:var(--surface-2);color:var(--text)}
+.act.is-on{background:var(--brand);color:#fff}
+.act-del{color:var(--text-muted)}
+.act-del:hover{background:var(--danger-soft);color:var(--danger)}
+.tfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px 8px 20px;border-top:1px solid var(--line)}
+.tfoot b{color:var(--text);font-weight:800}
+.pager{display:flex;align-items:center;gap:2px}
+.pager a,.pager button{display:grid;place-items:center;min-width:30px;height:30px;padding:0 6px;border-radius:8px;font-size:13px;font-weight:700;color:var(--text-3)}
+.pager a.is-on{background:var(--surface-ink);color:#fff}
+.pager button[disabled]{color:var(--grey-300);cursor:default}
+
+/* popup quick settings */
+.pp{display:grid;grid-template-columns:184px minmax(0,1fr);gap:20px;padding:14px 20px 16px}
+.pp-mini{border-radius:14px;overflow:hidden;background:var(--surface);box-shadow:0 0 0 1px var(--line),var(--sh-2);align-self:start}
+.pp-art{position:relative;aspect-ratio:380/300;background:var(--ad-ground);overflow:hidden}
+.pp-art svg{position:absolute;inset:0;width:100%;height:100%}
+.pp-copy{position:absolute;left:14px;top:14px;right:12px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.pp-copy b{font-size:14px;line-height:1.35;font-weight:800;color:#fff;letter-spacing:-0.03em}
+.pp-badge{display:inline-flex;align-items:center;height:20px;padding:0 6px;border:1px solid rgba(255,255,255,.55);border-radius:4px;font-size:12px;font-weight:700;color:#fff}
+.pp-ft{display:grid;grid-template-columns:1fr auto;border-top:1px solid var(--line);font-size:12px;font-weight:600;color:var(--text-3)}
+.pp-ft span{display:flex;align-items:center;height:30px;padding:0 10px;white-space:nowrap}
+.pp-ft .b{border-left:1px solid var(--line);color:var(--text);font-weight:800}
+.pp-set{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pp-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-bottom:6px}
+.pp-t{font-size:15px;font-weight:800;letter-spacing:-0.03em}
+.pp-row{display:grid;grid-template-columns:84px minmax(0,1fr);gap:10px;align-items:center;min-height:40px;border-top:1px solid var(--grey-100)}
+.pp-l{font-size:13px;font-weight:700;color:var(--text-3)}
+.pp-v{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.date-sm{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:1px solid var(--line-strong);border-radius:8px;font-size:13px;font-weight:600;color:var(--text)}
+.date-sm .ic{color:var(--icon-muted)}
+.chips-sm{gap:6px}
+.chips-sm .chip{height:28px;padding:0 10px;font-size:13px}
+.check-sm{min-height:30px;gap:8px;font-size:13.5px;font-weight:600;color:var(--text-2)}
+.check-sm input{width:20px;height:20px}
+.check-sm .check-mark{left:3px;width:14px;height:14px}
+
+/* drawer */
+.dw{display:flex;flex-direction:column;min-height:0;min-width:0;background:var(--surface);border-left:1px solid var(--line);box-shadow:-16px 0 40px rgba(10,18,34,.06);position:relative;z-index:1}
+.dw-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:64px;padding:8px 16px 8px 24px;border-bottom:1px solid var(--line)}
+.dw-title{font-size:18px;font-weight:800;letter-spacing:-0.035em}
+.dw-x{border:0}
+.dw-body{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column}
+.dw-form{display:flex;flex-direction:column;gap:12px;padding:14px 24px 16px}
+.dw-ft{display:flex;align-items:center;gap:8px;padding:12px 24px;border-top:1px solid var(--line);background:var(--surface)}
+.dw-ft .btn:not(.btn-sm){height:44px;min-width:84px}
+.dw-ft .btn-primary{min-width:112px}
+.dw-sp{flex:1}
+.dw-del{color:var(--danger);padding:0 10px}
+.dw-del:hover{background:var(--danger-soft);color:var(--danger)}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.lb{display:flex;align-items:center;gap:6px;min-height:20px;font-size:13px;font-weight:700;color:var(--text-2)}
+.lb .t-cap{font-weight:500}
+.lb-row{justify-content:space-between;gap:8px}
+.lb-row .check-sm{min-height:20px}
+.lb .spec{height:22px;padding:0 8px;font-size:12px}
+.g2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));gap:12px}
+.g2-per{grid-template-columns:minmax(0,1.85fr) minmax(0,1fr)}
+.in-md,.sel-md select{height:42px;font-size:14px;border-radius:10px}
+.sel-md select{padding-left:12px}
+.input-affix .in-md{padding-right:52px}
+.input-affix .affix{font-size:12px;right:12px}
+.in-ico{position:relative;display:flex;align-items:center;min-width:0;flex:1}
+.in-ico > .ic{position:absolute;left:12px;color:var(--icon-muted);pointer-events:none}
+.in-ico .in-md{padding-left:38px}
+.in-ico .badge{position:absolute;right:8px;height:22px;background:var(--accent-soft);color:var(--accent-text)}
+.in-ico .badge + *{}
+#f-adv{padding-right:56px}
+.daterange{display:flex;align-items:center;gap:6px;min-width:0}
+.daterange .in-md{padding-left:34px;padding-right:6px;font-size:13.5px}
+.daterange .in-ico > .ic{left:10px}
+.seg-full{display:flex;width:100%}
+.seg-full .seg-b{flex:1;height:34px;font-size:13.5px}
+.tg-chips{display:flex;flex-wrap:wrap;gap:6px}
+.tg-chips .chip{height:30px;padding:0 6px 0 12px;font-size:13px;gap:2px}
+.tg-chips .x{display:grid;place-items:center;width:20px;height:20px;border-radius:50%}
+.chip-add{border-style:dashed;border-color:var(--line-strong);color:var(--text-3);padding:0 12px 0 8px !important;gap:4px !important}
+
+/* upload tiles */
+.up{display:flex;flex-direction:column;gap:5px;height:112px;padding:10px;border-radius:12px;border:1.5px dashed var(--brand-line);min-width:0}
+.up-done{background:var(--surface);border-color:var(--line-strong);position:relative}
+.up-img{display:block;border-radius:6px;overflow:hidden}
+.up-file{display:flex;align-items:baseline;justify-content:space-between;gap:6px;font-size:12.5px;color:var(--text-muted);margin-top:2px}
+.up-file b{font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.up-ok{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--success)}
+.up-re{position:absolute;right:8px;bottom:7px;height:26px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:700;color:var(--brand)}
+.up-re:hover{background:var(--brand-soft)}
+.up-empty{align-items:center;justify-content:center;text-align:center;background:var(--brand-soft);color:var(--text-3);font-size:13px;line-height:1.4;cursor:pointer}
+.up-empty > .ic{color:var(--brand)}
+.up-empty b{color:var(--brand)}
+.up-empty .spec{height:24px;padding:0 8px;font-size:12px;background:#fff;color:var(--text-3)}
+.up-empty{gap:6px}
+
+/* creatives (advertiser colours live only inside the frame) */
+.cr{position:relative;display:block;overflow:hidden;background:#1C2B22;color:#fff}
+.cr-pc{aspect-ratio:1240/220}
+.cr-m{aspect-ratio:358/160}
+.cr-ad{position:absolute;left:6px;top:5px;z-index:2;display:inline-flex;align-items:center;height:14px;padding:0 3px;border:1px solid rgba(255,255,255,.55);border-radius:3px;font-family:"Inter",sans-serif;font-size:12px;line-height:1;font-weight:800;letter-spacing:.04em;transform:scale(.72);transform-origin:left top}
+.cr-copy{position:absolute;left:13%;top:50%;transform:translateY(-50%);z-index:1;display:flex;flex-direction:column;gap:1px}
+.cr-k{font-size:12px;line-height:1.2;font-weight:700;color:#F2C78B;white-space:nowrap;transform:scale(.84);transform-origin:left center}
+.cr-h{font-size:12px;line-height:1.25;font-weight:800;letter-spacing:-0.04em;white-space:nowrap}
+.cr-art{position:absolute;right:4%;bottom:0;height:100%;width:auto}
+.cr-m .cr-copy{left:7px;top:auto;bottom:5px;transform:none}
+.cr-m .cr-art{right:2px;top:3px;bottom:auto;height:62%}
+.cr-tiny .cr-copy,.cr-tiny .cr-ad{display:none}
+.cr-tiny::before{content:"";position:absolute;left:9%;top:34%;width:30%;height:13%;border-radius:2px;background:#fff;opacity:.9}
+.cr-tiny::after{content:"";position:absolute;left:9%;top:56%;width:20%;height:10%;border-radius:2px;background:#F2C78B;opacity:.85}
+
+/* live preview */
+.pv{display:flex;flex-direction:column;gap:8px;padding:12px 24px 14px;background:var(--grey-50);border-bottom:1px solid var(--line)}
+.pv-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pv-t{font-size:14px;font-weight:800;letter-spacing:-0.03em}
+.pv-stage{display:flex;align-items:flex-end;justify-content:center;gap:16px;flex-wrap:wrap;padding:14px 12px 10px;border-radius:14px;background:var(--surface-2);background-image:radial-gradient(rgba(10,18,34,.07) 1px,transparent 1px);background-size:12px 12px}
+.pv-fig{margin:0;display:flex;flex-direction:column;align-items:center;gap:8px}
+.pv-fig-desk{flex:1 1 236px;max-width:268px}
+.pv-fig-m{flex:0 0 112px}
+.pv-fig figcaption{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--text-3);white-space:nowrap}
+.pv-fig figcaption.warn{color:var(--warn)}
+.pv-desk{width:100%;border-radius:8px;overflow:hidden;background:#fff;box-shadow:0 0 0 1px rgba(10,18,34,.08),0 8px 20px rgba(10,18,34,.10)}
+.pv-chrome{display:flex;align-items:center;gap:3px;height:12px;padding:0 6px;background:var(--grey-100)}
+.pv-chrome i{width:4px;height:4px;border-radius:50%;background:var(--grey-300)}
+.pv-chrome span{margin-left:8px;width:40%;height:5px;border-radius:3px;background:#fff}
+.pv-page{display:flex;flex-direction:column;gap:7px;padding:6px 8px 9px}
+.pv-gnb{display:flex;align-items:center;gap:5px;height:12px}
+.pv-gnb .logo-mark,.pv-mgnb .logo-mark{display:block}
+.pv-sp{flex:1}
+.sk{display:block;border-radius:2px;background:var(--grey-150);flex:none}
+.sk.dk{background:var(--grey-400)}
+.sk.card{border-radius:4px;background:var(--grey-100)}
+.pv-pill{display:block;width:18px;height:7px;border-radius:4px;background:var(--grey-800)}
+.pv-pill.b{background:var(--brand)}
+.pv-hero{display:flex;flex-direction:column;align-items:center;gap:4px;padding:4px 0 2px}
+.pv-search{display:block;width:62%;height:10px;border-radius:6px;background:#fff;box-shadow:0 0 0 1px var(--grey-200)}
+.pv-slot{position:relative;border-radius:5px;outline:2px solid var(--brand);outline-offset:2px}
+.pv-slot .cr{border-radius:5px}
+.pv-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.pv-cards i{display:block;height:20px;border-radius:4px;background:var(--grey-100)}
+.pv-phone{width:112px;height:164px;border-radius:16px;padding:6px;background:#fff;box-shadow:0 0 0 1px rgba(10,18,34,.10),0 8px 20px rgba(10,18,34,.12);display:flex;flex-direction:column;gap:6px;overflow:hidden}
+.pv-mgnb{display:flex;align-items:center;gap:4px;height:12px;padding:0 2px}
+.pv-mgnb .pv-pill{width:12px;height:6px}
+.pv-mbody{display:flex;flex-direction:column;gap:6px;padding:0 2px}
+.pv-mbody .pv-search{width:100%}
+
+/* responsive: stack panels */
+@media (max-width:1180px){
+  .app{height:auto;overflow:visible}
+  .app .adm{height:auto}
+  .ab-main{grid-template-columns:minmax(0,1fr)}
+  .dw{border-left:0;border-top:1px solid var(--line);box-shadow:none}
+  .dw-body{overflow:visible}
+}
+@media (max-width:720px){
+  .ab-content{padding:16px}
+  .slots{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .bt,.bt tbody{display:block}
+  .bt thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+  .bt colgroup{display:none}
+  .bt tr{display:grid;grid-template-columns:34px minmax(0,1fr) auto;grid-template-areas:"o b b" "o p p" "o s a";row-gap:8px;column-gap:12px;padding:14px 16px;border-bottom:1px solid var(--grey-100)}
+  .bt tbody tr:last-child{border-bottom:0}
+  .bt tr.is-editing{background:var(--brand-soft)}
+  .bt td{display:block;height:auto;padding:0 !important;border:0;background:none !important}
+  .bt td:nth-child(1){grid-area:o;padding-top:8px !important}
+  .bt td:nth-child(2){grid-area:b}
+  .bt td:nth-child(3){grid-area:s}
+  .bt td:nth-child(4){grid-area:p;display:flex !important;align-items:baseline;gap:8px;text-align:left}
+  .bt td:nth-child(4) .perf{font-size:14px}
+  .bt td:nth-child(5){grid-area:a;align-self:center}
+  .st .switch{min-height:44px}
+  .tg-chips .x{width:32px;height:32px}
+  .tg-chips .chip{height:40px}
+  .pp{grid-template-columns:minmax(0,1fr)}
+  .pp-mini{max-width:220px}
+  .pp-row{grid-template-columns:minmax(0,1fr);gap:6px;padding:8px 0}
+  .dw-hd,.pv,.dw-form,.dw-ft{padding-inline:16px}
+  .g2-per{grid-template-columns:minmax(0,1fr)}
+  .tfoot{flex-wrap:wrap}
+  .dw-ft .btn,.seg-full .seg-b,.act,.pager a,.pager button{min-height:44px}
+  .act{width:44px;height:44px}
+  .pager a,.pager button{min-width:44px}
+  .chips-sm .chip{height:36px}
+}
+
+</style>
+</helmet>
+<div class="ui app">
+<div class="adm">
+<aside class="adm-side" aria-label="관리자 메뉴">
+  <a class="logo logo--ink" href="Main.dc.html" aria-label="BRAND 홈"><svg class="logo-mark" width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1D4FF2"/><path d="M9 24v-7a7 7 0 0 1 14 0v7" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/><rect x="13.6" y="17.6" width="4.8" height="6.4" rx="1.2" fill="#FFFFFF"/><rect x="21.6" y="6" width="4.4" height="4.4" rx="1.3" fill="#E9D7A8"/></svg><span class="logo-word">BRAND</span></a>
+  <div class="adm-group"><p class="adm-group-t">홈</p><a class="adm-a" href="#"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16v-5M12 16V6M17 16v-8"/></svg>대시보드</a></div>
+  <div class="adm-group"><p class="adm-group-t">콘텐츠</p><a class="adm-a is-on" href="#" aria-current="page"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10v4h3l8 4.5v-13L7 10z"/><path d="M7 14v4.5h3V15"/><path d="M18.5 9.5a3.5 3.5 0 0 1 0 5"/></svg>배너·팝업 관리</a><a class="adm-a" href="#"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg>메인 화면 편집</a><a class="adm-a" href="#"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="m4 17.5 5-4.5 4 3.5 2.5-2 4.5 4"/></svg>동네TV 영상</a></div>
+  <div class="adm-group"><p class="adm-group-t">매물 · 회원</p><a class="adm-a" href="#"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3.5" width="10" height="17" rx="1"/><path d="M15 9.5h4v11h-4"/><path d="M8 7.5h1M11 7.5h1M8 11h1M11 11h1M8 14.5h1M11 14.5h1"/><path d="M3.5 20.5h17"/></svg>매물 검수<span class="n">12</span></a><a class="adm-a" href="#"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17v-5a5 5 0 0 1 10 0v5"/><path d="M5 20h14v-3H5z"/><path d="M12 3v1.5M4.5 6l1 1M19.5 6l-1 1"/></svg>허위매물 신고<span class="n">3</span></a><a class="adm-a" href="#"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5 5.5 4.5h13L20 9.5"/><path d="M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0"/><path d="M5.5 12v8h13v-8"/><path d="M10 20v-4.5h4V20"/></svg>중개사무소</a><a class="adm-a" href="#"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8.5" r="3.5"/><path d="M3 19.5a6 6 0 0 1 12 0"/><path d="M15.5 5.2a3.5 3.5 0 0 1 0 6.6M17.5 14.2a6 6 0 0 1 3.5 5.3"/></svg>회원</a></div>
+  <div class="adm-group"><p class="adm-group-t">운영</p><a class="adm-a" href="#"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9.5h12V10"/><path d="M12 17v-5"/><path d="m9.5 14 2.5-2.5 2.5 2.5"/></svg>내놓기·구하기 요청<span class="n">5</span></a><a class="adm-a" href="#"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4 18 18M6 18l1.6-1.6M16.4 7.6 18 6"/></svg>설정</a></div>
+</aside>
+<div class="adm-main ab-main">
+<div class="ab-col">
+<div class="adm-top">
+  <div style="flex:1;min-width:0"><p class="adm-crumb">콘텐츠</p><h1 class="adm-title">배너·팝업 관리</h1></div>
+  <form class="search-sm" role="search" action="#" style="width:260px"><label class="sr" for="adm-q">관리자 검색</label><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg><input id="adm-q" type="search" placeholder="광고주, 배너 ID 검색"></form>
+  <button class="btn-icon" aria-label="알림"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg></button>
+  <span class="adm-me"><span class="adm-av" aria-hidden="true">운</span><span class="t-sm" style="color:var(--text);font-weight:700">운영자</span></span>
+</div>
+<div class="ab-content">
+  <div class="ab-bar">
+    <div class="tabs ab-tabs" role="tablist" aria-label="관리 대상"><button class="tab is-on" role="tab" aria-selected="true">배너<span class="count num">19</span></button><button class="tab" role="tab" aria-selected="false">팝업<span class="count num">2</span></button></div>
+    <div class="row" style="gap:8px"><a class="btn btn-secondary btn-sm" href="#"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="8" width="17" height="8" rx="1.5"/><path d="M7 8v3M10.5 8v4M14 8v3M17.5 8v4"/></svg>슬롯 규격표</a><a class="btn btn-primary btn-sm" href="#"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>새 배너 등록</a></div>
+  </div>
+  <section aria-label="노출 위치별 현황"><div class="slots">
+<a class="slot" href="#">
+  <span class="slot-top"><svg class="slot-glyph" width="46" height="34" viewBox="0 0 46 34" aria-hidden="true"><rect x=".75" y=".75" width="44.5" height="32.5" rx="5" fill="#FFFFFF" stroke="#D1D6DB" stroke-width="1.5"/><path d="M1.5 7.5h43" stroke="#E5E8EB" stroke-width="1.5"/><circle cx="6" cy="4.2" r="1.3" fill="#B0B8C1"/><rect x="6" y="11" width="34" height="8" rx="2" fill="#1D4FF2"/><rect x="6" y="22.5" width="10" height="6" rx="1.5" fill="#E5E8EB"/><rect x="18" y="22.5" width="10" height="6" rx="1.5" fill="#E5E8EB"/><rect x="30" y="22.5" width="10" height="6" rx="1.5" fill="#E5E8EB"/></svg><span class="slot-n num">2<small>/ 5</small></span></span>
+  <span class="slot-name">메인 히어로 배너</span>
+  <span class="meter" aria-hidden="true"><i style="width:40%"></i></span>
+  <span class="slot-cap"><span>PC · 모바일</span></span>
+</a>
+<a class="slot" href="#">
+  <span class="slot-top"><svg class="slot-glyph" width="46" height="34" viewBox="0 0 46 34" aria-hidden="true"><rect x=".75" y=".75" width="44.5" height="32.5" rx="5" fill="#FFFFFF" stroke="#D1D6DB" stroke-width="1.5"/><path d="M1.5 7.5h43" stroke="#E5E8EB" stroke-width="1.5"/><circle cx="6" cy="4.2" r="1.3" fill="#B0B8C1"/><rect x="6" y="11" width="34" height="5" rx="1.5" fill="#E5E8EB"/><rect x="6" y="19" width="34" height="3" rx="1.5" fill="#1D4FF2"/><rect x="6" y="25" width="15" height="4" rx="1.5" fill="#E5E8EB"/><rect x="25" y="25" width="15" height="4" rx="1.5" fill="#E5E8EB"/></svg><span class="slot-n num">1<small>/ 2</small></span></span>
+  <span class="slot-name">메인 띠배너</span>
+  <span class="meter" aria-hidden="true"><i style="width:50%"></i></span>
+  <span class="slot-cap"><span>PC · 모바일</span></span>
+</a>
+<a class="slot" href="#">
+  <span class="slot-top"><svg class="slot-glyph" width="46" height="34" viewBox="0 0 46 34" aria-hidden="true"><rect x=".75" y=".75" width="44.5" height="32.5" rx="5" fill="#FFFFFF" stroke="#D1D6DB" stroke-width="1.5"/><path d="M1.5 7.5h43" stroke="#E5E8EB" stroke-width="1.5"/><circle cx="6" cy="4.2" r="1.3" fill="#B0B8C1"/><rect x="1.5" y="8.25" width="43" height="24.25" fill="#F3F5F8"/><path d="M28 8.5c-2 6 4 9 1 14s-6 6-5 10" fill="none" stroke="#C9DCF5" stroke-width="2.4"/><rect x="5" y="11.5" width="14" height="10" rx="2" fill="#1D4FF2"/><circle cx="35" cy="15" r="2.2" fill="#B0B8C1"/><circle cx="31" cy="26" r="2.2" fill="#B0B8C1"/><rect x=".75" y=".75" width="44.5" height="32.5" rx="5" fill="none" stroke="#D1D6DB" stroke-width="1.5"/></svg><span class="slot-n num">3<small>/ 6</small></span></span>
+  <span class="slot-name">지도 광고 카드</span>
+  <span class="meter" aria-hidden="true"><i style="width:50%"></i></span>
+  <span class="slot-cap"><span>지역 타기팅</span></span>
+</a>
+<a class="slot" href="#">
+  <span class="slot-top"><svg class="slot-glyph" width="46" height="34" viewBox="0 0 46 34" aria-hidden="true"><rect x=".75" y=".75" width="44.5" height="32.5" rx="5" fill="#FFFFFF" stroke="#D1D6DB" stroke-width="1.5"/><path d="M1.5 7.5h43" stroke="#E5E8EB" stroke-width="1.5"/><circle cx="6" cy="4.2" r="1.3" fill="#B0B8C1"/><rect x="17" y="8.25" width="27.5" height="24.25" fill="#F3F5F8"/><path d="M17 8.25v24.5" stroke="#E5E8EB" stroke-width="1.5"/><rect x="4.5" y="11" width="10" height="6" rx="1.5" fill="#1D4FF2"/><rect x="4.5" y="20" width="10" height="2.5" rx="1" fill="#E5E8EB"/><rect x="4.5" y="25" width="10" height="2.5" rx="1" fill="#E5E8EB"/><circle cx="30" cy="19" r="2.2" fill="#B0B8C1"/><rect x=".75" y=".75" width="44.5" height="32.5" rx="5" fill="none" stroke="#D1D6DB" stroke-width="1.5"/></svg><span class="slot-n num">11<small>/ 12</small></span></span>
+  <span class="slot-name">단지 전문 중개사 노출</span>
+  <span class="meter is-warn" aria-hidden="true"><i style="width:92%"></i></span>
+  <span class="slot-cap"><b class="warn">1자리 남음 · 대기 2</b></span>
+</a>
+<a class="slot" href="#">
+  <span class="slot-top"><svg class="slot-glyph" width="46" height="34" viewBox="0 0 46 34" aria-hidden="true"><rect x=".75" y=".75" width="44.5" height="32.5" rx="5" fill="#FFFFFF" stroke="#D1D6DB" stroke-width="1.5"/><path d="M1.5 7.5h43" stroke="#E5E8EB" stroke-width="1.5"/><circle cx="6" cy="4.2" r="1.3" fill="#B0B8C1"/><rect x="6" y="11" width="18" height="9" rx="1.5" fill="#E5E8EB"/><rect x="6" y="23" width="18" height="2.5" rx="1" fill="#E5E8EB"/><rect x="6" y="27.5" width="12" height="2.5" rx="1" fill="#E5E8EB"/><rect x="28" y="11" width="12" height="11" rx="1.5" fill="#1D4FF2"/></svg><span class="slot-n num">2<small>/ 3</small></span></span>
+  <span class="slot-name">매물 상세 사이드 광고</span>
+  <span class="meter" aria-hidden="true"><i style="width:67%"></i></span>
+  <span class="slot-cap"><span>300 × 250</span></span>
+</a>
+  </div></section>
+  <section class="panel" aria-labelledby="bl-h">
+  <div class="panel-hd">
+    <div class="row" style="gap:10px"><h2 class="panel-t" id="bl-h">배너 목록</h2><span class="t-cap">같은 위치 안에서 끌어서 노출 순서를 바꿔요</span></div>
+    <div class="row" style="gap:6px">
+      <button class="fchip fchip-sm"><span class="k">노출 위치</span><span class="v">전체</span><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+      <button class="fchip fchip-sm"><span class="k">상태</span><span class="v">전체</span><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+    </div>
+  </div>
+  <div class="table-scroll"><table class="table bt">
+    <caption class="sr">배너 목록 · 노출 위치와 순서 기준 정렬</caption>
+    <colgroup><col style="width:46px"><col><col style="width:94px"><col style="width:100px"><col style="width:120px"></colgroup>
+    <thead><tr><th>순서</th><th>배너 · 노출 위치 · 기간 · 대상</th><th>상태</th><th class="r">노출 · 클릭 · CTR</th><th class="r">관리</th></tr></thead>
+    <tbody>
+<tr>
+  <td class="c-ord"><span class="ord"><span class="drag" aria-hidden="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="3"/></svg></span><span class="num">1</span></span><button class="sr">AD-01 순서 이동</button></td>
+  <td><div class="bn"><span class="thumb"><svg viewBox="0 0 96 36" aria-hidden="true"><g fill="none" stroke="#E9D7A8" stroke-width="1"><path d="M60 36V14h8v22M72 36V6h10v30M86 36V18h6v18"/><path d="M62 18h4M62 22h4M62 26h4M74 10h6M74 14h6M74 18h6M74 22h6"/></g><rect x="8" y="12" width="34" height="4" rx="2" fill="#fff" opacity=".9"/><rect x="8" y="20" width="22" height="3" rx="1.5" fill="#E9D7A8" opacity=".85"/></svg></span><div class="bn-t">
+    <p class="bn-title"><b>연향들 더 퍼스트 견본주택 오픈</b></p>
+    <p class="bn-sub"><span class="slot-tag">메인 히어로 1</span><span class="bn-adv">분양 광고주 A</span></p>
+    <p class="bn-meta"><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><span class="num">11.01 – 11.30</span></span><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>전체</span></p>
+  </div></div></td>
+  <td><div class="st"><label class="switch"><input type="checkbox" checked aria-label="AD-01 노출 켜기"><span class="switch-l st-live">노출</span></label><span class="t-cap">7일 남음</span></div></td>
+  <td class="r"><b class="perf num">48,210</b><span class="t-cap num">1,126 · 2.3%</span></td>
+  <td class="r"><span class="acts"><button class="act" aria-label="AD-01 수정"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="m13.5 6.5 4 4"/></svg></button><button class="act" aria-label="AD-01 복제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg></button><button class="act act-del" aria-label="AD-01 삭제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10.5 11v5.5M13.5 11v5.5"/></svg></button></span></td>
+</tr>
+<tr class="is-editing">
+  <td class="c-ord"><span class="ord"><span class="drag" aria-hidden="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="3"/></svg></span><span class="num">2</span></span><button class="sr">AD-03 순서 이동</button></td>
+  <td><div class="bn"><span class="thumb" style="background:#1C2B22"><svg viewBox="0 0 96 36" aria-hidden="true"><g fill="none" stroke="#F2C78B" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"><rect x="62" y="15" width="22" height="16" rx="1.5"/><path d="M62 21h22M73 15v16"/><path d="M58 31h30"/><path d="M67 15v-5h12v5"/></g><rect x="8" y="12" width="36" height="4" rx="2" fill="#fff" opacity=".9"/><rect x="8" y="20" width="24" height="3" rx="1.5" fill="#F2C78B" opacity=".85"/></svg></span><div class="bn-t">
+    <p class="bn-title"><b>순천 이사·입주청소 한 번에 예약</b><span class="editing">수정 중</span></p>
+    <p class="bn-sub"><span class="slot-tag">메인 히어로 2</span><span class="bn-adv">늘봄 이사·청소</span></p>
+    <p class="bn-meta"><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><span class="num">12.01 – 12.31</span></span><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>신대·선월·연향</span></p>
+  </div></div></td>
+  <td><div class="st"><label class="switch"><input type="checkbox" checked aria-label="AD-03 노출 켜기"><span class="switch-l st-scheduled">예약</span></label><span class="t-cap">12.01 시작</span></div></td>
+  <td class="r"><b class="perf perf-none">–</b><span class="t-cap">게시 전</span></td>
+  <td class="r"><span class="acts"><button class="act is-on" aria-label="AD-03 수정"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="m13.5 6.5 4 4"/></svg></button><button class="act" aria-label="AD-03 복제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg></button><button class="act act-del" aria-label="AD-03 삭제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10.5 11v5.5M13.5 11v5.5"/></svg></button></span></td>
+</tr>
+<tr>
+  <td class="c-ord"><span class="ord"><span class="drag" aria-hidden="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="3"/></svg></span><span class="num">1</span></span><button class="sr">AD-07 순서 이동</button></td>
+  <td><div class="bn"><span class="thumb" style="background:#F2F4F6"><svg viewBox="0 0 96 36" aria-hidden="true"><rect x="0" y="11" width="96" height="14" fill="#1D4FF2"/><g fill="none" stroke="#FFFFFF" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21v-3.5a3 3 0 0 1 6 0V21l.8 1H8.2z"/></g><rect x="20" y="15.5" width="34" height="3" rx="1.5" fill="#fff"/><rect x="74" y="14.5" width="16" height="7" rx="3.5" fill="#fff" opacity=".9"/></svg></span><div class="bn-t">
+    <p class="bn-title"><b>관심 단지 새 매물 알림 받기</b></p>
+    <p class="bn-sub"><span class="slot-tag">메인 띠배너 1</span><span class="bn-adv">운영사 캠페인</span></p>
+    <p class="bn-meta"><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><span class="num">11.10 – 12.31</span></span><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>전체</span></p>
+  </div></div></td>
+  <td><div class="st"><label class="switch"><input type="checkbox" checked aria-label="AD-07 노출 켜기"><span class="switch-l st-live">노출</span></label><span class="t-cap">38일 남음</span></div></td>
+  <td class="r"><b class="perf num">31,402</b><span class="t-cap num">408 · 1.3%</span></td>
+  <td class="r"><span class="acts"><button class="act" aria-label="AD-07 수정"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="m13.5 6.5 4 4"/></svg></button><button class="act" aria-label="AD-07 복제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg></button><button class="act act-del" aria-label="AD-07 삭제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10.5 11v5.5M13.5 11v5.5"/></svg></button></span></td>
+</tr>
+<tr>
+  <td class="c-ord"><span class="ord"><span class="drag" aria-hidden="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="3"/></svg></span><span class="num">1</span></span><button class="sr">AD-02 순서 이동</button></td>
+  <td><div class="bn"><span class="thumb" style="background:#F3F5F8"><svg viewBox="0 0 96 36" aria-hidden="true"><path d="M60 0c-6 10 10 16 2 26s-8 8-6 12" fill="none" stroke="#C9DCF5" stroke-width="5"/><path d="M0 24h96M40 0v36" stroke="#FFFFFF" stroke-width="3"/><rect x="6" y="5" width="34" height="24" rx="3" fill="#0A1222"/><rect x="10" y="9" width="18" height="3" rx="1.5" fill="#fff"/><rect x="10" y="15" width="12" height="2.5" rx="1.2" fill="#E9D7A8"/><rect x="10" y="21" width="26" height="4.5" rx="2" fill="#1D4FF2"/><circle cx="74" cy="12" r="3" fill="#B0B8C1"/><circle cx="82" cy="28" r="3" fill="#B0B8C1"/></svg></span><div class="bn-t">
+    <p class="bn-title"><b>호수공원 공인중개사사무소</b></p>
+    <p class="bn-sub"><span class="slot-tag">지도 광고 카드 1</span><span class="bn-adv">대표 한서윤</span></p>
+    <p class="bn-meta"><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><span class="num">11.15 – 12.14</span></span><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>조례동·연향동</span></p>
+  </div></div></td>
+  <td><div class="st"><label class="switch"><input type="checkbox" checked aria-label="AD-02 노출 켜기"><span class="switch-l st-live">노출</span></label><span class="t-cap">21일 남음</span></div></td>
+  <td class="r"><b class="perf num">12,880</b><span class="t-cap num">341 · 2.6%</span></td>
+  <td class="r"><span class="acts"><button class="act" aria-label="AD-02 수정"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="m13.5 6.5 4 4"/></svg></button><button class="act" aria-label="AD-02 복제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg></button><button class="act act-del" aria-label="AD-02 삭제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10.5 11v5.5M13.5 11v5.5"/></svg></button></span></td>
+</tr>
+<tr>
+  <td class="c-ord"><span class="ord"><span class="drag" aria-hidden="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" stroke-width="3"/></svg></span><span class="num">2</span></span><button class="sr">AD-09 순서 이동</button></td>
+  <td><div class="bn"><span class="thumb" style="background:#F3F5F8"><svg viewBox="0 0 96 36" aria-hidden="true"><path d="M30 0c-6 10 10 16 2 26s-8 8-6 12" fill="none" stroke="#C9DCF5" stroke-width="5"/><path d="M0 14h96M66 0v36" stroke="#FFFFFF" stroke-width="3"/><rect x="50" y="6" width="38" height="24" rx="3" fill="#0A1222"/><rect x="54" y="10" width="20" height="3" rx="1.5" fill="#fff"/><rect x="54" y="16" width="12" height="2.5" rx="1.2" fill="#E9D7A8"/><rect x="54" y="22" width="30" height="4.5" rx="2" fill="#1D4FF2"/><circle cx="14" cy="24" r="3" fill="#B0B8C1"/></svg></span><div class="bn-t">
+    <p class="bn-title"><b>신대중앙 공인중개사사무소</b></p>
+    <p class="bn-sub"><span class="slot-tag">지도 광고 카드 2</span><span class="bn-adv">대표 김서진</span></p>
+    <p class="bn-meta"><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><span class="num">11.01 – 12.31</span></span><span><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>신대지구</span></p>
+  </div></div></td>
+  <td><div class="st"><label class="switch"><input type="checkbox" aria-label="AD-09 노출 켜기"><span class="switch-l st-paused">중지</span></label><span class="t-cap">광고주 요청</span></div></td>
+  <td class="r"><b class="perf num">8,214</b><span class="t-cap num">197 · 2.4%</span></td>
+  <td class="r"><span class="acts"><button class="act" aria-label="AD-09 수정"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="m13.5 6.5 4 4"/></svg></button><button class="act" aria-label="AD-09 복제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></svg></button><button class="act act-del" aria-label="AD-09 삭제"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10.5 11v5.5M13.5 11v5.5"/></svg></button></span></td>
+</tr>
+    </tbody>
+  </table></div>
+  <div class="tfoot">
+    <span class="t-cap">19개 중 <b class="num">1–5</b> · 노출 위치, 순서 기준</span>
+    <nav class="pager" aria-label="페이지"><button aria-label="이전 페이지" disabled><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button><a href="#" class="is-on" aria-current="page">1</a><a href="#">2</a><a href="#">3</a><a href="#">4</a><button aria-label="다음 페이지"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button></nav>
+  </div>
+</section>
+  <section class="panel" aria-labelledby="pp-h">
+  <div class="panel-hd">
+    <div class="row" style="gap:10px"><h2 class="panel-t" id="pp-h">공지 팝업</h2><span class="t-cap">게시중 1 · 예약 1</span></div>
+    <a class="link t-sm row" style="gap:2px" href="#">팝업 탭에서 전체 관리<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a>
+  </div>
+  <div class="pp">
+    <div class="pp-mini" aria-hidden="true">
+      <div class="pp-art">
+        <svg viewBox="0 0 190 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="#E9D7A8" stroke-width="1.1" opacity=".55"><path d="M-10 150 C 40 120 100 145 200 115"/><path d="M-3 150 C 45 116 103 142 200 109"/><path d="M4 150 C 50 112 106 139 200 103"/><path d="M11 150 C 55 108 109 136 200 97"/></g><circle cx="152" cy="40" r="17" fill="none" stroke="#E9D7A8" stroke-width="1.2"/><path d="M147 40l4 4 7-8" fill="none" stroke="#E9D7A8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="pp-copy"><span class="pp-badge">공지</span><b>허위매물을 신고하면<br>확인 후 포상해 드려요</b></span>
+      </div>
+      <div class="pp-ft"><span>일주일 동안 보지 않기</span><span class="b">닫기</span></div>
+    </div>
+    <div class="pp-set">
+      <div class="pp-hd"><div><p class="pp-t">허위매물 신고 포상 안내</p><p class="t-cap">AD-04 · 운영사 · 760 × 600</p></div><span class="status live">게시중</span></div>
+      <div class="pp-row"><span class="pp-l" id="pp-per">기간</span><span class="pp-v" aria-labelledby="pp-per"><button class="date-sm" aria-label="시작일 2026.11.10 변경"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><span class="num">2026.11.10</span></button><span class="t-cap">–</span><button class="date-sm" aria-label="종료일 2026.11.30 변경"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><span class="num">2026.11.30</span></button></span></div>
+      <div class="pp-row"><span class="pp-l">노출 페이지</span><span class="pp-v chips-sm" role="group" aria-label="노출 페이지"><button class="chip is-on" aria-pressed="true">메인</button><button class="chip is-on" aria-pressed="true">아파트 지도</button><button class="chip" aria-pressed="false">원룸·투룸</button><button class="chip" aria-pressed="false">매물 상세</button></span></div>
+      <div class="pp-row"><span class="pp-l">닫기 옵션</span><span class="pp-v"><label class="check check-sm"><input type="checkbox" checked><svg class="check-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>‘일주일 동안 보지 않기’ 표시</label><span class="t-cap">하루 1회 · 첫 방문 시</span></span></div>
+    </div>
+  </div>
+</section>
+</div>
+</div>
+<aside class="dw" aria-labelledby="dw-h">
+  <div class="dw-hd">
+    <div class="stack" style="gap:2px;min-width:0"><p class="t-cap num">AD-03 · 메인 히어로 배너</p><div class="row" style="gap:8px;flex-wrap:nowrap"><h2 id="dw-h" class="dw-title">배너 수정</h2><span class="status scheduled">예약</span></div></div>
+    <button class="btn-icon dw-x" aria-label="편집 닫기"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <div class="dw-body">
+    <section class="pv" aria-labelledby="pv-h">
+  <div class="pv-hd"><h3 id="pv-h" class="pv-t">실시간 미리보기</h3><span class="t-cap">입력한 내용이 바로 반영돼요</span><a class="link t-sm row" style="gap:4px;margin-left:auto" href="#"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4.5h5.5V10"/><path d="M19.5 4.5 11 13"/><path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4"/></svg>실제 화면</a></div>
+  <div class="pv-stage">
+    <figure class="pv-fig pv-fig-desk">
+      <div class="pv-desk" aria-hidden="true">
+        <div class="pv-chrome"><i></i><i></i><i></i><span></span></div>
+        <div class="pv-page">
+          <div class="pv-gnb"><svg class="logo-mark" width="10" height="10" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1D4FF2"/><path d="M9 24v-7a7 7 0 0 1 14 0v7" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/><rect x="13.6" y="17.6" width="4.8" height="6.4" rx="1.2" fill="#FFFFFF"/><rect x="21.6" y="6" width="4.4" height="4.4" rx="1.3" fill="#E9D7A8"/></svg><i class="sk dk" style="width:22px;height:4px"></i><span class="pv-sp"></span><i class="sk" style="width:14px;height:4px"></i><i class="sk" style="width:14px;height:4px"></i><i class="sk" style="width:14px;height:4px"></i><i class="pv-pill"></i></div>
+          <div class="pv-hero"><i class="sk dk" style="width:46%;height:6px"></i><i class="sk" style="width:30%;height:4px"></i><i class="pv-search"></i></div>
+          <div class="pv-slot"><span class="cr cr-pc"><span class="cr-ad">AD</span><span class="cr-copy"><span class="cr-h">순천 이사·입주청소<br>한 번에 예약</span></span><svg class="cr-art" viewBox="0 0 160 120" aria-hidden="true"><g fill="none" stroke="#F2C78B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="46" y="48" width="70" height="52" rx="4"/><path d="M46 66h70M81 48v52"/><path d="M30 100h106"/><path d="M62 48V32h38v16"/><path d="M124 34l6-6M132 44h8M122 22v-8" opacity=".8"/></g></svg></span></div>
+          <div class="pv-cards"><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+      </div>
+      <figcaption><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="11.5" rx="1.8"/><path d="M9 20h6M12 16v4"/></svg>PC · 메인 히어로 2번째</figcaption>
+    </figure>
+    <figure class="pv-fig pv-fig-m">
+      <div class="pv-phone" aria-hidden="true">
+        <div class="pv-mgnb"><svg class="logo-mark" width="9" height="9" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1D4FF2"/><path d="M9 24v-7a7 7 0 0 1 14 0v7" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/><rect x="13.6" y="17.6" width="4.8" height="6.4" rx="1.2" fill="#FFFFFF"/><rect x="21.6" y="6" width="4.4" height="4.4" rx="1.3" fill="#E9D7A8"/></svg><i class="sk dk" style="width:16px;height:4px"></i><span class="pv-sp"></span><i class="pv-pill b"></i><i class="pv-pill"></i></div>
+        <div class="pv-mbody"><i class="sk dk" style="width:62%;height:6px"></i><i class="pv-search"></i><div class="pv-slot"><span class="cr cr-m"><span class="cr-ad">AD</span><span class="cr-copy"><span class="cr-h">이사·청소 예약</span></span><svg class="cr-art" viewBox="0 0 160 120" aria-hidden="true"><g fill="none" stroke="#F2C78B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="46" y="48" width="70" height="52" rx="4"/><path d="M46 66h70M81 48v52"/><path d="M30 100h106"/><path d="M62 48V32h38v16"/><path d="M124 34l6-6M132 44h8M122 22v-8" opacity=".8"/></g></svg></span></div><i class="sk card" style="width:100%;height:22px"></i><i class="sk card" style="width:100%;height:22px"></i></div>
+      </div>
+      <figcaption class="warn"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4 21 19.5H3z"/><path d="M12 10v4.5M12 17h.01"/></svg>PC 이미지로 대체 중</figcaption>
+    </figure>
+  </div>
+</section>
+    <div class="dw-form">
+      <div class="fld"><label class="lb" for="f-pos">노출 위치</label><span class="select sel-md"><select id="f-pos"><option>메인 히어로 배너 · PC 1240×220 / 모바일 358×160</option></select><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></div>
+      <div class="g2">
+        <div class="fld"><label class="lb" for="f-tit">제목 <span class="t-cap">관리용</span></label><span class="input-affix"><input id="f-tit" class="input in-md" value="순천 이사·입주청소 한 번에 예약"><span class="affix num">17/40</span></span></div>
+        <div class="fld"><label class="lb" for="f-adv">광고주</label><span class="in-ico"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg><input id="f-adv" class="input in-md" value="늘봄 이사·청소" placeholder="중개사무소·업체 검색"><span class="badge">업체</span></span></div>
+      </div>
+      <div class="g2">
+        <div class="fld"><span class="lb" id="up-pc">PC 이미지</span>
+          <div class="up up-done" aria-labelledby="up-pc">
+            <span class="up-img"><span class="cr cr-pc cr-tiny"><span class="cr-ad">AD</span><span class="cr-copy"><span class="cr-h">순천 이사·입주청소<br>한 번에 예약</span></span><svg class="cr-art" viewBox="0 0 160 120" aria-hidden="true"><g fill="none" stroke="#F2C78B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="46" y="48" width="70" height="52" rx="4"/><path d="M46 66h70M81 48v52"/><path d="M30 100h106"/><path d="M62 48V32h38v16"/><path d="M124 34l6-6M132 44h8M122 22v-8" opacity=".8"/></g></svg></span></span>
+            <span class="up-file"><b>nulbom_pc.jpg</b><span class="num">640KB</span></span>
+            <span class="up-ok"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg><span class="num">2480×440</span> 비율 일치</span>
+            <button class="up-re">교체</button>
+          </div></div>
+        <div class="fld"><span class="lb" id="up-m">모바일 이미지</span>
+          <label class="up up-empty" for="f-mimg"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4.5"/><path d="m7 9 5-5 5 5"/><path d="M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/></svg><span><b>파일 선택</b> 또는 끌어다 놓기</span><span class="spec num">권장 1074 × 480 · 600KB</span><input id="f-mimg" class="sr" type="file" accept="image/*"></label></div>
+      </div>
+      <div class="fld"><span class="lb lb-row"><label for="f-url">링크 URL</label><label class="check check-sm"><input type="checkbox" checked><svg class="check-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>새 창에서 열기</label></span><span class="in-ico"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><input id="f-url" class="input in-md num" value="https://example.com/nulbom?utm_source=brand"></span></div>
+      <div class="g2 g2-per">
+        <div class="fld"><span class="lb" id="f-per">노출 기간</span><span class="daterange" role="group" aria-labelledby="f-per"><label class="sr" for="f-s">시작일</label><span class="in-ico"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><input id="f-s" class="input in-md num" value="2026.12.01"></span><span class="t-cap">–</span><label class="sr" for="f-e">종료일</label><span class="in-ico"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><input id="f-e" class="input in-md num" value="2026.12.31"></span></span></div>
+        <div class="fld"><label class="lb" for="f-ord">노출 순서</label><span class="select sel-md"><select id="f-ord"><option>2번째 / 2개</option></select><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></div>
+      </div>
+      <div class="fld"><span class="lb" id="f-tg">노출 대상</span>
+        <div class="seg seg-full" role="radiogroup" aria-labelledby="f-tg"><button class="seg-b" role="radio" aria-checked="false">전체</button><button class="seg-b is-on" role="radio" aria-checked="true">특정 지역</button><button class="seg-b" role="radio" aria-checked="false">특정 단지</button></div>
+        <div class="tg-chips"><span class="chip is-on">신대지구<button class="x" aria-label="신대지구 빼기"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span><span class="chip is-on">선월지구<button class="x" aria-label="선월지구 빼기"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span><span class="chip is-on">연향동<button class="x" aria-label="연향동 빼기"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></span><button class="chip chip-add"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>지역 추가</button></div>
+        <p class="t-cap">관심 지역을 이곳으로 둔 회원과, 이 지역 지도를 본 방문자에게 보여요</p>
+      </div>
+      <div class="fld"><span class="lb lb-row"><span id="f-st">상태</span><span class="t-cap row" style="gap:4px"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>2026.12.01 00:00 자동 노출</span></span>
+        <div class="seg seg-full" role="radiogroup" aria-labelledby="f-st"><button class="seg-b" role="radio" aria-checked="false">노출</button><button class="seg-b" role="radio" aria-checked="false">중지</button><button class="seg-b is-on" role="radio" aria-checked="true">예약</button></div>
+      </div>
+    </div>
+  </div>
+  <div class="dw-ft">
+    <button class="btn btn-ghost btn-sm dw-del"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 7h15"/><path d="M9.5 7V4.5h5V7"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10.5 11v5.5M13.5 11v5.5"/></svg>삭제</button>
+    <span class="dw-sp"></span>
+    <button class="btn btn-secondary">취소</button>
+    <button class="btn btn-primary">저장</button>
+  </div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

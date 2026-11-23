@@ -1,0 +1,37 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# builds
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+.turbo/
+
+# env (keep examples)
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# runtime data
+uploads/
+private-uploads/
+coverage/
+*.log
+logs/
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# local runtime data (apps/api/.data/uploads etc.)
+.data/
+
+# local tooling output
+.tmp/
+.next-*/

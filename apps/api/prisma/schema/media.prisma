@@ -1,0 +1,72 @@
+// Owned by the media module team.
+
+enum MediaVisibility {
+  PUBLIC
+  PRIVATE
+
+  @@map("media_visibility")
+}
+
+enum MediaStatus {
+  PENDING
+  READY
+  FAILED
+
+  @@map("media_status")
+}
+
+enum MediaPurpose {
+  LISTING_PHOTO
+  COMPLEX_PHOTO
+  DEAL_REQUEST_PHOTO
+  AGENCY_LOGO
+  AGENCY_DOCUMENT
+  BANNER
+  POPUP
+  CONTENT
+  PROFILE
+
+  @@map("media_purpose")
+}
+
+/// Uploaded file. PUBLIC files live under UPLOAD_DIR (served by nginx at /media/*),
+/// PRIVATE files under PRIVATE_UPLOAD_DIR (served only via an authorized endpoint).
+model Media {
+  id               String          @id @default(uuid(7)) @db.Uuid
+  purpose          MediaPurpose
+  visibility       MediaVisibility @default(PUBLIC)
+  status           MediaStatus     @default(PENDING)
+  ownerUserId      String?         @map("owner_user_id") @db.Uuid
+  ownerAdminId     String?         @map("owner_admin_id") @db.Uuid
+  /// Sniffed (magic bytes) MIME type of the original.
+  mimeType         String          @map("mime_type") @db.VarChar(100)
+  sizeBytes        Int             @map("size_bytes")
+  width            Int?
+  height           Int?
+  sha256           String          @db.VarChar(64)
+  /// Random relative storage key of the original (no user-controlled path parts).
+  storageKey       String          @unique @map("storage_key") @db.VarChar(255)
+  /// { thumb: { key, width, height }, medium: {...}, large: {...} }
+  variants         Json?
+  originalFilename String?         @map("original_filename") @db.VarChar(255)
+  error            String?         @db.VarChar(1000)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?       @map("deleted_at") @db.Timestamptz(3)
+
+  ownerUser         User?              @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  ownerAdmin        AdminUser?         @relation(fields: [ownerAdminId], references: [id], onDelete: SetNull)
+  listingPhotos     ListingPhoto[]
+  complexPhotos     ComplexPhoto[]
+  dealRequestPhotos DealRequestPhoto[]
+  agencyDocuments   AgencyDocument[]
+  agencyLogos       Agency[]           @relation("AgencyLogo")
+  bannersPc         Banner[]           @relation("BannerPcMedia")
+  bannersMobile     Banner[]           @relation("BannerMobileMedia")
+  popups            Popup[]
+
+  @@index([ownerUserId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+  @@index([sha256])
+  @@map("media")
+}

@@ -1,0 +1,184 @@
+// Owned by the admin module team: reports, audit log, content (notices/FAQ/videos), site settings.
+
+enum ReportTargetType {
+  LISTING
+  AGENCY
+
+  @@map("report_target_type")
+}
+
+enum ReportReason {
+  NOT_EXIST
+  ALREADY_DEALT
+  WRONG_PRICE
+  WRONG_INFO
+  WRONG_PHOTO
+  DUPLICATE
+  UNREACHABLE
+  OTHER
+
+  @@map("report_reason")
+}
+
+enum ReportStatus {
+  RECEIVED
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+
+  @@map("report_status")
+}
+
+enum ReportAction {
+  NONE
+  LISTING_HIDDEN
+  AGENCY_WARNED
+  LISTING_HIDDEN_AGENCY_WARNED
+
+  @@map("report_action")
+}
+
+enum FaqCategory {
+  GENERAL
+  ACCOUNT
+  LISTING
+  AGENCY
+  DEAL_REQUEST
+  AD
+
+  @@map("faq_category")
+}
+
+enum AuditActorType {
+  ADMIN
+  USER
+  SYSTEM
+
+  @@map("audit_actor_type")
+}
+
+/// 허위매물 신고.
+model Report {
+  id               String           @id @default(uuid(7)) @db.Uuid
+  targetType       ReportTargetType @map("target_type")
+  listingId        String?          @map("listing_id") @db.Uuid
+  agencyId         String?          @map("agency_id") @db.Uuid
+  reporterUserId   String?          @map("reporter_user_id") @db.Uuid
+  reporterPhone    String?          @map("reporter_phone") @db.VarChar(20)
+  reason           ReportReason
+  detail           String?          @db.VarChar(2000)
+  status           ReportStatus     @default(RECEIVED)
+  action           ReportAction?
+  resolutionNote   String?          @map("resolution_note") @db.VarChar(2000)
+  handledByAdminId String?          @map("handled_by_admin_id") @db.Uuid
+  handledAt        DateTime?        @map("handled_at") @db.Timestamptz(3)
+  ip               String?          @db.VarChar(64)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  listing   Listing?        @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  agency    Agency?         @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  reporter  User?           @relation(fields: [reporterUserId], references: [id], onDelete: SetNull)
+  handledBy AdminUser?      @relation(fields: [handledByAdminId], references: [id], onDelete: SetNull)
+  warnings  AgencyWarning[]
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([listingId])
+  @@index([agencyId])
+  @@index([reporterUserId])
+  @@map("reports")
+}
+
+/// Every admin mutation (who, what, before/after, ip). Append-only.
+model AuditLog {
+  id           String         @id @default(uuid(7)) @db.Uuid
+  actorType    AuditActorType @default(ADMIN) @map("actor_type")
+  adminUserId  String?        @map("admin_user_id") @db.Uuid
+  userId       String?        @map("user_id") @db.Uuid
+  action       String         @db.VarChar(100)
+  resourceType String         @map("resource_type") @db.VarChar(50)
+  resourceId   String?        @map("resource_id") @db.VarChar(64)
+  before       Json?
+  after        Json?
+  ip           String?        @db.VarChar(64)
+  userAgent    String?        @map("user_agent") @db.VarChar(500)
+  requestId    String?        @map("request_id") @db.VarChar(64)
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  adminUser AdminUser? @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+
+  @@index([resourceType, resourceId, createdAt(sort: Desc)])
+  @@index([adminUserId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+model Notice {
+  id               String    @id @default(uuid(7)) @db.Uuid
+  title            String    @db.VarChar(200)
+  content          String
+  isPinned         Boolean   @default(false) @map("is_pinned")
+  isPublished      Boolean   @default(false) @map("is_published")
+  publishedAt      DateTime? @map("published_at") @db.Timestamptz(3)
+  viewCount        Int       @default(0) @map("view_count")
+  createdByAdminId String?   @map("created_by_admin_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  createdByAdmin AdminUser? @relation(fields: [createdByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([isPublished, isPinned, publishedAt(sort: Desc)])
+  @@map("notices")
+}
+
+model Faq {
+  id          String      @id @default(uuid(7)) @db.Uuid
+  category    FaqCategory
+  question    String      @db.VarChar(500)
+  answer      String
+  sortOrder   Int         @default(0) @map("sort_order")
+  isPublished Boolean     @default(true) @map("is_published")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime?   @map("deleted_at") @db.Timestamptz(3)
+
+  @@index([isPublished, category, sortOrder])
+  @@map("faqs")
+}
+
+/// 지역 영상 (YouTube).
+model LocalVideo {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  title          String    @db.VarChar(200)
+  youtubeUrl     String    @map("youtube_url") @db.VarChar(500)
+  youtubeVideoId String    @map("youtube_video_id") @db.VarChar(20)
+  thumbnailUrl   String?   @map("thumbnail_url") @db.VarChar(500)
+  description    String?   @db.VarChar(2000)
+  regionCode     String?   @map("region_code") @db.VarChar(10)
+  complexId      String?   @map("complex_id") @db.Uuid
+  sortOrder      Int       @default(0) @map("sort_order")
+  isPublished    Boolean   @default(true) @map("is_published")
+  publishedAt    DateTime? @map("published_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  complex Complex? @relation(fields: [complexId], references: [id], onDelete: SetNull)
+
+  @@index([isPublished, sortOrder])
+  @@index([complexId])
+  @@map("local_videos")
+}
+
+/// Key/value site settings; value validated by siteSettingSchemas[key] (packages/shared).
+model SiteSetting {
+  key              String   @id @db.VarChar(50)
+  value            Json
+  updatedByAdminId String?  @map("updated_by_admin_id") @db.Uuid
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  updatedByAdmin AdminUser? @relation(fields: [updatedByAdminId], references: [id], onDelete: SetNull)
+
+  @@map("site_settings")
+}

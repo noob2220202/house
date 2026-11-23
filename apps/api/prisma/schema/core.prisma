@@ -1,0 +1,69 @@
+// Owned by the lead (cross-cutting): regions, notifications.
+
+enum RegionLevel {
+  SIDO
+  SGG
+  EMD
+  RI
+
+  @@map("region_level")
+}
+
+/// 법정동 (legal administrative region). Used for 읍면동 clustering and targeting.
+model Region {
+  code       String                                 @id @db.VarChar(10)
+  name       String                                 @db.VarChar(50)
+  fullName   String                                 @map("full_name") @db.VarChar(200)
+  level      RegionLevel
+  parentCode String?                                @map("parent_code") @db.VarChar(10)
+  lat        Float?
+  lng        Float?
+  /// Generated from lat/lng in migration SQL (geography(Point,4326)).
+  location   Unsupported("geography(Point, 4326)")?
+  isActive   Boolean                                @default(true) @map("is_active")
+  sortOrder  Int                                    @default(0) @map("sort_order")
+  createdAt  DateTime                               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime                               @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  parent   Region?  @relation("RegionTree", fields: [parentCode], references: [code], onDelete: Restrict)
+  children Region[] @relation("RegionTree")
+
+  @@index([parentCode])
+  @@index([level, isActive])
+  @@index([location], type: Gist)
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "regions_name_trgm_idx")
+  @@map("regions")
+}
+
+enum NotificationType {
+  DEAL_REQUEST_RECEIVED
+  PROPOSAL_RECEIVED
+  PROPOSAL_ACCEPTED
+  CONTACT_GRANTED
+  AGENCY_APPROVED
+  AGENCY_REJECTED
+  AGENCY_WARNED
+  LISTING_HIDDEN
+  REPORT_RESOLVED
+  SYSTEM
+
+  @@map("notification_type")
+}
+
+model Notification {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  title     String           @db.VarChar(200)
+  body      String?          @db.VarChar(1000)
+  /// Deep-link payload, e.g. { dealRequestId }.
+  data      Json?
+  readAt    DateTime?        @map("read_at") @db.Timestamptz(3)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, readAt])
+  @@map("notifications")
+}

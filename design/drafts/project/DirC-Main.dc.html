@@ -1,0 +1,909 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>메인 - C 선셋 에디토리얼</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&amp;family=IBM+Plex+Sans+KR:wght@400;500;600;700&amp;family=Noto+Serif+KR:wght@500;600;700;900&amp;display=swap">
+<style>
+:root{
+  --paper:#F5EFE4; --paper-2:#EDE4D5; --paper-3:#E4D8C5; --card:#FBF8F2; --white:#FFFFFF;
+  --ink:#1E1A16; --ink-2:#463F38; --ink-3:#6A6056; --line:#DDD0BC; --line-2:#C9B89F;
+  --coral:#C24E2C; --coral-deep:#9A3A1F; --coral-soft:#F4DDD0; --coral-tint:#FAEDE5;
+  --gold:#B8893A; --water:#D3DDD7; --water-2:#B9C9C2; --green:#D5D8BC; --night:#221C19; --night-2:#2E2622;
+  --d-bun:#7A4E8C; --d-mae:#C24E2C; --d-jeon:#2F6B5E; --d-wol:#8C5A0E;
+  --serif:"Noto Serif KR","Hahmlet",Georgia,"Apple SD Gothic Neo",serif;
+  --sans:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,-apple-system,sans-serif;
+  --num:"Fraunces",Georgia,"Times New Roman",serif;
+  --r-xs:4px; --r-sm:8px; --r-md:12px; --r-lg:20px; --r-xl:28px; --r-pill:999px;
+  --sh-1:0 1px 2px rgba(60,40,20,.06),0 0 0 1px rgba(60,40,20,.05);
+  --sh-2:0 2px 6px rgba(60,40,20,.06),0 14px 34px rgba(60,40,20,.10);
+  --sh-3:0 10px 24px rgba(60,40,20,.10),0 28px 64px rgba(60,40,20,.16);
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:24px; --s-6:32px; --s-7:48px; --s-8:64px; --s-9:96px; --s-10:128px;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper)}
+x-dc{display:block}
+.page{font-family:var(--sans);color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased;line-height:1.55;letter-spacing:-0.01em;overflow-x:clip;word-break:keep-all;overflow-wrap:break-word}
+:where(.page) a{color:inherit;text-decoration:none}
+:where(.page) button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+:where(.page) :is(h1,h2,h3,h4,p,ul,ol,figure,figcaption){margin:0;padding:0}
+:where(.page) ul,:where(.page) ol{list-style:none}
+:where(.page) :is(h1,h2,h3){text-wrap:pretty}
+.ic{flex:none;display:block}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.wrap{width:100%;max-width:1440px;margin:0 auto;padding:0 clamp(16px,4.2vw,60px)}
+.num{font-feature-settings:"tnum" 1}
+.serif{font-family:var(--serif)}
+.kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--coral-deep)}
+.kicker .fig{font-family:var(--num);font-style:italic;font-weight:500;font-size:15px;letter-spacing:0;color:var(--coral-deep)}
+.kicker .rule{width:28px;height:1px;background:currentColor}
+.h2{font-family:var(--serif);font-weight:700;font-size:clamp(28px,3vw,40px);line-height:1.22;letter-spacing:-0.035em;color:var(--ink)}
+.sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.sec-head .lede{font-size:15px;color:var(--ink-3);max-width:46ch}
+.sec-title{display:grid;gap:14px}
+.link-more{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:14px;font-weight:600;color:var(--ink);border-bottom:1px solid var(--ink);padding:0 2px;min-height:auto;padding-bottom:3px}
+
+/* brand */
+.logo{display:inline-flex;align-items:center;gap:10px;flex:none}
+.logo-word{font-family:var(--num);font-weight:600;font-size:23px;letter-spacing:.06em;color:var(--ink)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:var(--r-pill);font-size:14px;font-weight:600;white-space:nowrap}
+.btn-ink{background:var(--ink);color:var(--paper)}
+.btn-coral{background:var(--coral);color:#fff}
+.btn-line{border:1px solid var(--line-2);color:var(--ink);background:transparent}
+
+/* header */
+.topline{border-bottom:1px solid var(--line);font-size:12.5px;color:var(--ink-3)}
+.topline .wrap{display:flex;justify-content:space-between;align-items:center;gap:16px;height:36px}
+.topline nav{display:flex;gap:20px}
+.topline a{color:var(--ink-3)}
+.hdr{position:relative;z-index:2;border-bottom:1px solid var(--ink)}
+.hdr .wrap{display:flex;align-items:center;gap:28px;height:76px}
+.hsearch{flex:0 1 360px;display:flex;align-items:center;gap:10px;height:46px;padding:0 6px 0 16px;border-radius:var(--r-pill);background:var(--card);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink-3)}
+.hsearch input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:14.5px;color:var(--ink)}
+.hsearch input::placeholder{color:var(--ink-3)}
+.hsearch .kbd{flex:none;font-size:11.5px;color:var(--ink-3);border:1px solid var(--line-2);border-radius:6px;padding:1px 6px}
+.hnav{display:flex;align-items:center;gap:4px;margin-right:auto}
+.hnav a{display:inline-flex;align-items:center;height:44px;padding:0 12px;font-size:15px;font-weight:500;color:var(--ink-2);border-radius:var(--r-pill)}
+.hnav a[aria-current="page"]{color:var(--ink);font-weight:700}
+.hact{display:flex;align-items:center;gap:8px}
+
+/* hero */
+.hero{padding:56px 0 0}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.04fr);gap:clamp(32px,5vw,72px);align-items:stretch}
+.hero-copy{display:flex;flex-direction:column;gap:30px;padding-top:28px}
+.hero-meta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--ink-3)}
+.hero-meta .issue{font-family:var(--num);font-style:italic;font-size:16px;color:var(--ink)}
+.hero-meta .dot{width:4px;height:4px;border-radius:50%;background:var(--line-2)}
+.h1{font-family:var(--serif);font-weight:700;font-size:clamp(40px,5.1vw,76px);line-height:1.12;letter-spacing:-0.05em;color:var(--ink)}
+.h1 em{font-style:normal;color:var(--coral);position:relative;white-space:nowrap}
+.h1 em::after{content:"";position:absolute;left:2%;right:2%;bottom:.04em;height:.09em;background:var(--coral);border-radius:2px;opacity:.9}
+.hero-lede{font-size:17px;line-height:1.75;color:var(--ink-2);max-width:40ch}
+.hero-lede b{font-weight:600;color:var(--ink)}
+.bigsearch{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.bs-box{display:flex;align-items:center;gap:12px;height:68px;padding:0 8px 0 22px;border-radius:var(--r-pill);background:var(--white);box-shadow:var(--sh-2),inset 0 0 0 1px var(--ink);max-width:600px}
+.bs-box .ic{color:var(--ink)}
+.bs-box input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:17px;color:var(--ink)}
+.bs-box input::placeholder{color:var(--ink-3)}
+.bs-box .btn{height:52px;padding:0 26px;font-size:16px}
+.hot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;max-width:600px}
+.hot .lbl{font-size:13px;font-weight:600;color:var(--ink-2);margin-right:4px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 13px;border-radius:var(--r-pill);border:1px solid var(--line-2);font-size:13.5px;color:var(--ink-2);background:transparent}
+.chip .n{font-family:var(--num);font-style:italic;color:var(--coral-deep)}
+
+.plate{position:relative;display:flex;flex-direction:column;gap:14px}
+.plate-art{position:relative;aspect-ratio:620/600;border-radius:var(--r-xl);overflow:hidden;background:var(--paper-2);box-shadow:inset 0 0 0 1px var(--line)}
+.plate-art svg.base{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ptag{position:absolute;transform:translate(-50%,calc(-100% - 10px));display:flex;flex-direction:column;align-items:center;gap:0}
+.ptag a{display:flex;align-items:center;gap:8px;height:36px;padding:0 6px 0 12px;border-radius:var(--r-pill);background:var(--card);box-shadow:var(--sh-2),inset 0 0 0 1px rgba(30,26,22,.10);white-space:nowrap}
+.ptag .nm{font-family:var(--serif);font-weight:700;font-size:14.5px;letter-spacing:-0.03em;color:var(--ink)}
+.ptag .ct{font-size:12px;font-weight:600;color:var(--coral-deep);background:var(--coral-tint);border-radius:var(--r-pill);padding:2px 8px}
+.ptag::after{content:"";position:absolute;left:50%;top:100%;width:1px;height:10px;background:var(--ink);transform:translateX(-50%)}
+.ptag i{position:absolute;left:50%;top:calc(100% + 10px);width:9px;height:9px;border-radius:50%;background:var(--coral);box-shadow:0 0 0 3px var(--paper-2);transform:translate(-50%,-50%)}
+.ptag.on a{background:var(--ink)}
+.ptag.on .nm{color:var(--paper)}
+.ptag.on .ct{background:var(--coral);color:#fff}
+.plate-badge{position:absolute;top:20px;left:20px;display:flex;flex-direction:column;gap:2px;padding:12px 16px;border-radius:var(--r-md);background:rgba(251,248,242,.92);box-shadow:inset 0 0 0 1px var(--line)}
+.plate-badge b{font-family:var(--serif);font-size:15px;font-weight:700;letter-spacing:-0.03em}
+.plate-badge span{font-size:12px;color:var(--ink-3)}
+.plate-open{position:absolute;right:20px;bottom:20px}
+.plate-cap{display:flex;gap:12px;align-items:baseline;font-size:13px;color:var(--ink-3);padding:0 4px}
+.plate-cap .fig{font-family:var(--num);font-style:italic;font-size:15px;color:var(--ink)}
+
+/* hero CTA bands */
+.bands{margin-top:56px;border-top:1px solid var(--ink);border-bottom:1px solid var(--line-2);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr))}
+.band{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:24px;padding:28px 40px 28px 0}
+.band + .band{padding-right:0}
+.band + .band{border-left:1px solid var(--line-2);padding-left:40px}
+.band .art{width:76px;height:76px;flex:none}
+.band h3{font-family:var(--serif);font-size:23px;font-weight:700;letter-spacing:-0.04em;line-height:1.3}
+.band p{font-size:14px;color:var(--ink-3);margin-top:4px}
+.band .go{display:inline-flex;align-items:center;gap:10px;height:52px;padding:0 10px 0 22px;border-radius:var(--r-pill);background:var(--ink);color:var(--paper);font-size:15px;font-weight:600;white-space:nowrap}
+.band .go .arr{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--coral);color:#fff}
+.band.seek .go{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.band.seek .go .arr{background:var(--ink);color:var(--paper)}
+
+/* categories */
+.sec{padding:clamp(64px,7vw,104px) 0 0}
+.cats{margin-top:36px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2)}
+.cat{display:flex;flex-direction:column;gap:18px;padding:26px 24px 28px;position:relative;min-height:300px}
+.cat + .cat{border-left:1px solid var(--line-2)}
+.cat .no{font-family:var(--num);font-style:italic;font-size:17px;color:var(--ink-3)}
+.cat .art{height:96px;display:flex;align-items:flex-end}
+.cat .art svg{width:132px;height:88px}
+.cat h3{font-family:var(--serif);font-size:24px;font-weight:700;letter-spacing:-0.04em;line-height:1.25}
+.cat p{font-size:14px;color:var(--ink-3);line-height:1.6}
+.cat .foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13.5px;color:var(--ink-2)}
+.cat .foot b{font-weight:700;color:var(--ink)}
+.cat .foot .arr{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;box-shadow:inset 0 0 0 1px var(--line-2)}
+.cat.lead{background:var(--card)}
+.cat.lead .arr{background:var(--coral);color:#fff;box-shadow:none}
+
+/* ad */
+.ad{position:relative;margin-top:clamp(48px,5vw,72px);border-radius:var(--r-xl);overflow:hidden;background:#1E3A36;color:#F4EBDD;display:block;min-height:248px}
+.ad-copy{display:flex;flex-direction:column;justify-content:center;gap:14px;padding:40px 52px;position:relative;z-index:1;max-width:680px;min-height:248px}
+.ad-eyebrow{display:flex;align-items:center;gap:10px;font-size:13px;letter-spacing:.06em;color:#D9B26A;font-weight:600}
+.ad-title{font-family:var(--serif);font-size:clamp(26px,2.6vw,36px);font-weight:700;letter-spacing:-0.04em;line-height:1.25;color:#F7EFE2}
+.ad-sub{font-size:15px;color:#D5CCBE}
+.ad-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px}
+.ad-btn{display:inline-flex;align-items:center;gap:8px;height:46px;padding:0 20px;border-radius:var(--r-pill);background:#D9B26A;color:#1E2A26;font-size:14.5px;font-weight:700}
+.ad-tel{font-size:14px;color:#E6DCCB}
+.ad-art{position:absolute;inset:0}
+.ad-art svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ad-flag{position:absolute;top:16px;right:16px;z-index:2;display:flex;align-items:center;gap:8px}
+.ad-flag .tag{font-size:10.5px;font-weight:700;letter-spacing:.08em;color:#1E2A26;background:rgba(244,235,221,.92);border-radius:4px;padding:2px 6px}
+.ad-flag .pg{font-size:12px;color:#F4EBDD;background:rgba(10,20,18,.55);border-radius:var(--r-pill);padding:3px 10px;font-feature-settings:"tnum" 1}
+
+/* ranking */
+.rank-ctl{margin-top:32px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--line-2)}
+.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+.tab{position:relative;height:52px;padding:0 16px;font-size:15.5px;font-weight:500;color:var(--ink-3);white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--ink);font-weight:700}
+.tab[aria-selected="true"]::after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:3px;background:var(--coral);border-radius:3px 3px 0 0}
+.seg{display:inline-flex;padding:3px;border-radius:var(--r-pill);background:var(--paper-2);margin-bottom:8px}
+.seg button{height:38px;padding:0 16px;border-radius:var(--r-pill);font-size:13.5px;font-weight:600;color:var(--ink-3)}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--ink);box-shadow:var(--sh-1)}
+.rank-grid{margin-top:28px;display:grid;grid-template-columns:minmax(0,5fr) minmax(0,8fr);gap:40px;align-items:start}
+.feat{border-radius:var(--r-xl);background:var(--card);box-shadow:var(--sh-1);overflow:hidden;display:flex;flex-direction:column}
+.feat-art{position:relative;aspect-ratio:16/10;background:#F0D3BE}
+.feat-art svg{position:absolute;inset:0;width:100%;height:100%}
+.feat-rank{position:absolute;left:20px;top:16px;font-family:var(--num);font-size:64px;line-height:1;font-weight:500;color:var(--ink);letter-spacing:-0.04em}
+.feat-rank small{display:block;font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--ink-2);margin-top:4px}
+.feat-body{display:grid;gap:18px;padding:24px 26px 26px}
+.feat-body h3{font-family:var(--serif);font-size:26px;font-weight:700;letter-spacing:-0.04em;line-height:1.25}
+.feat-loc{font-size:14px;color:var(--ink-3);margin-top:6px}
+.dealrow{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.dealrow div{display:grid;gap:2px;padding:12px 0 12px 14px}
+.dealrow div + div{border-left:1px solid var(--line)}
+.dealrow div:first-child{padding-left:0}
+.dealrow span{font-size:12.5px;color:var(--ink-3);font-weight:500}
+.dealrow b{font-size:22px;font-weight:600;font-feature-settings:"tnum" 1;letter-spacing:-0.02em}
+.feat-price{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.feat-price .p{font-size:13px;color:var(--ink-3)}
+.feat-price .p b{display:block;font-size:19px;color:var(--ink);font-weight:700;letter-spacing:-0.02em;margin-top:2px}
+.bun{color:var(--d-bun)} .mae{color:var(--d-mae)} .jeon{color:var(--d-jeon)} .wol{color:var(--d-wol)}
+.zero{color:var(--ink-3);font-weight:400}
+
+.tbl-wrap{overflow-x:auto}
+.rtbl{width:100%;border-collapse:collapse;min-width:640px}
+.rtbl th{font-size:12.5px;font-weight:600;color:var(--ink-3);text-align:right;padding:0 12px 12px;border-bottom:1px solid var(--ink);white-space:nowrap}
+.rtbl th:first-child,.rtbl th:nth-child(2){text-align:left}
+.rtbl th .dt{display:inline-flex;align-items:center;gap:6px}
+.rtbl th .dt i{width:7px;height:7px;border-radius:50%}
+.rtbl td{padding:0 12px;height:62px;border-bottom:1px solid var(--line);text-align:right;font-size:16px;font-weight:600;font-feature-settings:"tnum" 1;white-space:nowrap}
+.rtbl td:first-child{text-align:left;width:76px;padding-left:4px}
+.rtbl td:nth-child(2){text-align:left;width:100%}
+.rk{display:flex;align-items:baseline;gap:8px}
+.rk b{font-family:var(--num);font-size:24px;font-weight:500;color:var(--ink);width:28px}
+.mv{font-family:var(--sans);font-size:11.5px;font-weight:600}
+.mv.up{color:var(--coral-deep)} .mv.dn{color:#2F5C7A} .mv.eq{color:var(--ink-3)}
+.cx{display:flex;flex-direction:column;gap:1px}
+.cx a{font-size:16px;font-weight:600;color:var(--ink);letter-spacing:-0.02em}
+.cx span{font-size:12.5px;font-weight:400;color:var(--ink-3)}
+.cx .new{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:700;color:var(--d-bun);border:1px solid currentColor;border-radius:4px;padding:0 4px;vertical-align:2px}
+.tbl-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:16px;font-size:12.5px;color:var(--ink-3);flex-wrap:wrap}
+
+/* stories */
+.story-grid{margin-top:36px;display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:40px}
+.vfeat{display:flex;flex-direction:column;gap:18px}
+.thumb{position:relative;border-radius:var(--r-lg);overflow:hidden;aspect-ratio:16/9;background:var(--paper-3)}
+.thumb svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:grid;place-items:center;width:72px;height:72px;border-radius:50%;background:rgba(30,26,22,.72);color:#fff;backdrop-filter:blur(4px)}
+.dur{position:absolute;right:12px;bottom:12px;font-size:12px;font-weight:600;color:#fff;background:rgba(20,16,14,.78);border-radius:6px;padding:2px 7px;font-feature-settings:"tnum" 1}
+.vfeat h3{font-family:var(--serif);font-size:28px;font-weight:700;letter-spacing:-0.04em;line-height:1.3}
+.vmeta{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--ink-3)}
+.vmeta .pl{font-weight:600;color:var(--coral-deep)}
+.vmeta .dot{width:3px;height:3px;border-radius:50%;background:var(--line-2)}
+.vlist{display:flex;flex-direction:column}
+.vitem{display:grid;grid-template-columns:200px minmax(0,1fr);gap:20px;padding:20px 0;border-bottom:1px solid var(--line)}
+.vitem:first-child{padding-top:0}
+.vitem .thumb{border-radius:var(--r-md)}
+.vitem .play{width:40px;height:40px}
+.vitem .dur{right:8px;bottom:8px;font-size:11px}
+.vitem h4{font-family:var(--serif);font-size:18px;font-weight:700;letter-spacing:-0.035em;line-height:1.4;margin:0}
+.vitem .vmeta{margin-top:8px}
+.vtxt{display:flex;flex-direction:column;justify-content:center}
+.channel{display:flex;align-items:center;gap:14px;margin-top:20px;padding:16px 20px;border-radius:var(--r-lg);background:var(--paper-2)}
+.channel .av{flex:none;display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:var(--coral);color:#fff}
+.channel b{display:block;font-size:15px}
+.channel span{font-size:13px;color:var(--ink-3)}
+.channel .btn{margin-left:auto}
+
+/* app */
+.app{margin-top:clamp(64px,7vw,104px);border-radius:var(--r-xl);background:var(--night);color:#F1E8DA;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);position:relative}
+.app-copy{display:flex;flex-direction:column;gap:22px;padding:60px 56px;position:relative;z-index:1}
+.app .kicker{color:#EBA987}
+.app h2{font-family:var(--serif);font-size:clamp(28px,3vw,40px);font-weight:700;letter-spacing:-0.04em;line-height:1.3;color:#F7EFE2}
+.app p{font-size:15.5px;color:#CFC4B4;max-width:42ch;line-height:1.7}
+.stores{display:flex;gap:12px;flex-wrap:wrap}
+.store{display:inline-flex;align-items:center;gap:12px;height:56px;padding:0 22px 0 18px;border-radius:14px;background:#F7EFE2;color:var(--night)}
+.store span{display:flex;flex-direction:column;line-height:1.15}
+.store small{font-size:11px;color:#5A5048}
+.store b{font-size:16px;font-weight:700;letter-spacing:-0.01em}
+.app-art{position:relative;min-height:380px}
+.app-art .sun{position:absolute;width:360px;height:360px;border-radius:50%;background:linear-gradient(180deg,var(--coral) 0 60%,var(--night) 60% 61.5%,var(--coral) 61.5% 70%,var(--night) 70% 72.5%,var(--coral) 72.5% 80%,var(--night) 80% 83.5%,var(--coral) 83.5% 89%,var(--night) 89% 94%,var(--coral) 94%);right:-40px;top:40px}
+.app-art .stripe{position:absolute;left:0;right:0;height:10px;background:var(--night)}
+.phone{position:absolute;left:12%;top:56px;width:290px;height:420px;border-radius:40px 40px 0 0;background:#14100E;padding:12px 12px 0;box-shadow:0 30px 60px rgba(0,0,0,.4)}
+.screen{height:100%;border-radius:30px 30px 0 0;background:var(--paper);padding:22px 16px;display:flex;flex-direction:column;gap:12px;color:var(--ink)}
+.screen .t{display:flex;justify-content:space-between;align-items:center}
+.screen .t b{font-family:var(--serif);font-size:17px;letter-spacing:-0.03em}
+.noti{border-radius:16px;background:var(--card);box-shadow:var(--sh-1);padding:12px 14px;display:grid;gap:3px}
+.noti .h{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-3)}
+.noti .h b{color:var(--coral-deep);font-weight:700}
+.noti .n{font-size:13.5px;font-weight:700;letter-spacing:-0.02em}
+.noti .v{font-size:12.5px;color:var(--ink-2)}
+.noti .v strong{color:var(--ink);font-weight:700}
+
+/* footer */
+.sf{margin-top:clamp(64px,7vw,104px);border-top:1px solid var(--ink);background:var(--paper-2)}
+.foot-top{display:grid;grid-template-columns:minmax(0,1.2fr) repeat(3,minmax(0,1fr));gap:40px;padding:48px 0 40px}
+.sf h4{font-size:13px;font-weight:700;color:var(--ink);margin:0 0 14px}
+.sf ul{display:grid;gap:10px}
+.sf li a{font-size:14px;color:var(--ink-2)}
+.sf .about p{font-size:14px;color:var(--ink-2);line-height:1.7;margin-top:14px;max-width:34ch}
+.calc{display:flex;flex-wrap:wrap;gap:8px}
+.calc a{display:inline-flex;align-items:center;height:36px;padding:0 13px;border-radius:var(--r-pill);background:var(--card);box-shadow:inset 0 0 0 1px var(--line);font-size:13px;color:var(--ink-2)}
+.foot-legal{border-top:1px solid var(--line-2);padding:24px 0 40px;display:grid;gap:14px}
+.legal-links{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:13.5px;color:var(--ink-2)}
+.legal-links a.b{font-weight:700;color:var(--ink)}
+.biz{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12.5px;color:var(--ink-3);line-height:1.7}
+.biz span b{font-weight:600;color:var(--ink-2);margin-right:6px}
+.copy{font-size:12.5px;color:var(--ink-3);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+
+/* responsive */
+@media (max-width:1200px){
+  .hnav{display:none}
+  .hsearch{margin-right:auto}
+}
+@media (max-width:1080px){
+  .hero-grid,.rank-grid,.story-grid{grid-template-columns:minmax(0,1fr)}
+  .cats{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cat:nth-child(4){border-left:0}
+  .cat:nth-child(n+4){border-top:1px solid var(--line-2)}
+  .app{grid-template-columns:minmax(0,1fr)}
+  .ad-art{position:relative;height:190px}
+  .ad-copy{min-height:0;padding-bottom:8px;max-width:none}
+  .foot-top{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .band + .band{border-left:0;padding-left:0;border-top:1px solid var(--line-2)}
+  .band{padding-right:0}
+}
+@media (max-width:720px){
+  .topline{display:none}
+  .hdr .wrap{flex-wrap:wrap;height:auto;padding-top:12px;padding-bottom:12px;gap:12px}
+  .hsearch{order:3;flex:1 1 100%}
+  .hact{margin-left:auto}
+  .hact .btn-line{display:none}
+  .hero{padding-top:32px}
+  .hero-copy{padding-top:0;gap:22px}
+  .bs-box{height:60px;padding-left:16px}
+  .bs-box .btn{height:46px;padding:0 18px}
+  .cats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cat{min-height:0;padding:20px 16px}
+  .cat:nth-child(n){border-left:0;border-top:1px solid var(--line-2)}
+  .cat:nth-child(even){border-left:1px solid var(--line-2)}
+  .cat:nth-child(-n+2){border-top:0}
+  .cat .art svg{width:104px;height:70px}
+  .cat:last-child{grid-column:1/-1;border-left:0}
+  .hsearch .kbd{display:none}
+  .sf .foot-top{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sf .about,.sf .foot-top > div:last-child{grid-column:1/-1}
+  .cat h3{font-size:19px}
+  .band{grid-template-columns:minmax(0,1fr);gap:14px}
+  .band .art{display:none}
+  .ad-copy{padding:56px 22px 4px}
+  .vitem{grid-template-columns:120px minmax(0,1fr);gap:14px}
+  .vitem h4{font-size:15.5px}
+  .app-copy{padding:36px 22px}
+  .phone{left:50%;transform:translateX(-50%)}
+  .channel{flex-wrap:wrap}
+  .channel .btn{margin-left:0}
+  .ptag a{height:30px;padding:0 4px 0 9px;gap:5px}
+  .ptag .nm{font-size:12px}
+  .ptag .ct{font-size:10.5px;padding:1px 6px}
+  .plate-badge{top:12px;left:12px;padding:8px 12px}
+  .plate-open,.plate-badge{display:none}
+}
+</style>
+</helmet>
+<div class="page">
+
+<!-- utility line -->
+<div class="topline">
+  <div class="wrap">
+    <span>순천 지역 공인중개사가 함께 만드는 공동중개 매물 서비스</span>
+    <nav aria-label="보조 메뉴">
+      <a href="#">중개사 회원 가입</a>
+      <a href="#">광고 문의</a>
+      <a href="#">고객센터</a>
+    </nav>
+  </div>
+</div>
+
+<!-- header -->
+<header class="hdr">
+  <div class="wrap">
+    <a class="logo" href="#" aria-label="BRAND 홈">
+      <svg class="ic" width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="#1E1A16"/><clipPath id="lgc"><rect x="0" y="0" width="34" height="21"/></clipPath><circle cx="17" cy="21" r="9" fill="#C24E2C" clip-path="url(#lgc)"/><rect x="7" y="23.5" width="20" height="2" rx="1" fill="#F5EFE4"/><rect x="10" y="27.5" width="14" height="2" rx="1" fill="#F5EFE4" opacity=".6"/></svg>
+      <span class="logo-word">BRAND</span>
+    </a>
+    <form class="hsearch" role="search" action="#">
+      <label class="sr" for="hq">지역 또는 단지명 검색</label>
+      <svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="hq" type="search" placeholder="지역 또는 단지명">
+      <span class="kbd" aria-hidden="true">/</span>
+    </form>
+    <nav class="hnav" aria-label="주 메뉴">
+      <a href="#" aria-current="page">지도</a>
+      <a href="#">중개업소</a>
+      <a href="#">동네 이야기</a>
+      <a href="#">커뮤니티</a>
+    </nav>
+    <div class="hact">
+      <a class="btn btn-line" href="#">내놓기</a>
+      <a class="btn btn-line" href="#">구하기</a>
+      <a class="btn btn-ink" href="#">로그인</a>
+    </div>
+  </div>
+</header>
+
+<main>
+<!-- hero -->
+<section class="hero" aria-labelledby="hero-h">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <div class="hero-meta">
+          <span class="issue">No. 47</span>
+          <span class="dot" aria-hidden="true"></span>
+          <span>2026년 11월 넷째 주</span>
+          <span class="dot" aria-hidden="true"></span>
+          <span>확인 매물 <b class="num" style="color:var(--ink);font-weight:600">9,640</b>건</span>
+        </div>
+        <h1 class="h1" id="hero-h">살고 싶은 <em>동네</em>부터,<br>순천의 집을 고르다</h1>
+        <p class="hero-lede">순천 공인중개사 <b>128곳</b>이 함께 올리는 실매물을 한곳에서. 신대·오천·연향부터 낙안·승주까지, 동네 이야기와 함께 보여드려요.</p>
+        <form class="bigsearch" role="search" action="#">
+          <div class="bs-box">
+            <label class="sr" for="q">지역 또는 단지명</label>
+            <svg class="ic" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="q" type="search" placeholder="동네나 단지 이름 (예: 신대지구, 오천 그린빌)">
+            <button class="btn btn-coral" type="submit">검색</button>
+          </div>
+          <div class="hot">
+            <span class="lbl">요즘 많이 찾는</span>
+            <a class="chip" href="#"><span class="n">1</span>신대지구 34평</a>
+            <a class="chip" href="#"><span class="n">2</span>연향들 도시개발</a>
+            <a class="chip" href="#"><span class="n">3</span>조례 호수공원</a>
+            <a class="chip" href="#"><span class="n">4</span>순천대 원룸</a>
+            <a class="chip" href="#"><span class="n">5</span>오천동 전세</a>
+          </div>
+        </form>
+      </div>
+
+      <figure class="plate">
+        <div class="plate-art">
+          <svg class="base" viewBox="0 0 620 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <defs>
+              <clipPath id="sunclip"><circle cx="176" cy="468" r="100"/></clipPath>
+              <pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line x1="0" y1="0" x2="0" y2="7" stroke="#8C7F6C" stroke-width="1" opacity=".45"/></pattern>
+              <pattern id="waves" width="22" height="9" patternUnits="userSpaceOnUse"><path d="M0 5 q5.5 -4 11 0 t11 0" fill="none" stroke="#9FB2AA" stroke-width="1"/></pattern>
+            </defs>
+            <rect width="620" height="600" fill="#EDE4D5"/>
+            <!-- bay -->
+            <path d="M0 352 C70 362 138 392 188 424 C228 450 258 480 280 520 C300 556 314 580 324 600 L0 600 Z" fill="#D3DDD7"/>
+            <path d="M0 352 C70 362 138 392 188 424 C228 450 258 480 280 520 C300 556 314 580 324 600 L0 600 Z" fill="url(#waves)" opacity=".7"/>
+            <path d="M0 352 C70 362 138 392 188 424 C228 450 258 480 280 520 C300 556 314 580 324 600" fill="none" stroke="#1E1A16" stroke-width="1.4"/>
+            <!-- sun -->
+            <circle cx="176" cy="468" r="100" fill="#C24E2C"/>
+            <g clip-path="url(#sunclip)" fill="#D3DDD7">
+              <rect x="60" y="486" width="240" height="4"/>
+              <rect x="60" y="502" width="240" height="6"/>
+              <rect x="60" y="520" width="240" height="8"/>
+              <rect x="60" y="540" width="240" height="11"/>
+            </g>
+            <!-- mountains (봉화산, 인제산) -->
+            <g fill="none" stroke="#7D705D" stroke-width="1" opacity=".75">
+              <path d="M214 228 c18 -26 58 -30 76 -6 c14 20 -4 44 -34 46 c-26 2 -54 -14 -42 -40Z"/>
+              <path d="M228 232 c12 -16 40 -18 52 -2 c9 13 -4 29 -24 30 c-18 1 -36 -10 -28 -28Z"/>
+              <path d="M242 236 c7 -8 22 -9 28 0 c4 7 -3 15 -14 15 c-10 0 -19 -7 -14 -15Z"/>
+              <path d="M70 120 c22 -30 74 -28 92 2 c12 22 -12 40 -46 40 c-34 0 -62 -16 -46 -42Z"/>
+              <path d="M88 124 c14 -18 46 -17 58 1 c8 13 -8 24 -30 24 c-22 0 -38 -10 -28 -25Z"/>
+            </g>
+            <!-- district boundaries -->
+            <g fill="none" stroke="#9B8C76" stroke-width="1" stroke-dasharray="3 5" opacity=".9">
+              <path d="M360 0 C372 70 392 120 400 180 C408 240 380 300 392 360 C402 420 452 470 470 600"/>
+              <path d="M0 270 C90 262 180 300 240 300 C300 300 340 290 392 300"/>
+              <path d="M400 180 C460 196 540 196 620 214"/>
+              <path d="M392 360 C460 360 540 390 620 380"/>
+            </g>
+            <!-- roads -->
+            <g fill="none" stroke="#FBF8F2" stroke-linecap="round">
+              <path d="M0 214 C140 220 300 196 460 206 C530 210 580 222 620 230" stroke-width="7"/>
+              <path d="M150 0 C170 120 200 200 236 290 C262 352 268 390 262 430" stroke-width="5"/>
+              <path d="M440 0 C430 110 456 210 470 300 C484 390 520 470 560 600" stroke-width="6"/>
+              <path d="M300 330 C380 334 470 320 620 300" stroke-width="5"/>
+            </g>
+            <g fill="none" stroke="#B9A98F" stroke-linecap="round">
+              <path d="M0 214 C140 220 300 196 460 206 C530 210 580 222 620 230" stroke-width="1"/>
+              <path d="M440 0 C430 110 456 210 470 300 C484 390 520 470 560 600" stroke-width="1"/>
+            </g>
+            <!-- rail -->
+            <path d="M620 96 C540 150 500 220 482 280 C468 330 452 380 446 460 C442 520 430 560 420 600" fill="none" stroke="#1E1A16" stroke-width="1.4"/>
+            <path d="M620 96 C540 150 500 220 482 280 C468 330 452 380 446 460 C442 520 430 560 420 600" fill="none" stroke="#1E1A16" stroke-width="5" stroke-dasharray="1 9" opacity=".8"/>
+            <!-- river 동천 -->
+            <path d="M332 0 C320 60 352 120 342 190 C334 250 302 300 314 360 C324 410 300 450 252 474" fill="none" stroke="#1E1A16" stroke-width="12" stroke-linecap="round"/>
+            <path d="M332 0 C320 60 352 120 342 190 C334 250 302 300 314 360 C324 410 300 450 252 474" fill="none" stroke="#D3DDD7" stroke-width="9.2" stroke-linecap="round"/>
+            <!-- tributary 옥천 -->
+            <path d="M140 290 C190 296 214 330 250 336 C278 340 296 336 312 342" fill="none" stroke="#1E1A16" stroke-width="6" stroke-linecap="round"/>
+            <path d="M140 290 C190 296 214 330 250 336 C278 340 296 336 312 342" fill="none" stroke="#D3DDD7" stroke-width="3.8" stroke-linecap="round"/>
+            <!-- lakes -->
+            <ellipse cx="420" cy="150" rx="22" ry="13" fill="#D3DDD7" stroke="#1E1A16" stroke-width="1.2"/>
+            <path d="M488 432 c10 -12 44 -14 58 -2 c10 9 -2 20 -26 21 c-22 1 -40 -8 -32 -19Z" fill="#D3DDD7" stroke="#1E1A16" stroke-width="1.2"/>
+            <!-- national garden -->
+            <rect x="286" y="388" width="88" height="42" rx="10" fill="url(#hatch)" stroke="#7D705D" stroke-width="1"/>
+            <g fill="#1E1A16">
+              <circle cx="298" cy="400" r="3"/><circle cx="310" cy="416" r="3"/><circle cx="352" cy="398" r="3"/><circle cx="364" cy="418" r="3"/><circle cx="336" cy="420" r="3"/>
+            </g>
+            <!-- reeds 순천만습지 -->
+            <g fill="none" stroke="#1E1A16" stroke-width="1.1" stroke-linecap="round">
+              <path d="M44 340 q2 -14 -4 -24"/><path d="M50 340 q0 -16 6 -26"/><path d="M56 342 q-1 -12 -8 -20"/>
+              <path d="M76 346 q2 -14 -4 -24"/><path d="M82 346 q0 -16 6 -26"/><path d="M88 348 q-1 -12 -8 -20"/>
+              <path d="M108 356 q2 -14 -4 -24"/><path d="M114 356 q0 -16 6 -26"/><path d="M120 358 q-1 -12 -8 -20"/>
+            </g>
+            <!-- station -->
+            <g transform="translate(468 330)">
+              <rect x="-9" y="-9" width="18" height="18" rx="3" fill="#1E1A16"/>
+              <rect x="-4" y="-4" width="8" height="8" rx="1" fill="#EDE4D5"/>
+            </g>
+            <!-- landmark labels -->
+            <g font-family="IBM Plex Sans KR, Apple SD Gothic Neo, sans-serif" font-size="11.5" fill="#463F38" font-weight="500">
+              <text x="484" y="334">순천역</text>
+              <text x="320" y="448">순천만국가정원</text>
+              <text x="30" y="306">순천만습지</text>
+              <text x="292" y="200">봉화산</text>
+              <text x="352" y="86" font-family="Noto Serif KR, serif" font-weight="600" letter-spacing="1">동천</text>
+            </g>
+            <text x="22" y="584" font-family="Noto Serif KR, serif" font-size="15" font-weight="700" fill="#1E1A16" letter-spacing="3">순천만</text>
+            <!-- compass -->
+            <g transform="translate(578 46)" fill="none" stroke="#1E1A16" stroke-width="1.2">
+              <circle r="16"/>
+              <path d="M0 -11 L4 4 L0 1 L-4 4 Z" fill="#1E1A16"/>
+            </g>
+            <text x="574" y="82" font-family="Fraunces, serif" font-style="italic" font-size="12" fill="#1E1A16">N</text>
+          </svg>
+
+          <div class="plate-badge">
+            <b>동네별 확인 매물</b>
+            <span>오늘 오전 9시 기준</span>
+          </div>
+
+          <div class="ptag" style="left:37%;top:21%"><a href="#"><span class="nm">석현·매곡</span><span class="ct num">312</span></a><i></i></div>
+          <div class="ptag" style="left:68%;top:22%"><a href="#"><span class="nm">조례동</span><span class="ct num">742</span></a><i></i></div>
+          <div class="ptag" style="left:85%;top:13%"><a href="#"><span class="nm">왕지동</span><span class="ct num">486</span></a><i></i></div>
+          <div class="ptag" style="left:65%;top:43%"><a href="#"><span class="nm">연향동</span><span class="ct num">862</span></a><i></i></div>
+          <div class="ptag" style="left:30%;top:55%"><a href="#"><span class="nm">오천지구</span><span class="ct num">655</span></a><i></i></div>
+          <div class="ptag on" style="left:83%;top:66%"><a href="#"><span class="nm">신대지구</span><span class="ct num">1,284</span></a><i></i></div>
+          <div class="ptag" style="left:62%;top:86%"><a href="#"><span class="nm">선월지구</span><span class="ct num">391</span></a><i></i></div>
+
+          <a class="btn btn-ink plate-open" href="#">
+            <svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4 3 6.5v13L9 17l6 2.5 6-2.5V4l-6 2.5L9 4Z"/><path d="M9 4v13M15 6.5v13"/></svg>
+            지도로 크게 보기
+          </a>
+        </div>
+        <figcaption class="plate-cap"><span class="fig">Fig. 01</span><span>동네 이름을 누르면 그 동네 매물 지도로 바로 이동해요.</span></figcaption>
+      </figure>
+    </div>
+
+    <!-- 내놓기 / 구하기 -->
+    <div class="bands">
+      <div class="band">
+        <svg class="art" viewBox="0 0 76 76" fill="none" stroke="#1E1A16" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="38" cy="38" r="37" fill="#F4DDD0" stroke="none"/><path d="M20 40 38 25l18 15"/><path d="M25 36v18h26V36"/><rect x="34" y="44" width="8" height="10" fill="#C24E2C" stroke="none"/><path d="M49 22v8"/><path d="M45 26h8"/></svg>
+        <div>
+          <h3>집을 내놓을 생각이 있나요?</h3>
+          <p>매물 정보를 남기면 우리 동네 중개사가 먼저 연락드려요.</p>
+        </div>
+        <a class="go" href="#">내놓기<span class="arr"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
+      </div>
+      <div class="band seek">
+        <svg class="art" viewBox="0 0 76 76" fill="none" stroke="#1E1A16" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="38" cy="38" r="37" fill="#E4D8C5" stroke="none"/><circle cx="35" cy="35" r="12" fill="#FBF8F2"/><path d="m44 44 10 10"/><path d="M29 37l6-5 6 5"/><path d="M31 35v6h8v-6"/></svg>
+        <div>
+          <h3>찾는 조건의 집이 없나요?</h3>
+          <p>원하는 조건을 남겨두면 맞는 매물이 나올 때 알려드려요.</p>
+        </div>
+        <a class="go" href="#">구하기<span class="arr"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- categories -->
+<section class="sec" aria-labelledby="cat-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-title">
+        <span class="kicker"><span class="fig">Part 1</span><span class="rule" aria-hidden="true"></span>매물 종류</span>
+        <h2 class="h2" id="cat-h">어떤 집을 찾고 계세요?</h2>
+      </div>
+      <p class="lede">아파트 분양권부터 낙안·별량의 토지까지. 종류를 고르면 순천 지도 위에서 바로 보여드려요.</p>
+    </div>
+    <div class="cats">
+      <a class="cat lead" href="#">
+        <span class="no">01</span>
+        <div class="art"><svg viewBox="0 0 132 88" fill="none" stroke="#1E1A16" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="96" cy="30" r="16" fill="#C24E2C" stroke="none"/><rect x="26" y="12" width="30" height="72" fill="#FBF8F2"/><rect x="62" y="34" width="26" height="50" fill="#FBF8F2"/><path d="M33 22h6M44 22h6M33 32h6M44 32h6M33 42h6M44 42h6M33 52h6M44 52h6M33 62h6M44 62h6M68 44h5M78 44h5M68 54h5M78 54h5M68 64h5M78 64h5"/><path d="M37 84V74h8v10"/><path d="M10 84h112"/></svg></div>
+        <h3>아파트·분양권</h3>
+        <p>신대·선월 신축 분양권부터 연향·조례 학군 단지까지</p>
+        <div class="foot"><span>매물 <b class="num">4,812</b>건</span><span class="arr"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+      </a>
+      <a class="cat" href="#">
+        <span class="no">02</span>
+        <div class="art"><svg viewBox="0 0 132 88" fill="none" stroke="#1E1A16" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="38" y="20" width="54" height="64" fill="#FBF8F2"/><path d="M34 20h62"/><path d="M38 40h54M38 60h54"/><path d="M46 28h10v6H46zM74 28h10v6H74zM46 48h10v6H46zM74 48h10v6H74z"/><rect x="59" y="68" width="12" height="16" fill="#C24E2C" stroke="none"/><path d="M42 40v-4M50 40v-4M58 40v-4M72 40v-4M80 40v-4M88 40v-4"/><path d="M10 84h112"/><path d="M104 84V64m-6 6 6-6 6 6"/></svg></div>
+        <h3>원룸·투룸</h3>
+        <p>순천대·청암대 앞 원룸과 신혼 투룸</p>
+        <div class="foot"><span>매물 <b class="num">2,236</b>건</span><span class="arr"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+      </a>
+      <a class="cat" href="#">
+        <span class="no">03</span>
+        <div class="art"><svg viewBox="0 0 132 88" fill="none" stroke="#1E1A16" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M28 48v36h52V48" fill="#FBF8F2"/><path d="M20 52 54 24l34 28"/><path d="M70 34V22h8v18"/><rect x="48" y="62" width="12" height="22" fill="#C24E2C" stroke="none"/><path d="M34 58h8v8h-8z"/><circle cx="104" cy="56" r="13" fill="#E4D8C5"/><path d="M104 69v15"/><path d="M10 84h112"/></svg></div>
+        <h3>주택</h3>
+        <p>낙안·서면 전원주택과 시내 단독·상가주택</p>
+        <div class="foot"><span>매물 <b class="num">968</b>건</span><span class="arr"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+      </a>
+      <a class="cat" href="#">
+        <span class="no">04</span>
+        <div class="art"><svg viewBox="0 0 132 88" fill="none" stroke="#1E1A16" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="24" y="20" width="84" height="64" fill="#FBF8F2"/><rect x="36" y="26" width="60" height="12"/><path d="M20 44h92l-4 10H24z" fill="#C24E2C" stroke="none"/><path d="M38 44v10M56 44v10M74 44v10M92 44v10" stroke="#FBF8F2" stroke-width="5"/><path d="M34 62h26v22H34zM70 62h28v14H70z"/><path d="M10 84h112"/></svg></div>
+        <h3>상업·업무</h3>
+        <p>연향 상권 상가, 순천역 앞 사무실·창고</p>
+        <div class="foot"><span>매물 <b class="num">1,104</b>건</span><span class="arr"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+      </a>
+      <a class="cat" href="#">
+        <span class="no">05</span>
+        <div class="art"><svg viewBox="0 0 132 88" fill="none" stroke="#1E1A16" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 84 30 50h72l22 34Z" fill="#E4D8C5"/><path d="M19 67h94M66 50v34M44 50 38 84M88 50l8 34"/><path d="M78 20a10 10 0 0 1 20 0c0 9-10 18-10 18s-10-9-10-18Z" fill="#C24E2C" stroke="none"/><circle cx="88" cy="20" r="3.5" fill="#FBF8F2" stroke="none"/><path d="M88 38v20"/></svg></div>
+        <h3>토지</h3>
+        <p>연향들 도시개발구역, 별량·주암 전답과 임야</p>
+        <div class="foot"><span>매물 <b class="num">520</b>건</span><span class="arr"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+      </a>
+    </div>
+
+    <!-- admin-managed ad slot -->
+    <aside class="ad" aria-label="광고">
+      <div class="ad-flag"><span class="tag">AD</span><span class="pg">1 / 3</span></div>
+      <div class="ad-copy">
+        <span class="ad-eyebrow">금당 리버뷰 더 테라스 · 견본주택 사전 예약</span>
+        <p class="ad-title">동천이 내려다보이는 테라스,<br>84·101㎡ 잔여세대 특별 공급</p>
+        <p class="ad-sub">조례동 금당지구 · 2027년 3월 입주 예정 · 계약금 5%, 중도금 무이자</p>
+        <div class="ad-row">
+          <a class="ad-btn" href="#">방문 예약하기<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          <span class="ad-tel num">분양 문의 1600-0000</span>
+        </div>
+      </div>
+      <div class="ad-art" aria-hidden="true">
+        <svg viewBox="0 0 1320 248" preserveAspectRatio="xMaxYMid slice">
+          <rect width="1320" height="248" fill="#1E3A36"/>
+          <circle cx="1130" cy="96" r="66" fill="#D9B26A"/>
+          <rect x="1080" y="74" width="96" height="140" fill="#E6DAC6"/>
+          <g fill="#1E3A36" opacity=".18"><rect x="1080" y="98" width="96" height="3"/><rect x="1080" y="124" width="96" height="3"/><rect x="1080" y="150" width="96" height="3"/><rect x="1080" y="176" width="96" height="3"/><rect x="1080" y="202" width="96" height="3"/></g>
+          <g fill="#C9BBA4"><rect x="1094" y="82" width="14" height="10"/><rect x="1130" y="108" width="14" height="10"/><rect x="1094" y="134" width="14" height="10"/><rect x="1150" y="160" width="14" height="10"/><rect x="1112" y="186" width="14" height="10"/></g>
+          <rect x="820" y="190" width="240" height="21" fill="#F4EBDD"/><rect x="836" y="196" width="18" height="10" fill="#D9B26A"/><rect x="870" y="196" width="18" height="10" fill="#C9BBA4"/><rect x="904" y="196" width="18" height="10" fill="#D9B26A"/><rect x="938" y="196" width="18" height="10" fill="#C9BBA4"/><rect x="972" y="196" width="18" height="10" fill="#D9B26A"/><rect x="1006" y="196" width="18" height="10" fill="#C9BBA4"/><circle cx="832" cy="188" r="5" fill="#5F8C7F"/><circle cx="824" cy="190" r="3.5" fill="#5F8C7F"/><rect x="842" y="166" width="218" height="21" fill="#F4EBDD"/><rect x="858" y="172" width="18" height="10" fill="#C9BBA4"/><rect x="892" y="172" width="18" height="10" fill="#D9B26A"/><rect x="926" y="172" width="18" height="10" fill="#C9BBA4"/><rect x="960" y="172" width="18" height="10" fill="#D9B26A"/><rect x="994" y="172" width="18" height="10" fill="#C9BBA4"/><rect x="1028" y="172" width="18" height="10" fill="#D9B26A"/><circle cx="854" cy="164" r="5" fill="#5F8C7F"/><circle cx="846" cy="166" r="3.5" fill="#5F8C7F"/><rect x="864" y="142" width="196" height="21" fill="#F4EBDD"/><rect x="880" y="148" width="18" height="10" fill="#D9B26A"/><rect x="914" y="148" width="18" height="10" fill="#C9BBA4"/><rect x="948" y="148" width="18" height="10" fill="#D9B26A"/><rect x="982" y="148" width="18" height="10" fill="#C9BBA4"/><rect x="1016" y="148" width="18" height="10" fill="#D9B26A"/><circle cx="876" cy="140" r="5" fill="#5F8C7F"/><circle cx="868" cy="142" r="3.5" fill="#5F8C7F"/><rect x="886" y="118" width="174" height="21" fill="#F4EBDD"/><rect x="902" y="124" width="18" height="10" fill="#C9BBA4"/><rect x="936" y="124" width="18" height="10" fill="#D9B26A"/><rect x="970" y="124" width="18" height="10" fill="#C9BBA4"/><rect x="1004" y="124" width="18" height="10" fill="#D9B26A"/><rect x="1038" y="124" width="18" height="10" fill="#C9BBA4"/><circle cx="898" cy="116" r="5" fill="#5F8C7F"/><circle cx="890" cy="118" r="3.5" fill="#5F8C7F"/><rect x="908" y="94" width="152" height="21" fill="#F4EBDD"/><rect x="924" y="100" width="18" height="10" fill="#D9B26A"/><rect x="958" y="100" width="18" height="10" fill="#C9BBA4"/><rect x="992" y="100" width="18" height="10" fill="#D9B26A"/><rect x="1026" y="100" width="18" height="10" fill="#C9BBA4"/><circle cx="920" cy="92" r="5" fill="#5F8C7F"/><circle cx="912" cy="94" r="3.5" fill="#5F8C7F"/><rect x="930" y="70" width="130" height="21" fill="#F4EBDD"/><rect x="946" y="76" width="18" height="10" fill="#C9BBA4"/><rect x="980" y="76" width="18" height="10" fill="#D9B26A"/><rect x="1014" y="76" width="18" height="10" fill="#C9BBA4"/><circle cx="942" cy="68" r="5" fill="#5F8C7F"/><circle cx="934" cy="70" r="3.5" fill="#5F8C7F"/>
+          <path d="M0 222 C300 212 700 232 1320 214 V248 H0Z" fill="#2B4C47"/>
+          <path d="M0 232 C320 224 720 242 1320 226" fill="none" stroke="#8FB0A6" stroke-width="1.5" opacity=".5"/>
+          <g fill="#D9B26A" opacity=".7"><rect x="1096" y="228" width="68" height="3"/><rect x="1112" y="237" width="36" height="3"/></g>
+          <g fill="#3F6B62"><circle cx="796" cy="204" r="17"/><circle cx="774" cy="211" r="11"/><circle cx="1206" cy="202" r="19"/><circle cx="1232" cy="210" r="12"/></g>
+        </svg>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ranking -->
+<section class="sec" aria-labelledby="rank-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-title">
+        <span class="kicker"><span class="fig">Part 2</span><span class="rule" aria-hidden="true"></span>이번 주 조회 순위 · 11월 16일 ~ 22일</span>
+        <h2 class="h2" id="rank-h">사람들이 자주 찾는 단지</h2>
+      </div>
+      <a class="link-more" href="#">순위 전체 보기<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+    </div>
+
+    <div class="rank-ctl">
+      <div class="tabs" role="tablist" aria-label="매물 종류">
+        <button class="tab" role="tab" aria-selected="true">아파트·분양권</button>
+        <button class="tab" role="tab" aria-selected="false">원룸·투룸</button>
+        <button class="tab" role="tab" aria-selected="false">주택</button>
+        <button class="tab" role="tab" aria-selected="false">상업·업무</button>
+        <button class="tab" role="tab" aria-selected="false">토지</button>
+      </div>
+      <div class="seg" role="group" aria-label="순위 기준">
+        <button aria-pressed="true">단지별</button>
+        <button aria-pressed="false">지역별</button>
+      </div>
+    </div>
+
+    <div class="rank-grid">
+      <article class="feat">
+        <div class="feat-art">
+          <svg viewBox="0 0 480 300" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <rect width="480" height="300" fill="#F0D3BE"/>
+            <circle cx="404" cy="122" r="50" fill="#C24E2C"/>
+            <rect x="0" y="182" width="480" height="118" fill="#D3DDD7"/>
+            <g fill="#E8C3A9"><rect x="356" y="196" width="96" height="4"/><rect x="372" y="208" width="64" height="4"/><rect x="388" y="220" width="32" height="3"/></g>
+            <g transform="translate(70 0)"><g fill="#FBF8F2" stroke="#1E1A16" stroke-width="1.5">
+              <rect x="70" y="70" width="44" height="112"/>
+              <rect x="122" y="50" width="48" height="132"/>
+              <rect x="178" y="86" width="40" height="96"/>
+              <rect x="228" y="104" width="36" height="78"/>
+            </g>
+            <g stroke="#1E1A16" stroke-width="1.2" opacity=".75">
+              <path d="M80 86h24M80 102h24M80 118h24M80 134h24M80 150h24M80 166h24"/>
+              <path d="M132 66h28M132 82h28M132 98h28M132 114h28M132 130h28M132 146h28M132 162h28"/>
+              <path d="M186 102h24M186 118h24M186 134h24M186 150h24M186 166h24"/>
+              <path d="M236 120h20M236 136h20M236 152h20M236 168h20"/>
+            </g>
+            </g><path d="M0 182h480" stroke="#1E1A16" stroke-width="1.5"/>
+            <g fill="#1E1A16" opacity=".07" transform="translate(70 0)"><rect x="70" y="182" width="44" height="70"/><rect x="122" y="182" width="48" height="84"/><rect x="178" y="182" width="40" height="60"/><rect x="228" y="182" width="36" height="48"/></g><g stroke="#1E1A16" stroke-width="1.2" opacity=".35" transform="translate(70 0)"><path d="M74 198h36M126 196h40M182 200h32M232 198h28"/><path d="M84 212h20M136 214h24M190 210h16"/></g>
+            <g fill="none" stroke="#1E1A16" stroke-width="1.3" stroke-linecap="round"><path d="M110 184 q3 -16 -3 -28M118 184 q0 -18 6 -30M126 184 q-1 -14 -8 -22M432 184 q3 -16 -3 -28M440 184 q0 -18 6 -30"/></g>
+          </svg>
+          <div class="feat-rank">1<small>2주 연속 1위</small></div>
+        </div>
+        <div class="feat-body">
+          <div>
+            <h3>신대 레이크파크 1단지</h3>
+            <p class="feat-loc">해룡면 신대리 · 1,248세대 · 2019년 준공 · 최고 25층</p>
+          </div>
+          <div class="dealrow">
+            <div><span>분양</span><b class="zero">0</b></div>
+            <div><span>매매</span><b class="mae">24</b></div>
+            <div><span>전세</span><b class="jeon">8</b></div>
+            <div><span>월세</span><b class="wol">4</b></div>
+          </div>
+          <div class="feat-price">
+            <p class="p">34평 매매 호가<b class="num">4억 2,000 ~ 4억 6,500</b></p>
+            <a class="btn btn-ink" href="#">단지 보기</a>
+          </div>
+        </div>
+      </article>
+
+      <div>
+        <div class="tbl-wrap">
+          <table class="rtbl">
+            <caption class="sr">아파트·분양권 단지별 조회 순위 2위부터 9위, 거래 유형별 매물 수</caption>
+            <thead>
+              <tr>
+                <th scope="col">순위</th>
+                <th scope="col">단지</th>
+                <th scope="col"><span class="dt"><i style="background:var(--d-bun)"></i>분양</span></th>
+                <th scope="col"><span class="dt"><i style="background:var(--d-mae)"></i>매매</span></th>
+                <th scope="col"><span class="dt"><i style="background:var(--d-jeon)"></i>전세</span></th>
+                <th scope="col"><span class="dt"><i style="background:var(--d-wol)"></i>월세</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><div class="rk"><b>2</b><span class="mv up">▲1</span></div></td><td><div class="cx"><a href="#">선월 하이츠<span class="new">분양권</span></a><span>해룡면 선월리 · 1,532세대 · 2026년 입주</span></div></td><td class="bun">31</td><td class="mae">3</td><td class="jeon">12</td><td class="wol">2</td></tr>
+              <tr><td><div class="rk"><b>3</b><span class="mv dn">▼1</span></div></td><td><div class="cx"><a href="#">연향 센트럴</a><span>연향동 · 986세대 · 2016년</span></div></td><td class="zero">0</td><td class="mae">18</td><td class="jeon">11</td><td class="wol">6</td></tr>
+              <tr><td><div class="rk"><b>4</b><span class="mv eq">-</span></div></td><td><div class="cx"><a href="#">조례 호수마을</a><span>조례동 · 1,120세대 · 2008년</span></div></td><td class="zero">0</td><td class="mae">15</td><td class="jeon">9</td><td class="wol">7</td></tr>
+              <tr><td><div class="rk"><b>5</b><span class="mv up">▲2</span></div></td><td><div class="cx"><a href="#">오천 그린빌</a><span>오천동 · 742세대 · 2012년</span></div></td><td class="zero">0</td><td class="mae">21</td><td class="jeon">6</td><td class="wol">9</td></tr>
+              <tr><td><div class="rk"><b>6</b><span class="mv up">▲4</span></div></td><td><div class="cx"><a href="#">금당 리버뷰</a><span>조례동 금당지구 · 540세대 · 2010년</span></div></td><td class="zero">0</td><td class="mae">9</td><td class="jeon">4</td><td class="wol">3</td></tr>
+              <tr><td><div class="rk"><b>7</b><span class="mv dn">▼2</span></div></td><td><div class="cx"><a href="#">왕지 숲속마을</a><span>왕지동 · 680세대 · 2005년</span></div></td><td class="zero">0</td><td class="mae">12</td><td class="jeon">3</td><td class="wol">8</td></tr>
+              <tr><td><div class="rk"><b>8</b><span class="mv eq">-</span></div></td><td><div class="cx"><a href="#">신대 레이크파크 2단지</a><span>해룡면 신대리 · 1,004세대 · 2020년</span></div></td><td class="zero">0</td><td class="mae">14</td><td class="jeon">5</td><td class="wol">2</td></tr>
+              <tr><td><div class="rk"><b>9</b><span class="mv up">▲3</span></div></td><td><div class="cx"><a href="#">풍덕 강변마을</a><span>풍덕동 · 820세대 · 2003년</span></div></td><td class="zero">0</td><td class="mae">8</td><td class="jeon">7</td><td class="wol">11</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="tbl-foot">
+          <span>조회 수는 회원·비회원 단지 상세 방문을 합산해요. 매물 수는 공인중개사 확인을 마친 매물만 집계해요.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- local stories / video -->
+<section class="sec" aria-labelledby="story-h">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-title">
+        <span class="kicker"><span class="fig">Part 3</span><span class="rule" aria-hidden="true"></span>동네 이야기</span>
+        <h2 class="h2" id="story-h">순천 사람이 직접 걸어본 동네</h2>
+      </div>
+      <p class="lede">지역 중개사와 주민이 찍은 영상으로, 매물 사진에 담기지 않는 골목과 산책길까지 미리 살펴보세요.</p>
+    </div>
+
+    <div class="story-grid">
+      <article class="vfeat">
+        <a class="thumb" href="#" aria-label="영상 재생: 신대지구 34평, 1년 살아보니">
+          <svg viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <rect width="640" height="360" fill="#E9B79A"/>
+            <rect y="0" width="640" height="70" fill="#E3A584"/>
+            <circle cx="470" cy="168" r="78" fill="#C24E2C"/>
+            <g fill="#E9B79A"><rect x="380" y="186" width="180" height="5"/><rect x="380" y="200" width="180" height="7"/></g>
+            <rect y="214" width="640" height="146" fill="#3A2B26"/>
+            <g fill="#C24E2C" opacity=".85"><rect x="420" y="228" width="100" height="4"/><rect x="436" y="244" width="70" height="4"/><rect x="452" y="260" width="40" height="3"/></g>
+            <g fill="#2A1F1B">
+              <rect x="60" y="92" width="58" height="122"/><rect x="126" y="62" width="64" height="152"/><rect x="198" y="110" width="52" height="104"/><rect x="258" y="128" width="46" height="86"/><rect x="590" y="140" width="50" height="74"/>
+            </g>
+            <g fill="#F3CDA8">
+              <rect x="72" y="108" width="10" height="7"/><rect x="96" y="136" width="10" height="7"/><rect x="72" y="164" width="10" height="7"/><rect x="140" y="80" width="10" height="7"/><rect x="166" y="110" width="10" height="7"/><rect x="140" y="152" width="10" height="7"/><rect x="166" y="182" width="10" height="7"/><rect x="210" y="128" width="10" height="7"/><rect x="230" y="168" width="10" height="7"/><rect x="270" y="150" width="9" height="7"/><rect x="604" y="160" width="9" height="7"/>
+            </g>
+            <g fill="#4A3832" opacity=".9"><rect x="60" y="222" width="58" height="3"/><rect x="126" y="230" width="64" height="3"/><rect x="198" y="226" width="52" height="3"/></g>
+            <g fill="none" stroke="#2A1F1B" stroke-width="2.2" stroke-linecap="round"><path d="M20 216 q4 -22 -4 -40M30 216 q0 -24 8 -42M40 216 q-1 -18 -10 -30M334 216 q4 -22 -4 -40M344 216 q0 -24 8 -42M354 216 q-1 -18 -10 -30"/></g>
+          </svg>
+          <span class="play"><svg class="ic" width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg></span>
+          <span class="dur">12:48</span>
+        </a>
+        <div class="vmeta"><span class="pl">신대지구</span><span class="dot" aria-hidden="true"></span><span>조회 1.2만회</span><span class="dot" aria-hidden="true"></span><span>3일 전</span></div>
+        <h3><a href="#">신대지구 34평, 1년 살아보니 &#8212; 호수공원 산책부터 관리비까지</a></h3>
+      </article>
+
+      <div>
+        <div class="vlist">
+          <article class="vitem">
+            <a class="thumb" href="#" aria-label="영상 재생: 연향들 도시개발, 토지 분양 시작 후 달라진 것">
+              <svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <rect width="320" height="180" fill="#E4D8C5"/>
+                <path d="M0 40 L320 10 V180 H0Z" fill="#D5D8BC"/>
+                <g fill="none" stroke="#1E1A16" stroke-width="1.3"><path d="M0 90 L320 64M0 140 L320 118M90 30 L120 180M200 20 L230 180"/></g>
+                <path d="M120 74 L200 66 L210 122 L128 130Z" fill="#C24E2C"/>
+                <path d="M132 86 L194 80M134 100 L198 94M136 114 L202 108" stroke="#F4DDD0" stroke-width="1.5"/>
+                <g stroke="#1E1A16" stroke-width="2"><path d="M260 150v-30M250 150v-22"/></g>
+                <path d="M260 120h12l-4 5 4 5h-12" fill="#C24E2C"/>
+              </svg>
+              <span class="play"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg></span>
+              <span class="dur">9:21</span>
+            </a>
+            <div class="vtxt">
+              <h4><a href="#">연향들 도시개발, 토지 분양 시작 후 달라진 것</a></h4>
+              <div class="vmeta"><span class="pl">연향동</span><span class="dot" aria-hidden="true"></span><span>8,400회</span><span class="dot" aria-hidden="true"></span><span>1주 전</span></div>
+            </div>
+          </article>
+          <article class="vitem">
+            <a class="thumb" href="#" aria-label="영상 재생: 오천동 24평 2억 5천, 구축 리모델링 전후">
+              <svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <rect width="320" height="180" fill="#F1E7D8"/>
+                <rect y="138" width="320" height="42" fill="#D9C6A8"/>
+                <rect x="150" y="28" width="120" height="94" fill="#F4DDD0" stroke="#1E1A16" stroke-width="1.5"/>
+                <circle cx="230" cy="70" r="20" fill="#C24E2C"/>
+                <path d="M210 28v94M150 75h120" stroke="#1E1A16" stroke-width="1.5"/>
+                <g fill="none" stroke="#1E1A16" stroke-width="1.5" stroke-linejoin="round"><path d="M50 100h50v38M50 100v38M44 100h62"/><path d="M58 100V72h34v28"/></g>
+                <path d="M120 138c0-16 4-28 10-34m-6 34c0-12-2-22-10-28" stroke="#2F6B5E" stroke-width="2" fill="none"/>
+                <path d="M114 138h22l-3 -14h-16z" fill="#C24E2C"/>
+              </svg>
+              <span class="play"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg></span>
+              <span class="dur">15:03</span>
+            </a>
+            <div class="vtxt">
+              <h4><a href="#">오천동 24평 2억 5천, 구축 리모델링 전후</a></h4>
+              <div class="vmeta"><span class="pl">오천지구</span><span class="dot" aria-hidden="true"></span><span>2.1만회</span><span class="dot" aria-hidden="true"></span><span>2주 전</span></div>
+            </div>
+          </article>
+          <article class="vitem">
+            <a class="thumb" href="#" aria-label="영상 재생: 국가정원 걸어서 10분, 풍덕동 단독주택">
+              <svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                <rect width="320" height="180" fill="#D5D8BC"/>
+                <rect y="130" width="320" height="50" fill="#BFC59F"/>
+                <g fill="#5E6B45"><circle cx="40" cy="100" r="26"/><circle cx="70" cy="114" r="20"/><circle cx="268" cy="96" r="30"/></g>
+                <path d="M110 130V86l46-30 46 30v44Z" fill="#FBF8F2" stroke="#1E1A16" stroke-width="1.5" stroke-linejoin="round"/>
+                <path d="M100 92l56-40 56 40" fill="none" stroke="#1E1A16" stroke-width="1.5" stroke-linejoin="round"/>
+                <rect x="146" y="100" width="20" height="30" fill="#C24E2C"/>
+                <rect x="120" y="96" width="16" height="14" fill="none" stroke="#1E1A16" stroke-width="1.5"/>
+                <rect x="176" y="96" width="16" height="14" fill="none" stroke="#1E1A16" stroke-width="1.5"/>
+                <path d="M0 130h320" stroke="#1E1A16" stroke-width="1.5"/>
+              </svg>
+              <span class="play"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z"/></svg></span>
+              <span class="dur">7:42</span>
+            </a>
+            <div class="vtxt">
+              <h4><a href="#">국가정원 걸어서 10분, 풍덕동 단독주택</a></h4>
+              <div class="vmeta"><span class="pl">풍덕동</span><span class="dot" aria-hidden="true"></span><span>5,300회</span><span class="dot" aria-hidden="true"></span><span>3주 전</span></div>
+            </div>
+          </article>
+        </div>
+        <div class="channel">
+          <span class="av"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg></span>
+          <div><b>BRAND 동네TV</b><span>구독자 1.8만명 · 영상 214개</span></div>
+          <a class="btn btn-line" href="#">채널 보기</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- app download -->
+    <aside class="app" aria-labelledby="app-h">
+      <div class="app-copy">
+        <span class="kicker"><span class="fig" style="color:#EBA987">App</span><span class="rule" aria-hidden="true"></span>BRAND 앱</span>
+        <h2 id="app-h">관심 단지에 새 매물이 오면,<br>가장 먼저 알려드릴게요</h2>
+        <p>관심 단지와 구하기 조건을 등록해두면, 동네 중개사가 매물을 올리는 순간 알림으로 받아볼 수 있어요.</p>
+        <div class="stores">
+          <a class="store" href="#">
+            <svg class="ic" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.4 2-3.5 2.1-3.6-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.1 1-4 2.4-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.1-.8s1.9.8 3.2.8 2.1-1.2 2.9-2.4c.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.5-1-2.4-4ZM14 5.5c.7-.8 1.1-1.9 1-3-1 0-2.1.7-2.8 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.1-.6 2.8-1.4Z"/></svg>
+            <span><small>Download on the</small><b>App Store</b></span>
+          </a>
+          <a class="store" href="#">
+            <svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 2.8v18.4c0 .4.4.6.7.4l10.1-9.2c.2-.2.2-.6 0-.8L4.7 2.4c-.3-.2-.7 0-.7.4Z" opacity=".85"/><path d="m15.6 8.2-2.4 2.2 2.3 2.1 3.4-1.9c.5-.3.5-1 0-1.3l-3.3-1.1Z"/></svg>
+            <span><small>GET IT ON</small><b>Google Play</b></span>
+          </a>
+        </div>
+      </div>
+      <div class="app-art" aria-hidden="true">
+        <div class="sun"></div>
+        <div class="phone">
+          <div class="screen">
+            <div class="t"><b>알림</b><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></div>
+            <div class="noti"><div class="h"><b>관심 단지 새 매물</b><span>방금</span></div><div class="n">신대 레이크파크 1단지</div><div class="v">매매 <strong>4억 3,500</strong> · 34평 · 고/25층</div></div>
+            <div class="noti"><div class="h"><b>구하기 조건 일치</b><span>12분 전</span></div><div class="n">오천 그린빌 107동</div><div class="v">전세 <strong>1억 8,000</strong> · 24평 · 남향</div></div>
+            <div class="noti"><div class="h"><b>가격 변동</b><span>1시간 전</span></div><div class="n">연향 센트럴 203동</div><div class="v">매매 <strong>3억 6,000</strong> · 1,500 내림</div></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+</main>
+
+<footer class="sf">
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="about">
+        <a class="logo" href="#" aria-label="BRAND 홈">
+          <svg class="ic" width="30" height="30" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="#1E1A16"/><clipPath id="lgc2"><rect x="0" y="0" width="34" height="21"/></clipPath><circle cx="17" cy="21" r="9" fill="#C24E2C" clip-path="url(#lgc2)"/><rect x="7" y="23.5" width="20" height="2" rx="1" fill="#F5EFE4"/><rect x="10" y="27.5" width="14" height="2" rx="1" fill="#F5EFE4" opacity=".6"/></svg>
+          <span class="logo-word">BRAND</span>
+        </a>
+        <p>순천 지역 공인중개사가 함께 확인하고 올리는 공동중개 매물 서비스입니다.</p>
+      </div>
+      <div>
+        <h4>매물 찾기</h4>
+        <ul><li><a href="#">아파트·분양권</a></li><li><a href="#">원룸·투룸</a></li><li><a href="#">주택</a></li><li><a href="#">상업·업무</a></li><li><a href="#">토지</a></li></ul>
+      </div>
+      <div>
+        <h4>서비스</h4>
+        <ul><li><a href="#">내놓기 · 구하기</a></li><li><a href="#">중개업소 찾기</a></li><li><a href="#">동네 이야기</a></li><li><a href="#">허위매물 신고</a></li><li><a href="#">공지사항</a></li></ul>
+      </div>
+      <div>
+        <h4>부동산 계산기</h4>
+        <div class="calc"><a href="#">중개보수</a><a href="#">취득세</a><a href="#">양도세</a><a href="#">대출이자</a><a href="#">평·㎡ 환산</a></div>
+      </div>
+    </div>
+    <div class="foot-legal">
+      <nav class="legal-links" aria-label="약관 및 정책">
+        <a href="#">회사소개</a><a href="#">이용약관</a><a class="b" href="#">개인정보처리방침</a><a href="#">위치기반서비스 이용약관</a><a href="#">중개사 회원 약관</a><a href="#">광고 문의</a>
+      </nav>
+      <div class="biz">
+        <span><b>상호</b>[상호]</span><span><b>대표</b>[대표자명]</span><span><b>사업자등록번호</b>[000-00-00000]</span><span><b>통신판매업신고</b>[제0000-전남순천-0000호]</span><span><b>주소</b>[주소]</span><span><b>개인정보보호책임자</b>[담당자명]</span><span><b>고객센터</b>[대표번호] · 평일 09:00~18:00</span>
+      </div>
+      <div class="copy"><span>BRAND는 통신판매중개자로서 매물 정보의 당사자가 아니며, 매물 정보와 거래에 대한 책임은 등록한 중개사무소에 있습니다.</span><span>&#169; 2026 BRAND</span></div>
+    </div>
+  </div>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":4692}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

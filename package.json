@@ -1,0 +1,31 @@
+{
+  "name": "house",
+  "private": true,
+  "description": "순천 부동산 공동중개 플랫폼 monorepo",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.12.0 <23",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:api": "turbo run dev --filter=@house/api",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "pnpm --filter @house/api db:generate",
+    "db:migrate": "pnpm --filter @house/api db:migrate",
+    "db:migrate:dev": "pnpm --filter @house/api db:migrate:dev",
+    "db:seed": "pnpm --filter @house/api db:seed",
+    "db:test:prepare": "pnpm --filter @house/api db:test:prepare"
+  },
+  "devDependencies": {
+    "prettier": "3.6.2",
+    "turbo": "2.11.13",
+    "typescript": "5.9.3"
+  }
+}

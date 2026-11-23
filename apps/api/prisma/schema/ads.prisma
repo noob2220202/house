@@ -1,0 +1,145 @@
+// Owned by the ads module team: banners (slot-based, scheduled, targeted, tracked) and popups.
+
+enum BannerSlot {
+  MAIN_HERO
+  MAIN_STRIP
+  MAP_AD
+  COMPLEX_FEATURED_AGENCY
+  LISTING_SIDE
+  AGENCY_SEARCH_TOP
+  MOBILE_MAIN
+
+  @@map("banner_slot")
+}
+
+enum BannerTargeting {
+  ALL
+  REGIONS
+  COMPLEXES
+
+  @@map("banner_targeting")
+}
+
+enum PopupPage {
+  ALL
+  MAIN
+  MAP
+  COMPLEX_DETAIL
+  LISTING_DETAIL
+  AGENCY_LIST
+  DEAL_REQUEST
+
+  @@map("popup_page")
+}
+
+/// Per-slot overrides of BANNER_SLOT_SPECS (packages/shared).
+model BannerSlotConfig {
+  slot      BannerSlot @id
+  maxActive Int        @map("max_active")
+  isEnabled Boolean    @default(true) @map("is_enabled")
+  note      String?    @db.VarChar(500)
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("banner_slot_configs")
+}
+
+/// Status (ACTIVE/PAUSED/SCHEDULED/ENDED) is computed from paused + startAt/endAt.
+model Banner {
+  id               String          @id @default(uuid(7)) @db.Uuid
+  slot             BannerSlot
+  title            String          @db.VarChar(100)
+  advertiserName   String?         @map("advertiser_name") @db.VarChar(100)
+  agencyId         String?         @map("agency_id") @db.Uuid
+  pcMediaId        String          @map("pc_media_id") @db.Uuid
+  mobileMediaId    String?         @map("mobile_media_id") @db.Uuid
+  linkUrl          String?         @map("link_url") @db.VarChar(2000)
+  newWindow        Boolean         @default(false) @map("new_window")
+  startAt          DateTime        @map("start_at") @db.Timestamptz(3)
+  endAt            DateTime        @map("end_at") @db.Timestamptz(3)
+  paused           Boolean         @default(false)
+  priority         Int             @default(0)
+  sortOrder        Int             @default(0) @map("sort_order")
+  targeting        BannerTargeting @default(ALL)
+  memo             String?         @db.VarChar(1000)
+  createdByAdminId String?         @map("created_by_admin_id") @db.Uuid
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?       @map("deleted_at") @db.Timestamptz(3)
+
+  agency          Agency?               @relation(fields: [agencyId], references: [id], onDelete: SetNull)
+  pcMedia         Media                 @relation("BannerPcMedia", fields: [pcMediaId], references: [id], onDelete: Restrict)
+  mobileMedia     Media?                @relation("BannerMobileMedia", fields: [mobileMediaId], references: [id], onDelete: SetNull)
+  createdByAdmin  AdminUser?            @relation(fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  targetRegions   BannerTargetRegion[]
+  targetComplexes BannerTargetComplex[]
+  stats           BannerStatDaily[]
+
+  @@index([slot, startAt, endAt])
+  @@index([slot, sortOrder])
+  @@index([agencyId])
+  @@map("banners")
+}
+
+model BannerTargetRegion {
+  bannerId   String @map("banner_id") @db.Uuid
+  regionCode String @map("region_code") @db.VarChar(10)
+
+  banner Banner @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+
+  @@id([bannerId, regionCode])
+  @@index([regionCode])
+  @@map("banner_target_regions")
+}
+
+model BannerTargetComplex {
+  bannerId  String @map("banner_id") @db.Uuid
+  complexId String @map("complex_id") @db.Uuid
+
+  banner  Banner  @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+  complex Complex @relation(fields: [complexId], references: [id], onDelete: Cascade)
+
+  @@id([bannerId, complexId])
+  @@index([complexId])
+  @@map("banner_target_complexes")
+}
+
+/// Daily counters flushed from Redis by the banner-stats job (idempotent: SET, not INCR).
+model BannerStatDaily {
+  bannerId    String   @map("banner_id") @db.Uuid
+  date        DateTime @db.Date
+  impressions Int      @default(0)
+  clicks      Int      @default(0)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  banner Banner @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+
+  @@id([bannerId, date])
+  @@index([date])
+  @@map("banner_stat_daily")
+}
+
+model Popup {
+  id               String      @id @default(uuid(7)) @db.Uuid
+  title            String      @db.VarChar(100)
+  mediaId          String      @map("media_id") @db.Uuid
+  linkUrl          String?     @map("link_url") @db.VarChar(2000)
+  newWindow        Boolean     @default(false) @map("new_window")
+  targetPages      PopupPage[] @map("target_pages")
+  startAt          DateTime    @map("start_at") @db.Timestamptz(3)
+  endAt            DateTime    @map("end_at") @db.Timestamptz(3)
+  paused           Boolean     @default(false)
+  /// "N일 동안 보지 않기" (0 = 오늘 하루만 숨김 없음)
+  dismissDays      Int         @default(1) @map("dismiss_days")
+  sortOrder        Int         @default(0) @map("sort_order")
+  createdByAdminId String?     @map("created_by_admin_id") @db.Uuid
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt        DateTime?   @map("deleted_at") @db.Timestamptz(3)
+
+  media          Media      @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+  createdByAdmin AdminUser? @relation(fields: [createdByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([startAt, endAt])
+  @@index([targetPages], type: Gin)
+  @@map("popups")
+}

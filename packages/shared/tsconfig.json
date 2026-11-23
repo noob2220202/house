@@ -1,0 +1,9 @@
+{
+  "extends": "@house/config/tsconfig/library.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "types": ["node", "jest"],
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["src/**/*.ts"]
+}

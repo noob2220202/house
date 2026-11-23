@@ -1,0 +1,1438 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>내놓기 · 구하기</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=Noto+Sans+KR:wght@400;500;600;700;800;900&amp;display=swap">
+<style>
+/* =====================================================================
+   BRAND Design System v1.0  ·  순천 공동중개 부동산 플랫폼
+   ---------------------------------------------------------------------
+   Canonical CSS. Paste the whole file inside <helmet><style> of every
+   artboard (no @import here; the font <link> lives in fonts-link.html).
+   Fonts: Inter (Latin, numerals, tnum) + Noto Sans KR (Hangul).
+   Wrap every screen in <div class="ui"> … </div>.
+   Rename / recolour the brand = edit the 4 lines under "1b. Brand".
+   ===================================================================== */
+
+/* ---------- 1a. Palette (raw values — do not use directly in components) ---------- */
+:root{
+  --cobalt-900:#0B1F73; --cobalt-800:#102C99; --cobalt-700:#1539C4; --cobalt-600:#1D4FF2;
+  --cobalt-200:#B9CCFF; --cobalt-100:#DCE6FF; --cobalt-50:#EEF3FF;
+  --ink-950:#070D19; --ink-900:#0A1222; --ink-800:#111B2E; --ink-700:#1B2740; --ink-600:#2A3752;
+  --grey-800:#1F2836; --grey-700:#333D4B; --grey-600:#4E5968; --grey-500:#646F7C; --grey-400:#8B95A1;
+  --grey-300:#B0B8C1; --grey-200:#D1D6DB; --grey-150:#E5E8EB; --grey-100:#F2F4F6; --grey-50:#F8F9FB;
+  --champagne-300:#E9D7A8; --champagne-200:#F3E8CC; --reed-700:#7A5C14; --navy-ad:#0F1B3A;
+}
+
+/* ---------- 1b. Semantic tokens (components use ONLY these) ---------- */
+:root{
+  /* Brand — the only accent for actions, links, focus, selected state */
+  --brand:#1D4FF2;            /* white text 6.1:1 */
+  --brand-hover:#1539C4;
+  --brand-press:#102C99;
+  --brand-soft:#EEF3FF;       /* brand text on it 5.5:1 */
+  --brand-soft-2:#DCE6FF;
+  --brand-line:#B9CCFF;
+  --brand-contrast:#FFFFFF;
+  --focus:0 0 0 3px rgba(29,79,242,.32);
+
+  /* Surfaces */
+  --ground:#F8F9FB;           /* page background behind cards */
+  --surface:#FFFFFF;          /* cards, panels, inputs */
+  --surface-2:#F2F4F6;        /* inset wells, hover rows, segmented tracks */
+  --surface-ink:#0A1222;      /* dark premium surface: admin sidebar, app band, map broker card */
+  --surface-ink-2:#111B2E;
+  --surface-ink-3:#1B2740;
+
+  /* Text */
+  --text:#0A1222;             /* 18.7:1 */
+  --text-2:#333D4B;           /* body copy 11.6:1 */
+  --text-3:#4E5968;           /* secondary 7.4:1 */
+  --text-muted:#646F7C;       /* smallest captions, 12px min · 5.1:1 on white, 4.6:1 on surface-2 */
+  --icon-muted:#8B95A1;       /* icons & decorative only — never text on white */
+  --text-on-ink:#FFFFFF;
+  --text-on-ink-2:#B0B8C1;    /* 9.3:1 on ink */
+  --text-on-ink-muted:#8B95A1;/* 6.2:1 on ink */
+
+  /* Lines */
+  --line:#E5E8EB;
+  --line-strong:#D1D6DB;
+  --line-ink:rgba(255,255,255,.10);
+
+  /* Local warmth — champagne / reed. Decorative on ink; reed-700 is the text-safe version */
+  --accent:#E9D7A8;
+  --accent-soft:#F7F0DE;
+  --accent-text:#7A5C14;      /* 6.2:1 on white */
+
+  /* Status */
+  --success:#067A50; --success-soft:#E6F4EE;
+  --warn:#A35200;    --warn-soft:#FFF3E2;
+  --danger:#C81E2C;  --danger-soft:#FDECEE;
+
+  /* Deal types — fixed meaning, NEVER equal to --brand. Lightness ladder:
+     분양 darkest → 월세 → 전세 → 매매 lightest, so they still separate in greyscale.
+     Each pairs with a soft tint; label text always accompanies colour.            */
+  --deal-presale:#4A26A8;  --deal-presale-soft:#F1ECFD;   /* 분양·분양권 */
+  --deal-monthly:#8F2466;  --deal-monthly-soft:#FBEDF5;   /* 월세 */
+  --deal-jeonse:#06664A;   --deal-jeonse-soft:#E8F5EF;    /* 전세 */
+  --deal-sale:#C2410C;     --deal-sale-soft:#FFF1E8;      /* 매매 */
+
+  /* Price movement / 분양권 premium (Korean convention: up red, down blue) */
+  --up:#C81E2C;   --up-soft:#FDECEE;
+  --down:#1C46D8; --down-soft:#EEF3FF;
+
+  /* Ads — inside the fixed ad frame the advertiser's own palette is used; this is the house sample */
+  --ad-ground:#0F1B3A; --ad-accent:#E9D7A8;
+
+  /* Map */
+  --map-land:#F3F5F8; --map-block:#E7EAEF; --map-park:#E1EEE5; --map-park-text:#3F6B50;
+  --map-water:#C9DCF5; --map-water-2:#D9E7F8; --map-water-text:#3E6497;
+  --map-road:#FFFFFF; --map-road-casing:#DCE2EA; --map-rail:#8C97A8; --map-boundary:#B8C2CF;
+  --map-label:#5E6977;
+
+  /* Type */
+  --font:"Inter","Noto Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --fs-display:clamp(36px,3.9vw,56px);
+  --fs-h1:clamp(28px,2.6vw,40px);
+  --fs-h2:clamp(22px,1.9vw,28px);
+  --fs-h3:20px;
+  --fs-title:17px;
+  --fs-body:15px;
+  --fs-sm:14px;
+  --fs-cap:12px;               /* floor — no text below 12px */
+  --fs-price-xl:40px;
+  --fs-price:30px;
+  --fs-price-sm:20px;
+
+  /* Radii */
+  --r-xs:6px; --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:24px; --r-2xl:32px; --r-pill:999px;
+
+  /* Elevation */
+  --sh-1:0 1px 2px rgba(10,18,34,.06),0 0 0 1px rgba(10,18,34,.04);
+  --sh-2:0 2px 4px rgba(10,18,34,.04),0 6px 16px rgba(10,18,34,.07);
+  --sh-3:0 4px 8px rgba(10,18,34,.05),0 16px 40px rgba(10,18,34,.12);
+  --sh-brand:0 6px 18px rgba(29,79,242,.30);
+
+  /* Spacing */
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:20px; --s-6:24px; --s-8:32px; --s-10:40px; --s-14:56px; --s-20:80px;
+  --container:1288px; --gutter:24px; --section:56px;
+  --hit:44px;                  /* minimum touch target */
+}
+
+/* ---------- 2. Base ---------- */
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--surface)}
+x-dc{display:block}
+.ui{font-family:var(--font);font-size:var(--fs-body);line-height:1.5;color:var(--text);background:var(--surface);letter-spacing:-0.01em;word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1}
+:where(.ui) a{color:inherit;text-decoration:none}
+:where(.ui) button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+:where(.ui) :is(h1,h2,h3,h4,p,ul,ol,figure,dl,dd){margin:0}
+:where(.ui) :is(ul,ol){padding:0;list-style:none}
+:where(.ui) :is(h1,h2,h3,h4){text-wrap:pretty;letter-spacing:-0.035em;font-weight:800}
+:where(.ui) :is(a,button,input,select,textarea):focus-visible{outline:none;box-shadow:var(--focus)}
+:where(.ui) table{border-collapse:collapse}
+.ic{flex:none;display:block}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.num{font-family:"Inter","Noto Sans KR",sans-serif;font-feature-settings:"tnum" 1}
+
+/* ---------- 3. Layout helpers ---------- */
+.container{width:100%;max-width:var(--container);margin-inline:auto;padding-inline:var(--gutter)}
+.section{padding-block:var(--section)}
+.stack{display:flex;flex-direction:column;gap:var(--s-4)}
+.row{display:flex;align-items:center;gap:var(--s-3);flex-wrap:wrap}
+.grid-auto{display:grid;gap:var(--s-6);grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr))}
+.divider{height:1px;background:var(--line);border:0;margin:0}
+
+/* ---------- 4. Typography ---------- */
+.t-display{font-size:var(--fs-display);font-weight:800;line-height:1.14;letter-spacing:-0.045em}
+.t-h1{font-size:var(--fs-h1);font-weight:800;line-height:1.2;letter-spacing:-0.04em}
+.t-h2{font-size:var(--fs-h2);font-weight:800;line-height:1.3;letter-spacing:-0.035em}
+.t-h3{font-size:var(--fs-h3);font-weight:700;line-height:1.4;letter-spacing:-0.03em}
+.t-title{font-size:var(--fs-title);font-weight:700;line-height:1.45;letter-spacing:-0.025em}
+.t-body{font-size:var(--fs-body);line-height:1.65;color:var(--text-2)}
+.t-sm{font-size:var(--fs-sm);line-height:1.55;color:var(--text-3)}
+.t-cap{font-size:var(--fs-cap);line-height:1.5;color:var(--text-muted)}
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:.02em;color:var(--brand)}
+.price{font-family:"Inter","Noto Sans KR",sans-serif;font-feature-settings:"tnum" 1;font-size:var(--fs-price);font-weight:800;line-height:1.1;letter-spacing:-0.04em;color:var(--text)}
+.price-xl{font-size:var(--fs-price-xl)}
+.price-sm{font-size:var(--fs-price-sm);letter-spacing:-0.03em}
+.price .unit{font-size:.62em;font-weight:700;letter-spacing:-0.02em;color:var(--text-3)}
+.link{color:var(--brand);font-weight:600}
+.link:hover{color:var(--brand-hover);text-decoration:underline}
+
+/* ---------- 5. Brand lockup (swap name here) ---------- */
+.logo{display:inline-flex;align-items:center;gap:10px;flex:none;min-height:var(--hit)}
+.logo-mark{display:block;flex:none}
+.logo-word{font-family:"Inter",sans-serif;font-weight:800;font-size:21px;letter-spacing:-0.045em;color:var(--text)}
+.logo--ink .logo-word{color:var(--text-on-ink)}
+
+/* ---------- 6. Buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:var(--hit);padding:0 18px;border-radius:var(--r-md);font-size:15px;font-weight:700;letter-spacing:-0.02em;white-space:nowrap;border:1px solid transparent;transition:background .15s,border-color .15s,color .15s}
+.btn-sm{height:36px;padding:0 14px;font-size:14px;border-radius:var(--r-sm)}
+.btn-lg{height:56px;padding:0 24px;font-size:17px;border-radius:var(--r-lg)}
+.btn-block{display:flex;width:100%}
+.btn-pill{border-radius:var(--r-pill)}
+.btn-primary{background:var(--brand);color:var(--brand-contrast)}
+.btn-primary:hover{background:var(--brand-hover)}
+.btn-primary:active{background:var(--brand-press)}
+.btn-secondary{background:var(--surface);color:var(--text);border-color:var(--line-strong)}
+.btn-secondary:hover{background:var(--surface-2)}
+.btn-soft{background:var(--brand-soft);color:var(--brand)}
+.btn-soft:hover{background:var(--brand-soft-2)}
+.btn-ink{background:var(--surface-ink);color:var(--text-on-ink)}
+.btn-ink:hover{background:var(--surface-ink-3)}
+.btn-ghost{background:transparent;color:var(--text-3)}
+.btn-ghost:hover{background:var(--surface-2);color:var(--text)}
+.btn-danger{background:var(--surface);color:var(--danger);border-color:#F4C5CA}
+.btn[disabled],.btn.is-disabled{background:var(--surface-2);color:var(--text-muted);border-color:transparent;cursor:not-allowed}
+.btn-icon{width:var(--hit);height:var(--hit);padding:0;border-radius:var(--r-md);display:inline-grid;place-items:center;color:var(--text-2);background:var(--surface);border:1px solid var(--line)}
+.btn-icon:hover{background:var(--surface-2)}
+.btn-icon.is-on{color:var(--danger);border-color:#F4C5CA;background:var(--danger-soft)}
+
+/* Social login — each follows its provider's colour rule */
+.btn-sns{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:52px;border-radius:var(--r-md);font-size:16px;font-weight:700;letter-spacing:-0.02em;border:1px solid transparent;position:relative}
+.btn-sns svg{position:absolute;left:18px}
+.sns-kakao{background:#FEE500;color:rgba(0,0,0,.88)}
+.sns-naver{background:var(--surface);color:var(--text);border-color:var(--line-strong)}  /* white text on #03C75A is 2.3:1 — so the label stays ink and the green lives in the N tile */
+.sns-round.sns-naver{background:#03C75A;border-color:#03C75A}
+.sns-google{background:var(--surface);color:var(--text);border-color:var(--line-strong)}
+.sns-apple{background:#000000;color:#FFFFFF}
+.sns-round{width:52px;height:52px;border-radius:50%;padding:0;display:inline-grid;place-items:center}
+.sns-round svg{position:static}
+
+/* ---------- 7. Inputs ---------- */
+.field{display:flex;flex-direction:column;gap:8px;min-width:0}
+.label{font-size:14px;font-weight:700;color:var(--text-2)}
+.label .req{color:var(--danger);margin-left:2px}
+.help{font-size:13px;color:var(--text-muted)}
+.input,.select select,.textarea{width:100%;height:48px;padding:0 14px;border:1px solid var(--line-strong);border-radius:var(--r-md);background:var(--surface);font:inherit;font-size:15px;color:var(--text);transition:border-color .15s,box-shadow .15s}
+.input::placeholder,.textarea::placeholder{color:var(--text-muted)}
+.input:focus,.select select:focus,.textarea:focus{outline:none;border-color:var(--brand);box-shadow:var(--focus)}
+.input.is-error{border-color:var(--danger)}
+.field-error{font-size:13px;font-weight:600;color:var(--danger)}
+.textarea{height:auto;min-height:112px;padding:12px 14px;line-height:1.6;resize:vertical}
+.input-affix{position:relative;display:flex;align-items:center}
+.input-affix .input{padding-right:48px}
+.input-affix .affix{position:absolute;right:14px;font-size:14px;font-weight:600;color:var(--text-muted)}
+.select{position:relative;display:block}
+.select select{appearance:none;-webkit-appearance:none;padding-right:40px;cursor:pointer}
+.select .ic{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--icon-muted);pointer-events:none}
+
+/* Hero search (with deal-type tabs above) */
+.search{display:flex;align-items:center;gap:12px;height:64px;padding:0 8px 0 20px;border:2px solid var(--brand);border-radius:var(--r-lg);background:var(--surface);box-shadow:0 0 0 6px rgba(29,79,242,.10),var(--sh-2)}
+.search > .ic{color:var(--brand)}
+.search input{flex:1;min-width:0;height:100%;border:0;background:none;font:inherit;font-size:17px;font-weight:500;color:var(--text)}
+.search input::placeholder{color:var(--text-muted)}
+.search input:focus{outline:none}
+.search .btn{height:48px;border-radius:var(--r-md);padding:0 22px}
+/* Header search pill */
+.search-sm{display:flex;align-items:center;gap:10px;height:44px;padding:0 16px;border-radius:var(--r-pill);background:var(--surface-2);color:var(--icon-muted);min-width:0}
+.search-sm input{flex:1;min-width:0;border:0;background:none;font:inherit;font-size:15px;color:var(--text)}
+.search-sm input::placeholder{color:var(--text-muted)}
+.search-sm input:focus{outline:none}
+.search-sm:focus-within{background:var(--surface);box-shadow:inset 0 0 0 2px var(--brand)}
+
+/* Checkbox / radio / switch */
+.check{display:inline-flex;align-items:center;gap:10px;min-height:var(--hit);font-size:15px;color:var(--text-2);cursor:pointer}
+.check input{appearance:none;-webkit-appearance:none;width:22px;height:22px;margin:0;border:1.5px solid var(--line-strong);border-radius:6px;background:var(--surface) center/14px no-repeat;flex:none}
+.check input[type="radio"]{border-radius:50%}
+.check{position:relative}
+.check input:checked{background:var(--brand);border-color:var(--brand)}
+.check input[type="radio"]:checked{background:var(--surface);border:7px solid var(--brand)}
+.check-mark{position:absolute;left:3px;top:50%;width:16px;height:16px;transform:translateY(-50%);color:#fff;display:none;pointer-events:none}
+.check input:checked + .check-mark{display:block}
+.switch{position:relative;display:inline-flex;align-items:center;gap:10px;min-height:var(--hit);cursor:pointer}
+.switch input{appearance:none;-webkit-appearance:none;width:44px;height:26px;margin:0;border-radius:var(--r-pill);background:var(--grey-200);position:relative;transition:background .15s;flex:none}
+.switch input::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(10,18,34,.25);transition:transform .15s}
+.switch input:checked{background:var(--brand)}
+.switch input:checked::after{transform:translateX(18px)}
+.switch .switch-l{font-size:14px;font-weight:600;color:var(--text-2)}
+
+/* ---------- 8. Tabs, segmented, chips, filter chips ---------- */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.tab{position:relative;display:inline-flex;align-items:center;height:48px;padding:0 14px;font-size:15px;font-weight:600;color:var(--text-muted);white-space:nowrap}
+.tab.is-on,.tab[aria-selected="true"]{color:var(--text);font-weight:800}
+.tab.is-on::after,.tab[aria-selected="true"]::after{content:"";position:absolute;left:14px;right:14px;bottom:-1px;height:2px;border-radius:2px;background:var(--text)}
+.tab .count{margin-left:6px;font-weight:700;color:var(--brand)}
+.seg{display:inline-flex;gap:2px;padding:4px;border-radius:var(--r-pill);background:var(--surface-2)}
+.seg-b{height:36px;padding:0 16px;border-radius:var(--r-pill);font-size:14px;font-weight:600;color:var(--text-3);white-space:nowrap}
+.seg-b.is-on,.seg-b[aria-selected="true"]{background:var(--surface);color:var(--text);font-weight:800;box-shadow:var(--sh-1)}
+.seg--ink .seg-b.is-on{background:var(--surface-ink);color:var(--text-on-ink);box-shadow:none}
+/* Deal tabs above the hero search */
+.deal-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.deal-tab{height:36px;padding:0 14px;border-radius:var(--r-pill);font-size:14px;font-weight:700;color:var(--text-3);background:transparent}
+.deal-tab.is-on{background:var(--surface-ink);color:var(--text-on-ink)}
+.chip{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border:1px solid var(--line);border-radius:var(--r-pill);background:var(--surface);font-size:14px;font-weight:600;color:var(--text-2);white-space:nowrap}
+.chip:hover{border-color:var(--line-strong)}
+.chip.is-on{background:var(--brand-soft);border-color:var(--brand-line);color:var(--brand);font-weight:700}
+.chip .x{color:inherit;opacity:.7}
+/* Filter chip — always "field + value" so active filters describe themselves */
+.fchip{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px 0 14px;border:1px solid var(--line-strong);border-radius:var(--r-pill);background:var(--surface);font-size:14px;color:var(--text-3);white-space:nowrap}
+.fchip .k{font-weight:600}
+.fchip .v{font-weight:800;color:var(--text)}
+.fchip .ic{color:var(--icon-muted)}
+.fchip.is-set{border-color:var(--brand);background:var(--brand-soft);color:var(--brand)}
+.fchip.is-set .v{color:var(--brand)}
+.fchip.is-set .ic{color:var(--brand)}
+.filterbar{display:flex;align-items:center;gap:8px;padding:12px var(--gutter);border-bottom:1px solid var(--line);background:var(--surface);overflow-x:auto;scrollbar-width:none}
+.filterbar .reset{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 10px;font-size:14px;font-weight:600;color:var(--text-3);white-space:nowrap}
+
+/* ---------- 9. Badges & tags ---------- */
+.badge{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:var(--r-xs);font-size:12px;font-weight:700;letter-spacing:-0.01em;white-space:nowrap;background:var(--surface-2);color:var(--text-3)}
+.deal{display:inline-flex;align-items:center;height:24px;padding:0 8px;border-radius:var(--r-xs);font-size:12px;font-weight:800;white-space:nowrap}
+.deal-sale{background:var(--deal-sale-soft);color:var(--deal-sale)}
+.deal-jeonse{background:var(--deal-jeonse-soft);color:var(--deal-jeonse)}
+.deal-monthly{background:var(--deal-monthly-soft);color:var(--deal-monthly)}
+.deal-presale{background:var(--deal-presale-soft);color:var(--deal-presale)}
+.deal.is-solid.deal-sale{background:var(--deal-sale);color:#fff}
+.deal.is-solid.deal-jeonse{background:var(--deal-jeonse);color:#fff}
+.deal.is-solid.deal-monthly{background:var(--deal-monthly);color:#fff}
+.deal.is-solid.deal-presale{background:var(--deal-presale);color:#fff}
+.t-sale{color:var(--deal-sale)} .t-jeonse{color:var(--deal-jeonse)} .t-monthly{color:var(--deal-monthly)} .t-presale{color:var(--deal-presale)}
+.prem{display:inline-flex;align-items:center;height:26px;padding:0 9px;border-radius:var(--r-xs);font-family:"Inter","Noto Sans KR",sans-serif;font-size:13px;font-weight:800;letter-spacing:-0.02em;font-feature-settings:"tnum" 1;white-space:nowrap}
+.prem.up{background:var(--up-soft);color:var(--up)}
+.prem.down{background:var(--down-soft);color:var(--down)}
+.delta{display:inline-flex;align-items:center;gap:2px;font-size:12px;font-weight:800;font-feature-settings:"tnum" 1}
+.delta.up{color:var(--up)} .delta.down{color:var(--down)} .delta.flat{color:var(--text-muted)}
+.ad-badge{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;font-family:"Inter",sans-serif;font-size:11px;font-weight:800;letter-spacing:.06em;border:1px solid currentColor;color:var(--text-muted);background:var(--surface)}
+.ad-badge.on-dark{color:var(--text-on-ink);background:transparent;border-color:rgba(255,255,255,.55)}
+.verified{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;color:var(--success);white-space:nowrap}
+.brokers{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 9px;border-radius:var(--r-pill);background:rgba(10,18,34,.78);color:#fff;font-size:12px;font-weight:700;white-space:nowrap}
+.brokers.is-light{background:var(--surface-2);color:var(--text-2)}
+.status{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:var(--r-pill);font-size:12.5px;font-weight:700;white-space:nowrap}
+.status::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.status.live{background:var(--success-soft);color:var(--success)}
+.status.scheduled{background:var(--brand-soft);color:var(--brand)}
+.status.review{background:var(--warn-soft);color:var(--warn)}
+.status.ended{background:var(--surface-2);color:var(--text-muted)}
+.status.rejected{background:var(--danger-soft);color:var(--danger)}
+/* 4-cell deal count — one component for map list, ranking, broker profile, admin */
+.kcount{align-self:flex-start;justify-self:start;display:inline-grid;grid-template-columns:repeat(4,minmax(40px,1fr));border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;background:var(--surface)}
+.kcount > span{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:5px 6px;border-left:1px solid var(--line)}
+.kcount > span:first-child{border-left:0}
+.kcount em{font-style:normal;font-size:12px;font-weight:700}
+.kcount b{font-family:"Inter",sans-serif;font-feature-settings:"tnum" 1;font-size:14px;font-weight:800;color:var(--text)}
+.kcount .k-presale em{color:var(--deal-presale)} .kcount .k-sale em{color:var(--deal-sale)} .kcount .k-jeonse em{color:var(--deal-jeonse)} .kcount .k-monthly em{color:var(--deal-monthly)}
+.kcount .is-zero em,.kcount .is-zero b{color:var(--text-muted);font-weight:600}
+.kcount--ink{background:transparent;border-color:var(--line-ink)}
+.kcount--ink > span{border-color:var(--line-ink)}
+.kcount--ink em,.kcount--ink .k-presale em,.kcount--ink .k-sale em,.kcount--ink .k-jeonse em,.kcount--ink .k-monthly em{color:var(--text-on-ink-2)}
+.kcount--ink b{color:#fff}
+.kcount--ink .is-zero em,.kcount--ink .is-zero b{color:var(--text-on-ink-muted)}
+
+/* ---------- 10. Cards ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden}
+.card-pad{padding:var(--s-6)}
+/* Listing card */
+.lcard{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden;transition:box-shadow .15s,transform .15s;min-width:0}
+.lcard:hover{box-shadow:var(--sh-2);transform:translateY(-2px)}
+.lcard-ph{position:relative;aspect-ratio:16/10;background:var(--surface-2);overflow:hidden}
+.lcard-ph > svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.lcard-ph .brokers{position:absolute;left:12px;top:12px}
+.lcard-ph .btn-icon{position:absolute;right:10px;top:10px;border:0;box-shadow:var(--sh-1)}
+.lcard-body{display:flex;flex-direction:column;gap:6px;padding:18px 20px 0}
+.lcard-price{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lcard-name{font-size:15px;font-weight:700;color:var(--text)}
+.lcard-name span{font-weight:500;color:var(--text-muted)}
+.lcard-meta{display:flex;flex-wrap:wrap;gap:0 8px;font-size:14px;color:var(--text-3)}
+.lcard-meta span + span::before{content:"·";margin-right:8px;color:var(--grey-300)}
+.lcard-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:14px 20px 0;padding:12px 0 16px;border-top:1px solid var(--grey-100)}
+/* Complex row (map left list) */
+.crow{display:grid;grid-template-columns:64px 1fr;gap:14px;padding:16px;border-radius:var(--r-lg);border:1px solid transparent;background:var(--surface)}
+.crow:hover{background:var(--grey-50)}
+.crow.is-on{border-color:var(--brand-line);background:var(--brand-soft)}
+.crow-thumb{width:64px;height:64px;border-radius:var(--r-md);overflow:hidden;background:var(--surface-2)}
+.crow-thumb svg{display:block;width:100%;height:100%}
+.crow-main{display:flex;flex-direction:column;gap:6px;min-width:0}
+.crow-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.crow-name{font-size:16px;font-weight:800;letter-spacing:-0.03em}
+.crow-dong{font-size:13px;color:var(--text-muted);white-space:nowrap}
+.crow-meta{font-size:13px;color:var(--text-muted)}
+.crow-price{display:flex;align-items:baseline;gap:6px;font-size:16px;font-weight:800;letter-spacing:-0.03em}
+.crow-price em{font-style:normal;font-size:12px;font-weight:700}
+/* Broker card */
+.bcard{display:grid;grid-template-columns:56px 1fr auto;gap:14px;align-items:center;padding:16px 18px;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface)}
+.bcard-ph{width:56px;height:56px;border-radius:var(--r-md);overflow:hidden;background:var(--surface-2)}
+.bcard-ph svg{display:block;width:100%;height:100%}
+.bcard-name{font-size:16px;font-weight:800;letter-spacing:-0.03em}
+.bcard-meta{font-size:13px;color:var(--text-muted);line-height:1.5}
+.bcard-tag{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--accent-text)}
+.bcard--feature{background:var(--surface-ink);border-color:var(--surface-ink);color:var(--text-on-ink)}
+.bcard--feature .bcard-meta{color:var(--text-on-ink-2)}
+.bcard--feature .bcard-tag{color:var(--accent)}
+
+/* ---------- 11. Tables (site ranking + admin) ---------- */
+.table-wrap{position:relative;border:1px solid var(--line);border-radius:var(--r-lg);overflow-x:auto;background:var(--surface)}
+.table-scroll{position:relative;overflow-x:auto}
+.table{width:100%;font-size:14px}
+.table th{height:44px;padding:0 14px;text-align:left;font-size:13px;font-weight:700;color:var(--text-muted);background:var(--grey-50);border-bottom:1px solid var(--line);white-space:nowrap}
+.table td{height:60px;padding:0 14px;border-bottom:1px solid var(--grey-100);color:var(--text-2);white-space:nowrap}
+.table tbody tr:last-child td{border-bottom:0}
+.table tbody tr:hover td{background:var(--grey-50)}
+.table .r{text-align:right}
+.table .c{text-align:center}
+.table .strong{font-weight:800;color:var(--text)}
+.table th.t-sale{color:var(--deal-sale)} .table th.t-jeonse{color:var(--deal-jeonse)} .table th.t-monthly{color:var(--deal-monthly)} .table th.t-presale{color:var(--deal-presale)}
+.table .zero{color:var(--grey-300);font-weight:500}
+.rank-n{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--surface-2);font-family:"Inter",sans-serif;font-weight:800;font-size:14px}
+.rank-n.top{background:var(--surface-ink);color:#fff}
+
+/* ---------- 12. Header, sub-bar, footer ---------- */
+.utilbar{background:var(--grey-50);border-bottom:1px solid var(--line);font-size:13px;color:var(--text-3)}
+.utilbar .container{display:flex;align-items:center;justify-content:space-between;gap:16px;height:36px}
+.utilbar nav{display:flex;gap:18px}
+.utilbar a:hover{color:var(--text)}
+.gnb{position:relative;background:var(--surface);border-bottom:1px solid var(--line)}
+.gnb .container{display:flex;align-items:center;gap:28px;min-height:72px;flex-wrap:wrap}
+.gnb-nav{display:flex;align-items:center;gap:4px;flex:1;min-width:0;flex-wrap:wrap}
+.gnb-a{display:inline-flex;align-items:center;height:44px;padding:0 12px;border-radius:var(--r-sm);font-size:16px;font-weight:700;color:var(--text-2);white-space:nowrap}
+.gnb-a:hover{background:var(--surface-2);color:var(--text)}
+.gnb-a.is-on{color:var(--brand)}
+.gnb-sep{width:1px;height:16px;background:var(--line-strong);margin:0 8px}
+.gnb-act{display:flex;align-items:center;gap:8px}
+.gnb-cta{display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 16px;border-radius:var(--r-pill);font-size:15px;font-weight:800;white-space:nowrap}
+.gnb-cta.sell{background:var(--brand);color:#fff}
+.gnb-cta.find{background:var(--surface);color:var(--brand);box-shadow:inset 0 0 0 1.5px var(--brand)}
+.gnb-login{display:inline-flex;align-items:center;height:44px;padding:0 18px;border-radius:var(--r-pill);background:var(--surface-ink);color:#fff;font-size:15px;font-weight:700}
+.gnb-user{display:none}
+/* Sub-bar: 내놓기 / 구하기 band directly under the hero */
+.subbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:16px}
+.subbar-c{display:flex;align-items:center;gap:18px;padding:22px 24px;border-radius:var(--r-xl);border:1px solid var(--line);background:var(--surface)}
+.subbar-ic{display:grid;place-items:center;width:56px;height:56px;border-radius:var(--r-lg);background:var(--brand-soft);color:var(--brand);flex:none}
+.subbar-t{flex:1;min-width:0}
+.subbar-t b{display:block;font-size:18px;font-weight:800;letter-spacing:-0.03em}
+.subbar-t span{font-size:14px;color:var(--text-3)}
+.subbar-c.is-primary{background:var(--surface-ink);border-color:var(--surface-ink);color:var(--text-on-ink)}
+.subbar-c.is-primary .subbar-ic{background:rgba(233,215,168,.14);color:var(--accent)}
+.subbar-c.is-primary .subbar-t span{color:var(--text-on-ink-2)}
+/* Footer */
+.footer{background:var(--grey-50);border-top:1px solid var(--line);color:var(--text-3);font-size:14px}
+.footer .container{display:flex;flex-direction:column;gap:32px;padding-block:48px 40px}
+.footer-top{display:grid;grid-template-columns:minmax(220px,1.3fr) repeat(auto-fit,minmax(140px,1fr));gap:32px}
+.footer h4{font-size:14px;font-weight:800;color:var(--text);margin-bottom:12px;letter-spacing:-0.02em}
+.footer li a{display:inline-flex;min-height:32px;align-items:center;color:var(--text-3)}
+.footer li a:hover{color:var(--text)}
+.footer-legal{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:14px;font-weight:700;color:var(--text-2)}
+.footer-legal a.is-strong{color:var(--text)}
+.footer-biz{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:13px;line-height:1.7;color:var(--text-muted)}
+.footer-copy{font-size:13px;color:var(--text-muted)}
+
+/* ---------- 13. Map pieces ---------- */
+.map{position:relative;overflow:hidden;background:var(--map-land);isolation:isolate}
+.map-svg{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+.map > :not(.map-svg){z-index:1}
+.map-label{position:absolute;transform:translate(-50%,-50%);font-size:13px;font-weight:700;letter-spacing:.12em;color:var(--map-label);pointer-events:none;white-space:nowrap}
+.map-label--water{color:var(--map-water-text);letter-spacing:.04em}
+.map-label--park{color:var(--map-park-text);letter-spacing:0;font-size:12px}
+/* District cluster (zoomed out) */
+.cluster{position:absolute;transform:translate(-50%,-50%);display:grid;place-items:center;align-content:center;width:84px;height:84px;border-radius:50%;background:var(--brand);color:#fff;box-shadow:0 0 0 8px rgba(29,79,242,.16),var(--sh-2);text-align:center;line-height:1.15}
+.cluster .n{font-size:12px;font-weight:700;opacity:.92}
+.cluster .c{font-family:"Inter",sans-serif;font-size:20px;font-weight:800;letter-spacing:-0.03em}
+.cluster.is-outer{background:var(--surface);color:var(--text);box-shadow:0 0 0 6px rgba(10,18,34,.06),var(--sh-2)}
+.cluster.is-outer .c{color:var(--brand)}
+.cluster.sm{width:64px;height:64px}
+.cluster.sm .c{font-size:17px}
+/* Complex marker: count badge + name + 평형·price */
+.mk{position:absolute;transform:translate(-50%,-100%);display:inline-flex;align-items:center;gap:8px;padding:5px 12px 5px 5px;border-radius:var(--r-md);background:var(--surface);box-shadow:var(--sh-2),0 0 0 1px rgba(10,18,34,.06);white-space:nowrap;margin-top:-8px}
+.mk::after{content:"";position:absolute;left:50%;bottom:-6px;width:12px;height:12px;background:inherit;transform:translateX(-50%) rotate(45deg);border-radius:2px;box-shadow:2px 2px 2px rgba(10,18,34,.05)}
+.mk-c{display:grid;place-items:center;min-width:30px;height:30px;padding:0 6px;border-radius:8px;background:var(--brand);color:#fff;font-family:"Inter",sans-serif;font-size:14px;font-weight:800}
+.mk-t{display:flex;flex-direction:column;line-height:1.2}
+.mk-n{font-size:13px;font-weight:700;color:var(--text)}
+.mk-p{font-size:12px;font-weight:600;color:var(--text-3);font-feature-settings:"tnum" 1}
+.mk-p b{font-family:"Inter",sans-serif;font-weight:800;color:var(--text)}
+.mk.is-presale .mk-c{background:var(--deal-presale)}
+.mk.is-on{background:var(--surface-ink);box-shadow:var(--sh-3)}
+.mk.is-on .mk-n,.mk.is-on .mk-p b{color:#fff}
+.mk.is-on .mk-p{color:var(--text-on-ink-2)}
+.mk.is-on .mk-c{background:var(--accent);color:var(--ink-900)}
+/* Count-only pin (mobile / dense zoom) */
+.pin{position:absolute;transform:translate(-50%,-100%);display:grid;place-items:center;min-width:36px;height:32px;padding:0 8px;border-radius:10px;background:var(--brand);color:#fff;font-family:"Inter",sans-serif;font-size:14px;font-weight:800;box-shadow:var(--sh-2);margin-top:-6px}
+.pin::after{content:"";position:absolute;left:50%;bottom:-5px;width:10px;height:10px;background:inherit;transform:translateX(-50%) rotate(45deg);border-radius:2px}
+.pin.is-on{background:var(--surface-ink)}
+/* Price marker (one-room / land single listing) */
+.pmk{position:absolute;transform:translate(-50%,-100%);display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;border-radius:var(--r-pill);background:var(--surface);box-shadow:var(--sh-2),0 0 0 1px rgba(10,18,34,.06);font-size:13px;font-weight:800;white-space:nowrap;margin-top:-4px}
+.pmk i{width:8px;height:8px;border-radius:50%;background:var(--deal-monthly);flex:none}
+.pmk.sale i{background:var(--deal-sale)} .pmk.jeonse i{background:var(--deal-jeonse)}
+/* Selected-area polygon is drawn in SVG: stroke var(--brand) 2px dash 6 5, fill rgba(29,79,242,.06) */
+/* Breadcrumb + summary bar */
+.crumb{display:inline-flex;align-items:center;gap:2px;height:44px;padding:0 6px 0 14px;border-radius:var(--r-pill);background:var(--surface);box-shadow:var(--sh-2);font-size:14px;font-weight:600;color:var(--text-3);white-space:nowrap}
+.crumb .ic{color:var(--icon-muted)}
+.crumb-b{display:inline-flex;align-items:center;gap:4px;height:36px;padding:0 8px;border-radius:var(--r-pill)}
+.crumb-b:hover{background:var(--surface-2)}
+.crumb-b.is-on{color:var(--text);font-weight:800}
+.map-sum{display:inline-flex;align-items:center;gap:12px;height:44px;padding:0 16px;border-radius:var(--r-pill);background:var(--surface-ink);color:var(--text-on-ink-2);font-size:13px;font-weight:600;white-space:nowrap}
+.map-sum b{color:#fff;font-family:"Inter",sans-serif;font-weight:800}
+.map-sum i{width:1px;height:12px;background:rgba(255,255,255,.22)}
+/* Zoom / tools */
+.zoom{display:flex;flex-direction:column;border-radius:var(--r-md);background:var(--surface);box-shadow:var(--sh-2);overflow:hidden}
+.zoom button{display:grid;place-items:center;width:44px;height:44px;color:var(--text-2)}
+.zoom button + button{border-top:1px solid var(--line)}
+.map-tool{display:grid;place-items:center;width:44px;height:44px;border-radius:var(--r-md);background:var(--surface);box-shadow:var(--sh-2);color:var(--text-2)}
+/* Selected-complex popover */
+.map-pop{position:absolute;width:280px;padding:16px;border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--sh-3)}
+.map-pop-tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.map-pop-tile{padding:10px 12px;border-radius:var(--r-md);background:var(--surface-2)}
+.map-pop-tile em{display:block;font-style:normal;font-size:12px;font-weight:700}
+.map-pop-tile b{font-family:"Inter","Noto Sans KR",sans-serif;font-size:17px;font-weight:800;letter-spacing:-0.03em}
+/* Floating ad card on map (admin slot) — minimisable */
+.map-ad{position:absolute;width:300px;padding:16px;border-radius:var(--r-lg);background:var(--surface-ink);color:var(--text-on-ink);box-shadow:var(--sh-3)}
+.map-ad-top{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.map-ad-min{margin-left:auto;display:grid;place-items:center;width:32px;height:32px;border-radius:8px;color:var(--text-on-ink-2)}
+.map-ad-name{font-size:16px;font-weight:800;letter-spacing:-0.03em}
+.map-ad-meta{font-size:13px;color:var(--text-on-ink-2)}
+.map-ad-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:12px 0}
+.map-ad-stats span{padding:8px;border-radius:var(--r-sm);background:rgba(255,255,255,.06);font-size:12px;color:var(--text-on-ink-2);line-height:1.3}
+.map-ad-stats b{display:block;font-family:"Inter",sans-serif;font-size:16px;font-weight:800;color:#fff}
+.map-ad .btn{height:40px;font-size:14px}
+.map-ad.is-min{width:auto;padding:8px 8px 8px 12px;display:inline-flex;align-items:center;gap:10px;border-radius:var(--r-pill)}
+
+/* ---------- 14. Ad frame (fixed ratios; admin validates uploads against these) ---------- */
+.adframe{position:relative;display:block;overflow:hidden;border-radius:var(--r-xl);background:var(--ad-ground);color:#fff}
+.adframe--main{aspect-ratio:1240/220}      /* 메인 와이드 배너 · 업로드 2480×440 */
+.adframe--mobile{aspect-ratio:358/160}
+.adframe--mobile .ad-art{max-width:44%;height:86%}
+.adframe--mobile .ad-copy{left:18px;max-width:58%}     /* 모바일 배너 · 업로드 1074×480 */
+.adframe--side{aspect-ratio:300/250}       /* 목록 사이드 · 업로드 600×500 */
+.adframe .ad-badge{position:absolute;left:16px;top:16px;z-index:2}
+.ad-copy{position:absolute;left:6%;top:50%;transform:translateY(-50%);z-index:1;display:flex;flex-direction:column;gap:10px;max-width:56%}
+.ad-k{font-size:13px;font-weight:700;color:var(--ad-accent);letter-spacing:.02em}
+.ad-h{font-size:clamp(20px,2.4vw,32px);font-weight:800;line-height:1.25;letter-spacing:-0.04em;color:#fff}
+.ad-s{font-size:14px;color:rgba(255,255,255,.78)}
+.ad-art{position:absolute;right:0;bottom:0;height:100%;width:auto;max-width:60%}
+.ad-pager{position:absolute;right:16px;top:14px;z-index:2;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 4px 0 10px;border-radius:var(--r-pill);background:rgba(0,0,0,.32);font-family:"Inter",sans-serif;font-size:12px;font-weight:700;color:#fff}
+.ad-pager button{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;color:#fff}
+
+/* ---------- 15. Overlays: modal, notice popup, drawer, toast ---------- */
+.scrim{position:absolute;inset:0;background:rgba(10,18,34,.48)}
+.modal{position:relative;width:min(440px,100%);border-radius:var(--r-xl);background:var(--surface);box-shadow:var(--sh-3);overflow:hidden}
+.modal-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 20px 0 24px}
+.modal-bd{padding:12px 24px 24px}
+.modal-ft{display:flex;gap:8px;padding:0 24px 24px}
+.notice{width:min(380px,100%);border-radius:var(--r-xl);overflow:hidden;background:var(--surface);box-shadow:var(--sh-3)}
+.notice-art{position:relative;aspect-ratio:380/300;background:var(--ad-ground);overflow:hidden}
+.notice-ft{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}
+.notice-ft button{height:52px;font-size:14px;font-weight:600;color:var(--text-3)}
+.notice-ft button + button{border-left:1px solid var(--line);color:var(--text);font-weight:800}
+.drawer{width:min(400px,100%);background:var(--surface);box-shadow:var(--sh-3);border-radius:var(--r-xl) 0 0 var(--r-xl);display:flex;flex-direction:column}
+.drawer-hd{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 16px 24px;border-bottom:1px solid var(--line)}
+.toast{display:inline-flex;align-items:center;gap:10px;min-height:48px;padding:12px 16px 12px 14px;border-radius:var(--r-md);background:var(--surface-ink);color:#fff;font-size:14px;font-weight:600;box-shadow:var(--sh-3)}
+.toast .ic{color:#5BD6A0}
+.toast a{color:var(--accent);font-weight:800;margin-left:8px}
+
+/* ---------- 16. Admin shell ---------- */
+.adm{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100%;background:var(--ground)}
+.adm-side{display:flex;flex-direction:column;gap:24px;padding:20px 14px;background:var(--surface-ink);color:var(--text-on-ink-2)}
+.adm-side .logo{padding:0 8px}
+.adm-group{display:flex;flex-direction:column;gap:2px}
+.adm-group-t{padding:0 12px 6px;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--text-on-ink-muted)}
+.adm-a{display:flex;align-items:center;gap:10px;height:42px;padding:0 12px;border-radius:var(--r-sm);font-size:14px;font-weight:600;color:var(--text-on-ink-2)}
+.adm-a:hover{background:rgba(255,255,255,.05);color:#fff}
+.adm-a.is-on{background:rgba(255,255,255,.08);color:#fff;font-weight:800}
+.adm-a.is-on .ic{color:var(--accent)}
+.adm-a .n{margin-left:auto;min-width:22px;height:20px;padding:0 6px;border-radius:var(--r-pill);background:var(--brand);color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center}
+.adm-main{display:flex;flex-direction:column;min-width:0}
+.adm-top{display:flex;align-items:center;gap:12px;height:64px;padding:0 28px;background:var(--surface);border-bottom:1px solid var(--line)}
+.adm-me{display:inline-flex;align-items:center;gap:8px}
+.adm-av{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--surface-ink);color:var(--accent);font-size:14px;font-weight:800}
+.adm-crumb{font-size:13px;color:var(--text-muted)}
+.adm-title{font-size:20px;font-weight:800;letter-spacing:-0.035em}
+.adm-body{display:flex;flex-direction:column;gap:20px;padding:24px 28px}
+.kpis{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr))}
+.kpi{display:flex;flex-direction:column;gap:6px;padding:18px 20px;border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--line)}
+.kpi-l{font-size:13px;font-weight:700;color:var(--text-muted)}
+.kpi-v{font-family:"Inter","Noto Sans KR",sans-serif;font-size:28px;font-weight:800;letter-spacing:-0.04em;line-height:1.1}
+.kpi-v small{font-size:15px;font-weight:700;color:var(--text-3);margin-left:2px}
+.kpi-d{font-size:12.5px;font-weight:700}
+.panel{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg)}
+.panel-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:16px 20px;border-bottom:1px solid var(--line)}
+.panel-t{font-size:16px;font-weight:800;letter-spacing:-0.03em}
+.thumb{display:block;width:96px;height:36px;border-radius:6px;overflow:hidden;background:var(--ad-ground);flex:none}
+.thumb svg{display:block;width:100%;height:100%}
+.drag{color:var(--grey-300);cursor:grab}
+.form-row{display:grid;grid-template-columns:160px 1fr;gap:16px;align-items:start;padding:16px 0;border-bottom:1px solid var(--grey-100)}
+.form-row > .label{padding-top:12px}
+.form-row:last-child{border-bottom:0}
+.dropzone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:28px 20px;border:1.5px dashed var(--brand-line);border-radius:var(--r-lg);background:var(--brand-soft);text-align:center;color:var(--text-3);font-size:14px}
+.dropzone .ic{color:var(--brand)}
+.dropzone b{color:var(--brand)}
+.spec{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:var(--r-pill);background:var(--surface-2);font-size:12.5px;font-weight:700;color:var(--text-3);font-feature-settings:"tnum" 1}
+
+/* ---------- 17. Mobile pieces (390 artboards) ---------- */
+.m-header{display:flex;align-items:center;gap:8px;height:56px;padding:0 8px 0 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.m-header .logo{min-height:44px}
+.m-header .logo-word{font-size:19px}
+.m-header .logo-mark{width:28px;height:28px}
+.m-header-act{margin-left:auto;display:flex;align-items:center;gap:4px}
+.m-cta{display:inline-flex;align-items:center;height:36px;padding:0 12px;border-radius:var(--r-pill);font-size:14px;font-weight:800;white-space:nowrap}
+.m-cta.sell{background:var(--brand);color:#fff}
+.m-cta.find{box-shadow:inset 0 0 0 1.5px var(--brand);color:var(--brand)}
+.m-header .btn-icon{border:0}
+.tabbar{display:grid;grid-template-columns:repeat(5,1fr);height:64px;padding-bottom:4px;background:var(--surface);border-top:1px solid var(--line)}
+.tabbar a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:var(--hit);font-size:12px;font-weight:600;color:var(--text-muted)}
+.tabbar a.is-on{color:var(--text);font-weight:800}
+.tabbar a.is-on .ic{color:var(--brand)}
+.sheet{position:relative;border-radius:var(--r-xl) var(--r-xl) 0 0;background:var(--surface);box-shadow:0 -8px 24px rgba(10,18,34,.10)}
+.sheet-handle{display:block;width:40px;height:5px;margin:8px auto 4px;border-radius:3px;background:var(--grey-200)}
+.sheet-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 16px 12px}
+.cta-bar{display:flex;gap:8px;padding:12px 16px 16px;background:var(--surface);border-top:1px solid var(--line)}
+.cta-bar .btn{height:52px;flex:1}
+.cta-bar .btn-icon{width:52px;height:52px;flex:none}
+
+/* ---------- 17b. Page modules (main page) ---------- */
+.sec-hd{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+.sec-hd .t-sm{margin-top:6px}
+/* Category card — line icon tile with one cobalt detail */
+.cat{display:flex;flex-direction:column;gap:6px;padding:22px;border:1px solid var(--line);border-radius:var(--r-xl);background:var(--surface);min-width:0;transition:box-shadow .15s,border-color .15s}
+.cat:hover{border-color:var(--brand-line);box-shadow:var(--sh-2)}
+.cat-tile{display:grid;place-items:center;width:56px;height:56px;border-radius:var(--r-lg);background:var(--grey-100);color:var(--text);margin-bottom:10px}
+.cat-svg .cat-acc{fill:var(--brand);stroke:var(--brand)}
+.cat-svg .cat-acc-f{fill:var(--brand);stroke:var(--brand)}
+.cat-t{font-size:18px;font-weight:800;letter-spacing:-0.035em}
+.cat-s{font-size:13px;color:var(--text-muted)}
+.cat-f{display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--grey-100);font-size:14px;color:var(--text-3)}
+.cat-f b{font-family:"Inter",sans-serif;color:var(--text);font-weight:800}
+/* Hero map district chip (count + 평당 시세) */
+.dchip{position:absolute;transform:translate(-50%,-50%);display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 6px 0 12px;border-radius:var(--r-pill);background:var(--surface);box-shadow:var(--sh-2);font-size:13px;font-weight:700;white-space:nowrap}
+.dchip .c{display:grid;place-items:center;height:24px;padding:0 8px;border-radius:var(--r-pill);background:var(--brand-soft);color:var(--brand);font-family:"Inter",sans-serif;font-weight:800}
+.dchip .p{font-size:12px;font-weight:600;color:var(--text-muted)}
+.dchip.is-on{background:var(--brand);color:#fff;box-shadow:var(--sh-brand)}
+.dchip.is-on .c{background:#fff}
+.dchip.is-on .p{color:var(--brand-soft-2)}
+/* Ink band — app download, premium moments */
+.band-ink{position:relative;overflow:hidden;border-radius:var(--r-2xl);background:var(--surface-ink);color:var(--text-on-ink)}
+.band-ink .t-sm,.band-ink .t-body{color:var(--text-on-ink-2)}
+/* Ranking: featured #1 card */
+.rank-feature{display:flex;flex-direction:column;gap:12px;padding:24px;border-radius:var(--r-xl);background:var(--surface-ink);color:var(--text-on-ink)}
+.rank-feature .t-cap{color:var(--text-on-ink-muted)}
+.rank-feature .price{color:#fff}
+
+/* ---------- 18. Responsive ---------- */
+@media (min-width:721px){
+  .only-sm{display:none !important}
+}
+@media (max-width:720px){
+  :root{--gutter:16px;--section:40px}
+  .only-lg{display:none !important}
+  .utilbar{display:none}
+  .gnb-login,.gnb-cta .ic{display:none}
+  .gnb-user{display:inline-grid;border:0}
+  .gnb-cta{height:40px;padding:0 14px;font-size:14px}
+  .ad-copy{max-width:70%;gap:6px}
+  .ad-s{display:none}
+  .gnb .container{gap:12px;min-height:60px}
+  .gnb-nav{order:3;flex-basis:100%;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin:0 -8px}
+  .gnb-a{font-size:15px;padding:0 10px}
+  .gnb-act{margin-left:auto}
+  .form-row{grid-template-columns:1fr;gap:8px}
+  .form-row > .label{padding-top:0}
+  .adm{grid-template-columns:minmax(0,1fr)}
+  .adm-top .search-sm,.adm-me .t-sm{display:none}
+  .adm-side{display:none}
+  .adm-top,.adm-body{padding-inline:16px}
+  .footer-top{grid-template-columns:1fr 1fr}
+  .search{height:58px;padding-left:16px}
+  .search input{font-size:16px}
+  .search .btn{padding:0 16px}
+}
+
+
+/* ===== DealRequest page ===== */
+.dr-hero{padding-block:32px 24px}
+.dr-hero-in{display:flex;flex-direction:column;gap:28px}
+.dr-crumb{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted)}
+.dr-crumb a{min-height:24px;display:inline-flex;align-items:center}
+.dr-crumb a:hover{color:var(--text)}
+.dr-crumb .ic{color:var(--icon-muted)}
+.dr-crumb [aria-current]{color:var(--text-2);font-weight:600}
+.dr-hero-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,424px);gap:24px 40px;align-items:end}
+.dr-hero-head .t-display{font-size:clamp(34px,3.6vw,52px)}
+.dr-hl{color:var(--brand)}
+.dr-hero-side{display:flex;flex-direction:column;gap:18px;padding-bottom:6px}
+.dr-trust{display:flex;flex-wrap:wrap;gap:8px 20px}
+.dr-trust li{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:700;color:var(--text-2)}
+.dr-trust .ic{color:var(--brand)}
+
+.dr-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(560px,100%),1fr));gap:20px;margin-top:8px}
+.dr-choice{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 236px;gap:20px;padding:32px 28px 32px 36px;border-radius:var(--r-2xl);border:1px solid var(--line);background:var(--surface);overflow:hidden}
+.dr-choice.is-ink{background:var(--surface-ink);border-color:var(--surface-ink);color:var(--text-on-ink)}
+.dr-choice-body{display:flex;flex-direction:column;gap:24px;min-width:0}
+.dr-choice-top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px}
+.dr-choice-ic{display:grid;place-items:center;width:56px;height:56px;border-radius:var(--r-lg);background:var(--brand-soft);color:var(--brand)}
+.is-ink .dr-choice-ic{background:rgba(233,215,168,.14);color:var(--accent)}
+.dr-pill-acc{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:var(--r-pill);background:rgba(233,215,168,.14);color:var(--accent);font-size:13px;font-weight:800;white-space:nowrap}
+.dr-who{font-size:14px;font-weight:700;color:var(--text-muted)}
+.is-ink .dr-who{color:var(--text-on-ink-muted)}
+.dr-choice-t{font-size:34px;line-height:1.2;letter-spacing:-0.045em;font-weight:800}
+.dr-choice-d{font-size:18px;font-weight:600;line-height:1.5;color:var(--text-2);letter-spacing:-0.025em}
+.is-ink .dr-choice-d{color:var(--text-on-ink-2)}
+.dr-bul{display:flex;flex-direction:column;gap:10px;padding-top:20px;border-top:1px solid var(--line)}
+.is-ink .dr-bul{border-color:var(--line-ink)}
+.dr-bul li{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:500;color:var(--text-2)}
+.dr-bul .ic{color:var(--brand)}
+.is-ink .dr-bul li{color:#E3E7EC}
+.is-ink .dr-bul .ic{color:var(--accent)}
+.dr-choice-ft{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:auto}
+.dr-art{position:relative;border-radius:var(--r-xl);overflow:hidden;min-height:360px;align-self:stretch}
+.dr-art-svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.dr-art--map{border:1px solid var(--brand-soft-2)}
+.dr-req{position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:var(--r-md);background:var(--surface);box-shadow:var(--sh-2)}
+.dr-req-k{font-size:12px;font-weight:700;color:var(--text-muted)}
+.dr-req-v{font-size:14px;font-weight:800;line-height:1.45;color:var(--text);letter-spacing:-0.02em}
+.dr-note{position:absolute;right:12px;top:14px;display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:var(--r-pill);background:var(--surface-ink);color:#fff;font-size:13px;font-weight:600;box-shadow:var(--sh-2)}
+.dr-note .ic{color:var(--accent)}
+.dr-note b{font-weight:800}
+
+/* how it works */
+.dr-how{padding-block:24px 56px}
+.dr-how-hd{display:flex;flex-direction:column;gap:8px}
+.dr-how-box{display:grid;grid-template-columns:200px minmax(0,1fr);gap:24px;align-items:center;padding:28px 32px;border-radius:var(--r-2xl);background:var(--grey-50);border:1px solid var(--line)}
+.dr-how-h{font-size:22px;line-height:1.3;letter-spacing:-0.035em}
+.dr-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.dr-step{display:flex;flex-direction:column;gap:8px;padding:20px 22px;border-radius:var(--r-xl);background:var(--surface);box-shadow:var(--sh-1);position:relative}
+.dr-step-top{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.dr-step-n{font-family:"Inter",sans-serif;font-size:13px;font-weight:800;color:var(--brand);letter-spacing:.02em}
+.dr-step-ic{display:grid;place-items:center;width:40px;height:40px;border-radius:var(--r-md);background:var(--brand-soft);color:var(--brand);order:-1}
+.dr-step-arrow{position:absolute;right:-17px;top:50%;transform:translateY(-50%);z-index:1;display:grid;place-items:center;width:18px;height:28px;color:var(--icon-muted)}
+.dr-step-t{font-size:17px;font-weight:800;letter-spacing:-0.03em}
+.dr-step-m{align-self:flex-start;display:inline-flex;align-items:center;height:26px;padding:0 10px;margin-top:4px;border-radius:var(--r-pill);background:var(--surface-2);font-size:12px;font-weight:700;color:var(--text-3)}
+
+/* form section */
+.dr-formsec{padding-block:56px 80px;background:var(--ground);border-top:1px solid var(--line)}
+.dr-formsec-hd{display:flex;align-items:flex-end;justify-content:space-between;gap:12px 24px;flex-wrap:wrap;margin-bottom:28px}
+.dr-layout{display:grid;grid-template-columns:minmax(0,1fr) 384px;gap:24px;align-items:start}
+.dr-form{border-radius:var(--r-2xl);box-shadow:var(--sh-1);overflow:visible}
+.dr-form-hd{display:flex;flex-direction:column;gap:18px;padding:28px 36px 24px;border-bottom:1px solid var(--line)}
+.dr-stepper{display:flex;align-items:center;gap:0}
+.dr-stepper li{display:flex;align-items:center;gap:12px;flex:1 1 0;min-width:0}
+.dr-stepper li:last-child{flex:0 0 auto}
+.dr-stepper li:not(:last-child)::after{content:"";flex:1;min-width:16px;height:2px;margin:0 16px;border-radius:2px;background:var(--line)}
+.dr-stepper li.is-done::after{background:var(--brand)}
+.dr-sp-c{display:grid;place-items:center;width:36px;height:36px;flex:none;border-radius:50%;background:var(--surface-2);color:var(--text-muted);font-family:"Inter",sans-serif;font-size:15px;font-weight:800}
+.is-done .dr-sp-c{background:var(--brand);color:#fff}
+.is-on .dr-sp-c{background:var(--surface);color:var(--brand);box-shadow:inset 0 0 0 2px var(--brand),0 0 0 5px var(--brand-soft)}
+.dr-sp-t{display:flex;flex-direction:column;font-size:15px;font-weight:800;letter-spacing:-0.025em;white-space:nowrap;color:var(--text-3)}
+.dr-sp-t em{font-style:normal;font-size:12px;font-weight:700;color:var(--text-muted);letter-spacing:0}
+.is-on .dr-sp-t{color:var(--text)}
+.is-on .dr-sp-t em{color:var(--brand)}
+.is-done .dr-sp-t{color:var(--text-2)}
+.dr-login{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-radius:var(--r-md);background:var(--surface-2);font-size:14px;color:var(--text-3)}
+.dr-login b{color:var(--text)}
+.dr-login .link{margin-left:auto;font-size:14px}
+.dr-login-k{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:#FEE500;flex:none}
+
+.dr-group{border:0;margin:0;padding:28px 36px 12px;min-width:0}
+.dr-group + .dr-group{border-top:8px solid var(--grey-50)}
+.dr-legend{display:flex;align-items:center;gap:10px;padding:0;font-size:19px;font-weight:800;letter-spacing:-0.035em;color:var(--text);float:left;width:100%;margin-bottom:8px}
+.dr-legend + *{clear:both}
+.dr-legend-n{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--surface-ink);color:var(--accent);font-family:"Inter",sans-serif;font-size:13px;font-weight:800}
+.dr-row{display:grid;grid-template-columns:148px minmax(0,1fr);gap:12px 24px;padding:20px 0;border-top:1px solid var(--grey-100)}
+.dr-group .dr-row:first-of-type{border-top:0}
+.dr-row-l{display:flex;flex-direction:column;gap:4px;padding-top:12px}
+.dr-row-c{display:flex;flex-direction:column;gap:12px;min-width:0}
+.dr-types{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.dr-type{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:92px;padding:12px 6px;border:1px solid var(--line-strong);border-radius:var(--r-lg);background:var(--surface);font-size:14px;font-weight:700;color:var(--text-2);text-align:center;cursor:pointer;position:relative}
+.dr-type .ic{color:var(--text-3)}
+.dr-type .cat-acc{fill:var(--icon-muted);stroke:none}
+.dr-type .cat-acc-f{fill:var(--icon-muted);stroke:none}
+.dr-type.is-on{border-color:var(--brand);background:var(--brand-soft);color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand)}
+.dr-type.is-on .ic{color:var(--brand)}
+.dr-type.is-on .cat-acc,.dr-type.is-on .cat-acc-f{fill:var(--brand)}
+.dr-inline{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap}
+.dr-inline > .dr-input-ic,.dr-grow{flex:1 1 260px;min-width:0}
+.dr-input-ic{position:relative;display:flex;align-items:center}
+.dr-input-ic > .ic{position:absolute;left:14px;color:var(--icon-muted);pointer-events:none}
+.dr-input-ic .input{padding-left:44px}
+.input[readonly]{background:var(--grey-50)}
+.dr-input-ic.is-ok .input{padding-right:112px;border-color:var(--line-strong)}
+.dr-ok{position:absolute;right:12px;display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:800;color:var(--success)}
+.dr-match{display:grid;grid-template-columns:64px minmax(0,1fr) auto;align-items:center;gap:14px;padding:12px 16px 12px 12px;border:1px solid var(--brand-line);border-radius:var(--r-lg);background:var(--brand-soft)}
+.dr-match-ph{width:64px;height:64px;border-radius:var(--r-md);overflow:hidden;background:var(--surface)}
+.dr-match-ph svg{display:block;width:100%;height:100%}
+.dr-match-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.dr-match-t b{font-size:16px;font-weight:800;letter-spacing:-0.03em}
+.dr-match-t .t-cap{color:var(--text-3)}
+.dr-match-a{font-size:14px;white-space:nowrap;min-height:44px;display:inline-flex;align-items:center}
+.dr-pair{display:grid;grid-template-columns:repeat(2,minmax(0,200px));gap:12px}
+.dr-help-ic{display:flex;align-items:flex-start;gap:6px;font-size:13px;line-height:1.5;color:var(--text-muted)}
+.dr-help-ic .ic{color:var(--icon-muted);margin-top:1px}
+.dr-help-ic b{color:var(--text-2);font-weight:700}
+.dr-seg{align-self:flex-start}
+.dr-seg .seg-b{display:inline-flex;align-items:center;height:40px;padding:0 24px;font-size:15px;cursor:pointer}
+.seg label.seg-b{display:inline-flex;align-items:center;cursor:pointer}
+.dr-price-in{flex:0 1 220px;min-width:160px}
+.dr-price-in .input{font-family:"Inter","Noto Sans KR",sans-serif;font-size:17px;font-weight:800;text-align:right;padding-right:56px}
+.dr-price-read{font-size:15px;color:var(--text-3);white-space:nowrap}
+.dr-price-read b{font-size:17px;font-weight:800;color:var(--brand)}
+.dr-inline--price .check{margin-left:auto}
+.dr-market{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-radius:var(--r-md);background:var(--surface-2)}
+.dr-market-h{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:800;color:var(--text-2)}
+.dr-market-h .ic{color:var(--brand)}
+.dr-market dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:8px 16px}
+.dr-market dt{font-size:12px;font-weight:600;color:var(--text-muted)}
+.dr-market dd{margin:0;font-size:15px;font-weight:800;color:var(--text);letter-spacing:-0.02em}
+.dr-market dd span{font-size:12px;font-weight:600;color:var(--text-muted);margin-left:2px}
+.dr-move{flex:0 1 240px}
+.dr-drop{flex-direction:row;justify-content:flex-start;text-align:left;gap:16px;padding:20px 22px;cursor:pointer;flex-wrap:wrap}
+.dr-drop > span:not(.dr-drop-ic){flex:1 1 300px}
+.dr-drop .t-cap{display:block;color:var(--text-3)}
+.dr-drop b{font-size:15px}
+.dr-drop-ic{display:grid;place-items:center;width:48px;height:48px;border-radius:var(--r-md);background:var(--surface);box-shadow:var(--sh-1);flex:none}
+.dr-drop{display:grid;grid-template-columns:48px minmax(0,1fr);row-gap:2px;column-gap:16px;align-items:center}
+.dr-drop .dr-drop-ic{grid-row:span 2}
+.dr-thumbs{display:flex;align-items:flex-end;gap:12px 20px;flex-wrap:wrap;padding-top:6px}
+.dr-thumb{position:relative;display:flex;flex-direction:column;gap:6px;width:132px}
+.dr-thumb > svg{display:block;width:132px;height:96px;border-radius:var(--r-md);overflow:hidden;border:1px solid var(--line)}
+.dr-thumb figcaption{font-size:12px;font-weight:600;color:var(--text-3)}
+.dr-rep{position:absolute;left:8px;top:8px;display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:var(--r-xs);background:var(--surface-ink);color:#fff;font-size:12px;font-weight:800}
+.dr-x{position:absolute;right:-10px;top:-10px;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--surface);color:var(--text-2);box-shadow:var(--sh-2);border:1px solid var(--line)}
+.dr-x::before{content:"";position:absolute;inset:-6px}
+.dr-thumb-count{margin-left:auto;align-self:center;font-size:13px;color:var(--text-muted)}
+.dr-thumb-count b{font-size:15px;color:var(--text)}
+.dr-switch{flex-wrap:wrap;row-gap:0}
+.dr-switch .help{flex-basis:100%;padding-left:54px;margin-top:-6px}
+.dr-scope{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:10px}
+.dr-opt{display:flex;align-items:flex-start;gap:12px;padding:16px 18px;border:1px solid var(--line-strong);border-radius:var(--r-lg);background:var(--surface);cursor:pointer}
+.dr-opt.is-on{border-color:var(--brand);background:var(--brand-soft);box-shadow:inset 0 0 0 1px var(--brand)}
+.dr-radio{width:22px;height:22px;flex:none;margin-top:1px;border-radius:50%;border:1.5px solid var(--line-strong);background:var(--surface)}
+.dr-opt.is-on .dr-radio{border:7px solid var(--brand)}
+.dr-opt-t{display:flex;flex-direction:column;gap:4px;font-size:14px;line-height:1.5;color:var(--text-3)}
+.dr-opt-t > b{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:800;color:var(--text);letter-spacing:-0.025em}
+.dr-opt-t span b{color:var(--brand);font-weight:800}
+.dr-rec{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:var(--r-xs);background:var(--brand);color:#fff;font-size:12px;font-weight:800}
+.dr-agree{border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
+.dr-agree-all{padding:4px 16px;background:var(--grey-50);border-bottom:1px solid var(--line)}
+.dr-agree ul{display:flex;flex-direction:column;padding:6px 16px}
+.dr-agree li{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.dr-agree li .check{font-size:14px;color:var(--text-3)}
+.dr-agree li .link{font-size:13px;white-space:nowrap;min-height:44px;display:inline-flex;align-items:center}
+.dr-form-ft{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:24px 36px;border-top:1px solid var(--line);background:var(--surface);border-radius:0 0 var(--r-2xl) var(--r-2xl)}
+.dr-saved{display:inline-flex;align-items:center;gap:6px;margin-left:auto;font-size:13px;font-weight:600;color:var(--text-muted)}
+.dr-saved .ic{color:var(--success)}
+.dr-form-ft .btn-primary{min-width:200px}
+
+/* aside */
+.dr-aside{position:sticky;top:24px;display:flex;flex-direction:column;gap:16px}
+.dr-sum{display:flex;flex-direction:column;gap:18px;padding:24px;border-radius:var(--r-2xl);box-shadow:var(--sh-2)}
+.dr-sum-hd{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.dr-sum-item{display:grid;grid-template-columns:76px minmax(0,1fr);gap:14px;align-items:center}
+.dr-sum-ph{width:76px;height:76px;border-radius:var(--r-md);overflow:hidden;background:var(--surface-2)}
+.dr-sum-ph svg{display:block;width:100%;height:100%}
+.dr-sum-name{font-size:16px;font-weight:800;letter-spacing:-0.03em}
+.dr-sum-price{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;padding:16px 18px;border-radius:var(--r-lg);background:var(--grey-50)}
+.dr-sum-price .t-cap{flex-basis:100%}
+.dr-sum-price .price{color:var(--brand)}
+.dr-sum-nego{font-size:13px;font-weight:700;color:var(--text-3)}
+.dr-sum-dl{display:flex;flex-direction:column}
+.dr-sum-dl div{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--grey-100);font-size:14px}
+.dr-sum-dl div:first-child{border-top:0;padding-top:0}
+.dr-sum-dl dt{color:var(--text-muted);font-weight:600}
+.dr-sum-dl dd{margin:0;font-weight:700;color:var(--text);text-align:right}
+.dr-prog{display:flex;flex-direction:column;gap:10px;padding-top:16px;border-top:1px solid var(--line)}
+.dr-prog-top{display:flex;justify-content:space-between;font-size:14px;font-weight:700;color:var(--text-2)}
+.dr-prog-top b{color:var(--success)}
+.dr-prog-bar{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden}
+.dr-prog-bar span{display:block;height:100%;border-radius:3px;background:var(--success)}
+.dr-tip{display:flex;gap:8px;padding:12px 14px;border-radius:var(--r-md);background:var(--accent-soft);font-size:13px;line-height:1.55;color:var(--text-2)}
+.dr-tip .ic{color:var(--accent-text);margin-top:2px}
+.dr-reach{display:flex;flex-direction:column;gap:14px;padding:24px;border-radius:var(--r-2xl);background:var(--surface-ink);color:var(--text-on-ink)}
+.dr-reach-q{font-size:16px;font-weight:800;letter-spacing:-0.03em;color:var(--text-on-ink-2)}
+.dr-reach-n{display:flex;align-items:baseline;gap:4px;margin-top:-6px;font-size:22px;font-weight:800;color:var(--accent)}
+.dr-reach-n b{font-size:56px;line-height:1;letter-spacing:-0.05em;color:#fff}
+.dr-reach-d{font-size:14px;line-height:1.6;color:var(--text-on-ink-2)}
+.dr-reach-d b{color:#fff}
+.dr-reach-list{display:flex;flex-direction:column;border-top:1px solid var(--line-ink)}
+.dr-reach-list li{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line-ink)}
+.dr-reach-ph{width:40px;height:40px;border-radius:10px;overflow:hidden}
+.dr-reach-ph svg{display:block;width:100%;height:100%}
+.dr-reach-t{display:flex;flex-direction:column;min-width:0}
+.dr-reach-t b{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-reach-t span{font-size:12px;font-weight:600;color:var(--accent)}
+.dr-reach-r{font-size:12px;line-height:1.35;color:var(--text-on-ink-muted);text-align:right}
+.dr-reach-r b{font-size:14px;color:#fff}
+.dr-reach-more{font-size:13px;color:var(--text-on-ink-2)}
+.dr-reach-more a{color:var(--accent);font-weight:800;text-decoration:underline;text-underline-offset:3px}
+.dr-reach-foot{display:flex;gap:8px;padding:12px 14px;border-radius:var(--r-md);background:var(--surface-ink-2);font-size:13px;line-height:1.55;color:var(--text-on-ink-2)}
+.dr-reach-foot .ic{color:var(--accent);margin-top:2px}
+
+/* FAQ */
+.dr-faq{padding-block:80px}
+.dr-faq-in{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));gap:32px 64px;align-items:start}
+.dr-faq-in > .stack{max-width:380px}
+.dr-acc{display:flex;flex-direction:column;border-top:2px solid var(--text);grid-column:span 1}
+.dr-acc-i{border-bottom:1px solid var(--line)}
+.dr-acc-i summary{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:72px;padding:8px 4px;font-size:18px;font-weight:800;letter-spacing:-0.03em;cursor:pointer;list-style:none}
+.dr-acc-i summary::-webkit-details-marker{display:none}
+.dr-acc-ic{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--surface-2);color:var(--text-3);flex:none;transition:transform .2s}
+.dr-acc-i[open] .dr-acc-ic{transform:rotate(180deg);background:var(--surface-ink);color:#fff}
+.dr-acc-i p{padding:0 56px 24px 4px}
+@media (min-width:1100px){.dr-faq-in{grid-template-columns:380px minmax(0,1fr)}
+}
+
+/* responsive */
+@media (max-width:1100px){
+  .dr-layout{grid-template-columns:minmax(0,1fr)}
+  .dr-aside{position:static;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr))}
+  .dr-how-box{grid-template-columns:1fr}
+}
+@media (max-width:720px){
+  .dr-hero{padding-block:20px 16px}
+  .dr-hero-side{justify-self:start}
+  .dr-hero-in{gap:20px}
+  .dr-choice{grid-template-columns:1fr;padding:24px 20px;gap:20px;border-radius:var(--r-xl)}
+  .dr-art{display:none}
+  .dr-choice-top{min-height:0}
+  .dr-choice-ic{width:48px;height:48px}
+  .dr-choice-body{gap:20px}
+  .dr-hero-head{grid-template-columns:1fr}
+  .dr-sum{display:none !important}
+  .dr-choice-t{font-size:28px}
+  .dr-choice-d{font-size:16px}
+  .dr-choice-ft .btn{width:100%}
+  .dr-how{padding-block:16px 40px}
+  .dr-how-box{padding:20px 16px;border-radius:var(--r-xl)}
+  .dr-steps{grid-template-columns:1fr;gap:10px}
+  .dr-step{display:grid;grid-template-columns:40px minmax(0,1fr);column-gap:14px;row-gap:4px;padding:16px}
+  .dr-step > *:not(.dr-step-top){grid-column:2}
+  .dr-step-top{grid-row:1 / span 3;flex-direction:column;align-items:center;gap:6px;margin:0}
+  .dr-step-m{margin-top:2px;justify-self:start}
+  .dr-step-arrow{display:none}
+  .dr-formsec{padding-block:40px 48px}
+  .dr-form,.dr-sum,.dr-reach{border-radius:var(--r-xl)}
+  .dr-form-hd{padding:20px 16px}
+  .dr-stepper{align-items:flex-start}
+  .dr-stepper li{flex-direction:column;align-items:center;gap:6px;flex:1 1 0;position:relative}
+  .dr-stepper li:last-child{flex:1 1 0}
+  .dr-stepper li:not(:last-child)::after{position:absolute;top:17px;left:calc(50% + 26px);right:calc(-50% + 26px);margin:0;min-width:0}
+  .dr-sp-t{align-items:center;text-align:center;font-size:13px;white-space:normal}
+  .dr-sp-t em{font-size:12px}
+  .dr-group{padding:24px 16px 8px}
+  .dr-row{grid-template-columns:1fr;gap:10px;padding:16px 0}
+  .dr-row-l{padding-top:0;flex-direction:row;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .dr-types{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .dr-type{min-height:84px;font-size:13px}
+  .dr-match{grid-template-columns:56px minmax(0,1fr)}
+  .dr-match-ph{width:56px;height:56px}
+  .dr-match-a{grid-column:1 / -1;min-height:32px}
+  .dr-inline > .btn{flex:1 1 auto}
+  .dr-price-in{flex:1 1 100%}
+  .dr-inline--price .check{margin-left:0}
+  .dr-thumbs{gap:12px}
+  .dr-thumb{width:calc((100% - 24px) / 3)}
+  .dr-thumb > svg{width:100%;height:76px}
+  .dr-thumb-count{flex-basis:100%;margin-left:0}
+  .dr-x{right:-8px;top:-8px}
+  .dr-switch .help{padding-left:0;margin-top:0}
+  .dr-form-ft{padding:16px;gap:8px}
+  .dr-form-ft .btn-secondary{flex:0 0 auto;padding:0 16px}
+  .dr-form-ft .btn-primary{flex:1;min-width:0}
+  .dr-saved{order:-1;flex-basis:100%;margin-left:0}
+  .dr-faq{padding-block:48px}
+  .dr-agree li .check{padding-block:6px}
+  .dr-acc-i summary{font-size:16px;min-height:64px}
+  .dr-acc-i p{padding:0 4px 20px}
+  .dr-reach-n b{font-size:48px}
+}
+
+</style>
+</helmet>
+<div class="ui">
+<header class="site-header">
+  <div class="utilbar">
+    <div class="container">
+      <span>순천 공인중개사들이 함께 올리는 공동중개 매물</span>
+      <nav aria-label="보조 메뉴"><a href="#">중개사 회원 가입</a><a href="#">광고 문의</a><a href="#">고객센터</a></nav>
+    </div>
+  </div>
+  <div class="gnb">
+    <div class="container">
+      <a class="logo" href="Main.dc.html" aria-label="BRAND 홈"><svg class="logo-mark" width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1D4FF2"/><path d="M9 24v-7a7 7 0 0 1 14 0v7" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/><rect x="13.6" y="17.6" width="4.8" height="6.4" rx="1.2" fill="#FFFFFF"/><rect x="21.6" y="6" width="4.4" height="4.4" rx="1.3" fill="#E9D7A8"/></svg><span class="logo-word">BRAND</span></a>
+      <nav class="gnb-nav" aria-label="주요 메뉴">
+        <a class="gnb-a" href="MapApt.dc.html">아파트·분양권</a>
+        <a class="gnb-a" href="OneRoom.dc.html">원룸·투룸</a>
+        <a class="gnb-a" href="#">주택</a>
+        <a class="gnb-a" href="#">상업·업무</a>
+        <a class="gnb-a" href="#">토지</a>
+        <span class="gnb-sep" aria-hidden="true"></span>
+        <a class="gnb-a" href="Agents.dc.html">중개사무소</a>
+        <a class="gnb-a" href="#">커뮤니티</a>
+      </nav>
+      <div class="gnb-act">
+        <a class="gnb-cta sell" href="DealRequest.dc.html"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9.5h12V10"/><path d="M12 17v-5"/><path d="m9.5 14 2.5-2.5 2.5 2.5"/></svg>내놓기</a>
+        <a class="gnb-cta find" href="DealRequest.dc.html"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9.5h5"/><circle cx="15.5" cy="15.5" r="2.8"/><path d="m20 20-2.4-2.4"/></svg>구하기</a>
+        <a class="gnb-login" href="Login.dc.html">로그인</a>
+        <a class="gnb-user btn-icon" href="Login.dc.html" aria-label="로그인"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg></a>
+      </div>
+    </div>
+  </div>
+</header>
+<main>
+<section class="dr-hero" aria-labelledby="dr-title">
+  <div class="container dr-hero-in">
+    <nav class="dr-crumb" aria-label="현재 위치"><a href="Main.dc.html">홈</a><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg><span aria-current="page">내놓기 · 구하기</span></nav>
+    <div class="dr-hero-head">
+      <div class="stack" style="gap:16px">
+        <p class="eyebrow">내놓기 · 구하기</p>
+        <h1 id="dr-title" class="t-display">집 내놓을 때도, 구할 때도<br><span class="dr-hl">순천 중개사가 먼저</span> 연락드려요</h1>
+      </div>
+      <div class="dr-hero-side">
+        <p class="t-body">한 번만 등록하면 우리 동네 공인중개사무소가 직접 확인하고 연락해요. 여러 곳을 돌며 같은 설명을 반복하지 않아도 돼요.</p>
+        <ul class="dr-trust">
+          <li><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>등록·이용 무료</li>
+          <li><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>연락처는 안심번호로</li>
+          <li><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>언제든 요청 중단</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="dr-choices">
+      <article class="dr-choice is-ink" aria-labelledby="dr-c1">
+        <div class="dr-choice-body">
+          <div class="dr-choice-top">
+            <span class="dr-choice-ic"><svg class="ic" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9.5h12V10"/><path d="M12 17v-5"/><path d="m9.5 14 2.5-2.5 2.5 2.5"/></svg></span>
+            <span class="dr-pill-acc"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="m13.5 6.5 4 4"/></svg>작성 중 · 2/3 단계</span>
+          </div>
+          <div class="stack" style="gap:8px">
+            <p class="dr-who">집주인 · 임대인</p>
+            <h2 id="dr-c1" class="dr-choice-t">내 집 내놓기</h2>
+            <p class="dr-choice-d">매물을 등록하면 지역 중개사가 연락드려요</p>
+          </div>
+          <ul class="dr-bul">
+            <li><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>주소만 넣으면 단지·면적 정보 자동 입력</li>
+            <li><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>매물 근처 중개사무소에 한 번에 전달</li>
+            <li><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>제안을 비교하고 맡길 곳은 직접 선택</li>
+          </ul>
+          <div class="dr-choice-ft">
+            <a class="btn btn-primary btn-lg" href="#dr-form">이어서 작성하기<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>
+          </div>
+        </div>
+        <div class="dr-art"><svg class="dr-art-svg" viewBox="0 0 236 420" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="236" height="420" fill="#111B2E"/>
+  <circle cx="118" cy="214" r="96" fill="none" stroke="rgba(255,255,255,.07)"/>
+  <circle cx="118" cy="214" r="150" fill="none" stroke="rgba(255,255,255,.05)"/>
+  <g fill="none" stroke="#E9D7A8" stroke-width="1.4" stroke-dasharray="3 5" opacity=".7">
+    <path d="M136 128 C150 96 168 80 188 74"/><path d="M172 236 C186 244 194 256 198 270"/><path d="M86 136 C70 116 58 104 44 100"/>
+  </g>
+  <path d="M0 356 C60 340 176 340 236 356 V420 H0z" fill="#0A1222"/>
+  <path d="M28 380 C80 370 156 370 208 380" fill="none" stroke="#1B2740" stroke-width="2"/>
+  <rect x="44" y="248" width="36" height="110" fill="#16213A"/><rect x="51.0" y="260.0" width="8" height="4" rx="1" fill="#2A3752"/><rect x="65.0" y="260.0" width="8" height="4" rx="1" fill="#2A3752"/><rect x="51.0" y="270.0" width="8" height="4" rx="1" fill="#2A3752"/><rect x="65.0" y="270.0" width="8" height="4" rx="1" fill="#2A3752"/><rect x="51.0" y="280.0" width="8" height="4" rx="1" fill="#2A3752"/><rect x="65.0" y="280.0" width="8" height="4" rx="1" fill="#E9D7A8"/><rect x="51.0" y="290.0" width="8" height="4" rx="1" fill="#2A3752"/><rect x="65.0" y="290.0" width="8" height="4" rx="1" fill="#2A3752"/><rect x="51.0" y="300.0" width="8" height="4" rx="1" fill="#2A3752"/><rect x="65.0" y="300.0" width="8" height="4" rx="1" fill="#2A3752"/><rect x="51.0" y="310.0" width="8" height="4" rx="1" fill="#2A3752"/><rect x="65.0" y="310.0" width="8" height="4" rx="1" fill="#2A3752"/><rect x="51.0" y="320.0" width="8" height="4" rx="1" fill="#E9D7A8"/><rect x="65.0" y="320.0" width="8" height="4" rx="1" fill="#2A3752"/><rect x="51.0" y="330.0" width="8" height="4" rx="1" fill="#2A3752"/><rect x="65.0" y="330.0" width="8" height="4" rx="1" fill="#2A3752"/><rect x="51.0" y="340.0" width="8" height="4" rx="1" fill="#2A3752"/><rect x="65.0" y="340.0" width="8" height="4" rx="1" fill="#2A3752"/>
+  <rect x="82" y="136" width="64" height="222" fill="#1B2740"/><rect x="146" y="136" width="22" height="222" fill="#0F1829"/>
+  <rect x="78" y="128" width="94" height="8" rx="2" fill="#1D4FF2"/>
+  <rect x="92.0" y="150.0" width="9" height="5" rx="1" fill="#2A3752"/><rect x="106.0" y="150.0" width="9" height="5" rx="1" fill="#2A3752"/><rect x="120.0" y="150.0" width="9" height="5" rx="1" fill="#2A3752"/><rect x="134.0" y="150.0" width="9" height="5" rx="1" fill="#2A3752"/><rect x="92.0" y="161.6" width="9" height="5" rx="1" fill="#2A3752"/><rect x="106.0" y="161.6" width="9" height="5" rx="1" fill="#2A3752"/><rect x="120.0" y="161.6" width="9" height="5" rx="1" fill="#E9D7A8"/><rect x="134.0" y="161.6" width="9" height="5" rx="1" fill="#2A3752"/><rect x="92.0" y="173.2" width="9" height="5" rx="1" fill="#2A3752"/><rect x="106.0" y="173.2" width="9" height="5" rx="1" fill="#2A3752"/><rect x="120.0" y="173.2" width="9" height="5" rx="1" fill="#2A3752"/><rect x="134.0" y="173.2" width="9" height="5" rx="1" fill="#2A3752"/><rect x="92.0" y="184.8" width="9" height="5" rx="1" fill="#2A3752"/><rect x="106.0" y="184.8" width="9" height="5" rx="1" fill="#E9D7A8"/><rect x="120.0" y="184.8" width="9" height="5" rx="1" fill="#2A3752"/><rect x="134.0" y="184.8" width="9" height="5" rx="1" fill="#2A3752"/><rect x="92.0" y="196.4" width="9" height="5" rx="1" fill="#2A3752"/><rect x="106.0" y="196.4" width="9" height="5" rx="1" fill="#2A3752"/><rect x="120.0" y="196.4" width="9" height="5" rx="1" fill="#2A3752"/><rect x="134.0" y="196.4" width="9" height="5" rx="1" fill="#E9D7A8"/><rect x="92.0" y="208.0" width="9" height="5" rx="1" fill="#2A3752"/><rect x="106.0" y="208.0" width="9" height="5" rx="1" fill="#2A3752"/><rect x="120.0" y="208.0" width="9" height="5" rx="1" fill="#2A3752"/><rect x="134.0" y="208.0" width="9" height="5" rx="1" fill="#2A3752"/><rect x="92.0" y="219.6" width="9" height="5" rx="1" fill="#2A3752"/><rect x="106.0" y="219.6" width="9" height="5" rx="1" fill="#2A3752"/><rect x="120.0" y="219.6" width="9" height="5" rx="1" fill="#2A3752"/><rect x="134.0" y="219.6" width="9" height="5" rx="1" fill="#2A3752"/><rect x="92.0" y="231.2" width="9" height="5" rx="1" fill="#2A3752"/><rect x="106.0" y="231.2" width="9" height="5" rx="1" fill="#2A3752"/><rect x="120.0" y="231.2" width="9" height="5" rx="1" fill="#E9D7A8"/><rect x="134.0" y="231.2" width="9" height="5" rx="1" fill="#2A3752"/><rect x="92.0" y="242.8" width="9" height="5" rx="1" fill="#2A3752"/><rect x="106.0" y="242.8" width="9" height="5" rx="1" fill="#2A3752"/><rect x="120.0" y="242.8" width="9" height="5" rx="1" fill="#2A3752"/><rect x="134.0" y="242.8" width="9" height="5" rx="1" fill="#2A3752"/><rect x="92.0" y="254.4" width="9" height="5" rx="1" fill="#2A3752"/><rect x="106.0" y="254.4" width="9" height="5" rx="1" fill="#2A3752"/><rect x="120.0" y="254.4" width="9" height="5" rx="1" fill="#2A3752"/><rect x="134.0" y="254.4" width="9" height="5" rx="1" fill="#2A3752"/><rect x="92.0" y="266.0" width="9" height="5" rx="1" fill="#2A3752"/><rect x="106.0" y="266.0" width="9" height="5" rx="1" fill="#E9D7A8"/><rect x="120.0" y="266.0" width="9" height="5" rx="1" fill="#2A3752"/><rect x="134.0" y="266.0" width="9" height="5" rx="1" fill="#2A3752"/><rect x="92.0" y="277.6" width="9" height="5" rx="1" fill="#2A3752"/><rect x="106.0" y="277.6" width="9" height="5" rx="1" fill="#2A3752"/><rect x="120.0" y="277.6" width="9" height="5" rx="1" fill="#2A3752"/><rect x="134.0" y="277.6" width="9" height="5" rx="1" fill="#2A3752"/><rect x="92.0" y="289.2" width="9" height="5" rx="1" fill="#E9D7A8"/><rect x="106.0" y="289.2" width="9" height="5" rx="1" fill="#2A3752"/><rect x="120.0" y="289.2" width="9" height="5" rx="1" fill="#2A3752"/><rect x="134.0" y="289.2" width="9" height="5" rx="1" fill="#2A3752"/><rect x="92.0" y="300.8" width="9" height="5" rx="1" fill="#2A3752"/><rect x="106.0" y="300.8" width="9" height="5" rx="1" fill="#2A3752"/><rect x="120.0" y="300.8" width="9" height="5" rx="1" fill="#2A3752"/><rect x="134.0" y="300.8" width="9" height="5" rx="1" fill="#2A3752"/><rect x="92.0" y="312.4" width="9" height="5" rx="1" fill="#2A3752"/><rect x="106.0" y="312.4" width="9" height="5" rx="1" fill="#E9D7A8"/><rect x="120.0" y="312.4" width="9" height="5" rx="1" fill="#2A3752"/><rect x="134.0" y="312.4" width="9" height="5" rx="1" fill="#2A3752"/><rect x="92.0" y="324.0" width="9" height="5" rx="1" fill="#2A3752"/><rect x="106.0" y="324.0" width="9" height="5" rx="1" fill="#2A3752"/><rect x="120.0" y="324.0" width="9" height="5" rx="1" fill="#E9D7A8"/><rect x="134.0" y="324.0" width="9" height="5" rx="1" fill="#2A3752"/><rect x="92.0" y="335.6" width="9" height="5" rx="1" fill="#2A3752"/><rect x="106.0" y="335.6" width="9" height="5" rx="1" fill="#2A3752"/><rect x="120.0" y="335.6" width="9" height="5" rx="1" fill="#2A3752"/><rect x="134.0" y="335.6" width="9" height="5" rx="1" fill="#2A3752"/>
+  <rect x="104" y="334" width="20" height="24" rx="2" fill="#E9D7A8"/>
+  <path d="M168 196 C172 204 176 208 182 210" fill="none" stroke="#E9D7A8" stroke-width="1.4"/>
+  <g transform="translate(176 204) rotate(14)"><path d="M0 0h34l12 13-12 13H0a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4z" fill="#E9D7A8"/><circle cx="35" cy="13" r="3" fill="#111B2E"/><rect x="5" y="7" width="20" height="4" rx="2" fill="#111B2E" opacity=".85"/><rect x="5" y="15" width="12" height="4" rx="2" fill="#111B2E" opacity=".45"/></g>
+  <g><circle cx="196" cy="70" r="16" fill="#1D4FF2"/><circle cx="196" cy="70" r="22" fill="none" stroke="#1D4FF2" stroke-opacity=".35"/><path d="M189.5 74v-4.8l6.5-5 6.5 5v4.8z" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></g><g><circle cx="200" cy="286" r="14" fill="#1D4FF2"/><circle cx="200" cy="286" r="20" fill="none" stroke="#1D4FF2" stroke-opacity=".35"/><path d="M193.5 290v-4.8l6.5-5 6.5 5v4.8z" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></g><g><circle cx="36" cy="96" r="14" fill="#1D4FF2"/><circle cx="36" cy="96" r="20" fill="none" stroke="#1D4FF2" stroke-opacity=".35"/><path d="M29.5 100v-4.8l6.5-5 6.5 5v4.8z" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></g>
+  <circle cx="206" cy="160" r="2.4" fill="#E9D7A8" opacity=".6"/><circle cx="30" cy="196" r="2.2" fill="#E9D7A8" opacity=".5"/><circle cx="110" cy="44" r="2" fill="#fff" opacity=".35"/><circle cx="24" cy="300" r="1.8" fill="#fff" opacity=".3"/>
+</svg></div>
+      </article>
+
+      <article class="dr-choice" aria-labelledby="dr-c2">
+        <div class="dr-choice-body">
+          <div class="dr-choice-top">
+            <span class="dr-choice-ic"><svg class="ic" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5"/><path d="M6 10v9.5h5"/><circle cx="15.5" cy="15.5" r="2.8"/><path d="m20 20-2.4-2.4"/></svg></span>
+          </div>
+          <div class="stack" style="gap:8px">
+            <p class="dr-who">매수인 · 임차인</p>
+            <h2 id="dr-c2" class="dr-choice-t">원하는 집 구하기</h2>
+            <p class="dr-choice-d">조건을 등록하면 맞춤 매물을 제안받아요</p>
+          </div>
+          <ul class="dr-bul">
+            <li><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>지역 · 평형 · 예산만 고르면 끝</li>
+            <li><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>아직 올라오지 않은 매물도 먼저 제안</li>
+            <li><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>마음에 드는 제안에만 답장</li>
+          </ul>
+          <div class="dr-choice-ft">
+            <a class="btn btn-secondary btn-lg" href="#">구하기 시작하기<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>
+          </div>
+        </div>
+        <div class="dr-art dr-art--map"><svg class="dr-art-svg" viewBox="0 0 236 420" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="236" height="420" fill="#EEF3FF"/>
+  <path d="M0 300 C50 284 110 318 160 300 S220 276 236 282 V420 H0z" fill="#E1EEE5"/>
+  <ellipse cx="62" cy="360" rx="34" ry="18" fill="#C9DCF5"/>
+  <path d="M176 0 C164 80 196 150 178 230 S140 340 160 420" fill="none" stroke="#C9DCF5" stroke-width="16" stroke-linecap="round"/>
+  <g stroke="#FFFFFF" stroke-width="8" fill="none" stroke-linecap="round"><path d="M0 120 C70 112 150 128 236 116"/><path d="M78 0 C84 110 64 220 80 420"/><path d="M0 262 C80 252 160 270 236 256"/></g>
+  <g fill="#DCE6FF"><rect x="14" y="20" width="48" height="84" rx="5"/><rect x="98" y="20" width="58" height="82" rx="5"/><rect x="196" y="20" width="30" height="84" rx="5"/><rect x="14" y="140" width="48" height="104" rx="5"/><rect x="98" y="140" width="52" height="50" rx="5"/><rect x="98" y="202" width="44" height="44" rx="5"/><rect x="196" y="140" width="30" height="100" rx="5"/><rect x="104" y="284" width="50" height="40" rx="5"/></g>
+  <circle cx="118" cy="190" r="78" fill="rgba(29,79,242,.10)" stroke="#1D4FF2" stroke-width="2" stroke-dasharray="6 5"/>
+  <g fill="#B9CCFF"><circle cx="30" cy="66" r="5"/><circle cx="214" cy="300" r="5"/><circle cx="210" cy="64" r="5"/><circle cx="40" cy="300" r="5"/></g>
+  <g><path d="M92 184 c-8-8-11.5-12.5-11.5-18a11.5 11.5 0 0 1 23 0c0 5.5-3.5 10-11.5 18z" fill="#1D4FF2"/><circle cx="92" cy="166" r="4" fill="#fff"/></g><g><path d="M146 174 c-8-8-11.5-12.5-11.5-18a11.5 11.5 0 0 1 23 0c0 5.5-3.5 10-11.5 18z" fill="#1D4FF2"/><circle cx="146" cy="156" r="4" fill="#fff"/></g><g><path d="M124 240 c-8-8-11.5-12.5-11.5-18a11.5 11.5 0 0 1 23 0c0 5.5-3.5 10-11.5 18z" fill="#1D4FF2"/><circle cx="124" cy="222" r="4" fill="#fff"/></g>
+</svg>
+          <div class="dr-req">
+            <span class="dr-req-k">요청 예시</span>
+            <span class="dr-req-v">신대지구 · 매매 · 34평<br>4억 5,000 이하</span>
+          </div>
+          <div class="dr-note"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg><span><b>새 제안 3건</b> 도착</span></div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+<section class="dr-how" aria-labelledby="dr-how-t">
+  <div class="container">
+    <div class="dr-how-box">
+      <div class="dr-how-hd"><h2 id="dr-how-t" class="dr-how-h">이렇게 진행돼요</h2><p class="t-sm">내놓기와 구하기 모두 <br class="only-lg">같은 순서로 진행돼요.</p></div>
+      <ol class="dr-steps">
+        <li class="dr-step">
+          <div class="dr-step-top"><span class="dr-step-n">01</span><span class="dr-step-ic"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5h4l10-10a2.8 2.8 0 0 0-4-4l-10 10z"/><path d="m13.5 6.5 4 4"/></svg></span><span class="dr-step-arrow" aria-hidden="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></span></div>
+          <h3 class="dr-step-t">등록</h3>
+          <p class="t-sm">매물 또는 원하는 조건을 3분 안에 입력해요. 주소로 단지 정보가 채워져요.</p>
+          <span class="dr-step-m">평균 작성 3분</span>
+        </li>
+        <li class="dr-step">
+          <div class="dr-step-top"><span class="dr-step-n">02</span><span class="dr-step-ic"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8.5" r="3.5"/><path d="M3 19.5a6 6 0 0 1 12 0"/><path d="M15.5 5.2a3.5 3.5 0 0 1 0 6.6M17.5 14.2a6 6 0 0 1 3.5 5.3"/></svg></span><span class="dr-step-arrow" aria-hidden="true"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></span></div>
+          <h3 class="dr-step-t">중개사 확인·제안</h3>
+          <p class="t-sm">지역 중개사가 내용을 확인하고 시세·조건에 맞춰 연락하거나 매물을 제안해요.</p>
+          <span class="dr-step-m">안심번호로 연락</span>
+        </li>
+        <li class="dr-step">
+          <div class="dr-step-top"><span class="dr-step-n">03</span><span class="dr-step-ic"><svg class="ic" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16M7.5 20h9"/><path d="M5 8h14"/><path d="m5 8-2.5 6a2.5 2.5 0 0 0 5 0zM19 8l-2.5 6a2.5 2.5 0 0 0 5 0z"/></svg></span></div>
+          <h3 class="dr-step-t">비교 후 선택</h3>
+          <p class="t-sm">받은 제안과 중개보수를 나란히 비교하고, 맡길 곳을 한 곳 또는 여러 곳 고르세요.</p>
+          <span class="dr-step-m">선택 전까지 무료</span>
+        </li>
+      </ol>
+    </div>
+  </div>
+</section>
+<section class="dr-formsec" aria-labelledby="dr-form-t">
+  <div class="container">
+    <div class="dr-formsec-hd">
+      <div class="stack" style="gap:10px">
+        <p class="eyebrow">내 집 내놓기</p>
+        <h2 id="dr-form-t" class="t-h1">매물 정보를 알려주세요</h2>
+      </div>
+      <p class="t-sm">* 표시는 필수 항목이에요. 입력한 내용은 자동으로 저장돼요.</p>
+    </div>
+    <div class="dr-layout">
+      <form class="dr-form card" id="dr-form" action="#" aria-labelledby="dr-form-t">
+  <div class="dr-form-hd">
+    <ol class="dr-stepper" aria-label="내놓기 진행 단계">
+  <li class="is-done"><span class="dr-sp-c"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><span class="dr-sp-t"><em>1단계 · 완료</em>간편 로그인</span></li>
+  <li class="is-on" aria-current="step"><span class="dr-sp-c">2</span><span class="dr-sp-t"><em>2단계 · 작성 중</em>매물 정보 입력</span></li>
+  <li><span class="dr-sp-c">3</span><span class="dr-sp-t"><em>3단계</em>중개사 확인·전달</span></li>
+</ol>
+    <div class="dr-login">
+      <span class="dr-login-k"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="#191600" d="M12 4C7 4 3 7.2 3 11.1c0 2.5 1.6 4.7 4.1 5.9l-.9 3.3c-.1.3.2.5.5.3l3.9-2.6c.5.1.9.1 1.4.1 5 0 9-3.2 9-7.1S17 4 12 4z"/></svg></span>
+      <span>카카오로 로그인됨 · <b>김*진</b> 님</span>
+      <a class="link" href="#">계정 변경</a>
+    </div>
+  </div>
+
+  <fieldset class="dr-group">
+    <legend class="dr-legend"><span class="dr-legend-n">A</span>매물 기본 정보</legend>
+    <div class="dr-row">
+  <div class="dr-row-l"><span class="label">매물 유형<span class="req" aria-hidden="true">*</span></span></div>
+  <div class="dr-row-c"><div class="dr-types" role="radiogroup" aria-label="매물 유형">
+      <label class="dr-type is-on"><input class="sr" type="radio" name="type" checked><svg class="ic cat-svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20.5h16"/><rect x="5.5" y="8" width="6" height="12.5" rx=".8"/><rect x="11.5" y="3.5" width="7" height="17" rx=".8"/><path d="M8 11h1M8 14h1M8 17h1M14 7h2M14 10h2M14 13h2"/><rect class="cat-acc" x="14" y="16" width="2" height="4.5"/></svg><span>아파트·분양권</span></label><label class="dr-type"><input class="sr" type="radio" name="type"><svg class="ic cat-svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16.5" rx="1.5"/><path d="M4 13.5h16"/><path d="M8 13.5V10a1.5 1.5 0 0 1 1.5-1.5h5A1.5 1.5 0 0 1 16 10v3.5"/><path d="M6.5 20.5v-2.5M17.5 20.5v-2.5"/><rect class="cat-acc" x="10" y="10.5" width="4" height="3"/></svg><span>원룸·투룸</span></label><label class="dr-type"><input class="sr" type="radio" name="type"><svg class="ic cat-svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 11.5 12 4.5l8.5 7"/><path d="M5.5 10v10.5h13V10"/><path d="M16 6.2V4.5h2v3.3"/><rect class="cat-acc" x="10" y="14" width="4" height="6.5"/><path d="M3 20.5h18"/></svg><span>주택</span></label><label class="dr-type"><input class="sr" type="radio" name="type"><svg class="ic cat-svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20.5h16"/><rect x="5" y="3.5" width="14" height="17" rx=".8"/><path d="M8 7h2M14 7h2M8 10.5h2M14 10.5h2"/><path d="M5 14h14"/><rect class="cat-acc" x="10" y="16" width="4" height="4.5"/></svg><span>상업·업무</span></label><label class="dr-type"><input class="sr" type="radio" name="type"><svg class="ic cat-svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 17 8 14l5 2 8.5-4"/><path d="M2.5 20.5h19"/><path d="M5 20.5 8 14M11 20.5l2-4.5M17 20.5l-1-6"/><path d="M14 3.5V11"/><path class="cat-acc-f" d="M14.5 3.8h5l-1.4 1.9 1.4 1.9h-5z"/></svg><span>토지</span></label>
+    </div></div>
+</div>
+    <div class="dr-row">
+  <div class="dr-row-l"><label class="label" for="addr">주소<span class="req" aria-hidden="true">*</span></label></div>
+  <div class="dr-row-c"><div class="dr-inline">
+        <div class="dr-input-ic"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg><input class="input" id="addr" value="전남 순천시 해룡면 신대2로 40" readonly></div>
+        <button type="button" class="btn btn-secondary">우편번호 찾기</button>
+      </div>
+      <div class="dr-match">
+        <span class="dr-match-ph"><svg viewBox="0 0 300 188" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="300" height="188" fill="#E8EEFB"/>
+  <circle cx="246" cy="40" r="16" fill="#F7F0DE"/>
+  <path d="M0 120 C50 100 90 112 130 104 S210 92 300 108 V188 H0z" fill="#D6E0F4"/>
+  <rect x="40" y="46" width="62" height="102" fill="#FFFFFF"/><rect x="102" y="46" width="18" height="102" fill="#C9D6EF"/>
+  <rect x="48.0" y="56.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="56.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="56.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="56.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="64.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="64.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="64.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="64.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="72.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="72.8" width="10" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="76.0" y="72.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="72.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="81.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="81.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="81.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="81.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="89.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="89.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="89.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="89.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="98.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="98.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="98.0" width="10" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="90.0" y="98.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="106.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="106.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="106.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="106.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="114.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="114.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="114.8" width="10" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="90.0" y="114.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="123.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="123.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="123.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="123.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="131.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="131.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="131.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="131.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="140.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="140.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="140.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="140.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/>
+  <rect x="136" y="18" width="74" height="130" fill="#FFFFFF"/><rect x="210" y="18" width="22" height="130" fill="#C2D1EE"/>
+  <rect x="144.0" y="28.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="28.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="28.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="28.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="36.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="36.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="36.2" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="193.8" y="36.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="44.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="44.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="44.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="44.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="52.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="52.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="52.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="52.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="60.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="60.8" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="177.2" y="60.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="60.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="69.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="69.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="69.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="69.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="77.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="77.2" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="177.2" y="77.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="77.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="85.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="85.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="85.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="85.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="93.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="93.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="93.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="93.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="101.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="101.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="101.8" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="193.8" y="101.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="110.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="110.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="110.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="110.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="118.2" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="160.6" y="118.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="118.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="118.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="126.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="126.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="126.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="126.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="134.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="134.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="134.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="134.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/>
+  <rect x="136" y="12" width="96" height="6" fill="#1D4FF2"/>
+  <rect x="246" y="86" width="40" height="62" fill="#F7F9FD"/><rect x="286" y="86" width="14" height="62" fill="#CBD7EE"/>
+  <rect x="252.0" y="94.0" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="94.0" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="102.6" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="102.6" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="111.2" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="111.2" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="119.8" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="119.8" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="128.4" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="128.4" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="137.0" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="137.0" width="11" height="4" rx=".8" fill="#AFC0E3"/>
+  <rect x="25" y="140" width="2" height="11" fill="#7E9F8C"/><circle cx="26" cy="140" r="9" fill="#A9CDB8"/><rect x="125" y="142" width="2" height="9" fill="#7E9F8C"/><circle cx="126" cy="142" r="7" fill="#9CC2AD"/><rect x="237" y="140" width="2" height="10" fill="#7E9F8C"/><circle cx="238" cy="140" r="8" fill="#A9CDB8"/>
+  <rect x="0" y="148" width="300" height="40" fill="#C9DCF5"/>
+  <path d="M0 148h300" stroke="#B5CCEC" stroke-width="2"/>
+  <g stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" opacity=".8"><path d="M30 160h40M150 158h56M96 170h30M218 172h44M20 178h26"/></g>
+  <g opacity=".35"><rect x="144.0" y="154.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="160.6" y="154.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="177.2" y="154.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="193.8" y="154.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="144.0" y="161.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="160.6" y="161.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="177.2" y="161.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="193.8" y="161.0" width="12" height="3" rx=".8" fill="#93AAD9"/></g>
+</svg></span>
+        <div class="dr-match-t">
+          <span class="verified"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>단지 확인됨</span>
+          <b>신대 레이크파크 1단지</b>
+          <span class="t-cap">해룡면 신대리 · 1,412세대 · 2019년 준공 · 25·34·41평</span>
+        </div>
+        <a class="link dr-match-a" href="#">다른 단지예요</a>
+      </div></div>
+</div>
+    <div class="dr-row">
+  <div class="dr-row-l"><label class="label" for="dong">동 / 호<span class="req" aria-hidden="true">*</span></label></div>
+  <div class="dr-row-c"><div class="dr-pair">
+        <div class="input-affix"><input class="input" id="dong" value="103" inputmode="numeric"><span class="affix">동</span></div>
+        <div class="input-affix"><label class="sr" for="ho">호</label><input class="input" id="ho" value="1502" inputmode="numeric"><span class="affix">호</span></div>
+      </div>
+      <p class="dr-help-ic"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/><path d="M12 14.5v2.5"/></svg><span>동·호수는 연락받는 중개사에게만 보이고, 사이트에는 <b>고/25층</b>으로만 표시돼요.</span></p></div>
+</div>
+  </fieldset>
+
+  <fieldset class="dr-group">
+    <legend class="dr-legend"><span class="dr-legend-n">B</span>거래 조건</legend>
+    <div class="dr-row">
+  <div class="dr-row-l"><span class="label">거래 유형<span class="req" aria-hidden="true">*</span></span></div>
+  <div class="dr-row-c"><div class="seg dr-seg" role="radiogroup" aria-label="거래 유형">
+        <label class="seg-b is-on"><input class="sr" type="radio" name="deal" checked>매매</label>
+        <label class="seg-b"><input class="sr" type="radio" name="deal">전세</label>
+        <label class="seg-b"><input class="sr" type="radio" name="deal">월세</label>
+      </div></div>
+</div>
+    <div class="dr-row">
+  <div class="dr-row-l"><label class="label" for="price">희망 매매가<span class="req" aria-hidden="true">*</span></label></div>
+  <div class="dr-row-c"><div class="dr-inline dr-inline--price">
+        <div class="input-affix dr-price-in"><input class="input" id="price" value="44,500" inputmode="numeric"><span class="affix">만원</span></div>
+        <span class="dr-price-read" aria-live="polite">= <b class="num">4억 4,500</b>만원</span>
+        <label class="check" for="nego"><input type="checkbox" id="nego" checked><svg class="check-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><span>가격 협의 가능</span></label>
+      </div>
+      <div class="dr-market">
+        <span class="dr-market-h"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16v-5M12 16V6M17 16v-8"/></svg>이 단지 34평 시세 참고</span>
+        <dl>
+          <div><dt>최근 실거래</dt><dd class="num">4억 3,500 <span>26.10</span></dd></div>
+          <div><dt>현재 매물 호가</dt><dd class="num">3억 9,000 ~ 4억 8,500</dd></div>
+          <div><dt>평당가</dt><dd class="num">1,180만</dd></div>
+        </dl>
+      </div></div>
+</div>
+    <div class="dr-row">
+  <div class="dr-row-l"><label class="label" for="area">면적<span class="req" aria-hidden="true">*</span></label></div>
+  <div class="dr-row-c"><div class="dr-inline">
+        <div class="select dr-grow"><select id="area"><option>34평 · 공급 112.4㎡ / 전용 84.98㎡</option><option>25평 · 전용 59.92㎡</option><option>41평 · 전용 101.87㎡</option></select><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></div>
+        <div class="seg" role="radiogroup" aria-label="면적 단위"><label class="seg-b is-on"><input class="sr" type="radio" name="unit" checked>평</label><label class="seg-b"><input class="sr" type="radio" name="unit">㎡</label></div>
+      </div></div>
+</div>
+    <div class="dr-row">
+  <div class="dr-row-l"><label class="label" for="move">입주 가능일<span class="req" aria-hidden="true">*</span></label></div>
+  <div class="dr-row-c"><div class="dr-inline">
+        <div class="dr-input-ic dr-move"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg><input class="input" id="move" value="2027년 2월"></div>
+        <label class="check" for="move-nego"><input type="checkbox" id="move-nego" checked><svg class="check-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><span>날짜 협의 가능</span></label>
+        <label class="check" for="move-now"><input type="checkbox" id="move-now"><svg class="check-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><span>즉시 입주</span></label>
+      </div></div>
+</div>
+  </fieldset>
+
+  <fieldset class="dr-group">
+    <legend class="dr-legend"><span class="dr-legend-n">C</span>사진 · 연락처</legend>
+    <div class="dr-row">
+  <div class="dr-row-l"><label class="label" for="photo">매물 사진</label><span class="help">선택 · 연락 받을 확률이 높아져요</span></div>
+  <div class="dr-row-c"><label class="dropzone dr-drop" for="photo">
+        <input class="sr" type="file" id="photo" multiple accept="image/*">
+        <span class="dr-drop-ic"><svg class="ic" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4.5"/><path d="m7 9 5-5 5 5"/><path d="M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/></svg></span>
+        <span><b>사진을 끌어 놓거나 눌러서 올려 주세요</b></span>
+        <span class="t-cap">JPG · PNG · HEIC, 장당 10MB, 최대 20장 · 거실, 주방, 창밖 풍경 순서를 추천해요</span>
+      </label>
+      <div class="dr-thumbs">
+        <figure class="dr-thumb"><svg viewBox="0 0 300 188" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="300" height="188" fill="#E8EEFB"/>
+  <circle cx="246" cy="40" r="16" fill="#F7F0DE"/>
+  <path d="M0 120 C50 100 90 112 130 104 S210 92 300 108 V188 H0z" fill="#D6E0F4"/>
+  <rect x="40" y="46" width="62" height="102" fill="#FFFFFF"/><rect x="102" y="46" width="18" height="102" fill="#C9D6EF"/>
+  <rect x="48.0" y="56.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="56.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="56.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="56.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="64.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="64.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="64.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="64.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="72.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="72.8" width="10" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="76.0" y="72.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="72.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="81.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="81.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="81.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="81.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="89.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="89.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="89.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="89.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="98.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="98.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="98.0" width="10" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="90.0" y="98.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="106.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="106.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="106.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="106.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="114.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="114.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="114.8" width="10" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="90.0" y="114.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="123.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="123.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="123.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="123.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="131.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="131.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="131.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="131.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="140.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="140.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="140.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="140.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/>
+  <rect x="136" y="18" width="74" height="130" fill="#FFFFFF"/><rect x="210" y="18" width="22" height="130" fill="#C2D1EE"/>
+  <rect x="144.0" y="28.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="28.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="28.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="28.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="36.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="36.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="36.2" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="193.8" y="36.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="44.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="44.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="44.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="44.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="52.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="52.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="52.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="52.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="60.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="60.8" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="177.2" y="60.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="60.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="69.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="69.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="69.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="69.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="77.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="77.2" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="177.2" y="77.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="77.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="85.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="85.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="85.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="85.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="93.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="93.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="93.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="93.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="101.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="101.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="101.8" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="193.8" y="101.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="110.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="110.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="110.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="110.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="118.2" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="160.6" y="118.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="118.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="118.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="126.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="126.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="126.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="126.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="134.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="134.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="134.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="134.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/>
+  <rect x="136" y="12" width="96" height="6" fill="#1D4FF2"/>
+  <rect x="246" y="86" width="40" height="62" fill="#F7F9FD"/><rect x="286" y="86" width="14" height="62" fill="#CBD7EE"/>
+  <rect x="252.0" y="94.0" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="94.0" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="102.6" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="102.6" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="111.2" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="111.2" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="119.8" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="119.8" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="128.4" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="128.4" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="137.0" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="137.0" width="11" height="4" rx=".8" fill="#AFC0E3"/>
+  <rect x="25" y="140" width="2" height="11" fill="#7E9F8C"/><circle cx="26" cy="140" r="9" fill="#A9CDB8"/><rect x="125" y="142" width="2" height="9" fill="#7E9F8C"/><circle cx="126" cy="142" r="7" fill="#9CC2AD"/><rect x="237" y="140" width="2" height="10" fill="#7E9F8C"/><circle cx="238" cy="140" r="8" fill="#A9CDB8"/>
+  <rect x="0" y="148" width="300" height="40" fill="#C9DCF5"/>
+  <path d="M0 148h300" stroke="#B5CCEC" stroke-width="2"/>
+  <g stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" opacity=".8"><path d="M30 160h40M150 158h56M96 170h30M218 172h44M20 178h26"/></g>
+  <g opacity=".35"><rect x="144.0" y="154.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="160.6" y="154.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="177.2" y="154.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="193.8" y="154.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="144.0" y="161.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="160.6" y="161.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="177.2" y="161.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="193.8" y="161.0" width="12" height="3" rx=".8" fill="#93AAD9"/></g>
+</svg><span class="dr-rep">대표</span><figcaption>단지 외관</figcaption><button type="button" class="dr-x" aria-label="단지 외관 사진 삭제"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></figure><figure class="dr-thumb"><svg viewBox="0 0 300 188" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="300" height="188" fill="#F2F4F8"/>
+  <rect x="0" y="140" width="300" height="48" fill="#EADFC8"/>
+  <g stroke="#DDD0B4" stroke-width="1"><path d="M0 152h300M0 166h300M0 178h300"/></g>
+  <rect x="150" y="28" width="104" height="80" rx="3" fill="#FFFFFF"/><rect x="156" y="34" width="92" height="68" fill="#D6E4F8"/>
+  <path d="M156 84 C180 74 206 80 248 72 V102 H156z" fill="#C3D5F0"/><path d="M202 34v68" stroke="#FFFFFF" stroke-width="3"/>
+  <circle cx="230" cy="50" r="7" fill="#F7F0DE"/>
+  <rect x="24" y="102" width="118" height="40" rx="4" fill="#0F1B3A"/><rect x="24" y="94" width="118" height="14" rx="5" fill="#FFFFFF"/><rect x="30" y="86" width="38" height="14" rx="5" fill="#E9D7A8"/>
+  <rect x="24" y="58" width="6" height="84" fill="#1F2836"/>
+  <rect x="190" y="118" width="70" height="5" fill="#1F2836"/><path d="M196 123v20M254 123v20" stroke="#1F2836" stroke-width="3"/>
+  <path d="M244 118V96l-12-8" stroke="#1F2836" stroke-width="2" fill="none"/><path d="M226 84h14l-4 6h-6z" fill="#1D4FF2"/>
+  <rect x="268" y="112" width="16" height="30" rx="3" fill="#DCE3EE"/><path d="M276 112c-8-10-2-24 0-28 2 4 8 18 0 28z" fill="#9CC2AD"/>
+</svg><figcaption>거실</figcaption><button type="button" class="dr-x" aria-label="거실 사진 삭제"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></figure><figure class="dr-thumb"><svg viewBox="0 0 300 188" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="300" height="188" fill="#EDF1F8"/>
+  <path d="M0 132 Q80 118 150 126 T300 120 V188 H0z" fill="#DEE5F1"/>
+  <rect x="62" y="34" width="176" height="124" fill="#FBFCFE"/>
+  <rect x="56" y="28" width="188" height="8" rx="1" fill="#1F2836"/>
+  <rect x="62" y="68" width="176" height="2" fill="#DCE3EE"/><rect x="62" y="98" width="176" height="2" fill="#DCE3EE"/><rect x="62" y="128" width="176" height="2" fill="#DCE3EE"/>
+  <rect x="74.0" y="44.0" width="28" height="14" rx=".8" fill="#E9D7A8"/><rect x="114.0" y="44.0" width="28" height="14" rx=".8" fill="#9FB3D8"/><rect x="154.0" y="44.0" width="28" height="14" rx=".8" fill="#9FB3D8"/><rect x="194.0" y="44.0" width="28" height="14" rx=".8" fill="#9FB3D8"/><rect x="74.0" y="74.0" width="28" height="14" rx=".8" fill="#9FB3D8"/><rect x="114.0" y="74.0" width="28" height="14" rx=".8" fill="#9FB3D8"/><rect x="154.0" y="74.0" width="28" height="14" rx=".8" fill="#E9D7A8"/><rect x="194.0" y="74.0" width="28" height="14" rx=".8" fill="#9FB3D8"/><rect x="74.0" y="104.0" width="28" height="14" rx=".8" fill="#9FB3D8"/><rect x="114.0" y="104.0" width="28" height="14" rx=".8" fill="#9FB3D8"/><rect x="154.0" y="104.0" width="28" height="14" rx=".8" fill="#9FB3D8"/><rect x="194.0" y="104.0" width="28" height="14" rx=".8" fill="#9FB3D8"/>
+  <path d="M70 60h160" stroke="#333D4B" stroke-width="1.4"/><path d="M70 90h160" stroke="#333D4B" stroke-width="1.4"/><path d="M70 120h160" stroke="#333D4B" stroke-width="1.4"/>
+  <rect x="62" y="128" width="176" height="30" fill="#333D4B"/>
+  <rect x="70" y="134" width="44" height="24" fill="#4E5968"/><rect x="122" y="134" width="44" height="24" fill="#4E5968"/>
+  <rect x="190" y="132" width="40" height="26" fill="#FBFCFE"/><rect x="204" y="138" width="12" height="20" fill="#1D4FF2"/>
+  <rect x="0" y="158" width="300" height="30" fill="#D9E0EB"/>
+  <path d="M0 166h300" stroke="#C7D0DD" stroke-width="1" stroke-dasharray="10 8"/>
+  <rect x="35" y="140" width="2" height="16" fill="#7E9F8C"/><circle cx="36" cy="140" r="14" fill="#A9CDB8"/><rect x="265" y="142" width="2" height="14" fill="#7E9F8C"/><circle cx="266" cy="142" r="12" fill="#9CC2AD"/>
+</svg><figcaption>창밖 풍경</figcaption><button type="button" class="dr-x" aria-label="창밖 풍경 사진 삭제"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></figure>
+        <span class="dr-thumb-count"><b class="num">3</b> / 20장</span>
+      </div></div>
+</div>
+    <div class="dr-row">
+  <div class="dr-row-l"><label class="label" for="phone">휴대폰 번호<span class="req" aria-hidden="true">*</span></label></div>
+  <div class="dr-row-c"><div class="dr-inline">
+        <div class="dr-input-ic dr-grow is-ok"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4h3l1.5 4-2 1.3a10 10 0 0 0 5.7 5.7l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4z"/></svg><input class="input" id="phone" value="010-0000-1234" readonly><span class="dr-ok"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-4.9"/></svg>인증 완료</span></div>
+        <button type="button" class="btn btn-secondary">번호 변경</button>
+      </div>
+      <label class="switch dr-switch"><input type="checkbox" checked><span class="switch-l">안심번호로 연락받기</span><span class="help">중개사에게는 실제 번호 대신 050 안심번호가 보여요</span></label></div>
+</div>
+  </fieldset>
+
+  <fieldset class="dr-group">
+    <legend class="dr-legend"><span class="dr-legend-n">D</span>전달 범위 · 동의</legend>
+    <div class="dr-row">
+  <div class="dr-row-l"><span class="label">공개 범위<span class="req" aria-hidden="true">*</span></span></div>
+  <div class="dr-row-c"><div class="dr-scope" role="radiogroup" aria-label="공개 범위">
+        <label class="dr-opt is-on"><input class="sr" type="radio" name="scope" checked><span class="dr-radio" aria-hidden="true"></span><span class="dr-opt-t"><b>전체 중개사 <span class="dr-rec">추천</span></b><span>매물 근처 신대·선월 중개사무소 <b class="num">12곳</b>에 함께 전달돼요</span></span></label>
+        <label class="dr-opt"><input class="sr" type="radio" name="scope"><span class="dr-radio" aria-hidden="true"></span><span class="dr-opt-t"><b>선택한 중개사</b><span>직접 고른 중개사무소에만 전달돼요 (최대 5곳)</span></span></label>
+      </div></div>
+</div>
+    <div class="dr-row">
+  <div class="dr-row-l"><span class="label">약관 동의<span class="req" aria-hidden="true">*</span></span></div>
+  <div class="dr-row-c"><div class="dr-agree">
+        <div class="dr-agree-all"><label class="check" for="agree-all"><input type="checkbox" id="agree-all" checked><svg class="check-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><span><b>필수 항목에 모두 동의합니다</b></span></label></div>
+        <ul>
+          <li><label class="check" for="ag1"><input type="checkbox" id="ag1" checked><svg class="check-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><span>[필수] 개인정보 수집·이용 동의 (휴대폰 번호, 매물 주소)</span></label><a class="link" href="#">보기</a></li>
+          <li><label class="check" for="ag2"><input type="checkbox" id="ag2" checked><svg class="check-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><span>[필수] 중개사무소 정보 제공 동의 (요청 종료 후 30일 보관)</span></label><a class="link" href="#">보기</a></li>
+          <li><label class="check" for="ag3"><input type="checkbox" id="ag3"><svg class="check-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg><span>[선택] 이 단지 시세 변동 알림 받기</span></label></li>
+        </ul>
+      </div></div>
+</div>
+  </fieldset>
+
+  <div class="dr-form-ft">
+    <a class="btn btn-secondary btn-lg" href="#"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>이전</a>
+    <span class="dr-saved"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>오후 3:42 자동 저장됨</span>
+    <button type="submit" class="btn btn-primary btn-lg">다음 단계로<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></button>
+  </div>
+</form>
+      <aside class="dr-aside" aria-label="내놓기 요약">
+  <section class="card dr-sum" aria-labelledby="dr-sum-t">
+    <div class="dr-sum-hd"><h2 id="dr-sum-t" class="t-title">내놓기 요약</h2><span class="badge">2 / 3 단계</span></div>
+    <div class="dr-sum-item">
+      <span class="dr-sum-ph"><svg viewBox="0 0 300 188" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="300" height="188" fill="#E8EEFB"/>
+  <circle cx="246" cy="40" r="16" fill="#F7F0DE"/>
+  <path d="M0 120 C50 100 90 112 130 104 S210 92 300 108 V188 H0z" fill="#D6E0F4"/>
+  <rect x="40" y="46" width="62" height="102" fill="#FFFFFF"/><rect x="102" y="46" width="18" height="102" fill="#C9D6EF"/>
+  <rect x="48.0" y="56.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="56.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="56.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="56.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="64.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="64.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="64.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="64.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="72.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="72.8" width="10" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="76.0" y="72.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="72.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="81.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="81.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="81.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="81.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="89.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="89.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="89.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="89.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="98.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="98.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="98.0" width="10" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="90.0" y="98.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="106.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="106.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="106.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="106.4" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="114.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="114.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="114.8" width="10" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="90.0" y="114.8" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="123.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="123.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="123.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="123.2" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="131.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="131.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="131.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="131.6" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="48.0" y="140.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="62.0" y="140.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="76.0" y="140.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/><rect x="90.0" y="140.0" width="10" height="4.6" rx=".8" fill="#A7BAE2"/>
+  <rect x="136" y="18" width="74" height="130" fill="#FFFFFF"/><rect x="210" y="18" width="22" height="130" fill="#C2D1EE"/>
+  <rect x="144.0" y="28.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="28.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="28.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="28.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="36.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="36.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="36.2" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="193.8" y="36.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="44.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="44.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="44.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="44.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="52.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="52.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="52.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="52.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="60.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="60.8" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="177.2" y="60.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="60.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="69.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="69.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="69.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="69.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="77.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="77.2" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="177.2" y="77.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="77.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="85.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="85.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="85.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="85.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="93.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="93.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="93.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="93.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="101.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="101.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="101.8" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="193.8" y="101.8" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="110.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="110.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="110.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="110.0" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="118.2" width="12" height="4.6" rx=".8" fill="#E9D7A8"/><rect x="160.6" y="118.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="118.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="118.2" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="126.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="126.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="126.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="126.4" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="144.0" y="134.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="160.6" y="134.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="177.2" y="134.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/><rect x="193.8" y="134.6" width="12" height="4.6" rx=".8" fill="#93AAD9"/>
+  <rect x="136" y="12" width="96" height="6" fill="#1D4FF2"/>
+  <rect x="246" y="86" width="40" height="62" fill="#F7F9FD"/><rect x="286" y="86" width="14" height="62" fill="#CBD7EE"/>
+  <rect x="252.0" y="94.0" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="94.0" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="102.6" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="102.6" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="111.2" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="111.2" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="119.8" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="119.8" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="128.4" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="128.4" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="252.0" y="137.0" width="11" height="4" rx=".8" fill="#AFC0E3"/><rect x="269.0" y="137.0" width="11" height="4" rx=".8" fill="#AFC0E3"/>
+  <rect x="25" y="140" width="2" height="11" fill="#7E9F8C"/><circle cx="26" cy="140" r="9" fill="#A9CDB8"/><rect x="125" y="142" width="2" height="9" fill="#7E9F8C"/><circle cx="126" cy="142" r="7" fill="#9CC2AD"/><rect x="237" y="140" width="2" height="10" fill="#7E9F8C"/><circle cx="238" cy="140" r="8" fill="#A9CDB8"/>
+  <rect x="0" y="148" width="300" height="40" fill="#C9DCF5"/>
+  <path d="M0 148h300" stroke="#B5CCEC" stroke-width="2"/>
+  <g stroke="#FFFFFF" stroke-width="1.4" stroke-linecap="round" opacity=".8"><path d="M30 160h40M150 158h56M96 170h30M218 172h44M20 178h26"/></g>
+  <g opacity=".35"><rect x="144.0" y="154.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="160.6" y="154.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="177.2" y="154.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="193.8" y="154.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="144.0" y="161.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="160.6" y="161.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="177.2" y="161.0" width="12" height="3" rx=".8" fill="#93AAD9"/><rect x="193.8" y="161.0" width="12" height="3" rx=".8" fill="#93AAD9"/></g>
+</svg></span>
+      <div class="stack" style="gap:4px;min-width:0">
+        <span class="row" style="gap:6px"><span class="deal deal-sale">매매</span><span class="t-cap">아파트</span></span>
+        <b class="dr-sum-name">신대 레이크파크 1단지</b>
+        <span class="t-cap">103동 1502호 · 고/25층</span>
+      </div>
+    </div>
+    <div class="dr-sum-price"><span class="t-cap">희망 매매가</span><p class="price">4억 4,500</p><span class="dr-sum-nego">협의 가능</span></div>
+    <dl class="dr-sum-dl"><div><dt>면적</dt><dd>34평 · 전용 84.98㎡</dd></div><div><dt>입주 가능일</dt><dd>2027년 2월 · 협의 가능</dd></div><div><dt>사진</dt><dd>3장</dd></div><div><dt>연락처</dt><dd>안심번호 사용</dd></div><div><dt>공개 범위</dt><dd>전체 중개사</dd></div></dl>
+    <div class="dr-prog">
+      <div class="dr-prog-top"><span>필수 항목</span><b class="num">9 / 9</b></div>
+      <div class="dr-prog-bar" role="progressbar" aria-label="필수 항목 입력" aria-valuemin="0" aria-valuemax="9" aria-valuenow="9"><span style="width:100%"></span></div>
+      <p class="dr-tip"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="m4 17.5 5-4.5 4 3.5 2.5-2 4.5 4"/></svg><span>사진을 2장 더 올려 보세요. 주방·욕실 사진이 있으면 중개사가 상태를 미리 알 수 있어요.</span></p>
+    </div>
+  </section>
+
+  <section class="dr-reach" aria-labelledby="dr-reach-t">
+    <h2 id="dr-reach-t" class="dr-reach-q">몇 곳의 중개사가 받나요?</h2>
+    <p class="dr-reach-n"><b class="num">12</b>곳</p>
+    <p class="dr-reach-d">매물 주소 반경 2km 안, 신대·선월에서 활동하는 중개사무소에 동시에 전달돼요. 여러 곳이 같은 매물을 올려도 사이트에는 <b>1건</b>으로만 보여요.</p>
+    <ul class="dr-reach-list">
+      <li><span class="dr-reach-ph"><svg viewBox="0 0 120 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="120" height="120" fill="#EEF2F9"/>
+  <rect x="14" y="30" width="92" height="74" fill="#FFFFFF"/>
+  <rect x="14" y="30" width="92" height="16" fill="#0F1B3A"/>
+  <rect x="24" y="35" width="40" height="6" rx="2" fill="#E9D7A8"/>
+  <rect x="22" y="54" width="48" height="50" fill="#D9E6F8"/><path d="M46 54v50" stroke="#fff" stroke-width="2"/>
+  <rect x="78" y="54" width="20" height="50" fill="#1D4FF2"/>
+  <rect x="0" y="104" width="120" height="16" fill="#DCE2EA"/>
+</svg></span><span class="dr-reach-t"><b>신대중앙 공인중개사사무소</b><span>신대 레이크파크 단지 전문</span></span><span class="dr-reach-r">평균 응답<br><b class="num">12분</b></span></li>
+      <li><span class="dr-reach-ph"><svg viewBox="0 0 120 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="120" height="120" fill="#EEF2F9"/>
+  <rect x="14" y="30" width="92" height="74" fill="#FFFFFF"/>
+  <rect x="14" y="30" width="92" height="16" fill="#0F1B3A"/>
+  <rect x="24" y="35" width="40" height="6" rx="2" fill="#E9D7A8"/>
+  <rect x="22" y="54" width="48" height="50" fill="#D9E6F8"/><path d="M46 54v50" stroke="#fff" stroke-width="2"/>
+  <rect x="78" y="54" width="20" height="50" fill="#1D4FF2"/>
+  <rect x="0" y="104" width="120" height="16" fill="#DCE2EA"/>
+</svg></span><span class="dr-reach-t"><b>선월 분양권 공인중개사사무소</b><span>분양권 전문</span></span><span class="dr-reach-r">평균 응답<br><b class="num">10분</b></span></li>
+      <li><span class="dr-reach-ph"><svg viewBox="0 0 120 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <rect width="120" height="120" fill="#EEF2F9"/>
+  <rect x="14" y="30" width="92" height="74" fill="#FFFFFF"/>
+  <rect x="14" y="30" width="92" height="16" fill="#0F1B3A"/>
+  <rect x="24" y="35" width="40" height="6" rx="2" fill="#E9D7A8"/>
+  <rect x="22" y="54" width="48" height="50" fill="#D9E6F8"/><path d="M46 54v50" stroke="#fff" stroke-width="2"/>
+  <rect x="78" y="54" width="20" height="50" fill="#1D4FF2"/>
+  <rect x="0" y="104" width="120" height="16" fill="#DCE2EA"/>
+</svg></span><span class="dr-reach-t"><b>호수공원 공인중개사사무소</b><span>연향·조례 아파트 전문</span></span><span class="dr-reach-r">평균 응답<br><b class="num">8분</b></span></li>
+    </ul>
+    <p class="dr-reach-more">외 9곳 · <a href="Agents.dc.html">전체 보기</a></p>
+    <p class="dr-reach-foot"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5 19 6v5.5c0 4.3-3 7.6-7 9-4-1.4-7-4.7-7-9V6z"/><path d="m9 12 2.2 2.2L15.5 10"/></svg><span>중개사는 인증된 회원만 받을 수 있고, 연락은 오전 9시 – 오후 8시에만 와요.</span></p>
+  </section>
+</aside>
+    </div>
+  </div>
+</section>
+<section class="dr-faq" aria-labelledby="dr-faq-t">
+  <div class="container dr-faq-in">
+    <div class="stack" style="gap:12px">
+      <p class="eyebrow">FAQ</p>
+      <h2 id="dr-faq-t" class="t-h2">자주 묻는 질문</h2>
+      <p class="t-sm">더 궁금한 점은 고객센터 [대표번호] 또는 1:1 채팅으로 물어봐 주세요.</p>
+      <div class="row" style="gap:8px;margin-top:8px"><a class="btn btn-secondary" href="#"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 18.5V6.5A2 2 0 0 1 7 4.5h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8z"/><path d="M8.5 9.5h7M8.5 12.5h4"/></svg>1:1 채팅 문의</a><a class="btn btn-ghost" href="#">전체 FAQ<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></a></div>
+    </div>
+    <div class="dr-acc">
+      <details class="dr-acc-i" open><summary><span>내놓기·구하기에 비용이 드나요?</span><span class="dr-acc-ic"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></summary><p class="t-body">등록과 이용은 모두 무료예요. 거래가 성사되면 계약한 중개사무소에 중개보수만 내면 되고, 금액은 전라남도 조례가 정한 상한 요율을 넘지 않아요. 미리 계산해 보고 싶다면 <a class="link" href="#">중개보수 계산기</a>를 이용해 보세요.</p></details>
+      <details class="dr-acc-i"><summary><span>여러 중개사가 연락하면 번거롭지 않나요?</span><span class="dr-acc-ic"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></summary><p class="t-body">연락 받을 시간대를 정할 수 있고, 안심번호를 켜 두면 실제 번호는 공개되지 않아요. 마음에 드는 중개사를 고른 뒤에는 나머지 중개사의 연락을 한 번에 멈출 수 있어요.</p></details>
+      <details class="dr-acc-i"><summary><span>등록한 매물은 언제 사이트에 보이나요?</span><span class="dr-acc-ic"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span></summary><p class="t-body">내놓기 요청 자체는 공개되지 않아요. 중개사가 현장을 확인하고 의뢰를 받으면 그때 <b>실매물 확인</b> 날짜와 함께 매물로 올라가요.</p></details>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="footer">
+  <div class="container">
+    <div class="footer-top">
+      <div class="stack" style="gap:12px">
+        <a class="logo" href="Main.dc.html" aria-label="BRAND 홈"><svg class="logo-mark" width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1D4FF2"/><path d="M9 24v-7a7 7 0 0 1 14 0v7" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/><rect x="13.6" y="17.6" width="4.8" height="6.4" rx="1.2" fill="#FFFFFF"/><rect x="21.6" y="6" width="4.4" height="4.4" rx="1.3" fill="#E9D7A8"/></svg><span class="logo-word">BRAND</span></a>
+        <p class="t-sm">순천 공인중개사들이 함께 만드는 공동중개 부동산 서비스</p>
+        <p class="t-sm"><b style="color:var(--text)">고객센터 [대표번호]</b><br>평일 09:00 – 18:00 · 점심 12:00 – 13:00</p>
+      </div>
+      <div><h4>매물 찾기</h4><ul><li><a href="MapApt.dc.html">아파트·분양권</a></li><li><a href="OneRoom.dc.html">원룸·투룸</a></li><li><a href="#">주택</a></li><li><a href="#">상업·업무</a></li><li><a href="#">토지</a></li></ul></div>
+      <div><h4>서비스</h4><ul><li><a href="DealRequest.dc.html">내놓기 · 구하기</a></li><li><a href="Agents.dc.html">중개사무소 찾기</a></li><li><a href="#">커뮤니티</a></li><li><a href="#">허위매물 신고</a></li></ul></div>
+      <div><h4>부동산 계산기</h4><ul><li><a href="#">중개보수</a></li><li><a href="#">취득세</a></li><li><a href="#">양도소득세</a></li><li><a href="#">대출 이자</a></li><li><a href="#">평 · ㎡ 환산</a></li></ul></div>
+      <div><h4>고객지원</h4><ul><li><a href="#">공지사항</a></li><li><a href="#">자주 묻는 질문</a></li><li><a href="#">광고 문의</a></li><li><a href="#">중개사 회원 가입</a></li></ul></div>
+    </div>
+    <hr class="divider">
+    <nav class="footer-legal" aria-label="약관 및 정책">
+      <a href="#">이용약관</a><a href="#" class="is-strong">개인정보처리방침</a><a href="#">위치기반서비스 이용약관</a><a href="#">중개보수 안내</a><a href="#">허위매물 신고 정책</a>
+    </nav>
+    <div class="footer-biz">
+      <span>상호 [상호]</span><span>대표 [대표]</span><span>사업자등록번호 [사업자등록번호]</span><span>통신판매업 신고 [신고번호]</span><span>주소 [주소]</span><span>개인정보보호책임자 [개인정보보호책임자]</span><span>이메일 [이메일]</span>
+    </div>
+    <p class="footer-copy">매물 정보는 각 중개사무소가 등록하며, BRAND는 통신판매중개자로서 거래 당사자가 아닙니다. © 2026 BRAND</p>
+  </div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":4714}
+}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+// Owned by the auth module team: users, social identities (카카오/네이버/Google only), admin accounts,
+// terms + consents. No SMS / phone verification exists anywhere (owner decision).
+
+enum UserRole {
+  USER
+  AGENT
+  AGENCY_OWNER
+
+  @@map("user_role")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  WITHDRAWN
+
+  @@map("user_status")
+}
+
+enum AuthProvider {
+  KAKAO
+  NAVER
+  GOOGLE
+
+  @@map("auth_provider")
+}
+
+model User {
+  id               String     @id @default(uuid(7)) @db.Uuid
+  /// Not unique: never auto-link accounts by email.
+  email            String?    @db.VarChar(254)
+  name             String?    @db.VarChar(50)
+  nickname         String?    @db.VarChar(30)
+  /// Plain contact field, digits only (01012345678). Entered by the user or prefilled from the
+  /// social profile (Kakao/Naver, with consent). Never verified.
+  phone            String?    @db.VarChar(20)
+  profileImageUrl  String?    @map("profile_image_url") @db.VarChar(1000)
+  role             UserRole   @default(USER)
+  status           UserStatus @default(ACTIVE)
+  marketingOptIn   Boolean    @default(false) @map("marketing_opt_in")
+  lastLoginAt      DateTime?  @map("last_login_at") @db.Timestamptz(3)
+  suspendedAt      DateTime?  @map("suspended_at") @db.Timestamptz(3)
+  suspendedReason  String?    @map("suspended_reason") @db.VarChar(500)
+  withdrawnAt      DateTime?  @map("withdrawn_at") @db.Timestamptz(3)
+  withdrawalReason String?    @map("withdrawal_reason") @db.VarChar(500)
+  /// PII scrub runs at/after this time (cleanup job); null until withdrawal.
+  piiScrubAfter    DateTime?  @map("pii_scrub_after") @db.Timestamptz(3)
+  piiScrubbedAt    DateTime?  @map("pii_scrubbed_at") @db.Timestamptz(3)
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  identities           Identity[]
+  consents             UserConsent[]
+  notifications        Notification[]
+  agencyMemberships    AgencyMember[]
+  ownedAgencies        Agency[]              @relation("AgencyOwner")
+  createdProperties    Property[]
+  createdListings      Listing[]
+  listingVerifications ListingVerification[]
+  favoriteListings     FavoriteListing[]
+  favoriteComplexes    FavoriteComplex[]
+  recentViews          RecentView[]
+  dealRequests         DealRequest[]
+  reports              Report[]
+  uploadedMedia        Media[]
+  agencyDocuments      AgencyDocument[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([status, createdAt])
+  @@index([piiScrubAfter])
+  @@map("users")
+}
+
+/// Social login identity. (provider, providerUserId) is the only account-linking key.
+model Identity {
+  id             String       @id @default(uuid(7)) @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  provider       AuthProvider
+  providerUserId String       @map("provider_user_id") @db.VarChar(255)
+  email          String?      @db.VarChar(254)
+  emailVerified  Boolean      @default(false) @map("email_verified")
+  /// Minimal profile snapshot from the provider (scrubbed on withdrawal).
+  profile        Json?
+  lastUsedAt     DateTime?    @map("last_used_at") @db.Timestamptz(3)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+  @@map("identities")
+}
+
+enum AdminRole {
+  OPERATOR
+  ADMIN
+  SUPER_ADMIN
+
+  @@map("admin_role")
+}
+
+enum AdminStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("admin_status")
+}
+
+/// Back-office account: email + argon2id password + mandatory TOTP.
+model AdminUser {
+  id                 String      @id @default(uuid(7)) @db.Uuid
+  email              String      @unique @db.VarChar(254)
+  passwordHash       String      @map("password_hash") @db.VarChar(255)
+  name               String      @db.VarChar(50)
+  role               AdminRole   @default(OPERATOR)
+  status             AdminStatus @default(ACTIVE)
+  /// AES-GCM encrypted TOTP secret (key from env TOTP_ENCRYPTION_KEY).
+  totpSecretEnc      String?     @map("totp_secret_enc") @db.VarChar(500)
+  totpEnabledAt      DateTime?   @map("totp_enabled_at") @db.Timestamptz(3)
+  /// argon2 hashes of one-time recovery codes.
+  recoveryCodeHashes String[]    @default([]) @map("recovery_code_hashes")
+  /// Optional CIDR/IP allowlist; empty = allow all (global env allowlist still applies).
+  ipAllowlist        String[]    @default([]) @map("ip_allowlist")
+  failedLoginCount   Int         @default(0) @map("failed_login_count")
+  lockedUntil        DateTime?   @map("locked_until") @db.Timestamptz(3)
+  passwordChangedAt  DateTime?   @map("password_changed_at") @db.Timestamptz(3)
+  lastLoginAt        DateTime?   @map("last_login_at") @db.Timestamptz(3)
+  lastLoginIp        String?     @map("last_login_ip") @db.VarChar(64)
+  createdAt          DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  auditLogs            AuditLog[]
+  agencyDecisions      AgencyStatusHistory[]
+  agencyWarnings       AgencyWarning[]
+  listingVerifications ListingVerification[]
+  handledReports       Report[]
+  banners              Banner[]
+  popups               Popup[]
+  notices              Notice[]
+  siteSettings         SiteSetting[]
+  uploadedMedia        Media[]
+
+  @@map("admin_users")
+}
+
+enum TermsType {
+  SERVICE
+  PRIVACY
+  LOCATION
+  MARKETING
+
+  @@map("terms_type")
+}
+
+model TermsDocument {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  type        TermsType
+  version     String    @db.VarChar(20)
+  title       String    @db.VarChar(200)
+  content     String
+  isRequired  Boolean   @map("is_required")
+  effectiveAt DateTime  @map("effective_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  consents UserConsent[]
+
+  @@unique([type, version])
+  @@index([type, effectiveAt(sort: Desc)])
+  @@map("terms_documents")
+}
+
+/// Append-only consent record (agree or revoke = new row).
+model UserConsent {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  termsDocumentId String   @map("terms_document_id") @db.Uuid
+  agreed          Boolean
+  ip              String?  @db.VarChar(64)
+  userAgent       String?  @map("user_agent") @db.VarChar(500)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  termsDocument TermsDocument @relation(fields: [termsDocumentId], references: [id], onDelete: Restrict)
+
+  @@index([userId, termsDocumentId, createdAt(sort: Desc)])
+  @@index([termsDocumentId])
+  @@map("user_consents")
+}

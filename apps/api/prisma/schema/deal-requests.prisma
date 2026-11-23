@@ -1,0 +1,180 @@
+// Owned by the deal-requests module team: 내놓기 / 구하기, proposals, contact consent.
+
+enum DealRequestType {
+  SELL_OR_LEASE
+  WANTED
+
+  @@map("deal_request_type")
+}
+
+enum DealRequestStatus {
+  OPEN
+  MATCHED
+  CLOSED
+  CANCELLED
+  EXPIRED
+
+  @@map("deal_request_status")
+}
+
+enum DealRequestVisibility {
+  ALL_AGENCIES_IN_REGION
+  SELECTED_AGENCIES
+
+  @@map("deal_request_visibility")
+}
+
+enum ProposalStatus {
+  SENT
+  VIEWED
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+
+  @@map("proposal_status")
+}
+
+model DealRequest {
+  id           String                @id @default(uuid(7)) @db.Uuid
+  type         DealRequestType
+  userId       String                @map("user_id") @db.Uuid
+  status       DealRequestStatus     @default(OPEN)
+  assetType    AssetType             @map("asset_type")
+  dealTypes    DealType[]            @map("deal_types")
+  visibility   DealRequestVisibility
+  sggCode      String                @map("sgg_code") @db.VarChar(5)
+  /// Contact typed by the requester (phone format-validated, never verified). Revealed to an
+  /// agency only via DealRequestContactGrant.
+  contactName  String                @map("contact_name") @db.VarChar(30)
+  contactPhone String                @map("contact_phone") @db.VarChar(20)
+  description  String?
+
+  // --- SELL_OR_LEASE (owner) ---
+  roadAddress        String?                                @map("road_address") @db.VarChar(200)
+  /// PRIVATE (동/호 등) — never shown before contact grant.
+  addressDetail      String?                                @map("address_detail") @db.VarChar(100)
+  emdCode            String?                                @map("emd_code") @db.VarChar(10)
+  complexId          String?                                @map("complex_id") @db.Uuid
+  lat                Float?
+  lng                Float?
+  location           Unsupported("geography(Point, 4326)")?
+  exclusiveArea      Decimal?                               @map("exclusive_area") @db.Decimal(10, 2)
+  floor              Int?
+  desiredSalePrice   Int?                                   @map("desired_sale_price")
+  desiredDeposit     Int?                                   @map("desired_deposit")
+  desiredMonthlyRent Int?                                   @map("desired_monthly_rent")
+
+  // --- WANTED (seeker) ---
+  regionCodes String[] @default([]) @map("region_codes")
+  complexIds  String[] @default([]) @map("complex_ids") @db.Uuid
+  priceMin    Int?     @map("price_min")
+  priceMax    Int?     @map("price_max")
+  depositMin  Int?     @map("deposit_min")
+  depositMax  Int?     @map("deposit_max")
+  rentMin     Int?     @map("rent_min")
+  rentMax     Int?     @map("rent_max")
+  areaMin     Decimal? @map("area_min") @db.Decimal(10, 2)
+  areaMax     Decimal? @map("area_max") @db.Decimal(10, 2)
+  roomsMin    Int?     @map("rooms_min")
+
+  moveInDate    DateTime? @map("move_in_date") @db.Date
+  expiresAt     DateTime? @map("expires_at") @db.Timestamptz(3)
+  closedAt      DateTime? @map("closed_at") @db.Timestamptz(3)
+  proposalCount Int       @default(0) @map("proposal_count")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  user          User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  complex       Complex?                  @relation(fields: [complexId], references: [id], onDelete: SetNull)
+  targets       DealRequestTarget[]
+  proposals     Proposal[]
+  contactGrants DealRequestContactGrant[]
+  photos        DealRequestPhoto[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, sggCode, type, createdAt(sort: Desc)])
+  @@index([emdCode, status])
+  @@index([complexId, status])
+  @@index([regionCodes], type: Gin)
+  @@index([expiresAt])
+  @@index([location], type: Gist)
+  @@map("deal_requests")
+}
+
+/// SELECTED_AGENCIES visibility targets.
+model DealRequestTarget {
+  dealRequestId String   @map("deal_request_id") @db.Uuid
+  agencyId      String   @map("agency_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  dealRequest DealRequest @relation(fields: [dealRequestId], references: [id], onDelete: Cascade)
+  agency      Agency      @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@id([dealRequestId, agencyId])
+  @@index([agencyId, createdAt(sort: Desc)])
+  @@map("deal_request_targets")
+}
+
+model DealRequestPhoto {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  dealRequestId String   @map("deal_request_id") @db.Uuid
+  mediaId       String   @map("media_id") @db.Uuid
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  dealRequest DealRequest @relation(fields: [dealRequestId], references: [id], onDelete: Cascade)
+  media       Media       @relation(fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@unique([dealRequestId, mediaId])
+  @@map("deal_request_photos")
+}
+
+model Proposal {
+  id            String         @id @default(uuid(7)) @db.Uuid
+  dealRequestId String         @map("deal_request_id") @db.Uuid
+  agencyId      String         @map("agency_id") @db.Uuid
+  memberId      String?        @map("member_id") @db.Uuid
+  message       String         @db.VarChar(2000)
+  status        ProposalStatus @default(SENT)
+  viewedAt      DateTime?      @map("viewed_at") @db.Timestamptz(3)
+  respondedAt   DateTime?      @map("responded_at") @db.Timestamptz(3)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  dealRequest DealRequest       @relation(fields: [dealRequestId], references: [id], onDelete: Cascade)
+  agency      Agency            @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  member      AgencyMember?     @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  listings    ProposalListing[]
+
+  @@unique([dealRequestId, agencyId])
+  @@index([agencyId, createdAt(sort: Desc)])
+  @@map("proposals")
+}
+
+model ProposalListing {
+  proposalId String @map("proposal_id") @db.Uuid
+  listingId  String @map("listing_id") @db.Uuid
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  listing  Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@id([proposalId, listingId])
+  @@index([listingId])
+  @@map("proposal_listings")
+}
+
+/// Requester's consent to reveal contact to one agency.
+model DealRequestContactGrant {
+  dealRequestId String    @map("deal_request_id") @db.Uuid
+  agencyId      String    @map("agency_id") @db.Uuid
+  grantedAt     DateTime  @default(now()) @map("granted_at") @db.Timestamptz(3)
+  revokedAt     DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  dealRequest DealRequest @relation(fields: [dealRequestId], references: [id], onDelete: Cascade)
+  agency      Agency      @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@id([dealRequestId, agencyId])
+  @@index([agencyId])
+  @@map("deal_request_contact_grants")
+}

@@ -1,0 +1,14 @@
+// Multi-file Prisma schema. Each module owns its own <module>.prisma file in this folder.
+// Conventions (see docs/CONVENTIONS.md): UUIDv7 ids, snake_case @map/@@map, Timestamptz(3),
+// money in 만원 integers, areas in ㎡ Decimal(10,2), geo = lat/lng + generated PostGIS column.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis, pg_trgm]
+}
