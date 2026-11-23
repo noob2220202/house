@@ -63,9 +63,9 @@ export class PopupAdminService {
   }
 
   async create(dto: PopupCreateInput, adminId: string): Promise<AdminPopupView> {
-    await this.media.assertUsable([dto.mediaId], MediaPurpose.POPUP);
     const row = await this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${POPUP_ORDER_LOCK}))`;
+      await this.media.assertUsable([dto.mediaId], MediaPurpose.POPUP, tx);
       const last = await tx.popup.aggregate({
         where: { deletedAt: null },
         _max: { sortOrder: true },
@@ -104,23 +104,26 @@ export class PopupAdminService {
         ),
       null,
     );
-    if (dto.mediaId && dto.mediaId !== current.media.id) {
-      await this.media.assertUsable([dto.mediaId], MediaPurpose.POPUP);
-    }
-    const row = await this.prisma.popup.update({
-      where: { id },
-      data: {
-        title: dto.title,
-        mediaId: dto.mediaId,
-        linkUrl: dto.linkUrl,
-        newWindow: dto.newWindow,
-        targetPages: dto.targetPages,
-        startAt,
-        endAt,
-        paused: dto.paused,
-        dismissDays: dto.dismissDays,
-      },
-      select: adminPopupSelect,
+    const newMedia = dto.mediaId && dto.mediaId !== current.media.id ? dto.mediaId : undefined;
+    const row = await this.prisma.$transaction(async (tx) => {
+      if (newMedia) await this.media.assertUsable([newMedia], MediaPurpose.POPUP, tx);
+      const updated = await tx.popup.update({
+        where: { id },
+        data: {
+          title: dto.title,
+          mediaId: dto.mediaId,
+          linkUrl: dto.linkUrl,
+          newWindow: dto.newWindow,
+          targetPages: dto.targetPages,
+          startAt,
+          endAt,
+          paused: dto.paused,
+          dismissDays: dto.dismissDays,
+        },
+        select: adminPopupSelect,
+      });
+      if (newMedia) await this.media.released([current.media.id], tx);
+      return updated;
     });
     await this.cache.bump(ADS_CACHE.POPUPS);
     return this.mapper.adminPopup(row);
@@ -129,7 +132,10 @@ export class PopupAdminService {
   async remove(id: string): Promise<void> {
     const current = await this.load(id);
     RequestContext.setAuditBefore(this.mapper.adminPopup(current));
-    await this.prisma.popup.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.popup.update({ where: { id }, data: { deletedAt: new Date() } });
+      await this.media.released([current.media.id], tx);
+    });
     await this.cache.bump(ADS_CACHE.POPUPS);
   }
 

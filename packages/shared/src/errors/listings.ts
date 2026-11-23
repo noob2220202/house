@@ -17,6 +17,11 @@ export const ListingsErrorCode = {
   LISTING_CO_BROKER_NOT_FOUND: 'LISTING_CO_BROKER_NOT_FOUND',
   LISTING_CO_BROKER_NOT_ALLOWED: 'LISTING_CO_BROKER_NOT_ALLOWED',
   LISTING_PRIMARY_CANNOT_LEAVE: 'LISTING_PRIMARY_CANNOT_LEAVE',
+  LISTING_CO_BROKER_PENDING: 'LISTING_CO_BROKER_PENDING',
+  LISTING_CO_BROKER_REMOVED: 'LISTING_CO_BROKER_REMOVED',
+  LISTING_CONCURRENT_MODIFICATION: 'LISTING_CONCURRENT_MODIFICATION',
+  LISTING_FLOOR_INVALID: 'LISTING_FLOOR_INVALID',
+  LISTING_UNDER_REVIEW: 'LISTING_UNDER_REVIEW',
 } as const;
 
 export const LISTINGS_ERROR_MESSAGES: Record<keyof typeof ListingsErrorCode, string> = {
@@ -27,14 +32,23 @@ export const LISTINGS_ERROR_MESSAGES: Record<keyof typeof ListingsErrorCode, str
   LISTING_PHOTO_LIMIT: '등록 가능한 사진 수를 초과했습니다.',
   LISTING_AGENCY_NOT_ACTIVE: '승인된 중개사무소의 소속 회원만 매물을 관리할 수 있습니다.',
   LISTING_PRIMARY_AGENCY_ONLY: '대표 중개사무소만 할 수 있는 작업입니다.',
-  LISTING_NOT_EDITABLE: '거래완료된 매물은 수정할 수 없습니다.',
+  LISTING_NOT_EDITABLE: '현재 상태에서는 매물을 수정할 수 없습니다.',
   LISTING_REGION_NOT_SUPPORTED: '서비스 지역 밖의 매물은 등록할 수 없습니다.',
   LISTING_COMPLEX_INVALID: '단지 또는 평형 정보를 확인해 주세요.',
-  LISTING_CONTACT_MEMBER_INVALID: '담당자는 소속 중개사무소의 직원이어야 합니다.',
+  LISTING_CONTACT_MEMBER_INVALID:
+    '광고 담당자는 소속 중개사무소의 개업공인중개사 또는 소속공인중개사여야 합니다.',
   LISTING_MEDIA_INVALID: '사용할 수 없는 사진이 포함되어 있습니다.',
   LISTING_VERIFICATION_FUTURE_DATE: '확인일은 오늘 이후일 수 없습니다.',
   LISTING_CO_BROKER_DUPLICATE: '이미 공동중개에 참여 중인 매물입니다.',
   LISTING_CO_BROKER_NOT_FOUND: '공동중개 참여 정보를 찾을 수 없습니다.',
   LISTING_CO_BROKER_NOT_ALLOWED: '광고 중인 매물에만 공동중개로 참여할 수 있습니다.',
   LISTING_PRIMARY_CANNOT_LEAVE: '대표 중개사무소는 공동중개에서 빠질 수 없습니다.',
+  LISTING_CO_BROKER_PENDING:
+    '이미 공동중개 참여를 요청했습니다. 대표 중개사무소의 수락을 기다려 주세요.',
+  LISTING_CO_BROKER_REMOVED:
+    '대표 중개사무소가 공동중개에서 제외한 매물에는 다시 참여할 수 없습니다.',
+  LISTING_CONCURRENT_MODIFICATION:
+    '다른 사용자가 먼저 매물을 변경했습니다. 새로고침 후 다시 시도해 주세요.',
+  LISTING_FLOOR_INVALID: '해당 층을 확인해 주세요. 0층은 없고 총 층수보다 클 수 없습니다.',
+  LISTING_UNDER_REVIEW: '신고 처리 중인 매물은 삭제할 수 없습니다.',
 };

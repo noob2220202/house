@@ -215,6 +215,14 @@ export const tradeRematchRequestSchema = z.object({
 });
 export type TradeRematchRequest = z.infer<typeof tradeRematchRequestSchema>;
 
+/** Job ids are derived from the request ("month.46150.202410.APT_RENT+APT_TRADE"). */
+export const tradeSyncJobParamSchema = z.object({
+  jobId: z
+    .string()
+    .max(100)
+    .regex(/^(month|rematch)\.[0-9A-Za-z_.+]+$/, '작업 ID 형식이 올바르지 않습니다.'),
+});
+
 export const regionUpsertSchema = z.object({
   name: z.string().trim().min(1).max(50),
   fullName: z.string().trim().min(1).max(200),

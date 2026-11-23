@@ -5,16 +5,19 @@ import {
   DealType,
   MoveInType,
   type AssetType as AssetTypeValue,
+  FloorDisplay,
   type DealType as DealTypeValue,
   type Direction,
+  type FloorDisplay as FloorDisplayValue,
   type DirectionBasis,
   type MoveInType as MoveInTypeValue,
 } from '../enums/listing';
-import { isBuildingAsset } from './rules';
+import { floorClassOf, isBuildingAsset } from './rules';
 
 /** Korean label of every item the validator can report (shown to agents as-is). */
 export const PUBLISH_FIELD_LABEL = {
   'property.roadAddress': '소재지',
+  'property.emdCode': '소재지(법정동)',
   'property.area': '면적',
   price: '가격',
   'property.assetType': '중개대상물 종류',
@@ -52,9 +55,13 @@ export interface PublishCheckInput {
   maintenanceFeeWon?: number | null;
   moveInType?: MoveInTypeValue | null;
   moveInDate?: string | Date | null;
+  /** CLASS = 해당 층 shown as 저/중/고, which needs a computable class. Default EXACT. */
+  floorDisplay?: FloorDisplayValue | null;
   property: {
     assetType: AssetTypeValue | null | undefined;
     roadAddress?: string | null;
+    /** 10-digit 법정동코드 (map clustering and region filters need it). */
+    emdCode?: string | null;
     floor?: number | null;
     totalFloors?: number | null;
     exclusiveArea?: number | null;
@@ -99,6 +106,14 @@ function priceComplete(i: PublishCheckInput): boolean {
   }
 }
 
+/** 해당 층 is set, real (no 0층, ≤ 총 층수) and, for 저/중/고 display, classifiable. */
+function floorShowable(i: PublishCheckInput): boolean {
+  const { floor, totalFloors } = i.property;
+  if (floor === null || floor === undefined || floor === 0) return false;
+  if (totalFloors && floor > totalFloors) return false;
+  return i.floorDisplay !== FloorDisplay.CLASS || floorClassOf(floor, totalFloors) !== null;
+}
+
 function areaComplete(p: PublishCheckInput['property']): boolean {
   switch (p.assetType) {
     case AssetType.LAND:
@@ -118,6 +133,7 @@ export function checkPublishRequirements(i: PublishCheckInput): PublishIssue[] {
   const missing: PublishField[] = [];
   const p = i.property;
   if (!present(p.roadAddress)) missing.push('property.roadAddress');
+  if (!present(p.emdCode)) missing.push('property.emdCode');
   if (!areaComplete(p)) missing.push('property.area');
   if (!priceComplete(i)) missing.push('price');
   if (!present(p.assetType)) missing.push('property.assetType');
@@ -126,7 +142,7 @@ export function checkPublishRequirements(i: PublishCheckInput): PublishIssue[] {
   if (p.assetType && isBuildingAsset(p.assetType)) {
     if (!positive(p.totalFloors)) missing.push('property.totalFloors');
     // 단독주택은 건물 전체가 대상이므로 해당 층 생략 가능.
-    if (p.assetType !== AssetType.HOUSE && !present(p.floor)) missing.push('property.floor');
+    if (p.assetType !== AssetType.HOUSE && !floorShowable(i)) missing.push('property.floor');
     // 분양권은 아직 사용승인 전이다.
     if (i.dealType !== DealType.PRESALE && !present(p.approvalDate))
       missing.push('property.approvalDate');

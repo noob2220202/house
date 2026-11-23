@@ -55,6 +55,7 @@ export const dealRequestOwnerSelect = {
   contactPhone: true,
   addressDetail: true,
   closeReason: true,
+  extensionCount: true,
   targets: { select: { agencyId: true }, orderBy: { createdAt: 'asc' } },
   contactGrants: {
     where: { revokedAt: null },

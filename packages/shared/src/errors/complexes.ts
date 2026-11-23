@@ -13,6 +13,7 @@ export const ComplexesErrorCode = {
   TRADE_SYNC_IN_PROGRESS: 'TRADE_SYNC_IN_PROGRESS',
   TRADE_SYNC_NOT_CONFIGURED: 'TRADE_SYNC_NOT_CONFIGURED',
   TRADE_SYNC_INVALID_MONTH: 'TRADE_SYNC_INVALID_MONTH',
+  TRADE_SYNC_JOB_NOT_FOUND: 'TRADE_SYNC_JOB_NOT_FOUND',
 } as const;
 
 export const COMPLEXES_ERROR_MESSAGES: Record<keyof typeof ComplexesErrorCode, string> = {
@@ -29,4 +30,5 @@ export const COMPLEXES_ERROR_MESSAGES: Record<keyof typeof ComplexesErrorCode, s
   TRADE_SYNC_IN_PROGRESS: '같은 기간의 실거래가 동기화가 이미 진행 중입니다.',
   TRADE_SYNC_NOT_CONFIGURED: '실거래가 API 키가 설정되지 않았습니다.',
   TRADE_SYNC_INVALID_MONTH: '동기화할 수 없는 연월입니다.',
+  TRADE_SYNC_JOB_NOT_FOUND: '동기화 작업을 찾을 수 없습니다.',
 };

@@ -1,4 +1,5 @@
 import {
+  AgencyStatus,
   ListingAgencyStatus,
   ListingStatus,
   type AgencyListingCard,
@@ -36,7 +37,10 @@ export class PrismaAgencyListingsReader implements AgencyListingsReader {
     @Inject(AGENCY_MEDIA) private readonly media: AgencyMediaPort,
   ) {}
 
-  /** Advertised (ACTIVE) listings the agency is an active (co-)broker of, by type. */
+  /**
+   * Advertised (ACTIVE) listings the agency is an active (co-)broker of, by type. A listing whose
+   * primary agency is suspended is not advertised, even through its co-brokers.
+   */
   async counts(agencyId: string): Promise<AgencyListingCounts> {
     const rows = await this.prisma.$queryRaw<CountRow[]>`
       SELECT l.asset_type::text AS "assetType", l.deal_type::text AS "dealType", count(*)::int AS count
@@ -46,6 +50,8 @@ export class PrismaAgencyListingsReader implements AgencyListingsReader {
         AND la.status = ${ListingAgencyStatus.ACTIVE}::listing_agency_status
         AND l.status = ${ListingStatus.ACTIVE}::listing_status
         AND l.deleted_at IS NULL
+        AND EXISTS (SELECT 1 FROM agencies pa WHERE pa.id = l.primary_agency_id
+          AND pa.status = ${AgencyStatus.APPROVED}::agency_status AND pa.deleted_at IS NULL)
       GROUP BY l.asset_type, l.deal_type`;
     const out: AgencyListingCounts = { total: 0, byAssetType: {}, byDealType: {} };
     for (const r of rows) {
@@ -63,6 +69,8 @@ export class PrismaAgencyListingsReader implements AgencyListingsReader {
         status: ListingStatus.ACTIVE,
         deletedAt: null,
         agencies: { some: { agencyId, status: ListingAgencyStatus.ACTIVE } },
+        // Same visibility rule as public listing search: the primary agency must be approved.
+        primaryAgency: { status: AgencyStatus.APPROVED, deletedAt: null },
       },
       orderBy: [
         { verifiedAt: { sort: 'desc', nulls: 'last' } },

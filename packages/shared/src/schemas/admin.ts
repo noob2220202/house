@@ -22,6 +22,81 @@ import {
   regionCodeSchema,
 } from './common';
 
+// ---------- 게시물 본문 형식 (공지·FAQ·약관) ----------
+
+/**
+ * Notice content, FAQ answers and terms content are **Markdown without raw HTML** (CommonMark/GFM).
+ * Frontends must render them with a Markdown renderer that does not pass raw HTML through
+ * (e.g. react-markdown without rehype-raw, keeping its default urlTransform) and must never put
+ * them into dangerouslySetInnerHTML. The checks below enforce the same contract on write, so a
+ * low-privilege operator cannot store markup that would run in a SUPER_ADMIN's session even if a
+ * renderer is misconfigured.
+ */
+export const ADMIN_CONTENT_FORMAT = 'markdown' as const;
+
+/** The HTML tokenizer opens a tag (or comment / doctype / PI) at `<` + letter, `/`, `!` or `?`. */
+const HTML_TAG_OPEN = /<[A-Za-z!/?]/;
+
+const NAMED_ENTITIES: Record<string, string> = {
+  colon: ':',
+  tab: '\t',
+  newline: '\n',
+  sol: '/',
+  amp: '&',
+  lpar: '(',
+  rpar: ')',
+};
+
+const codePoint = (n: number): string =>
+  Number.isInteger(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : '\ufffd';
+
+function decodeEntities(value: string): string {
+  return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);?/gi, (m, body: string) => {
+    const lower = body.toLowerCase();
+    if (lower.startsWith('#x')) return codePoint(parseInt(lower.slice(2), 16));
+    if (lower.startsWith('#')) return codePoint(parseInt(lower.slice(1), 10));
+    return NAMED_ENTITIES[lower] ?? m;
+  });
+}
+
+const SAFE_LINK_SCHEMES = new Set(['http', 'https', 'mailto', 'tel']);
+
+/** A Markdown link destination is safe when it is relative or uses http(s)/mailto/tel. */
+export function isSafeMarkdownLink(destination: string): boolean {
+  // Entities are decoded inside link destinations; browsers drop control chars and whitespace.
+  // eslint-disable-next-line no-control-regex
+  const url = decodeEntities(destination).replace(/[\u0000-\u0020\u007f]/g, '');
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(url);
+  return !scheme || SAFE_LINK_SCHEMES.has((scheme[1] ?? '').toLowerCase());
+}
+
+/** Destinations of inline links/images `[x](dest "title")` and reference definitions `[x]: dest`. */
+const LINK_DESTINATIONS = [/\]\(\s*<?([^\s)>]*)/g, /^[ \t]{0,3}\[[^\]\n]+\]:[ \t]*<?([^\s>]*)/gm];
+
+/** Problems with a Markdown body (empty when it is acceptable). */
+export function markdownContentIssues(value: string): string[] {
+  const issues: string[] = [];
+  if (HTML_TAG_OPEN.test(value)) {
+    issues.push('HTML 태그는 사용할 수 없습니다. 마크다운으로 작성해 주세요.');
+  }
+  const unsafe = LINK_DESTINATIONS.some((re) =>
+    [...value.matchAll(re)].some((m) => !isSafeMarkdownLink(m[1] ?? '')),
+  );
+  if (unsafe) issues.push('링크는 http(s)·mailto·tel 또는 사이트 내부 주소만 사용할 수 있습니다.');
+  return issues;
+}
+
+/** Markdown body (no raw HTML, safe links only). */
+export function markdownContentSchema(max: number) {
+  return z
+    .string()
+    .min(1)
+    .max(max)
+    .superRefine((value, ctx) => {
+      for (const message of markdownContentIssues(value)) ctx.addIssue({ code: 'custom', message });
+    });
+}
+
 // ---------- 허위매물 신고 ----------
 
 export const reportCreateSchema = z
@@ -74,7 +149,8 @@ export type ReportResolveInput = z.infer<typeof reportResolveSchema>;
 
 const noticeShape = {
   title: z.string().trim().min(1).max(200),
-  content: z.string().min(1).max(50_000),
+  /** Markdown (ADMIN_CONTENT_FORMAT) */
+  content: markdownContentSchema(50_000),
   isPinned: z.boolean(),
   isPublished: z.boolean(),
 };
@@ -101,7 +177,8 @@ export type NoticeAdminListQuery = z.infer<typeof noticeAdminListQuerySchema>;
 const faqShape = {
   category: z.enum(FaqCategory),
   question: z.string().trim().min(1).max(500),
-  answer: z.string().min(1).max(20_000),
+  /** Markdown (ADMIN_CONTENT_FORMAT) */
+  answer: markdownContentSchema(20_000),
   isPublished: z.boolean(),
   sortOrder: z.int().min(0).max(100_000),
 };
@@ -193,7 +270,8 @@ const termsShape = {
     .max(20)
     .regex(/^[0-9A-Za-z._-]+$/, '버전은 영문·숫자·.-_ 만 사용할 수 있습니다.'),
   title: z.string().trim().min(1).max(200),
-  content: z.string().min(1).max(200_000),
+  /** Markdown (ADMIN_CONTENT_FORMAT) */
+  content: markdownContentSchema(200_000),
   isRequired: z.boolean(),
   effectiveAt: dateTimeSchema,
 };
@@ -206,6 +284,25 @@ export const termsDocumentUpdateSchema = z
   .partial()
   .refine((v) => Object.keys(v).length > 0, '변경할 내용을 입력해 주세요.');
 export type TermsDocumentUpdateInput = z.infer<typeof termsDocumentUpdateSchema>;
+
+/**
+ * POST /admin/terms/:id/publish. A new version of an already published type must be published at
+ * least TERMS_NOTICE_DAYS before it takes effect (사전 공지); `urgent` + `reason` overrides that
+ * (e.g. a change forced by law) and is recorded in the audit log. Never retroactive.
+ */
+export const termsPublishSchema = z.preprocess(
+  (v) => v ?? {},
+  z
+    .object({
+      urgent: z.boolean().default(false),
+      reason: z.string().trim().min(5).max(500).optional(),
+    })
+    .refine((v) => !v.urgent || v.reason !== undefined, {
+      message: '긴급 게시 사유를 5자 이상 입력해 주세요.',
+      path: ['reason'],
+    }),
+);
+export type TermsPublishInput = z.infer<typeof termsPublishSchema>;
 
 export const termsAdminListQuerySchema = paginationQuerySchema.extend({
   type: z.enum(TermsType).optional(),

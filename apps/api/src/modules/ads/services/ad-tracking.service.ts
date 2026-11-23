@@ -1,13 +1,5 @@
 import { createHmac } from 'node:crypto';
-import {
-  addDays,
-  BannerStatus,
-  computeScheduleStatus,
-  ErrorCode,
-  isBotUserAgent,
-  kstDate,
-  resolveAdLink,
-} from '@house/shared';
+import { addDays, ErrorCode, isBotUserAgent, kstDate, resolveAdLink } from '@house/shared';
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type Redis from 'ioredis';
@@ -21,22 +13,29 @@ import {
   ADS_FLUSH_GRACE_MS,
   ADS_REDIS,
 } from '../constants';
+import { anonymousIdentity, isTopLevelNavigation } from '../domain/visitor';
 import { AdServeService } from './ad-serve.service';
 
-/** Who is looking at a banner: the session when logged in, otherwise ip + user agent. */
+/**
+ * Who is looking at a banner: the session when logged in, otherwise the IP (IPv6: its /64).
+ * The User-Agent only feeds the bot filter; Fetch Metadata only the click check.
+ */
 export interface AdVisitor {
   sessionId?: string | null;
   ip?: string | null;
   userAgent?: string | null;
+  /** `Sec-Fetch-Dest` / `Sec-Fetch-Mode` request headers, when the browser sent them. */
+  fetchDest?: string | null;
+  fetchMode?: string | null;
 }
 
 const RETENTION_SECONDS = ADS_COUNTER_RETENTION_DAYS * 86_400;
 
 /**
- * Impression/click counting. Each (banner, KST day) has a Redis SET of hashed visitor ids, so a
- * visitor counts once per banner per day and the SET size *is* the counter. A ZSET marks
- * (day, banner) pairs touched since the last flush; the flush writes SCARD totals into
- * banner_stat_daily (idempotent: re-running writes the same totals).
+ * Impression/click counting. Each (banner, KST day) has a Redis HyperLogLog of hashed visitor
+ * ids, so a visitor counts once per banner per day and PFCOUNT *is* the counter (≈0.8% error,
+ * at most ~12KB per key whatever clients send). A ZSET marks (day, banner) pairs touched since
+ * the last flush; the flush writes PFCOUNT totals into banner_stat_daily (idempotent).
  */
 @Injectable()
 export class AdTrackingService {
@@ -64,20 +63,23 @@ export class AdTrackingService {
     now: Date = new Date(),
   ): Promise<number> {
     if (bannerIds.length === 0 || isBotUserAgent(visitor.userAgent)) return 0;
+    const member = this.visitorHash(kstDate(now), visitor);
+    if (!member) return 0;
     const live = await this.serve.liveBannerIds(now);
     const ids = [...new Set(bannerIds)].filter((id) => live.has(id));
     if (ids.length === 0) return 0;
-    return this.add(ADS_REDIS.impressions, ids, visitor, now);
+    return this.add(ADS_REDIS.impressions, ids, member, now);
   }
 
   /**
    * Resolves the click redirect target (re-validating the stored URL: open-redirect safe) and
-   * counts the click when the banner is live and the client is not a bot.
+   * counts the click when the banner is live (servable), the client is not a bot and the request
+   * is a top-level navigation (not an embedded `<img>`/fetch on someone else's page).
    */
   async click(bannerId: string, visitor: AdVisitor, now: Date = new Date()): Promise<string> {
     const banner = await this.prisma.banner.findFirst({
       where: { id: bannerId, deletedAt: null },
-      select: { id: true, linkUrl: true, paused: true, startAt: true, endAt: true },
+      select: { id: true, linkUrl: true },
     });
     if (!banner?.linkUrl) throw AppException.notFound(ErrorCode.BANNER_NOT_FOUND);
     const target = resolveAdLink(banner.linkUrl, this.publicBase);
@@ -85,12 +87,16 @@ export class AdTrackingService {
       this.logger.warn({ bannerId }, 'stored banner link failed validation');
       throw AppException.badRequest(ErrorCode.BANNER_INVALID_LINK);
     }
+    const member = this.visitorHash(kstDate(now), visitor);
     if (
-      computeScheduleStatus(banner, now) === BannerStatus.ACTIVE &&
-      !isBotUserAgent(visitor.userAgent)
+      member &&
+      !isBotUserAgent(visitor.userAgent) &&
+      isTopLevelNavigation(visitor.fetchDest, visitor.fetchMode)
     ) {
       try {
-        await this.add(ADS_REDIS.clicks, [banner.id], visitor, now);
+        if ((await this.serve.liveBannerIds(now)).has(banner.id)) {
+          await this.add(ADS_REDIS.clicks, [banner.id], member, now);
+        }
       } catch (err) {
         // Counting must never break the redirect.
         this.logger.warn({ err, bannerId }, 'click count failed');
@@ -108,8 +114,8 @@ export class AdTrackingService {
     if (dates.length === 0) return out;
     const pipe = this.redis.pipeline();
     for (const d of dates) {
-      pipe.scard(ADS_REDIS.impressions(d, bannerId));
-      pipe.scard(ADS_REDIS.clicks(d, bannerId));
+      pipe.pfcount(ADS_REDIS.impressions(d, bannerId));
+      pipe.pfcount(ADS_REDIS.clicks(d, bannerId));
     }
     const res = (await pipe.exec()) ?? [];
     dates.forEach((d, i) => {
@@ -152,8 +158,8 @@ export class AdTrackingService {
     if (entries.length === 0) return 0;
     const pipe = this.redis.pipeline();
     for (const e of entries) {
-      pipe.scard(ADS_REDIS.impressions(e.date, e.bannerId));
-      pipe.scard(ADS_REDIS.clicks(e.date, e.bannerId));
+      pipe.pfcount(ADS_REDIS.impressions(e.date, e.bannerId));
+      pipe.pfcount(ADS_REDIS.clicks(e.date, e.bannerId));
     }
     const res = (await pipe.exec()) ?? [];
     const values = entries.map((e, i) => {
@@ -173,18 +179,18 @@ export class AdTrackingService {
         updated_at = now()`;
   }
 
+  /** Returns how many counters changed (PFADD's approximation of "newly counted"). */
   private async add(
     keyOf: (date: string, bannerId: string) => string,
     ids: readonly string[],
-    visitor: AdVisitor,
+    member: string,
     now: Date,
   ): Promise<number> {
     const date = kstDate(now);
-    const member = this.visitorHash(date, visitor);
     const pipe = this.redis.multi();
     for (const id of ids) {
       const key = keyOf(date, id);
-      pipe.sadd(key, member);
+      pipe.pfadd(key, member);
       pipe.expire(key, RETENTION_SECONDS);
       pipe.zadd(ADS_REDIS.DIRTY, now.getTime(), `${date}:${id}`);
     }
@@ -194,8 +200,10 @@ export class AdTrackingService {
     return added;
   }
 
-  private visitorHash(date: string, v: AdVisitor): string {
-    const identity = v.sessionId ? `s:${v.sessionId}` : `a:${v.ip ?? ''}|${v.userAgent ?? ''}`;
+  /** Null when the visitor cannot be identified (no session, no valid IP): not counted. */
+  private visitorHash(date: string, v: AdVisitor): string | null {
+    const identity = v.sessionId ? `s:${v.sessionId}` : anonymousIdentity(v.ip);
+    if (!identity) return null;
     return createHmac('sha256', this.visitorKey)
       .update(`${date}|${identity}`)
       .digest('base64url')

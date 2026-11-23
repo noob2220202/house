@@ -22,6 +22,7 @@ import { agencyInboxWhere, agencyVisibleWhere } from './services/deal-request-ac
 const media: DealRequestMediaPort = {
   assertPhotosUsable: () => Promise.resolve(),
   publicUrl: (m, variant = 'medium') => `/media/${variant}/${m.storageKey}`,
+  discardPhotos: () => Promise.resolve(0),
 };
 const mapper = new DealRequestMapper(media);
 const AGENCY = '0190a0b0-0000-7000-8000-0000000000a1';

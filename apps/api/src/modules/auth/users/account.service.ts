@@ -3,6 +3,8 @@ import {
   AgencyMemberStatus,
   AgencyStatus,
   type AuthProvider,
+  DEAL_REQUEST_ACTIVE_STATUSES,
+  DealRequestStatus,
   type ConsentInput,
   type ConsentStatus,
   ErrorCode,
@@ -22,6 +24,7 @@ import { PII_SCRUB_DELAY_DAYS } from '../auth.constants';
 import { SessionService } from '../session/session.service';
 import { TermsService } from '../terms/terms.service';
 import { type ActiveMembership, UserSessionService } from './user-session.service';
+import { WithdrawnIdentityService } from './withdrawn-identity.service';
 
 export function toIdentitySummary(i: Identity): IdentitySummary {
   return {
@@ -69,6 +72,7 @@ export class AccountService {
     private readonly sessions: SessionService,
     private readonly userSessions: UserSessionService,
     private readonly terms: TermsService,
+    private readonly withdrawn: WithdrawnIdentityService,
   ) {}
 
   /**
@@ -161,8 +165,10 @@ export class AccountService {
 
   /**
    * 회원 탈퇴: soft delete now (status, sessions, identities, agency memberships), PII scrubbed by
-   * the PII scrub job after PII_SCRUB_DELAY_DAYS. Identities are removed immediately so the same
-   * social account can sign up again as a new member.
+   * the PII scrub job after PII_SCRUB_DELAY_DAYS. Identities are removed at once, but a tombstone
+   * keeps the same social account from signing up again for REJOIN_COOLDOWN_DAYS. Live 내놓기/구하기
+   * requests are cancelled and their contacts erased in the same transaction, so no agency can
+   * reveal them after this point. A suspended member cannot withdraw (no escaping moderation).
    */
   async withdraw(principal: UserPrincipal, dto: WithdrawInput, res: Response): Promise<void> {
     const now = new Date();
@@ -172,6 +178,9 @@ export class AccountService {
         select: { status: true },
       });
       if (!user || user.status === UserStatus.WITHDRAWN) throw AppException.unauthenticated();
+      if (user.status === UserStatus.SUSPENDED) {
+        throw AppException.forbidden(ErrorCode.AUTH_WITHDRAW_SUSPENDED);
+      }
       const ownsAgency = await tx.agency.count({
         where: {
           ownerUserId: principal.userId,
@@ -181,7 +190,13 @@ export class AccountService {
       });
       if (ownsAgency > 0) throw AppException.conflict(ErrorCode.AUTH_WITHDRAW_AGENCY_OWNER);
       await this.detachMemberships(tx, principal.userId, now);
+      const identities = await tx.identity.findMany({
+        where: { userId: principal.userId },
+        select: { provider: true, providerUserId: true },
+      });
+      await this.withdrawn.record(tx, principal.userId, identities, now);
       await tx.identity.deleteMany({ where: { userId: principal.userId } });
+      await this.closeDealRequests(tx, principal.userId, now);
       await tx.user.update({
         where: { id: principal.userId },
         data: {
@@ -195,6 +210,25 @@ export class AccountService {
     });
     await this.sessions.destroyAllForSubject('USER', principal.userId);
     this.sessions.clearCookies(res, 'USER');
+  }
+
+  /**
+   * Cancels the member's live deal requests, revokes every contact grant and erases the typed
+   * contact + 동·호. The deal-requests maintenance job later stamps contactScrubbedAt (idempotent).
+   */
+  private async closeDealRequests(tx: PrismaTx, userId: string, now: Date): Promise<void> {
+    await tx.dealRequest.updateMany({
+      where: { userId, status: { in: [...DEAL_REQUEST_ACTIVE_STATUSES] } },
+      data: { status: DealRequestStatus.CANCELLED, closedAt: now },
+    });
+    await tx.dealRequestContactGrant.updateMany({
+      where: { dealRequest: { userId }, revokedAt: null },
+      data: { revokedAt: now },
+    });
+    await tx.dealRequest.updateMany({
+      where: { userId },
+      data: { contactName: '', contactPhone: '', addressDetail: null },
+    });
   }
 
   private async detachMemberships(tx: PrismaTx, userId: string, now: Date): Promise<void> {

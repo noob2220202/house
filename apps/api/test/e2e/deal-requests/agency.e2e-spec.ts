@@ -153,6 +153,68 @@ describe('deal-requests: agency inbox + proposals (e2e)', () => {
       expect((await withSession(t.http().get(url), b.s).expect(200)).body.contact).toBeNull();
     });
 
+    it('contact disappears at once when the granting requester withdraws (request CANCELLED)', async () => {
+      const b = await broker(t);
+      const { user, s } = await requester(t);
+      const req = await dealRequest(t.prisma, user.id);
+      await proposal(t.prisma, req.id, b.agency.id);
+      await t.prisma.dealRequestContactGrant.create({
+        data: { dealRequestId: req.id, agencyId: b.agency.id },
+      });
+      const url = `/api/v1/agency/deal-requests/${req.id}`;
+      expect((await withSession(t.http().get(url), b.s).expect(200)).body.contact).not.toBeNull();
+
+      await withSession(t.http().post('/api/v1/me/withdraw'), s)
+        .send({ confirm: true })
+        .expect(204);
+      const row = await t.prisma.dealRequest.findUniqueOrThrow({ where: { id: req.id } });
+      expect(row.status).toBe(DealRequestStatus.CANCELLED);
+      // Not even the proposing agency can open it any more, and no contact leaks via the list.
+      await withSession(t.http().get(url), b.s).expect(404);
+      const list = await withSession(t.http().get('/api/v1/agency/deal-requests'), b.s).expect(200);
+      expect(ids(list.body)).not.toContain(req.id);
+      expect(JSON.stringify(list.body)).not.toContain('01012345678');
+    });
+
+    it('withdrawn before any scrub: proposer gets 404; contact never served', async () => {
+      const b = await broker(t);
+      const { user } = await requester(t);
+      const req = await dealRequest(t.prisma, user.id, { status: DealRequestStatus.MATCHED });
+      await proposal(t.prisma, req.id, b.agency.id, { status: ProposalStatus.ACCEPTED });
+      await t.prisma.dealRequestContactGrant.create({
+        data: { dealRequestId: req.id, agencyId: b.agency.id },
+      });
+      // Status flipped without the withdrawal flow (e.g. a direct admin/DB action, jobs off).
+      await t.prisma.user.update({
+        where: { id: user.id },
+        data: { status: UserStatus.WITHDRAWN },
+      });
+      await withSession(t.http().get(`/api/v1/agency/deal-requests/${req.id}`), b.s).expect(404);
+    });
+
+    it('a suspended requester’s contact is hidden from granted agencies until reinstated', async () => {
+      const b = await broker(t);
+      const { user } = await requester(t);
+      const req = await dealRequest(t.prisma, user.id, { status: DealRequestStatus.MATCHED });
+      await proposal(t.prisma, req.id, b.agency.id, { status: ProposalStatus.ACCEPTED });
+      await t.prisma.dealRequestContactGrant.create({
+        data: { dealRequestId: req.id, agencyId: b.agency.id },
+      });
+      const url = `/api/v1/agency/deal-requests/${req.id}`;
+      await t.prisma.user.update({
+        where: { id: user.id },
+        data: { status: UserStatus.SUSPENDED },
+      });
+      const suspended = await withSession(t.http().get(url), b.s).expect(200);
+      expect(suspended.body.contact).toBeNull();
+      const list = await withSession(t.http().get('/api/v1/agency/deal-requests'), b.s).expect(200);
+      expect(JSON.stringify(list.body)).not.toContain('01012345678');
+      await t.prisma.user.update({ where: { id: user.id }, data: { status: UserStatus.ACTIVE } });
+      expect((await withSession(t.http().get(url), b.s).expect(200)).body.contact).toMatchObject({
+        phone: '01012345678',
+      });
+    });
+
     it('404 for requests the agency cannot see', async () => {
       const b = await broker(t);
       const { user } = await requester(t);

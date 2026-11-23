@@ -20,39 +20,55 @@ profile, and the 표시·광고 disclosure data listings need. Read `docs/CONVEN
 | `clients/broker-registry.client.ts`        | registry lookup interface + data.go.kr implementation (`BROKER_REGISTRY` token)        |
 | `ports/agency-media.port.ts`               | media checks / URLs until MediaService exposes them (`AGENCY_MEDIA`)                   |
 | `ports/agency-listings.reader.ts`          | listing counts + 대표 매물 until ListingsModule exposes a reader                       |
+| `ports/agency-listings.sync.ts`            | listing side effects: counters on suspend/reinstate, contacts of departed staff        |
 
 Shared schemas, types, rules (status transitions, 등록번호/사업자번호 normalization), business-hours
 and disclosure helpers live in `packages/shared/src/agencies/`.
 
 ## Endpoints (prefix `/api/v1`)
 
-| Method       | Path                                                      | Auth                      | Notes                                                    |
-| ------------ | --------------------------------------------------------- | ------------------------- | -------------------------------------------------------- |
-| GET          | `/agencies?q&emdCode&bbox&specialties&sort&page&pageSize` | Public                    | APPROVED only; trigram on name / 대표 / address          |
-| GET          | `/agencies/map?bbox&zoom&q&specialties`                   | Public                    | REGION_CLUSTERS / GRID_CLUSTERS / MARKERS by zoom        |
-| GET          | `/agencies/:id`                                           | Public                    | profile, staff, listing counts, 대표 매물, disclosure    |
-| POST         | `/agencies`                                               | User                      | 등록 신청 → PENDING (needs a REGISTRATION_CERT document) |
-| GET          | `/agencies/mine`                                          | User (owner)              | own agency, any status, documents + status history       |
-| PATCH        | `/agencies/mine`                                          | User (owner)              | profile only (PENDING/APPROVED); logo                    |
-| POST         | `/agencies/mine/resubmit`                                 | User (owner)              | REJECTED → PENDING                                       |
-| GET/POST     | `/agencies/mine/documents`                                | User (owner)              | private document refs (media AGENCY_DOCUMENT, PRIVATE)   |
-| DELETE       | `/agencies/mine/documents/:docId`                         | User (owner)              | only before approval; keeps ≥ 1 등록증                   |
-| GET          | `/agencies/mine/members`                                  | AGENCY_OWNER              | paginated, `includeRemoved`                              |
-| PATCH/DELETE | `/agencies/mine/members/:memberId`                        | AGENCY_OWNER              | remove downgrades the agent to USER + updates sessions   |
-| GET/POST     | `/agencies/mine/invites`                                  | AGENCY_OWNER              | code returned once on creation                           |
-| DELETE       | `/agencies/mine/invites/:inviteId`                        | AGENCY_OWNER              |                                                          |
-| POST         | `/agencies/join`                                          | User                      | redeem code → AGENT (THROTTLE.AUTH)                      |
-| GET          | `/agencies/membership`                                    | User                      | caller's live membership                                 |
-| POST         | `/agencies/membership/leave`                              | User (agent)              | owners cannot leave                                      |
-| GET          | `/admin/agencies?status&q&sort&page`                      | Admin (OPERATOR+)         | review queue (status=PENDING, oldest first)              |
-| GET          | `/admin/agencies/:id`                                     | Admin                     | detail incl. owner contact, members, warnings            |
-| POST         | `/admin/agencies/:id/decision`                            | Admin (SUSPENDED: ADMIN+) | APPROVED / REJECTED / SUSPENDED (+reason), audited       |
-| GET          | `/admin/agencies/:id/documents/:docId/file`               | Admin                     | streams the private file, `no-store`, view audited       |
-| GET          | `/admin/agencies/:id/registry-check?refresh`              | Admin                     | MATCH / MISMATCH / NOT_FOUND / UNAVAILABLE               |
+| Method       | Path                                                      | Auth                              | Notes                                                    |
+| ------------ | --------------------------------------------------------- | --------------------------------- | -------------------------------------------------------- |
+| GET          | `/agencies?q&emdCode&bbox&specialties&sort&page&pageSize` | Public                            | APPROVED only; trigram on name / 대표 / address          |
+| GET          | `/agencies/map?bbox&zoom&q&specialties`                   | Public                            | REGION_CLUSTERS / GRID_CLUSTERS / MARKERS by zoom        |
+| GET          | `/agencies/:id`                                           | Public                            | profile, staff, listing counts, 대표 매물, disclosure    |
+| POST         | `/agencies`                                               | User                              | 등록 신청 → PENDING (needs a REGISTRATION_CERT document) |
+| GET          | `/agencies/mine`                                          | User (owner)                      | own agency, any status, documents + status history       |
+| PATCH        | `/agencies/mine`                                          | User (owner)                      | profile (PENDING/APPROVED); APPROVED: 소재지 → 400 \*    |
+| POST         | `/agencies/mine/resubmit`                                 | User (owner)                      | REJECTED → PENDING; 409 if active in another agency      |
+| GET/POST     | `/agencies/mine/documents`                                | User (owner)                      | private document refs (media AGENCY_DOCUMENT, PRIVATE)   |
+| DELETE       | `/agencies/mine/documents/:docId`                         | User (owner)                      | only before approval; keeps ≥ 1 등록증                   |
+| GET          | `/agencies/mine/members`                                  | AGENCY_OWNER                      | paginated, `includeRemoved`                              |
+| PATCH/DELETE | `/agencies/mine/members/:memberId`                        | AGENCY_OWNER                      | remove downgrades the agent to USER + updates sessions   |
+| GET/POST     | `/agencies/mine/invites`                                  | AGENCY_OWNER                      | code returned once on creation                           |
+| DELETE       | `/agencies/mine/invites/:inviteId`                        | AGENCY_OWNER                      |                                                          |
+| POST         | `/agencies/join`                                          | User                              | redeem code → AGENT (THROTTLE.AUTH)                      |
+| GET          | `/agencies/membership`                                    | User                              | caller's live membership                                 |
+| POST         | `/agencies/membership/leave`                              | User (agent)                      | owners cannot leave                                      |
+| GET          | `/admin/agencies?status&q&sort&page`                      | Admin (OPERATOR+)                 | review queue (status=PENDING, oldest first)              |
+| GET          | `/admin/agencies/:id`                                     | Admin                             | detail incl. owner contact, members, warnings            |
+| POST         | `/admin/agencies/:id/decision`                            | Admin (suspend/reinstate: ADMIN+) | APPROVED / REJECTED / SUSPENDED (+reason), audited       |
+| PATCH        | `/admin/agencies/:id/location`                            | Admin (OPERATOR+)                 | 소재지 change after 이전신고 check (+reason), audited    |
+| GET          | `/admin/agencies/:id/documents/:docId/file`               | Admin                             | streams the private file, `no-store`, view audited       |
+| GET          | `/admin/agencies/:id/registry-check?refresh`              | Admin                             | MATCH / MISMATCH / NOT_FOUND / UNAVAILABLE               |
 
 Status machine (admin): PENDING → APPROVED | REJECTED, APPROVED → SUSPENDED, SUSPENDED → APPROVED.
 Owner: REJECTED → PENDING (resubmit). First approval sets the owner's role to AGENCY_OWNER and updates
 their live sessions; rejection detaches the session agency; suspension revokes open invite codes.
+Suspending or reinstating needs ADMIN (keyed on the transition, so an OPERATOR cannot lift a
+suspension). Listings are public only while their primary agency is APPROVED (listings module rule);
+on suspend/reinstate the counters of affected complexes/agencies are recomputed and the listing search
+cache is bumped. A user who joined another office after a rejection cannot resubmit (409).
+
+\* 소재지 (road/jibun address, detail, zip, 읍면동, lat/lng) is on the 등록증 and in every ad's
+disclosure, so once APPROVED the owner gets `400 AGENCY_NOT_EDITABLE` with
+`details.fields` / `reason: LOCATION_REQUIRES_REVIEW`; an admin applies it via
+`PATCH /admin/agencies/:id/location` after checking the 이전신고. 연락처 (phone/mobile/email) changes
+of an approved office are allowed and audited (`agency.contact.update`).
+
+등록번호 is stored canonically (`46150-2020-00012`, upper-case, single hyphens) and is unique on the
+generated column `registration_key` (letters/digits/한글 only), so spellings differing in
+punctuation or case are duplicates. Removing / leaving staff moves their listing contacts to the 대표.
 
 ## For other modules
 

@@ -1,19 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { UserStatus } from '@house/shared';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { WithdrawnIdentityService } from '../users/withdrawn-identity.service';
 
 const BATCH_SIZE = 200;
 
 /**
- * Scrubs personal data of withdrawn members once their grace period (piiScrubAfter) has passed.
+ * Scrubs personal data of withdrawn members once their grace period (piiScrubAfter) has passed:
+ * profile fields, identities, consent ip/UA, phone + ip on their reports, and their notifications,
+ * recent views and favorites. Also drops expired rejoin-cooldown tombstones.
  * Idempotent: only rows not yet scrubbed are touched, so re-running (or a retry) is harmless.
  * The User row itself stays (FKs from listings, reports, audit) as an anonymous tombstone.
+ * Deal-request contacts are erased at withdrawal time (AccountService.withdraw).
  */
 @Injectable()
 export class PiiScrubService {
   private readonly logger = new Logger(PiiScrubService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly withdrawn: WithdrawnIdentityService,
+  ) {}
 
   async scrubDue(now: Date = new Date()): Promise<number> {
     let total = 0;
@@ -32,6 +39,14 @@ export class PiiScrubService {
           where: { userId: { in: ids } },
           data: { ip: null, userAgent: null },
         }),
+        this.prisma.report.updateMany({
+          where: { reporterUserId: { in: ids } },
+          data: { reporterPhone: null, ip: null },
+        }),
+        this.prisma.notification.deleteMany({ where: { userId: { in: ids } } }),
+        this.prisma.recentView.deleteMany({ where: { userId: { in: ids } } }),
+        this.prisma.favoriteListing.deleteMany({ where: { userId: { in: ids } } }),
+        this.prisma.favoriteComplex.deleteMany({ where: { userId: { in: ids } } }),
         this.prisma.user.updateMany({
           where: { id: { in: ids }, piiScrubbedAt: null },
           data: {
@@ -50,6 +65,8 @@ export class PiiScrubService {
       if (batch.length < BATCH_SIZE) break;
     }
     if (total > 0) this.logger.log({ count: total }, 'scrubbed PII of withdrawn members');
+    const purged = await this.withdrawn.purgeExpired(now);
+    if (purged > 0) this.logger.log({ count: purged }, 'purged expired rejoin-cooldown tombstones');
     return total;
   }
 }

@@ -120,11 +120,13 @@ export const proposalCreateSchema = z.object({
 });
 export type ProposalCreateInput = z.infer<typeof proposalCreateSchema>;
 
-/** Accepting a proposal; `shareContact` is the explicit consent to reveal contact to that agency. */
-export const proposalAcceptSchema = z
-  .object({ shareContact: z.boolean().default(true) })
-  .optional()
-  .transform((v) => v ?? { shareContact: true });
+/**
+ * Accepting a proposal. `shareContact` is required: revealing name, phone and 동·호 to the agency is
+ * a third-party provision of personal data (개인정보보호법 제17조), so it needs an explicit opt-in.
+ */
+export const proposalAcceptSchema = z.object({
+  shareContact: z.boolean({ error: '연락처 공개 여부를 선택해 주세요.' }),
+});
 export type ProposalAcceptInput = z.infer<typeof proposalAcceptSchema>;
 
 export const agencyDealRequestListQuerySchema = paginationQuerySchema.extend({

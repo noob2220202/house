@@ -26,12 +26,18 @@ import {
 import { AdServeService } from '../services/ad-serve.service';
 import { AdTrackingService, type AdVisitor } from '../services/ad-tracking.service';
 
+const header = (req: Request, name: string, max: number): string | null => {
+  const v = req.headers[name];
+  return typeof v === 'string' ? v.slice(0, max) : null;
+};
+
 function visitorOf(req: Request): AdVisitor {
-  const ua = req.headers['user-agent'];
   return {
     sessionId: req.principal?.sessionId ?? null,
     ip: req.ip ?? null,
-    userAgent: typeof ua === 'string' ? ua.slice(0, 500) : null,
+    userAgent: header(req, 'user-agent', 500),
+    fetchDest: header(req, 'sec-fetch-dest', 32),
+    fetchMode: header(req, 'sec-fetch-mode', 32),
   };
 }
 

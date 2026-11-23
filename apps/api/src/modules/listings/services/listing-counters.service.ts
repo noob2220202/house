@@ -1,4 +1,4 @@
-import { ListingAgencyStatus, PUBLIC_LISTING_STATUSES } from '@house/shared';
+import { AgencyStatus, ListingAgencyStatus, PUBLIC_LISTING_STATUSES } from '@house/shared';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CacheService } from '../../../common/cache/cache.service';
@@ -8,6 +8,10 @@ import { LISTINGS_SEARCH_CACHE_NS } from '../constants';
 const PUBLIC_STATUSES = Prisma.join(
   PUBLIC_LISTING_STATUSES.map((s) => Prisma.sql`${s}::listing_status`),
 );
+/** Same visibility rule as public search: the primary agency must be approved. */
+const PRIMARY_APPROVED = Prisma.sql`EXISTS (SELECT 1 FROM agencies pa
+  WHERE pa.id = l.primary_agency_id AND pa.status = ${AgencyStatus.APPROVED}::agency_status
+    AND pa.deleted_at IS NULL)`;
 
 /**
  * Side effects of a change to publicly visible listing data: recompute the denormalized
@@ -29,6 +33,7 @@ export class ListingCountersService {
         UPDATE complexes c SET active_listing_count = (
           SELECT count(*)::int FROM listings l
           WHERE l.complex_id = c.id AND l.deleted_at IS NULL AND l.status IN (${PUBLIC_STATUSES})
+            AND ${PRIMARY_APPROVED}
         )
         WHERE c.id = ANY(${complexIds}::uuid[])`;
     }
@@ -40,6 +45,7 @@ export class ListingCountersService {
           WHERE la.agency_id = a.id
             AND la.status = ${ListingAgencyStatus.ACTIVE}::listing_agency_status
             AND l.deleted_at IS NULL AND l.status IN (${PUBLIC_STATUSES})
+            AND ${PRIMARY_APPROVED}
         )
         WHERE a.id = ANY(${agencyIds}::uuid[])`;
     }

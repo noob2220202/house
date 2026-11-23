@@ -17,6 +17,7 @@ import {
   regionListQuerySchema,
   regionUpsertSchema,
   tradeRematchRequestSchema,
+  tradeSyncJobParamSchema,
   tradeSyncRequestSchema,
   tradeSyncRunsQuerySchema,
 } from '@house/shared';
@@ -43,4 +44,5 @@ export class ComplexPhotosDto extends createZodDto(complexPhotosInputSchema) {}
 export class TradeSyncRequestDto extends createZodDto(tradeSyncRequestSchema) {}
 export class TradeSyncRunsQueryDto extends createZodDto(tradeSyncRunsQuerySchema) {}
 export class TradeRematchRequestDto extends createZodDto(tradeRematchRequestSchema) {}
+export class TradeSyncJobParamDto extends createZodDto(tradeSyncJobParamSchema) {}
 export class RegionUpsertDto extends createZodDto(regionUpsertSchema) {}

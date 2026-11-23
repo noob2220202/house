@@ -24,6 +24,7 @@ import {
 import { SessionService } from '../session/session.service';
 import { PendingSignupStore } from '../signup/pending-signup.store';
 import { UserSessionService } from '../users/user-session.service';
+import { WithdrawnIdentityService } from '../users/withdrawn-identity.service';
 import { type OAuthProfile, OAuthProviderError } from './oauth-provider';
 import { OAuthProviderRegistry } from './oauth-registry';
 import {
@@ -58,6 +59,7 @@ export class OAuthService {
     private readonly sessions: SessionService,
     private readonly prisma: PrismaService,
     private readonly config: AppConfig,
+    private readonly withdrawn: WithdrawnIdentityService,
   ) {}
 
   /** Returns the provider authorization URL to redirect the browser to. */
@@ -163,6 +165,10 @@ export class OAuthService {
     });
 
     if (!identity) {
+      if (await this.withdrawn.inCooldown(profile)) {
+        this.logger.warn({ provider: profile.provider }, 'signup refused: rejoin cooldown');
+        return { error: ErrorCode.AUTH_REJOIN_COOLDOWN };
+      }
       const token = await this.pending.create(profile, record.returnTo);
       res.cookie(AUTH_COOKIES.PENDING_SIGNUP, token, {
         ...this.sessions.baseCookie(),

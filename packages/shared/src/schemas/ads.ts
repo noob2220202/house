@@ -1,7 +1,7 @@
 // Owned by the ads module team.
 import { z } from 'zod';
 import { isSafeAdLinkUrl } from '../ads/link';
-import { POPUP_MAX_DISMISS_DAYS } from '../constants/ads';
+import { BANNER_SLOT_SPECS, POPUP_MAX_DISMISS_DAYS } from '../constants/ads';
 import { BannerSlot, BannerStatus, BannerTargeting, PopupPage } from '../enums/ads';
 import {
   dateOnlySchema,
@@ -109,6 +109,32 @@ export function checkBannerTargeting(v: TargetingLike, ctx: z.RefinementCtx): vo
   }
 }
 
+interface SlotRulesLike {
+  slot: BannerSlot;
+  agencyId?: string | null | undefined;
+  targeting?: BannerTargeting | undefined;
+}
+
+/** What the slot means (BANNER_SLOT_SPECS): mandatory advertiser agency and/or targeting. */
+export function checkBannerSlotRules(v: SlotRulesLike, ctx: z.RefinementCtx): void {
+  const spec = BANNER_SLOT_SPECS[v.slot];
+  if (spec.requiresAgency && !v.agencyId) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['agencyId'],
+      message: `'${spec.label}' 영역 배너에는 광고주 중개사무소를 지정해야 합니다.`,
+    });
+  }
+  if (spec.requiredTargeting && v.targeting !== spec.requiredTargeting) {
+    const label = spec.requiredTargeting === BannerTargeting.COMPLEXES ? '단지' : '지역';
+    ctx.addIssue({
+      code: 'custom',
+      path: ['targeting'],
+      message: `'${spec.label}' 영역 배너는 ${label} 타게팅만 사용할 수 있습니다.`,
+    });
+  }
+}
+
 export const bannerCreateSchema = z
   .object({
     ...bannerFields,
@@ -127,6 +153,7 @@ export const bannerCreateSchema = z
   .superRefine((v, ctx) => {
     checkAdWindow(v, ctx);
     checkBannerTargeting(v, ctx);
+    checkBannerSlotRules(v, ctx);
   });
 export type BannerCreateInput = z.output<typeof bannerCreateSchema>;
 

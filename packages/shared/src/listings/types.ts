@@ -131,18 +131,26 @@ export interface ListingDetail extends ListingSummary {
 export interface AgencyListingDetail extends Omit<ListingDetail, 'agencies' | 'property'> {
   property: ListingDetail['property'] & {
     id: string;
+    /** 호 — only the primary agency sees it (null for co-brokers). */
     ho: string | null;
     emdCode: string | null;
     complexId: string | null;
     areaTypeId: string | null;
   };
+  /** Primary agency only (null for co-brokers). */
   hiddenReason: string | null;
   closedAt: string | null;
+  /** End of the current ad period (ACTIVE/RESERVED listings revert to DRAFT after it). */
+  expiresAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Send back as `version` on PATCH to detect concurrent edits. */
+  version: number;
   isPrimaryAgency: boolean;
+  /** The primary sees every row (incl. PENDING requests); co-brokers see ACTIVE rows + their own. */
   agencies: (ListingAgencyDisclosure & {
     status: ListingAgencyStatus;
+    /** Only on the caller's own row (null on other agencies' rows). */
     contactMemberId: string | null;
     joinedAt: string;
   })[];
@@ -227,4 +235,12 @@ export interface RecentViewItem {
   listing?: ListingSummary;
   complex?: { id: string; name: string; roadAddress: string | null };
   agency?: { id: string; name: string; roadAddress: string };
+}
+
+/** Result of POST /agency/listings/:id/co-brokers: a request the primary agency must accept. */
+export interface CoBrokerRequestResult {
+  listingId: string;
+  agencyId: string;
+  status: ListingAgencyStatus;
+  requestedAt: string;
 }

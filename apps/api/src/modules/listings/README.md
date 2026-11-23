@@ -24,14 +24,16 @@ All paths are under the global prefix `/api/v1`. Default is authenticated; publi
 | GET    | `/listings/:id` (counts a deduped view + recent view)     | Public                                    |
 | GET    | `/agency/listings?statuses&dealTypes&primaryOnly&page`    | AGENT / AGENCY_OWNER (own agency)         |
 | POST   | `/agency/listings` (DRAFT)                                | AGENT / AGENCY_OWNER                      |
-| GET    | `/agency/listings/:id` (includes 호, private note)        | member of a participating agency          |
-| PATCH  | `/agency/listings/:id`                                    | member of a participating agency          |
+| GET    | `/agency/listings/:id` (호/hidden reason: primary only)   | member of a participating agency          |
+| PATCH  | `/agency/listings/:id` (co-brokers: `contact` only)       | member of a participating agency          |
 | DELETE | `/agency/listings/:id` (soft delete)                      | primary agency member                     |
 | POST   | `/agency/listings/:id/publish` (명시사항 check)           | primary agency member                     |
 | POST   | `/agency/listings/:id/status`                             | primary agency member                     |
-| POST   | `/agency/listings/:id/verifications` (실매물 확인)        | member of a participating agency          |
-| PUT    | `/agency/listings/:id/photos` (order + cover)             | member of a participating agency          |
-| POST   | `/agency/listings/:id/co-brokers` (join)                  | AGENCY_OWNER                              |
+| POST   | `/agency/listings/:id/verifications` (실매물 확인)        | primary agency member                     |
+| PUT    | `/agency/listings/:id/photos` (order + cover)             | primary agency member                     |
+| POST   | `/agency/listings/:id/co-brokers` (request → PENDING)     | AGENCY_OWNER                              |
+| POST   | `/agency/listings/:id/co-brokers/:agencyId/accept`        | AGENCY_OWNER of the primary agency        |
+| POST   | `/agency/listings/:id/co-brokers/:agencyId/reject`        | AGENCY_OWNER of the primary agency        |
 | DELETE | `/agency/listings/:id/co-brokers` (leave)                 | AGENCY_OWNER (co-broker)                  |
 | DELETE | `/agency/listings/:id/co-brokers/:agencyId` (remove)      | AGENCY_OWNER of the primary agency        |
 | GET    | `/me/favorites/listings` · PUT/DELETE `…/:id`             | User                                      |
@@ -41,6 +43,25 @@ Listings of agencies the caller doesn't participate in answer 404; co-brokers ca
 actions get 403 `LISTING_PRIMARY_AGENCY_ONLY`.
 
 ## Design notes
+
+- 공동중개 needs consent: a request is `PENDING` (no access, not public) until the primary accepts.
+  Leaving → `WITHDRAWN` (may request again); removal/rejection by the primary → `REMOVED` (403
+  `LISTING_CO_BROKER_REMOVED` on a new request; only the primary can accept it back). Co-brokers
+  never see 호, the hidden reason or other agencies' member ids, and may only change their own contact.
+- Ad contact (제18조의2①): only the 개업공인중개사 (OWNER) or a 소속공인중개사 (`isLicensed`) may be
+  shown. A 중개보조원's listings fall back to the agency's OWNER; explicit unlicensed contacts → 400.
+- Public visibility also requires an APPROVED, non-deleted primary agency (SQL `NOT IN` hashed filter /
+  `PUBLIC_PRIMARY_AGENCY_WHERE`). The agencies module should call
+  `ListingsModerationService.onAgencyStatusChanged(agencyId)` after a status change (counters + cache).
+- Concurrency: `listings.version` is bumped by every content/status write; writes are
+  `updateMany … where version = loaded version` → 409 `LISTING_CONCURRENT_MODIFICATION`. Clients may
+  send `version` on PATCH.
+- 광고기간: publish sets `expiresAt = now + LISTING_AD_TTL_DAYS`; a 실매물 확인 extends it. The
+  `listings.expire-ads` job (queue `cleanup`, hourly) moves overdue ACTIVE/RESERVED ads to DRAFT and
+  notifies the primary agency's owner. Republishing keeps the first `publishedAt` (no free 끌어올리기).
+- Region guard: `emdCode` must be in REGION_SGG_CODE and is required to publish; the point must lie
+  within `SERVICE_REGION_RADIUS_M` of the 시군구 centroid and `EMD_MAX_DISTANCE_M` of the 법정동 centroid
+  (when the regions table has them).
 
 - Status: DRAFT →(publish) ACTIVE ↔ RESERVED → CLOSED → DRAFT; ACTIVE/RESERVED → DRAFT (내리기).
   HIDDEN is admin-only via the exported `ListingsModerationService.hide/unhide` (unhide → DRAFT).

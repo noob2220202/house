@@ -48,6 +48,10 @@ usage() {
   --skip-timezone             시간대(Asia/Seoul) 설정 생략
   --skip-pm2-startup          PM2 부팅 자동 시작(systemd) 등록 생략
   --nginx-only                nginx 설정만 다시 생성하고 종료 (deploy.conf 값 사용)
+  --kit-only                  배포 스크립트(/srv/house/bin)만 root 소유로 다시 설치하고 종료.
+                              저장소 체크아웃에서 실행하면 그 deploy/ 를, /srv/house/bin 에서 실행하면
+                              REPO_URL 에서 root 가 직접 받은 deploy/ 를 설치합니다.
+  --kit-ref <브랜치|커밋>     --kit-only 로 받을 브랜치 또는 전체 커밋 해시 (기본: deploy.conf 의 BRANCH)
   -h, --help                  도움말
 
 systemd가 없는 환경(컨테이너 등)에서는 UFW·fail2ban·PM2 startup·서비스 enable을 자동으로 건너뜁니다.
@@ -58,7 +62,7 @@ EOF
 OPT_DOMAIN="" OPT_EMAIL="" OPT_REPO="" OPT_BRANCH="" OPT_ADMIN_SUB="admin"
 OPT_DB_NAME="" OPT_DB_USER="" OPT_REDIS_PORT="" OPT_SSH_PORT=22
 NO_TLS=false STAGING=false SKIP_UPGRADE=false SKIP_FIREWALL=false SKIP_FAIL2BAN=false
-SKIP_SWAP=false SKIP_TIMEZONE=false SKIP_PM2_STARTUP=false NGINX_ONLY=false
+SKIP_SWAP=false SKIP_TIMEZONE=false SKIP_PM2_STARTUP=false NGINX_ONLY=false KIT_ONLY=false OPT_KIT_REF=""
 
 need_arg() { [[ $# -ge 2 && -n "$2" && "$2" != --* ]] || die "옵션 $1 에 값이 필요합니다."; }
 while [[ $# -gt 0 ]]; do
@@ -81,6 +85,8 @@ while [[ $# -gt 0 ]]; do
     --skip-timezone) SKIP_TIMEZONE=true; shift ;;
     --skip-pm2-startup) SKIP_PM2_STARTUP=true; shift ;;
     --nginx-only) NGINX_ONLY=true; shift ;;
+    --kit-only) KIT_ONLY=true; shift ;;
+    --kit-ref) need_arg "$@"; OPT_KIT_REF="$2"; shift 2 ;;
     -h | --help) usage; exit 0 ;;
     *) usage >&2; die "알 수 없는 옵션: $1" ;;
   esac
@@ -88,8 +94,67 @@ done
 
 [[ $EUID -eq 0 ]] || die "root 권한이 필요합니다: sudo $0 $*"
 
-# Previous answers (re-runs, --nginx-only) come from deploy.conf; flags override them.
+# Previous answers (re-runs, --nginx-only) come from deploy.conf (parsed and validated, never
+# sourced); flags override them.
 load_conf
+
+# ─── deploy kit (bin/) ──────────────────────────────────────────────────────────────────────
+# Root runs bin/, so it is only ever written here, as root, from a source root trusts: the
+# checkout this script runs from, or REPO_URL fetched by root itself (root-owned known_hosts;
+# the service user's mirror is not trusted).
+install_kit_links() {
+  local s
+  for s in deploy rollback status backup restore create-admin db-shell; do
+    [[ -f "$BIN_DIR/$s.sh" ]] && ln -sfn "$BIN_DIR/$s.sh" "$HOUSE_ROOT/$s.sh"
+  done
+  return 0
+}
+
+kit_from_repo() {
+  local ref="$1" tmp key="/home/$HOUSE_USER/.ssh/id_ed25519" want
+  [[ -n "$REPO_URL" ]] || die "REPO_URL이 없습니다. 저장소 체크아웃 안의 deploy/install.sh --kit-only 로 실행하세요."
+  if [[ "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+    want="$ref"
+  elif [[ "$ref" =~ ^[0-9a-f]{7,39}$ ]]; then
+    die "--kit-ref 는 전체 커밋 해시(40자) 또는 브랜치 이름이어야 합니다."
+  else
+    conf_valid BRANCH "$ref" || die "--kit-ref 형식이 올바르지 않습니다: $ref"
+    want="refs/heads/$ref"
+  fi
+  tmp="$(mktemp -d)"
+  local -a ssh_cmd=(ssh -F /dev/null -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
+    -o "UserKnownHostsFile=$KNOWN_HOSTS_FILE")
+  if [[ -f "$key" && ! -L "$key" ]]; then
+    install -m 0600 -o root -g root "$key" "$tmp/key"
+    ssh_cmd+=(-i "$tmp/key")
+  fi
+  git init -q --bare "$tmp/repo"
+  if ! GIT_SSH_COMMAND="${ssh_cmd[*]}" git -C "$tmp/repo" -c protocol.version=2 fetch -q --depth 1 "$REPO_URL" "$want"; then
+    rm -rf "$tmp"
+    die "저장소에서 배포 스크립트를 받지 못했습니다: $REPO_URL $ref"
+  fi
+  mkdir "$tmp/kit"
+  git -C "$tmp/repo" archive FETCH_HEAD deploy | tar -x --no-same-owner -C "$tmp/kit"
+  log "받은 커밋: $(git -C "$tmp/repo" rev-parse FETCH_HEAD)"
+  kit_install "$tmp/kit/deploy" "$BIN_DIR"
+  rm -rf "$tmp"
+}
+
+if $KIT_ONLY; then
+  [[ -d "$HOUSE_ROOT" && ! -L "$HOUSE_ROOT" ]] || die "$HOUSE_ROOT 가 없습니다. 먼저 전체 install.sh 를 실행하세요."
+  chown root:root "$HOUSE_ROOT"
+  chmod 0755 "$HOUSE_ROOT"
+  step "배포 스크립트 설치 ($BIN_DIR, root 소유)"
+  if [[ "$SCRIPT_DIR" != "$(readlink -f "$BIN_DIR")" ]]; then
+    kit_install "$SCRIPT_DIR" "$BIN_DIR"
+  else
+    kit_from_repo "${OPT_KIT_REF:-$BRANCH}"
+  fi
+  install_kit_links
+  ok "배포 스크립트 갱신 완료"
+  exit 0
+fi
+
 DOMAIN="${OPT_DOMAIN:-$DOMAIN}"
 [[ -n "$DOMAIN" ]] || { usage >&2; die "--domain 이 필요합니다."; }
 if [[ -n "$OPT_DOMAIN" || -z "$ADMIN_DOMAIN" ]]; then ADMIN_DOMAIN="${OPT_ADMIN_SUB}.${DOMAIN}"; fi
@@ -100,23 +165,21 @@ DB_USER="${OPT_DB_USER:-$DB_USER}"
 REDIS_PORT="${OPT_REDIS_PORT:-6379}"
 if $NO_TLS; then TLS_ENABLED=false; elif ! $NGINX_ONLY; then TLS_ENABLED=true; fi
 
-DOMAIN_RE='^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$'
 [[ "$DOMAIN" =~ $DOMAIN_RE ]] || die "도메인 형식이 올바르지 않습니다: $DOMAIN (한글 도메인은 punycode xn--… 로 입력)"
 [[ "$ADMIN_DOMAIN" =~ $DOMAIN_RE ]] || die "관리자 도메인 형식이 올바르지 않습니다: $ADMIN_DOMAIN"
-[[ "$DB_NAME" =~ ^[a-z_][a-z0-9_]{0,62}$ ]] || die "--db-name 은 소문자/숫자/_ 만 허용됩니다."
-[[ "$DB_USER" =~ ^[a-z_][a-z0-9_]{0,62}$ ]] || die "--db-user 는 소문자/숫자/_ 만 허용됩니다."
-[[ "$REDIS_PORT" =~ ^[0-9]{2,5}$ ]] || die "--redis-port 가 올바르지 않습니다."
-[[ "$OPT_SSH_PORT" =~ ^[0-9]{1,5}$ ]] || die "--ssh-port 가 올바르지 않습니다."
-[[ "$BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]] || die "--branch 형식이 올바르지 않습니다."
-if [[ -n "$REPO_URL" && ! "$REPO_URL" =~ ^(https://|ssh://|git@|file://|/)[A-Za-z0-9@:/._~+-]+$ ]]; then
-  die "--repo 형식이 올바르지 않습니다: $REPO_URL"
-fi
+[[ "$DB_NAME" =~ $PG_IDENT_RE ]] || die "--db-name 은 소문자/숫자/_ 만 허용됩니다."
+[[ "$DB_USER" =~ $PG_IDENT_RE ]] || die "--db-user 는 소문자/숫자/_ 만 허용됩니다."
+is_port "$REDIS_PORT" || die "--redis-port 가 올바르지 않습니다."
+is_port "$OPT_SSH_PORT" || die "--ssh-port 가 올바르지 않습니다."
+conf_valid BRANCH "$BRANCH" || die "--branch 형식이 올바르지 않습니다."
+conf_valid REPO_URL "$REPO_URL" || die "--repo 형식이 올바르지 않습니다: $REPO_URL"
 if ! $NO_TLS && ! $NGINX_ONLY; then
   [[ "$OPT_EMAIL" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]] ||
     die "--email 이 필요합니다 (인증서 만료 알림용). 테스트라면 --no-tls 를 사용하세요."
 fi
 
 export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a # Ubuntu 22.04+: restart services after upgrades without a dialog
 APT_OPTS=(-y -q -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
 SUMMARY_WARNINGS=()
 note_warn() {
@@ -167,8 +230,11 @@ write_if_changed() {
   local dest="$1" mode="$2" owner="${3:-root:root}" tmp
   tmp="$(mktemp)"
   cat >"$tmp"
+  [[ -L "$dest" ]] && rm -f "$dest"
   if [[ -f "$dest" ]] && cmp -s "$tmp" "$dest"; then
     rm -f "$tmp"
+    chown "$owner" "$dest"
+    chmod "$mode" "$dest"
     return 1
   fi
   install -m "$mode" -o "${owner%%:*}" -g "${owner##*:}" "$tmp" "$dest"
@@ -179,9 +245,40 @@ write_if_changed() {
 rand_hex() { openssl rand -hex "$1"; }
 rand_b64() { openssl rand -base64 "$1" | tr -d '\n'; }
 
-as_house() { runuser -u "$HOUSE_USER" -- env HOME="/home/$HOUSE_USER" PATH="$PATH" COREPACK_ENABLE_DOWNLOAD_PROMPT=0 "$@"; }
+as_house() { run_as_house "$@"; }
+
+# Directories: anything inside a house-owned directory is created/changed AS house (a root
+# chown/chmod there could be redirected by a planted symlink); directories in root-owned
+# parents are handled by root after refusing symlinks.
+root_dir() {
+  local mode="$1" owner="$2" path="$3"
+  [[ -L "$path" ]] && die "$path 가 심볼릭 링크입니다. 확인 후 제거하고 다시 실행하세요."
+  install -d -m "$mode" -o "${owner%%:*}" -g "${owner##*:}" "$path"
+  chown "$owner" "$path"
+  chmod "$mode" "$path"
+}
+house_dir() {
+  local mode="$1" path="$2" group="${3:-$HOUSE_USER}"
+  if [[ "$(stat -c %U "$(dirname "$path")")" == "$HOUSE_USER" ]]; then
+    as_house install -d -m "$mode" "$path"
+  else
+    root_dir "$mode" "$HOUSE_USER:$group" "$path"
+  fi
+}
+# root_file <mode> <owner:group> <path>: an existing file is re-owned, a missing one created empty.
+root_file() {
+  local mode="$1" owner="$2" path="$3"
+  [[ -L "$path" ]] && rm -f "$path"
+  [[ -e "$path" && ! -f "$path" ]] && die "$path 가 일반 파일이 아닙니다."
+  [[ -f "$path" ]] || : >"$path"
+  chown "$owner" "$path"
+  chmod "$mode" "$path"
+}
 
 # ─── nginx (also used alone by --nginx-only) ────────────────────────────────────────────────
+CERT_PEM=/etc/letsencrypt/live/house/fullchain.pem
+cert_matches() { [[ -s "$CERT_PEM" ]] && cert_covers "$CERT_PEM" "$DOMAIN" "www.$DOMAIN" "$ADMIN_DOMAIN"; }
+
 render_template() {
   # render_template <src> <dest> ; replaces {{KEY}} placeholders, drops IPv6 listens if no IPv6
   local src="$1" dest="$2" hsts=""
@@ -222,7 +319,8 @@ configure_nginx() {
     install -m 0644 "$tpl/admin-allowlist.conf.example" /etc/nginx/house/admin-allowlist.conf
 
   local have_cert=false
-  [[ -s /etc/letsencrypt/live/house/fullchain.pem ]] && have_cert=true
+  # A certificate for other names (domain changed) would break TLS: bootstrap over HTTP instead.
+  cert_matches && have_cert=true
   if [[ "$TLS_ENABLED" == true && "$have_cert" == true ]]; then
     mode_tpl="$tpl/house.conf.template"
   else
@@ -351,36 +449,77 @@ if ! id "$HOUSE_USER" >/dev/null 2>&1; then
 else
   ok "사용자 존재: $HOUSE_USER"
 fi
-install -d -m 0755 -o "$HOUSE_USER" -g "$HOUSE_USER" "$HOUSE_ROOT" "$RELEASES_DIR" "$BIN_DIR"
-install -d -m 0750 -o "$HOUSE_USER" -g "$HOUSE_USER" "$SHARED_DIR"
-install -d -m 0755 -o "$HOUSE_USER" -g "$HOUSE_USER" /var/lib/house "$UPLOAD_ROOT" "$UPLOAD_ROOT/public"
+# Root runs bin/ and parses shared/: those belong to root. The service user (which runs the
+# internet-facing apps and every npm build script) owns only releases, the mirror and caches.
+# Earlier installs made all of /srv/house house-owned; this takes it back.
+root_dir 0755 root:root "$HOUSE_ROOT"
+rm -rf "$HOUSE_ROOT/.bin.old" "$HOUSE_ROOT"/.bin.new.* "$HOUSE_ROOT"/.bin.stage.* "$HOUSE_ROOT"/.current.tmp.*
+root_dir 0755 root:root "$BIN_DIR"
+root_dir 0750 "root:$HOUSE_USER" "$SHARED_DIR"
+root_dir 0755 "$HOUSE_USER:$HOUSE_USER" "$RELEASES_DIR"
+root_dir 0755 "$HOUSE_USER:$HOUSE_USER" "$MIRROR_DIR"
+root_dir 0755 "$HOUSE_USER:$HOUSE_USER" "$SHARED_DIR/pnpm-store"
+root_dir 0755 "$HOUSE_USER:$HOUSE_USER" "$SHARED_DIR/turbo-cache"
+root_file 0660 "root:$HOUSE_USER" "$SHARED_DIR/.deploy.lock"
+root_file 0660 "root:$HOUSE_USER" "$SHARED_DIR/.backup.lock"
+for f in "$ENV_FILE" "$DEPLOY_CONF"; do
+  [[ -L "$f" ]] && die "$f 가 심볼릭 링크입니다. 확인 후 실제 파일로 바꾸고 다시 실행하세요."
+done
+house_dir 0755 /var/lib/house
+house_dir 0755 "$UPLOAD_ROOT"
+house_dir 0755 "$UPLOAD_ROOT/public"
 # Private documents (중개사무소 등록증 등): only the service user can read them, never nginx.
-install -d -m 0700 -o "$HOUSE_USER" -g "$HOUSE_USER" "$UPLOAD_ROOT/private"
-install -d -m 0700 -o "$HOUSE_USER" -g "$HOUSE_USER" "$BACKUP_DIR" "$BACKUP_DIR/db" \
-  "$BACKUP_DIR/uploads" "$BACKUP_DIR/pre-migrate" "$BACKUP_DIR/config"
-install -d -m 0750 -o "$HOUSE_USER" -g adm "$LOG_DIR" "$LOG_DIR/pm2"
-ok "$HOUSE_ROOT/{releases,shared,bin}, $UPLOAD_ROOT/{public,private}, $BACKUP_DIR, $LOG_DIR"
+house_dir 0700 "$UPLOAD_ROOT/private"
+house_dir 0700 "$BACKUP_DIR"
+for d in db uploads pre-migrate pre-restore config; do house_dir 0700 "$BACKUP_DIR/$d"; done
+house_dir 0750 "$LOG_DIR" adm
+house_dir 0750 "$LOG_DIR/pm2"
+
+# 'current' (root-owned) → releases/.active (switched by deploy.sh as the service user).
+migrate_current_link() {
+  local now target
+  [[ -e "$CURRENT_LINK" && ! -L "$CURRENT_LINK" ]] && die "$CURRENT_LINK 가 심볼릭 링크가 아닙니다."
+  now="$(readlink "$CURRENT_LINK" 2>/dev/null || true)"
+  [[ "$now" == "releases/.active" ]] && return 0
+  if [[ -n "$now" ]]; then
+    target="$(readlink -e "$CURRENT_LINK" 2>/dev/null || true)"
+    if [[ -d "$target" && "$(dirname "$target")" == "$(readlink -f "$RELEASES_DIR")" ]]; then
+      as_house ln -sfn "$target" "$ACTIVE_LINK"
+    fi
+  fi
+  ln -sfn releases/.active "$HOUSE_ROOT/.current.tmp.$$"
+  mv -Tf "$HOUSE_ROOT/.current.tmp.$$" "$CURRENT_LINK"
+}
+migrate_current_link
+ok "$HOUSE_ROOT (root) · bin (root) · shared (root:$HOUSE_USER) · releases, repo.git (서비스 사용자)"
+ok "$UPLOAD_ROOT/{public,private}, $BACKUP_DIR, $LOG_DIR"
 
 # SSH deploy key so the service user can pull a private repository.
-install -d -m 0700 -o "$HOUSE_USER" -g "$HOUSE_USER" "/home/$HOUSE_USER/.ssh"
+house_dir 0700 "/home/$HOUSE_USER/.ssh"
 if [[ ! -f "/home/$HOUSE_USER/.ssh/id_ed25519" ]]; then
   as_house ssh-keygen -q -t ed25519 -N '' -C "house-deploy@$(hostname)" -f "/home/$HOUSE_USER/.ssh/id_ed25519"
   ok "배포용 SSH 키 생성"
 fi
-DEPLOY_PUBKEY="$(cat "/home/$HOUSE_USER/.ssh/id_ed25519.pub")"
+DEPLOY_PUBKEY="$(as_house cat "/home/$HOUSE_USER/.ssh/id_ed25519.pub")"
 REPO_HOST=""
 if [[ "$REPO_URL" =~ ^git@([^:]+): ]]; then REPO_HOST="${BASH_REMATCH[1]}"; fi
 if [[ "$REPO_URL" =~ ^ssh://([^@/]+@)?([^/:]+) ]]; then REPO_HOST="${BASH_REMATCH[2]}"; fi
 if [[ -n "$REPO_HOST" ]]; then
+  # Root-owned copy (deploy.sh and --kit-only use it), plus the service user's own file.
   KNOWN="/home/$HOUSE_USER/.ssh/known_hosts"
-  if ! as_house ssh-keygen -F "$REPO_HOST" -f "$KNOWN" >/dev/null 2>&1; then
-    if ssh-keyscan -T 10 -t ed25519,ecdsa,rsa "$REPO_HOST" 2>/dev/null >>"$KNOWN"; then
-      chown "$HOUSE_USER:$HOUSE_USER" "$KNOWN"
-      chmod 600 "$KNOWN"
-      ok "known_hosts에 $REPO_HOST 호스트 키 등록"
+  if ! ssh-keygen -F "$REPO_HOST" -f "$KNOWN_HOSTS_FILE" >/dev/null 2>&1; then
+    SCAN="$(ssh-keyscan -T 10 -t ed25519,ecdsa,rsa "$REPO_HOST" 2>/dev/null || true)"
+    if [[ -n "$SCAN" ]]; then
+      { cat "$KNOWN_HOSTS_FILE" 2>/dev/null || true; printf '%s\n' "$SCAN"; } |
+        write_if_changed "$KNOWN_HOSTS_FILE" 0644 "root:$HOUSE_USER" || true
+      ok "known_hosts에 $REPO_HOST 호스트 키 등록 ($KNOWN_HOSTS_FILE)"
     else
       note_warn "$REPO_HOST 호스트 키를 가져오지 못했습니다 (네트워크 확인)."
     fi
+  fi
+  if [[ -f "$KNOWN_HOSTS_FILE" ]] && ! as_house ssh-keygen -F "$REPO_HOST" -f "$KNOWN" >/dev/null 2>&1; then
+    # shellcheck disable=SC2016 # $1 expands in the child shell
+    grep -v '^#' "$KNOWN_HOSTS_FILE" | as_house bash -c 'umask 077; cat >>"$1"' _ "$KNOWN"
   fi
 fi
 
@@ -514,7 +653,7 @@ MAXMEM_MB=$((MEM_MB / 8))
 REDIS_CHANGED=false
 write_if_changed /etc/redis/house.conf 0640 root:redis <<EOF && REDIS_CHANGED=true
 # Managed by house deploy/install.sh
-bind 127.0.0.1 -::1
+bind 127.0.0.1
 protected-mode yes
 port ${REDIS_PORT}
 requirepass ${REDIS_PASSWORD}
@@ -550,36 +689,15 @@ ok "Redis 응답 확인 (maxmemory ${MAXMEM_MB}mb, noeviction, AOF)"
 step "설정 파일 ($DEPLOY_CONF, $ENV_FILE)"
 SCHEME=https
 [[ "$TLS_ENABLED" == true ]] || SCHEME=http
-write_if_changed "$DEPLOY_CONF" 0640 "$HOUSE_USER:$HOUSE_USER" <<EOF || true
-# Managed by deploy/install.sh (re-run it to change domain/repo). Read by deploy scripts and
-# ecosystem.config.cjs. Plain KEY=value lines only.
-REPO_URL=${REPO_URL}
-BRANCH=${BRANCH}
-DOMAIN=${DOMAIN}
-ADMIN_DOMAIN=${ADMIN_DOMAIN}
-TLS_ENABLED=${TLS_ENABLED}
-API_PORT=${API_PORT}
-WEB_PORT=${WEB_PORT}
-ADMIN_PORT=${ADMIN_PORT}
-WORKER_PORT=${WORKER_PORT}
-API_INSTANCES=${API_INSTANCES}
-WEB_INSTANCES=${WEB_INSTANCES}
-ADMIN_INSTANCES=${ADMIN_INSTANCES}
-KEEP_RELEASES=${KEEP_RELEASES}
-UPLOAD_ROOT=${UPLOAD_ROOT}
-BACKUP_DIR=${BACKUP_DIR}
-LOG_DIR=${LOG_DIR}
-BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS}
-RCLONE_REMOTE=${RCLONE_REMOTE}
-BACKUP_NOTIFY_URL=${BACKUP_NOTIFY_URL}
-DB_NAME=${DB_NAME}
-DB_USER=${DB_USER}
-EOF
+conf_render | write_if_changed "$DEPLOY_CONF" 0640 "root:$HOUSE_USER" || true
 ok "deploy.conf"
 
 ENV_EXAMPLE="${SRC_ROOT:-/nonexistent}/apps/api/.env.example"
 if $ENV_EXISTS; then
-  ok ".env 가 이미 있습니다 — 그대로 둡니다 ($ENV_FILE)"
+  # The service user only reads it (an app compromise must not rewrite its own config).
+  chown "root:$HOUSE_USER" "$ENV_FILE"
+  chmod 0640 "$ENV_FILE"
+  ok ".env 가 이미 있습니다 — 내용은 그대로 둡니다 ($ENV_FILE, root:$HOUSE_USER 0640)"
 else
   [[ -f "$ENV_EXAMPLE" ]] || die "$ENV_EXAMPLE 이 없습니다. 저장소 체크아웃 안에서 install.sh를 실행하세요."
   BASE="${SCHEME}://${DOMAIN}"
@@ -623,43 +741,49 @@ else
     rm -f "$TMP_ENV"
     die "개발용 비밀값이 남아 있습니다. .env.example 형식을 확인하세요."
   fi
-  install -m 0600 -o "$HOUSE_USER" -g "$HOUSE_USER" "$TMP_ENV" "$ENV_FILE"
+  install -m 0640 -o root -g "$HOUSE_USER" "$TMP_ENV" "$ENV_FILE"
   rm -f "$TMP_ENV"
-  ok ".env 생성 (비밀값 자동 생성, 권한 0600)"
+  ok ".env 생성 (비밀값 자동 생성, root:$HOUSE_USER 0640)"
 fi
-cp -p "$ENV_FILE" "$BACKUP_DIR/config/env.$(date +%Y%m%d).bak" 2>/dev/null || true
-chown "$HOUSE_USER:$HOUSE_USER" "$BACKUP_DIR/config/"* 2>/dev/null || true
+# Written by the service user into its own backup directory (never a root write there).
+# shellcheck disable=SC2016 # $1/$2 expand in the child shell
+as_house bash -c 'umask 077; cp "$1" "$2"' _ "$ENV_FILE" "$BACKUP_DIR/config/env.$(date +%Y%m%d).bak" || true
 
 # ─── 8. deploy scripts → /srv/house/bin ─────────────────────────────────────────────────────
-step "배포 스크립트 설치 ($BIN_DIR)"
+step "배포 스크립트 설치 ($BIN_DIR, root 소유)"
 if [[ "$SCRIPT_DIR" != "$(readlink -f "$BIN_DIR")" ]]; then
-  rsync -a --delete "$SCRIPT_DIR/" "$BIN_DIR/"
-  chown -R "$HOUSE_USER:$HOUSE_USER" "$BIN_DIR"
+  kit_install "$SCRIPT_DIR" "$BIN_DIR"
+else
+  # Re-run from bin/ itself: keep the files, take ownership back.
+  kit_validate "$BIN_DIR" || die "$BIN_DIR 검증 실패 — 저장소 체크아웃의 deploy/install.sh 로 다시 실행하세요."
+  chown -R root:root "$BIN_DIR"
+  chmod -R go-w "$BIN_DIR"
+  note_warn "$BIN_DIR 에서 실행했습니다. 이전 설치에서 서비스 사용자 소유였다면 신뢰할 수 있는 체크아웃으로 --kit-only 를 다시 실행하세요."
 fi
-for s in deploy rollback status backup restore create-admin; do
-  [[ -f "$BIN_DIR/$s.sh" ]] && chmod 0755 "$BIN_DIR/$s.sh" && ln -sfn "$BIN_DIR/$s.sh" "$HOUSE_ROOT/$s.sh"
-done
-chown -h "$HOUSE_USER:$HOUSE_USER" "$HOUSE_ROOT"/*.sh 2>/dev/null || true
-ok "$HOUSE_ROOT/deploy.sh, rollback.sh, status.sh, backup.sh, restore.sh, create-admin.sh"
+install_kit_links
+ok "$HOUSE_ROOT/deploy.sh, rollback.sh, status.sh, backup.sh, restore.sh, create-admin.sh, db-shell.sh"
 
 # ─── 9. Git mirror ──────────────────────────────────────────────────────────────────────────
 step "Git 저장소 미러"
 REPO_READY=false
+MIRROR_SSH="ssh -o BatchMode=yes"
+[[ -f "$KNOWN_HOSTS_FILE" ]] && MIRROR_SSH+=" -o UserKnownHostsFile=$KNOWN_HOSTS_FILE -o StrictHostKeyChecking=yes"
 if [[ -z "$REPO_URL" ]]; then
   note_warn "--repo 가 지정되지 않았습니다. 나중에: sudo $BIN_DIR/install.sh --domain $DOMAIN --repo <URL> --no-tls(또는 --email ...)"
-elif [[ -d "$MIRROR_DIR" ]]; then
+elif [[ -f "$MIRROR_DIR/HEAD" ]]; then
   as_house git -C "$MIRROR_DIR" remote set-url origin "$REPO_URL"
-  if as_house env GIT_SSH_COMMAND="ssh -o BatchMode=yes" git -C "$MIRROR_DIR" fetch --prune -q origin; then
+  if as_house env GIT_SSH_COMMAND="$MIRROR_SSH" git -C "$MIRROR_DIR" fetch --prune -q origin; then
     REPO_READY=true
     ok "미러 갱신: $MIRROR_DIR"
   else
     note_warn "저장소를 가져오지 못했습니다 — 아래 배포 키를 저장소에 등록했는지 확인하세요."
   fi
-elif as_house env GIT_SSH_COMMAND="ssh -o BatchMode=yes" git clone -q --mirror "$REPO_URL" "$MIRROR_DIR"; then
+elif as_house env GIT_SSH_COMMAND="$MIRROR_SSH" git clone -q --mirror "$REPO_URL" "$MIRROR_DIR"; then
   REPO_READY=true
   ok "미러 생성: $MIRROR_DIR"
 else
   rm -rf "$MIRROR_DIR"
+  root_dir 0755 "$HOUSE_USER:$HOUSE_USER" "$MIRROR_DIR"
   note_warn "저장소를 복제하지 못했습니다 — 비공개 저장소라면 아래 배포 키를 GitHub에 등록 후 ./deploy.sh 를 실행하세요."
 fi
 
@@ -678,14 +802,17 @@ if [[ "$TLS_ENABLED" == true ]]; then
 # Reload nginx after certbot renews the certificate (installed by house deploy/install.sh).
 nginx -t -q && { systemctl reload nginx 2>/dev/null || nginx -s reload; }
 EOF
-  if [[ -s /etc/letsencrypt/live/house/fullchain.pem ]] &&
-    openssl x509 -checkend 2592000 -noout -in /etc/letsencrypt/live/house/fullchain.pem >/dev/null 2>&1; then
+  if cert_matches && openssl x509 -checkend 2592000 -noout -in "$CERT_PEM" >/dev/null 2>&1; then
     CERT_OK=true
-    ok "유효한 인증서가 이미 있습니다 (30일 이상 남음)"
+    ok "유효한 인증서가 이미 있습니다 (30일 이상 남음, ${DOMAIN}/www/${ADMIN_DOMAIN} 포함)"
   else
+    if [[ -s "$CERT_PEM" ]] && ! cert_matches; then
+      log "기존 인증서에 ${DOMAIN}, www.${DOMAIN}, ${ADMIN_DOMAIN} 중 빠진 이름이 있습니다 → 새 이름으로 다시 발급"
+    fi
     for name in "$DOMAIN" "www.$DOMAIN" "$ADMIN_DOMAIN"; do
       getent ahosts "$name" >/dev/null || note_warn "DNS에서 $name 을(를) 찾을 수 없습니다 (A 레코드 확인)."
     done
+    # --cert-name with a new -d list replaces the certificate's name set.
     CERTBOT_ARGS=(certonly --webroot -w /var/www/letsencrypt --cert-name house
       -d "$DOMAIN" -d "www.$DOMAIN" -d "$ADMIN_DOMAIN"
       --email "$OPT_EMAIL" --agree-tos --no-eff-email --non-interactive --keep-until-expiring)
@@ -701,6 +828,16 @@ EOF
     configure_nginx
     if has_systemd; then systemctl enable --now certbot.timer >/dev/null 2>&1 || true; fi
     upgrade_env_to_https
+  fi
+fi
+
+# An existing .env is never rewritten: after a domain change, say exactly what to edit.
+url_host() { local u="${1#*://}"; printf '%s' "${u%%[/:]*}"; }
+if $ENV_EXISTS; then
+  ENV_HOST="$(url_host "$(env_get PUBLIC_BASE_URL)")"
+  ENV_ADMIN_HOST="$(url_host "$(env_get ADMIN_BASE_URL)")"
+  if [[ "$ENV_HOST" != "$DOMAIN" || "$ENV_ADMIN_HOST" != "$ADMIN_DOMAIN" ]]; then
+    note_warn ".env 의 주소(${ENV_HOST:-없음}, ${ENV_ADMIN_HOST:-없음})가 새 도메인(${DOMAIN}, ${ADMIN_DOMAIN})과 다릅니다. sudo nano ${ENV_FILE} 에서 PUBLIC_BASE_URL, ADMIN_BASE_URL, API_BASE_URL, CORS_ORIGINS, KAKAO_REDIRECT_URI, NAVER_REDIRECT_URI, GOOGLE_REDIRECT_URI 를 ${SCHEME}://${DOMAIN} / ${SCHEME}://${ADMIN_DOMAIN} 기준으로 고치고, 각 로그인 콘솔의 Redirect URI도 바꾼 뒤 sudo ${HOUSE_ROOT}/deploy.sh"
   fi
 fi
 
@@ -743,7 +880,7 @@ write_if_changed /etc/cron.d/house 0644 <<EOF || true
 # house platform jobs (installed by deploy/install.sh)
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-# 매일 03:30 DB 백업 (+ 주 1회 업로드 스냅샷), 14일 보관
+# 매일 03:30 DB 백업 + 업로드 스냅샷, 14일 보관 (최근 7개는 항상 보관)
 30 3 * * * ${HOUSE_USER} ${BIN_DIR}/backup.sh --cron >> ${LOG_DIR}/backup.log 2>&1
 EOF
 svc enable cron >/dev/null 2>&1 || note_warn "cron 서비스를 시작하지 못했습니다 (컨테이너라면 정상)."
@@ -751,19 +888,27 @@ ok "/etc/cron.d/house, /etc/logrotate.d/house"
 
 # ─── 13. firewall + fail2ban ────────────────────────────────────────────────────────────────
 step "방화벽 (UFW) / fail2ban"
+# Never lock the operator out: also allow the port of this SSH session and sshd's own ports.
+SSH_PORTS=("$OPT_SSH_PORT")
+[[ -n "${SSH_CONNECTION:-}" ]] && SSH_PORTS+=("$(awk '{print $4}' <<<"$SSH_CONNECTION")")
+if have sshd; then
+  while read -r p; do SSH_PORTS+=("$p"); done < <(sshd -T 2>/dev/null | awk '$1 == "port" {print $2}')
+fi
+mapfile -t SSH_PORTS < <(printf '%s\n' "${SSH_PORTS[@]}" | grep -E '^[0-9]+$' | sort -un)
+SSH_PORTS_CSV="$(IFS=,; echo "${SSH_PORTS[*]}")"
 if $SKIP_FIREWALL; then
   log "UFW 생략 (--skip-firewall)"
 elif ! has_systemd; then
   note_warn "systemd가 없어 UFW 설정을 건너뜁니다."
 else
   apt_install_missing ufw
-  ufw allow "${OPT_SSH_PORT}/tcp" comment 'ssh' >/dev/null
+  for p in "${SSH_PORTS[@]}"; do ufw allow "${p}/tcp" comment 'ssh' >/dev/null; done
   ufw allow 80/tcp comment 'http' >/dev/null
   ufw allow 443/tcp comment 'https' >/dev/null
   ufw default deny incoming >/dev/null
   ufw default allow outgoing >/dev/null
   ufw --force enable >/dev/null
-  ok "UFW: ${OPT_SSH_PORT}, 80, 443 허용 (그 외 차단)"
+  ok "UFW: SSH(${SSH_PORTS[*]}), 80, 443 허용 (그 외 차단)"
 fi
 if $SKIP_FAIL2BAN; then
   log "fail2ban 생략 (--skip-fail2ban)"
@@ -781,18 +926,15 @@ backend = systemd
 
 [sshd]
 enabled = true
-port = ${OPT_SSH_PORT}
+port = ${SSH_PORTS_CSV}
 
-[nginx-limit-req]
-enabled = true
-backend = auto
-port = http,https
-logpath = /var/log/nginx/house-*.error.log
-maxretry = 20
+# No nginx-limit-req jail: Korean mobile carriers put many users behind one CGNAT address, and
+# banning it would lock all of them out of 80/443. Per-IP 429s (nginx) and per-user limits
+# (API, Redis) handle abuse instead.
 EOF
   systemctl enable fail2ban >/dev/null 2>&1 || true
   systemctl restart fail2ban
-  ok "fail2ban: sshd, nginx-limit-req"
+  ok "fail2ban: sshd"
 fi
 
 # ─── summary ────────────────────────────────────────────────────────────────────────────────
@@ -805,14 +947,14 @@ ${C_GRN}════════════════════════
  관리자       ${SCHEME}://${ADMIN_DOMAIN}
  DB           PostgreSQL 16 / ${DB_NAME} (역할 ${DB_USER}, 127.0.0.1:${PG_PORT})
  Redis        127.0.0.1:${REDIS_PORT} (비밀번호 설정됨)
- 설정 파일    ${ENV_FILE}   (권한 0600, 비밀값 자동 생성됨)
+ 설정 파일    ${ENV_FILE}   (root:${HOUSE_USER} 0640, 비밀값 자동 생성됨)
  배포 설정    ${DEPLOY_CONF}
  업로드       ${UPLOAD_ROOT}/public (공개)  ·  ${UPLOAD_ROOT}/private (비공개)
- 백업         ${BACKUP_DIR} (매일 03:30, 14일 보관)
+ 백업         ${BACKUP_DIR} (매일 03:30 DB·업로드, 14일 보관)
  로그         ${LOG_DIR}
 
 ${C_BLU}▶ 다음 할 일${C_RST}
- 1) .env 에 외부 서비스 키를 넣으세요:   sudo -u ${HOUSE_USER} nano ${ENV_FILE}
+ 1) .env 에 외부 서비스 키를 넣으세요:   sudo nano ${ENV_FILE}
     - KAKAO_CLIENT_ID / KAKAO_CLIENT_SECRET     (카카오 developers.kakao.com)
     - NAVER_CLIENT_ID / NAVER_CLIENT_SECRET     (네이버 developers.naver.com)
     - GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET   (console.cloud.google.com)

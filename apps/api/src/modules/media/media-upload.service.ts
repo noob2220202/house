@@ -11,6 +11,7 @@ import {
   MediaStatus,
   MediaVisibility,
   SNIFF_HEADER_BYTES,
+  SniffedMime,
   sniffMime,
   type MediaPurpose,
   type OwnMediaView,
@@ -26,7 +27,7 @@ import { AppConfig } from '../../config/app-config.service';
 import { PrismaService, type PrismaTx } from '../../prisma/prisma.service';
 import { QUEUES } from '../../queue/queue.constants';
 import { ASYNC_PROCESSING_THRESHOLD, MEDIA_JOBS } from './constants';
-import { ImageProcessor } from './image-processor';
+import { documentOutputFor, ImageProcessor } from './image-processor';
 import { MediaFiles } from './media-files';
 import { MediaStorage } from './media-storage';
 import { MediaMapper } from './media.mapper';
@@ -51,8 +52,8 @@ const MB = 1024 * 1024;
 
 /**
  * Upload flow: authorize purpose → size → magic-byte sniff → daily cap + quota → process.
- * Small images and documents are processed inline (201 READY); large images and HEIC go to the
- * media-processing worker (202 PENDING, raw bytes kept in private staging until then).
+ * PDFs, small images and small image documents are processed inline (201 READY); large ones and
+ * HEIC go to the media-processing worker (202 PENDING, raw bytes kept in private staging until then).
  */
 @Injectable()
 export class MediaUploadService {
@@ -114,15 +115,29 @@ export class MediaUploadService {
       originalFilename: sanitizeFilename(file.originalname),
     } satisfies Partial<Prisma.MediaUncheckedCreateInput>;
 
-    if (rule.kind === MediaKind.DOCUMENT) return this.storeDocument(file.buffer, mime, base);
-
+    if (rule.kind === MediaKind.DOCUMENT && mime === SniffedMime.PDF) {
+      return this.storeDocument(file.buffer, mime, base);
+    }
+    // Images and image documents: decoding is the memory-heavy part, so large ones and HEIC
+    // (size unknown before decoding) are processed by the worker, one at a time.
     const dims = await this.processor.probe(file.buffer, mime);
     const deferred =
       dims === null ||
       file.size > ASYNC_PROCESSING_THRESHOLD.bytes ||
       dims.width * dims.height > ASYNC_PROCESSING_THRESHOLD.pixels;
+    if (rule.kind === MediaKind.DOCUMENT) {
+      if (!deferred) return this.storeDocument(file.buffer, mime, base);
+      const out = documentOutputFor(mime);
+      return this.enqueue(file.buffer, file.size, base, {
+        mimeType: out.mimeType,
+        storageKey: this.storage.newPrivateKey(out.ext),
+      });
+    }
     return deferred
-      ? this.enqueueImage(file.buffer, file.size, base)
+      ? this.enqueue(file.buffer, file.size, base, {
+          mimeType: 'image/webp',
+          storageKey: this.storage.newPublicImageKey(),
+        })
       : this.storeImage(file.buffer, mime, base);
   }
 
@@ -180,15 +195,15 @@ export class MediaUploadService {
     return this.mapper.toOwnView(row);
   }
 
-  private async enqueueImage(data: Buffer, size: number, base: BaseCreate): Promise<OwnMediaView> {
+  /** PENDING row with the final key and output type; the worker writes the file and flips READY. */
+  private async enqueue(
+    data: Buffer,
+    size: number,
+    base: BaseCreate,
+    target: { mimeType: string; storageKey: string },
+  ): Promise<OwnMediaView> {
     const row = await this.createRow(
-      {
-        ...base,
-        status: MediaStatus.PENDING,
-        mimeType: 'image/webp',
-        sizeBytes: size,
-        storageKey: this.storage.newPublicImageKey(),
-      },
+      { ...base, ...target, status: MediaStatus.PENDING, sizeBytes: size },
       true,
     );
     try {

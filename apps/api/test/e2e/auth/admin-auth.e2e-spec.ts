@@ -111,23 +111,82 @@ describe('auth: admin login + TOTP (e2e)', () => {
       await post('login').send({ email: disabled.admin.email, password: PASSWORD }).expect(401);
     });
 
-    it('locks the account after 5 failures (423), even for the right password', async () => {
+    it('locks after 5 wrong passwords; while locked even the right password gets the same 401', async () => {
       const { admin: a } = await admin();
       for (let i = 0; i < 5; i++) {
-        await post('login')
+        const res = await post('login')
           .send({ email: a.email, password: `wrong-${i}-password` })
           .expect(401);
+        expect(res.body.code).toBe(ErrorCode.AUTH_INVALID_CREDENTIALS);
       }
-      const res = await post('login').send({ email: a.email, password: PASSWORD }).expect(423);
+      const res = await post('login').send({ email: a.email, password: PASSWORD }).expect(401);
+      expect(res.body.code).toBe(ErrorCode.AUTH_INVALID_CREDENTIALS);
+      expect(setCookies(res)[COOKIE_NAMES.ADMIN_SESSION]).toBeUndefined();
+      const row = await t.prisma.adminUser.findUniqueOrThrow({ where: { id: a.id } });
+      expect(row.lockedUntil!.getTime()).toBeGreaterThan(Date.now());
+      const audit = await t.prisma.auditLog.findFirstOrThrow({
+        where: { action: 'admin.account.lock', resourceId: a.id },
+      });
+      expect(audit.ip).toBeDefined();
+    });
+
+    it('does not reveal whether an email exists or, while locked, whether the password is right', async () => {
+      const { admin: a } = await admin({
+        data: { lockedUntil: new Date(Date.now() + 10 * 60_000) },
+      });
+      const lockedRight = await post('login').send({ email: a.email, password: PASSWORD });
+      const lockedWrong = await post('login').send({ email: a.email, password: 'bad-pw-0001' });
+      const unknown = await post('login').send({ email: 'ghost@example.test', password: PASSWORD });
+      for (const res of [lockedRight, lockedWrong, unknown]) {
+        expect(res.status).toBe(401);
+        expect(res.body.code).toBe(ErrorCode.AUTH_INVALID_CREDENTIALS);
+        expect(setCookies(res)[COOKIE_NAMES.ADMIN_SESSION]).toBeUndefined();
+      }
+    });
+
+    it('a password success does not reset the counter: password + 4 bad codes, twice → 423', async () => {
+      const { admin: a, secret } = await admin({ enrolled: true });
+      const good = totp.generate(secret);
+      const wrong = good === '000000' ? '999999' : '000000';
+      const first = await login(a.email);
+      for (let i = 0; i < 4; i++) {
+        await post('totp/verify', first).send({ code: wrong }).expect(401);
+      }
+      const second = await login(a.email); // right password again
+      const res = await post('totp/verify', second).send({ code: wrong }).expect(423);
       expect(res.body.code).toBe(ErrorCode.AUTH_ACCOUNT_LOCKED);
       const row = await t.prisma.adminUser.findUniqueOrThrow({ where: { id: a.id } });
       expect(row.lockedUntil!.getTime()).toBeGreaterThan(Date.now());
+      await post('totp/verify', second).send({ code: good }).expect(401); // sessions destroyed
     });
 
-    it('403 outside the per-account IP allowlist', async () => {
+    it('a completed second factor resets the counter', async () => {
+      const { admin: a, secret } = await admin({ enrolled: true });
+      await post('login').send({ email: a.email, password: 'wrong-password-1' }).expect(401);
+      const pre = await login(a.email);
+      await post('totp/verify', pre)
+        .send({ code: totp.generate(secret) })
+        .expect(200);
+      const row = await t.prisma.adminUser.findUniqueOrThrow({ where: { id: a.id } });
+      expect(row.failedLoginCount).toBe(0);
+    });
+
+    it('outside the per-account IP allowlist: the same 401, nothing counted toward the lock', async () => {
       const { admin: a } = await admin({ data: { ipAllowlist: ['203.0.113.0/24'] } });
-      const res = await post('login').send({ email: a.email, password: PASSWORD }).expect(403);
-      expect(res.body.code).toBe(ErrorCode.AUTH_IP_NOT_ALLOWED);
+      const right = await post('login').send({ email: a.email, password: PASSWORD }).expect(401);
+      const wrong = await post('login')
+        .send({ email: a.email, password: 'wrong-password-9' })
+        .expect(401);
+      expect(right.body.code).toBe(ErrorCode.AUTH_INVALID_CREDENTIALS);
+      expect(right.body.message).toBe(wrong.body.message);
+      expect(wrong.body.code).toBe(right.body.code);
+      for (let i = 0; i < 5; i++) {
+        await post('login')
+          .send({ email: a.email, password: `x-${i}-password` })
+          .expect(401);
+      }
+      const row = await t.prisma.adminUser.findUniqueOrThrow({ where: { id: a.id } });
+      expect(row).toMatchObject({ failedLoginCount: 0, lockedUntil: null });
       const ok = await admin({ data: { ipAllowlist: ['127.0.0.1', '::1'] } });
       await post('login').send({ email: ok.admin.email, password: PASSWORD }).expect(200);
     });
@@ -201,6 +260,88 @@ describe('auth: admin login + TOTP (e2e)', () => {
     });
   });
 
+  describe('TOTP rotation (enrolled admin)', () => {
+    async function verified(a: AdminUser, secret: string): Promise<Browser> {
+      const pre = await login(a.email);
+      const res = await post('totp/verify', pre)
+        .send({ code: totp.generate(secret) })
+        .expect(200);
+      return fromResponse(res);
+    }
+
+    it('a verified session alone cannot rotate: 403 AUTH_REAUTH_REQUIRED', async () => {
+      const { admin: a, secret } = await admin({ enrolled: true });
+      const b = await verified(a, secret);
+      const res = await post('totp/setup', b).send({}).expect(403);
+      expect(res.body.code).toBe(ErrorCode.AUTH_REAUTH_REQUIRED);
+      const onlyPassword = await post('totp/setup', b)
+        .send({ currentPassword: PASSWORD })
+        .expect(403);
+      expect(onlyPassword.body.code).toBe(ErrorCode.AUTH_REAUTH_REQUIRED);
+      expect(await t.redis.exists(`auth:totp-setup:${a.id}`)).toBe(0);
+    });
+
+    it('wrong password or wrong code → 401 and counted; a recovery code is not burnt by a wrong password', async () => {
+      const { admin: a, secret } = await admin({ enrolled: true });
+      const b = await verified(a, secret);
+      const badPw = await post('totp/setup', b)
+        .send({ currentPassword: 'wrong-password-1', recoveryCode: 'ABCD-2345' })
+        .expect(401);
+      expect(badPw.body.code).toBe(ErrorCode.AUTH_INVALID_CREDENTIALS);
+      const badCode = await post('totp/setup', b)
+        .send({
+          currentPassword: PASSWORD,
+          code: '000000' === totp.generate(secret) ? '111111' : '000000',
+        })
+        .expect(401);
+      expect(badCode.body.code).toBe(ErrorCode.AUTH_TOTP_INVALID);
+      const row = await t.prisma.adminUser.findUniqueOrThrow({ where: { id: a.id } });
+      expect(row.failedLoginCount).toBe(2);
+      expect(row.recoveryCodeHashes).toHaveLength(1);
+    });
+
+    it('password + recovery code → new secret; activation rotates, audits and ends other sessions', async () => {
+      const { admin: a, secret } = await admin({ enrolled: true });
+      const b = await verified(a, secret);
+      const other = await loginAdmin(t.app, a);
+      const setup = await post('totp/setup', b)
+        .send({ currentPassword: PASSWORD, recoveryCode: 'abcd2345' })
+        .expect(200);
+      const next = setup.body.secret as string;
+      expect(next).not.toBe(secret);
+      // the pending secret is bound to the session that re-authenticated
+      const res = await post('totp/activate', b)
+        .send({ code: totp.generate(next) })
+        .expect(200);
+      expect(res.body.recoveryCodes).toHaveLength(10);
+      await withSession(t.http().get('/api/v1/admin/auth/me'), other).expect(401);
+      const audit = await t.prisma.auditLog.findFirstOrThrow({
+        where: { action: 'admin.totp.rotate', resourceId: a.id },
+      });
+      expect(audit.ip).toBeTruthy();
+    });
+
+    it('a pending setup cannot be activated from another session', async () => {
+      const { admin: a } = await admin();
+      const first = await login(a.email);
+      const setup = await post('totp/setup', first).expect(200);
+      const second = await login(a.email);
+      const res = await post('totp/activate', second)
+        .send({ code: totp.generate(setup.body.secret as string) })
+        .expect(400);
+      expect(res.body.code).toBe(ErrorCode.AUTH_TOTP_SETUP_EXPIRED);
+    });
+
+    it('400 for a body with both a code and a recovery code', async () => {
+      const { admin: a, secret } = await admin({ enrolled: true });
+      const b = await verified(a, secret);
+      const res = await post('totp/setup', b)
+        .send({ currentPassword: PASSWORD, code: '123456', recoveryCode: 'ABCD-2345' })
+        .expect(400);
+      expect(res.body.code).toBe(ErrorCode.VALIDATION_FAILED);
+    });
+  });
+
   describe('POST /api/v1/admin/auth/totp/verify', () => {
     it('accepts the current code once (replay rejected)', async () => {
       const { admin: a, secret } = await admin({ enrolled: true });
@@ -230,10 +371,12 @@ describe('auth: admin login + TOTP (e2e)', () => {
       const pre = await login(a.email);
       const good = totp.generate(secret);
       const wrong = good === '000000' ? '999999' : '000000';
-      for (let i = 0; i < 5; i++) await post('totp/verify', pre).send({ code: wrong }).expect(401);
+      for (let i = 0; i < 4; i++) await post('totp/verify', pre).send({ code: wrong }).expect(401);
+      const locked = await post('totp/verify', pre).send({ code: wrong }).expect(423);
+      expect(locked.body.code).toBe(ErrorCode.AUTH_ACCOUNT_LOCKED);
       await post('totp/verify', pre).send({ code: good }).expect(401); // session destroyed
-      const res = await post('login').send({ email: a.email, password: PASSWORD }).expect(423);
-      expect(res.body.code).toBe(ErrorCode.AUTH_ACCOUNT_LOCKED);
+      const res = await post('login').send({ email: a.email, password: PASSWORD }).expect(401);
+      expect(res.body.code).toBe(ErrorCode.AUTH_INVALID_CREDENTIALS);
     });
 
     it('401 without a session; 400 for a body with neither or both factors', async () => {

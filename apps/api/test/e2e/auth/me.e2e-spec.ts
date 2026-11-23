@@ -1,20 +1,32 @@
+import { randomUUID } from 'node:crypto';
 import { ErrorCode, TermsType, UserRole, UserStatus } from '@house/shared';
 import { PiiScrubService } from '../../../src/modules/auth/jobs/pii-scrub.service';
 import {
   createAgency,
+  createComplex,
+  createListing,
   createUser,
   loginUser,
   resetAll,
   withSession,
   type TestApp,
 } from '../../utils';
-import { createAuthTestApp, seedTerms, WEB_ORIGIN } from './helpers';
+import type { FakeOAuthHttp } from './fakes/fake-oauth-http';
+import {
+  callback,
+  createAuthTestApp,
+  redirectTarget,
+  seedTerms,
+  startOAuth,
+  WEB_ORIGIN,
+} from './helpers';
 
 describe('auth: /me account endpoints (e2e)', () => {
   let t: TestApp;
+  let fake: FakeOAuthHttp;
 
   beforeAll(async () => {
-    ({ t } = await createAuthTestApp());
+    ({ t, fake } = await createAuthTestApp());
   });
   beforeEach(() => resetAll(t));
   afterAll(() => t?.close());
@@ -182,7 +194,7 @@ describe('auth: /me account endpoints (e2e)', () => {
   });
 
   describe('POST /api/v1/me/withdraw', () => {
-    it('soft-deletes, logs out everywhere, frees the social account; the scrub job erases PII later', async () => {
+    it('soft-deletes, logs out everywhere, unlinks identities; the scrub job erases PII later', async () => {
       const terms = await seedTerms(t.prisma);
       const { user, s } = await member(['KAKAO', 'NAVER']);
       await t.prisma.userConsent.create({
@@ -217,6 +229,136 @@ describe('auth: /me account endpoints (e2e)', () => {
       expect(consent.ip).toBeNull();
       // idempotent
       expect(await scrubber.scrubDue(new Date(Date.now() + 31 * 86_400_000))).toBe(0);
+    });
+
+    it('the same social account cannot sign up again during the cooldown (tombstone, HMAC only)', async () => {
+      const user = await createUser(t.prisma, {
+        identities: { create: { provider: 'KAKAO', providerUserId: '4242' } },
+      });
+      const s = await loginUser(t.app, user);
+      await withSession(t.http().post('/api/v1/me/withdraw'), s)
+        .send({ confirm: true })
+        .expect(204);
+
+      const tomb = await t.prisma.withdrawnIdentity.findFirstOrThrow();
+      expect(tomb).toMatchObject({ provider: 'KAKAO', userId: user.id });
+      expect(tomb.providerUserIdHash).toMatch(/^[0-9a-f]{64}$/);
+      expect(tomb.providerUserIdHash).not.toContain('4242');
+      expect(tomb.rejoinAfter.getTime() - tomb.withdrawnAt.getTime()).toBe(30 * 86_400_000);
+
+      fake.reset();
+      const flow = await startOAuth(t, 'kakao');
+      fake.kakaoCode('rejoin', { id: 4242, nickname: '재가입' });
+      const res = await callback(
+        t,
+        'kakao',
+        { code: 'rejoin', state: flow.state },
+        { house_oauth: flow.binding },
+      ).expect(302);
+      const target = redirectTarget(res);
+      expect(target.pathname).toBe('/login');
+      expect(target.searchParams.get('error')).toBe(ErrorCode.AUTH_REJOIN_COOLDOWN);
+
+      // a different social account is not affected
+      const other = await startOAuth(t, 'kakao');
+      fake.kakaoCode('fresh', { id: 5151, nickname: '새사람' });
+      const ok = await callback(
+        t,
+        'kakao',
+        { code: 'fresh', state: other.state },
+        { house_oauth: other.binding },
+      ).expect(302);
+      expect(redirectTarget(ok).pathname).toBe('/signup');
+
+      // the scrub job drops tombstones once the cooldown is over
+      const scrubber = t.app.get(PiiScrubService);
+      await scrubber.scrubDue(new Date(Date.now() + 29 * 86_400_000));
+      expect(await t.prisma.withdrawnIdentity.count()).toBe(1);
+      await scrubber.scrubDue(new Date(Date.now() + 31 * 86_400_000));
+      expect(await t.prisma.withdrawnIdentity.count()).toBe(0);
+    });
+
+    it('403 for a suspended member (cannot withdraw to escape moderation)', async () => {
+      const { user, s } = await member();
+      await t.prisma.user.update({
+        where: { id: user.id },
+        data: { status: UserStatus.SUSPENDED },
+      });
+      const res = await withSession(t.http().post('/api/v1/me/withdraw'), s)
+        .send({ confirm: true })
+        .expect(403);
+      expect(res.body.code).toBe(ErrorCode.AUTH_WITHDRAW_SUSPENDED);
+      const row = await t.prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+      expect(row.status).toBe(UserStatus.SUSPENDED);
+      expect(await t.prisma.identity.count({ where: { userId: user.id } })).toBe(1);
+    });
+
+    it('cancels live deal requests and erases their contacts at once; the scrub job erases linked data', async () => {
+      const { user, s } = await member();
+      const { agency } = await createAgency(t.prisma);
+      const requestId = randomUUID();
+      // raw insert: only the columns this suite relies on
+      await t.prisma.$executeRaw`
+        INSERT INTO deal_requests (id, type, user_id, status, asset_type, visibility, sgg_code,
+                                   contact_name, contact_phone, address_detail, updated_at)
+        VALUES (${requestId}::uuid, 'SELL_OR_LEASE', ${user.id}::uuid, 'OPEN', 'APT',
+                'ALL_AGENCIES_IN_REGION', '46150', '홍길동', '01012345678', '101동 1001호', now())`;
+      await t.prisma.$executeRaw`
+        INSERT INTO deal_request_contact_grants (deal_request_id, agency_id)
+        VALUES (${requestId}::uuid, ${agency.id}::uuid)`;
+      const complex = await createComplex(t.prisma);
+      const { listing } = await createListing(t.prisma, { agencyId: agency.id });
+      await t.prisma.report.create({
+        data: {
+          targetType: 'LISTING',
+          listingId: listing.id,
+          reporterUserId: user.id,
+          reporterPhone: '01099998888',
+          reason: 'NOT_EXIST',
+          ip: '203.0.113.9',
+        },
+      });
+      await t.prisma.notification.create({
+        data: { userId: user.id, type: 'SYSTEM', title: '알림' },
+      });
+      await t.prisma.recentView.create({
+        data: { userId: user.id, targetType: 'COMPLEX', targetId: complex.id },
+      });
+      await t.prisma.favoriteComplex.create({ data: { userId: user.id, complexId: complex.id } });
+      await t.prisma.favoriteListing.create({ data: { userId: user.id, listingId: listing.id } });
+
+      await withSession(t.http().post('/api/v1/me/withdraw'), s)
+        .send({ confirm: true })
+        .expect(204);
+
+      const [request] = await t.prisma.$queryRaw<
+        {
+          status: string;
+          contact_name: string;
+          contact_phone: string;
+          address_detail: string | null;
+        }[]
+      >`SELECT status::text, contact_name, contact_phone, address_detail
+          FROM deal_requests WHERE id = ${requestId}::uuid`;
+      expect(request).toEqual({
+        status: 'CANCELLED',
+        contact_name: '',
+        contact_phone: '',
+        address_detail: null,
+      });
+      const [grant] = await t.prisma.$queryRaw<{ revoked: boolean }[]>`
+        SELECT revoked_at IS NOT NULL AS revoked FROM deal_request_contact_grants
+         WHERE deal_request_id = ${requestId}::uuid`;
+      expect(grant?.revoked).toBe(true);
+
+      await t.app.get(PiiScrubService).scrubDue(new Date(Date.now() + 31 * 86_400_000));
+      const report = await t.prisma.report.findFirstOrThrow({ where: { reporterUserId: user.id } });
+      expect(report).toMatchObject({ reporterPhone: null, ip: null });
+      const where = { where: { userId: user.id } };
+      expect(await t.prisma.notification.count(where)).toBe(0);
+      expect(await t.prisma.recentView.count(where)).toBe(0);
+      expect(await t.prisma.favoriteComplex.count(where)).toBe(0);
+      expect(await t.prisma.favoriteListing.count(where)).toBe(0);
     });
 
     it('409 while the member still runs an agency; staff memberships are detached', async () => {

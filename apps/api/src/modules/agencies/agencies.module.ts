@@ -5,7 +5,9 @@ import { BROKER_REGISTRY, DataGoKrBrokerRegistryClient } from './clients/broker-
 import { AdminAgenciesController } from './controllers/admin-agencies.controller';
 import { AgenciesController } from './controllers/agencies.controller';
 import { MyAgencyController } from './controllers/my-agency.controller';
+import { ListingCountersService } from '../listings/services/listing-counters.service';
 import { AGENCY_LISTINGS_READER, PrismaAgencyListingsReader } from './ports/agency-listings.reader';
+import { AGENCY_LISTINGS_SYNC, CountersAgencyListingsSync } from './ports/agency-listings.sync';
 import { AGENCY_MEDIA, PrismaAgencyMedia } from './ports/agency-media.port';
 import { AgenciesService } from './services/agencies.service';
 import { AgencyCacheService } from './services/agency-cache.service';
@@ -27,6 +29,9 @@ import { AgencySessionSyncService } from './services/agency-session-sync.service
   providers: [
     { provide: AGENCY_MEDIA, useClass: PrismaAgencyMedia },
     { provide: AGENCY_LISTINGS_READER, useClass: PrismaAgencyListingsReader },
+    // Stateless (CacheService only); ListingsModule does not export it yet.
+    ListingCountersService,
+    { provide: AGENCY_LISTINGS_SYNC, useClass: CountersAgencyListingsSync },
     { provide: BROKER_REGISTRY, useClass: DataGoKrBrokerRegistryClient },
     AgencyMapper,
     AgencySearchRepository,

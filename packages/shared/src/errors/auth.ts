@@ -26,6 +26,9 @@ export const AuthErrorCode = {
   AUTH_LAST_IDENTITY: 'AUTH_LAST_IDENTITY',
   AUTH_SESSION_NOT_FOUND: 'AUTH_SESSION_NOT_FOUND',
   AUTH_WITHDRAW_AGENCY_OWNER: 'AUTH_WITHDRAW_AGENCY_OWNER',
+  AUTH_WITHDRAW_SUSPENDED: 'AUTH_WITHDRAW_SUSPENDED',
+  AUTH_REJOIN_COOLDOWN: 'AUTH_REJOIN_COOLDOWN',
+  AUTH_REAUTH_REQUIRED: 'AUTH_REAUTH_REQUIRED',
 } as const;
 
 export const AUTH_ERROR_MESSAGES: Record<keyof typeof AuthErrorCode, string> = {
@@ -56,4 +59,7 @@ export const AUTH_ERROR_MESSAGES: Record<keyof typeof AuthErrorCode, string> = {
   AUTH_SESSION_NOT_FOUND: '로그인 기기를 찾을 수 없습니다.',
   AUTH_WITHDRAW_AGENCY_OWNER:
     '운영 중인 중개사무소가 있어 탈퇴할 수 없습니다. 중개사무소 해지 후 다시 시도해 주세요.',
+  AUTH_WITHDRAW_SUSPENDED: '이용이 정지된 계정은 탈퇴할 수 없습니다. 고객센터로 문의해 주세요.',
+  AUTH_REJOIN_COOLDOWN: '탈퇴 후 30일 동안은 같은 소셜 계정으로 다시 가입할 수 없습니다.',
+  AUTH_REAUTH_REQUIRED: '현재 비밀번호와 인증 코드를 다시 입력해 주세요.',
 };

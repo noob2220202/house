@@ -130,8 +130,8 @@ const propertyShape = {
   emdCode: z.string().regex(/^\d{10}$/, '법정동코드는 10자리 숫자입니다.'),
   lat: latSchema,
   lng: lngSchema,
-  /** Negative = basement (B1 = -1). */
-  floor: intRange(-10, 200),
+  /** Negative = basement (B1 = -1); there is no 0층. Must not exceed totalFloors. */
+  floor: intRange(-10, 200).refine((v) => v !== 0, '0층은 입력할 수 없습니다.'),
   totalFloors: intRange(1, 200),
   exclusiveArea: areaSqmSchema,
   supplyArea: areaSqmSchema,
@@ -188,11 +188,15 @@ export const propertyUpdateSchema = z.object(
 );
 export type PropertyUpdateInput = z.infer<typeof propertyUpdateSchema>;
 
-/** The acting agency's contact person for this listing (shown publicly). */
+/**
+ * The acting agency's contact person for this listing (shown publicly). 공인중개사법 제18조의2①
+ * forbids showing a 중개보조원 in an ad, so the contact is always a licensed member (개업·소속
+ * 공인중개사) of the agency; the name comes from that member, never from free text.
+ */
 export const listingContactSchema = z.object({
-  /** AgencyMember id of the contact person (must belong to the acting agency). */
+  /** AgencyMember id of a licensed contact person of the acting agency. */
   contactMemberId: idSchema.optional(),
-  contactName: text(50).optional(),
+  /** Overrides the member's phone (allowed only when the acting member is licensed). */
   contactPhone: contactPhoneSchema.optional(),
 });
 export type ListingContactInput = z.infer<typeof listingContactSchema>;
@@ -222,6 +226,15 @@ const moveInRefine = (v: { moveInType?: string | null; moveInDate?: string | nul
   v.moveInType !== MoveInType.DATE || (v.moveInDate !== undefined && v.moveInDate !== null);
 const MOVE_IN_ISSUE = { path: ['moveInDate'], message: '입주가능일을 입력해 주세요.' };
 
+/** 해당 층 ≤ 총 층수 (basements are always valid). The update path re-checks the merged state. */
+export function floorWithinBuilding(
+  floor: number | null | undefined,
+  totalFloors: number | null | undefined,
+): boolean {
+  return floor === null || floor === undefined || !totalFloors || floor <= totalFloors;
+}
+const FLOOR_ISSUE = { path: ['property', 'floor'], message: '해당 층이 총 층수보다 큽니다.' };
+
 /** Draft input is permissive; the publish validator enforces 표시·광고 명시사항. */
 export const listingDraftSchema = z
   .object({
@@ -237,7 +250,8 @@ export const listingDraftSchema = z
     property: propertyInputSchema,
     contact: listingContactSchema.optional(),
   })
-  .refine(moveInRefine, MOVE_IN_ISSUE);
+  .refine(moveInRefine, MOVE_IN_ISSUE)
+  .refine((v) => floorWithinBuilding(v.property.floor, v.property.totalFloors), FLOOR_ISSUE);
 export type ListingDraftInput = z.infer<typeof listingDraftSchema>;
 
 /** PATCH /agency/listings/:id — omitted = unchanged, null = clear. */
@@ -257,10 +271,13 @@ export const listingUpdateSchema = z
     }),
     property: propertyUpdateSchema.optional(),
     contact: listingContactSchema.optional(),
+    /** Optimistic concurrency: the `version` the client edited; a newer row answers 409. */
+    version: z.int().min(0).optional(),
   })
-  .refine((v) => Object.values(v).some((x) => x !== undefined), {
+  .refine(({ version: _version, ...v }) => Object.values(v).some((x) => x !== undefined), {
     message: '변경할 항목이 없습니다.',
-  });
+  })
+  .refine((v) => floorWithinBuilding(v.property?.floor, v.property?.totalFloors), FLOOR_ISSUE);
 export type ListingUpdateInput = z.infer<typeof listingUpdateSchema>;
 
 export const listingStatusChangeSchema = z.object({

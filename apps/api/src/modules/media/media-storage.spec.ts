@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { AppConfig } from '../../config/app-config.service';
-import { MediaStorage } from './media-storage';
+import { assertDisjointRoots, MediaStorage } from './media-storage';
 
 describe('MediaStorage', () => {
   let dir: string;
@@ -62,5 +62,21 @@ describe('MediaStorage', () => {
     expect(await stat(path.join(dir, 'private', 'staging', id))).toBeTruthy();
     await storage.removeStaging(id);
     expect(await storage.readStaging(id)).toBeNull();
+  });
+
+  it('refuses to start when the public and private roots overlap', () => {
+    const make = (pub: string, priv: string) => () =>
+      new MediaStorage({
+        get: (k: string) =>
+          ({ UPLOAD_DIR: pub, PRIVATE_UPLOAD_DIR: priv, MEDIA_BASE_URL: '/media' })[k],
+      } as unknown as AppConfig);
+    expect(make('/var/lib/house/uploads', '/var/lib/house/uploads/private')).toThrow(/must not/);
+    expect(make('/var/lib/house/private/pub', '/var/lib/house/private')).toThrow(/must not/);
+    expect(make('/var/lib/house/uploads', '/var/lib/house/uploads/')).toThrow(/must not/);
+    expect(() => assertDisjointRoots('/srv/a/../b', '/srv/b/docs')).toThrow(/must not/);
+    // Sibling directories sharing a name prefix are fine.
+    expect(() =>
+      assertDisjointRoots('/var/lib/house/uploads', '/var/lib/house/uploads-private'),
+    ).not.toThrow();
   });
 });

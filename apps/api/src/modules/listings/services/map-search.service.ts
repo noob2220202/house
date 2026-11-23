@@ -1,4 +1,5 @@
 import {
+  applicablePrices,
   DealType,
   MAP_MAX_MARKERS,
   MapResultKind,
@@ -14,7 +15,11 @@ import { CacheService } from '../../../common/cache/cache.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { LISTINGS_SEARCH_CACHE_NS, MAP_TILE_CACHE_TTL_SECONDS } from '../constants';
 import { mapTileCacheKey, planMapQuery, type MapPlan } from '../domain/map-tiles';
-import { ListingSearchRepository, type DealTypeAggRow } from '../listing-search.repository';
+import {
+  ListingSearchRepository,
+  type ComplexAggRow,
+  type DealTypeAggRow,
+} from '../listing-search.repository';
 
 interface Group {
   count: number;
@@ -85,16 +90,18 @@ export class MapSearchService {
         return { ...base, clusters, total: clusters.reduce((n, c) => n + c.count, 0) };
       }
       case MapResultKind.MARKERS: {
-        const [complexes, markers, total] = await Promise.all([
-          this.complexMarkers(where),
+        const [complexRows, markers, total] = await Promise.all([
+          this.repo.complexAggregates(where, MAP_MAX_MARKERS),
           this.repo.listingMarkers(where, MAP_MAX_MARKERS),
           this.repo.count(where),
         ]);
         return {
           ...base,
-          complexes,
-          listings: markers.slice(0, MAP_MAX_MARKERS),
-          truncated: markers.length > MAP_MAX_MARKERS,
+          complexes: complexRows.slice(0, MAP_MAX_MARKERS).map(toComplexMarker),
+          listings: markers
+            .slice(0, MAP_MAX_MARKERS)
+            .map((m) => ({ ...m, ...applicablePrices(m.dealType, m) })),
+          truncated: markers.length > MAP_MAX_MARKERS || complexRows.length > MAP_MAX_MARKERS,
           total,
         };
       }
@@ -154,30 +161,25 @@ export class MapSearchService {
       byDealType: g.byDealType,
     }));
   }
+}
 
-  private async complexMarkers(where: Prisma.Sql): Promise<MapComplexMarker[]> {
-    const rows = await this.repo.complexAggregates(where);
-    const markers = new Map<string, MapComplexMarker>();
-    for (const r of rows) {
-      let m = markers.get(r.complexId);
-      if (!m) {
-        m = {
-          complexId: r.complexId,
-          name: r.name,
-          assetType: r.assetType,
-          lat: r.lat,
-          lng: r.lng,
-          households: r.households,
-          builtYear: r.builtYear,
-          count: 0,
-          byDealType: {},
-        };
-        markers.set(r.complexId, m);
-      }
-      const g: Group = { count: m.count, latSum: 0, lngSum: 0, byDealType: m.byDealType };
-      addAgg(g, r, 0, 0);
-      m.count = g.count;
-    }
-    return [...markers.values()].slice(0, MAP_MAX_MARKERS);
+function toComplexMarker(r: ComplexAggRow): MapComplexMarker {
+  const g = newGroup();
+  for (const [dealType, stats] of Object.entries(r.byDealType) as [
+    DealType,
+    Omit<DealTypeAggRow, 'dealType'>,
+  ][]) {
+    addAgg(g, { dealType, ...stats }, 0, 0);
   }
+  return {
+    complexId: r.complexId,
+    name: r.name,
+    assetType: r.assetType,
+    lat: r.lat,
+    lng: r.lng,
+    households: r.households,
+    builtYear: r.builtYear,
+    count: r.count,
+    byDealType: g.byDealType,
+  };
 }

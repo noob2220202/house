@@ -81,6 +81,8 @@ model DealRequest {
   expiresAt         DateTime? @map("expires_at") @db.Timestamptz(3)
   closedAt          DateTime? @map("closed_at") @db.Timestamptz(3)
   proposalCount     Int       @default(0) @map("proposal_count")
+  /// Times the requester extended (or reopened an expired) request; capped by MAX_EXTENSIONS.
+  extensionCount    Int       @default(0) @map("extension_count")
   /// Why the request was closed (admin moderation or requester note).
   closeReason       String?   @map("close_reason") @db.VarChar(500)
   /// Contact/동호 erased (data minimization) after closure or member withdrawal.

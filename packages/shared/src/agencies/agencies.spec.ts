@@ -1,6 +1,7 @@
 import {
   agencyDecisionSchema,
   agencyJoinSchema,
+  agencyLocationUpdateSchema,
   agencyRegisterSchema,
   agencyUpdateSchema,
   businessHoursSchema,
@@ -13,6 +14,7 @@ import {
   isValidBusinessNumber,
   normalizeInviteCode,
   normalizeRegistrationNumber,
+  registrationNumberKey,
 } from './rules';
 import { isOpenAt } from './hours';
 import { agencyDisclosureLines, toAgencyDisclosure } from './disclosure';
@@ -43,6 +45,33 @@ describe('agency rules', () => {
     expect(registrationNumberSchema.parse('가1234-5678')).toBe('가1234-5678');
     expect(registrationNumberSchema.safeParse('46150/2020').success).toBe(false);
     expect(registrationNumberSchema.safeParse('-123').success).toBe(false);
+  });
+
+  it('canonicalizes 등록번호 spellings so uniqueness cannot be bypassed', () => {
+    expect(normalizeRegistrationNumber('46150202000012')).toBe('46150-2020-00012');
+    expect(normalizeRegistrationNumber('46150-202000012')).toBe('46150-2020-00012');
+    expect(normalizeRegistrationNumber('46150--2020-00012')).toBe('46150-2020-00012');
+    expect(normalizeRegistrationNumber('ab-1234')).toBe('AB-1234');
+    expect(registrationNumberSchema.parse('제 46150 2020 00012 호')).toBe('46150-2020-00012');
+    const key = registrationNumberKey('46150-2020-00012');
+    expect(key).toBe('46150202000012');
+    expect(registrationNumberKey('제46150202000012호')).toBe(key);
+    expect(registrationNumberKey('가1234-5678')).toBe(registrationNumberKey('가12345678'));
+    expect(registrationNumberKey('ab1234-5678')).toBe('AB12345678');
+    expect(registrationNumberKey('46150-2020-00013')).not.toBe(key);
+  });
+
+  it('admin 소재지 change needs a reason and at least one field; lat/lng together', () => {
+    expect(agencyLocationUpdateSchema.safeParse({ roadAddress: '순천시 중앙로 1' }).success).toBe(
+      false,
+    );
+    expect(agencyLocationUpdateSchema.safeParse({ reason: '이전신고' }).success).toBe(false);
+    expect(agencyLocationUpdateSchema.safeParse({ lat: 34.9, reason: '이전신고' }).success).toBe(
+      false,
+    );
+    expect(
+      agencyLocationUpdateSchema.parse({ roadAddress: ' 순천시 중앙로 1 ', reason: '이전신고' }),
+    ).toEqual({ roadAddress: '순천시 중앙로 1', reason: '이전신고' });
   });
 
   it('allows only the documented admin transitions', () => {

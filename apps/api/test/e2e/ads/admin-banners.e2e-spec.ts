@@ -203,6 +203,140 @@ describe('ads: admin banners (e2e)', () => {
     });
   });
 
+  describe('slot rules and per-context capacity', () => {
+    async function featured(complexId: string, agencyId: string, extra = {}) {
+      return validBody({
+        slot: 'COMPLEX_FEATURED_AGENCY',
+        agencyId,
+        targeting: 'COMPLEXES',
+        targetComplexIds: [complexId],
+        ...extra,
+      });
+    }
+
+    it('400 when COMPLEX_FEATURED_AGENCY has no agency or is not complex-targeted', async () => {
+      const s = await adminSession(t);
+      const res = await withSession(t.http().post(BASE), s)
+        .send(await validBody({ slot: 'COMPLEX_FEATURED_AGENCY' }))
+        .expect(400);
+      const paths = (res.body.details as { path: string }[]).map((d) => d.path);
+      expect(paths).toEqual(expect.arrayContaining(['agencyId', 'targeting']));
+
+      // The merged row is re-checked on PATCH.
+      const { agency } = await createAgency(t.prisma);
+      const complex = await createComplex(t.prisma);
+      const created = await withSession(t.http().post(BASE), s)
+        .send(await featured(complex.id, agency.id))
+        .expect(201);
+      await withSession(t.http().patch(`${BASE}/${created.body.id}`), s)
+        .send({ targeting: 'ALL' })
+        .expect(400);
+      const noAgency = await withSession(t.http().patch(`${BASE}/${created.body.id}`), s)
+        .send({ agencyId: null })
+        .expect(400);
+      expect(noAgency.body.details[0].path).toBe('agencyId');
+    });
+
+    it('400 BANNER_AGENCY_INVALID for agencies that are not APPROVED', async () => {
+      const s = await adminSession(t);
+      const b = await seedBanner(t.prisma);
+      for (const status of ['PENDING', 'REJECTED', 'SUSPENDED'] as const) {
+        const { agency } = await createAgency(t.prisma, { status });
+        const res = await withSession(t.http().post(BASE), s)
+          .send(await validBody({ agencyId: agency.id }))
+          .expect(400);
+        expect(res.body.code).toBe('BANNER_AGENCY_INVALID');
+        await withSession(t.http().patch(`${BASE}/${b.id}`), s)
+          .send({ agencyId: agency.id })
+          .expect(400);
+      }
+    });
+
+    it('COMPLEX_FEATURED_AGENCY capacity is per complex page, not city-wide', async () => {
+      const s = await adminSession(t);
+      const { agency } = await createAgency(t.prisma);
+      const c1 = await createComplex(t.prisma, { emdCode: '46150101' });
+      const c2 = await createComplex(t.prisma, { emdCode: '46150250' });
+      // Default limit 3: 3 on c1 + 1 on c2 = 4 banners in the slot.
+      for (const c of [c1, c1, c1, c2]) {
+        await withSession(t.http().post(BASE), s)
+          .send(await featured(c.id, agency.id))
+          .expect(201);
+      }
+      const res = await withSession(t.http().post(BASE), s)
+        .send(await featured(c1.id, agency.id))
+        .expect(409);
+      expect(res.body).toMatchObject({
+        code: 'BANNER_SLOT_FULL',
+        details: { maxActive: 3, concurrent: 4, context: { complexId: c1.id } },
+      });
+      await withSession(t.http().post(BASE), s)
+        .send(await featured(c2.id, agency.id))
+        .expect(201);
+    });
+
+    it('region-targeted banners only compete where their 법정동 overlap', async () => {
+      const s = await adminSession(t);
+      await t.prisma.bannerSlotConfig.create({ data: { slot: 'MAP_AD', maxActive: 1 } });
+      await createRegion(t.prisma, '46150');
+      await createRegion(t.prisma, '46150101');
+      await createRegion(t.prisma, '46150250');
+      const region = (code: string) =>
+        validBody({ slot: 'MAP_AD', targeting: 'REGIONS', targetRegionCodes: [code] });
+      await withSession(t.http().post(BASE), s)
+        .send(await region('46150101'))
+        .expect(201);
+      await withSession(t.http().post(BASE), s)
+        .send(await region('46150250'))
+        .expect(201);
+      // The whole city overlaps both 읍면동.
+      const res = await withSession(t.http().post(BASE), s)
+        .send(await region('46150'))
+        .expect(409);
+      expect(res.body.details.context).toEqual({ regionCode: '46150101' });
+    });
+
+    it('PATCH that shortens a banner works after the slot limit was lowered; extending does not', async () => {
+      const s = await adminSession(t);
+      const a = await seedBanner(t.prisma, { slot: 'MAIN_STRIP', endAt: inHours(48) });
+      await seedBanner(t.prisma, { slot: 'MAIN_STRIP', endAt: inHours(48) });
+      await t.prisma.bannerSlotConfig.create({ data: { slot: 'MAIN_STRIP', maxActive: 1 } });
+      await withSession(t.http().patch(`${BASE}/${a.id}`), s)
+        .send({ endAt: isoIn(2) })
+        .expect(200);
+      await withSession(t.http().patch(`${BASE}/${a.id}`), s)
+        .send({ paused: true })
+        .expect(200);
+      const res = await withSession(t.http().patch(`${BASE}/${a.id}`), s)
+        .send({ paused: false, endAt: isoIn(72) })
+        .expect(409);
+      expect(res.body.code).toBe('BANNER_SLOT_FULL');
+    });
+
+    it('PATCH replacing an image validates the new one and releases the old one', async () => {
+      const s = await adminSession(t);
+      const b = await seedBanner(t.prisma);
+      const oldPc = await t.prisma.media.update({
+        where: { id: b.pcMediaId },
+        data: { updatedAt: new Date(Date.now() - 86_400_000) },
+      });
+      const removed = await bannerMedia(t.prisma);
+      await t.prisma.media.update({ where: { id: removed.id }, data: { deletedAt: new Date() } });
+      const bad = await withSession(t.http().patch(`${BASE}/${b.id}`), s)
+        .send({ pcMediaId: removed.id })
+        .expect(400);
+      expect(bad.body.code).toBe('BANNER_MEDIA_INVALID');
+
+      const next = await bannerMedia(t.prisma);
+      const res = await withSession(t.http().patch(`${BASE}/${b.id}`), s)
+        .send({ pcMediaId: next.id })
+        .expect(200);
+      expect(res.body.pcImage.id).toBe(next.id);
+      const after = await t.prisma.media.findUniqueOrThrow({ where: { id: oldPc.id } });
+      expect(after.updatedAt.getTime()).toBeGreaterThan(oldPc.updatedAt.getTime());
+    });
+  });
+
   describe('GET /admin/banners', () => {
     it('200 lists with slot/status/q filters and pagination', async () => {
       const s = await adminSession(t);

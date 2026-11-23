@@ -114,8 +114,13 @@ enum ListingOption {
 }
 
 enum ListingAgencyStatus {
+  /// Co-broker request waiting for the primary agency's acceptance (not public, no rights).
+  PENDING
   ACTIVE
+  /// Left voluntarily (or cancelled its own request); may request again.
   WITHDRAWN
+  /// Removed or rejected by the primary agency; cannot rejoin unless the primary reinstates it.
+  REMOVED
 
   @@map("listing_agency_status")
 }
@@ -222,6 +227,8 @@ model Listing {
   verifiedAt          DateTime?       @map("verified_at") @db.Timestamptz(3)
   viewCount           Int             @default(0) @map("view_count")
   favoriteCount       Int             @default(0) @map("favorite_count")
+  /// Optimistic concurrency counter, bumped by every content/status write (not by counters).
+  version             Int             @default(0)
 
   // --- denormalized search columns ---
   assetType     AssetType                              @map("asset_type")
@@ -263,6 +270,7 @@ model Listing {
   @@index([status, verifiedAt(sort: Desc)])
   @@index([status, builtYear(sort: Desc)])
   @@index([status, photoCount(sort: Desc)])
+  @@index([status, expiresAt])
   @@index([complexId, status, dealType])
   @@index([primaryAgencyId, status])
   @@index([emdCode, status])

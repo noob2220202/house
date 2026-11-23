@@ -8,7 +8,13 @@ SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 load_conf
 
-row() { printf '  %-14s %s\n' "$1" "$2"; }
+# Pads by display width (Hangul is two columns wide).
+row() {
+  local label="$1" hangul="${1//[^가-힣]/}"
+  local pad=$((16 - ${#label} - ${#hangul}))
+  ((pad < 1)) && pad=1
+  printf '  %s%*s%s\n' "$label" "$pad" '' "$2"
+}
 badge() { if [[ "$1" == 0 ]]; then printf '%s정상%s' "$C_GRN" "$C_RST"; else printf '%s실패%s' "$C_RED" "$C_RST"; fi; }
 
 step "릴리스"
@@ -53,8 +59,11 @@ fi
 if [[ -n "$DOMAIN" ]]; then
   scheme=https
   [[ "$TLS_ENABLED" == true ]] || scheme=http
-  curl -fsS -o /dev/null --max-time 8 "$scheme://$DOMAIN/api/v1/health" 2>/dev/null
-  row "외부(nginx)" "$(badge $?)  $scheme://$DOMAIN/api/v1/health"
+  port=443
+  [[ "$scheme" == https ]] || port=80
+  # Through the local nginx with the real Host/SNI (works before DNS points here).
+  curl -fs --noproxy '*' -o /dev/null --max-time 8 --resolve "$DOMAIN:$port:127.0.0.1" "$scheme://$DOMAIN/api/v1/health"
+  row "nginx" "$(badge $?)  $scheme://$DOMAIN/api/v1/health"
 fi
 
 step "서비스"

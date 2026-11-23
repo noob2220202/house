@@ -1,8 +1,10 @@
-import { AgencyStatus, kstDate, UserRole } from '@house/shared';
+import { AgencyStatus, kstDate, MediaPurpose, UserRole } from '@house/shared';
+import { ADS_REDIS } from '../../../src/modules/ads/constants';
 import { AdTrackingService } from '../../../src/modules/ads/services/ad-tracking.service';
 import {
   createAgency,
   createComplex,
+  createMedia,
   createTestApp,
   createUser,
   loginUser,
@@ -88,21 +90,14 @@ describe('ads: public serving, tracking and stats (e2e)', () => {
       expect(pluck(res)).toEqual([all.id, sgg.id, byComplex.id]);
     });
 
-    it('caps to the slot limit by priority, hides disabled slots, hides unapproved agencies', async () => {
-      const { agency } = await createAgency(t.prisma, { status: AgencyStatus.SUSPENDED });
+    it('caps to the slot limit by priority and hides disabled slots', async () => {
       await t.prisma.bannerSlotConfig.create({ data: { slot: 'MAIN_STRIP', maxActive: 2 } });
       const low = await seedBanner(t.prisma, { slot: 'MAIN_STRIP', priority: 0, sortOrder: 0 });
-      const high = await seedBanner(t.prisma, {
-        slot: 'MAIN_STRIP',
-        priority: 9,
-        sortOrder: 2,
-        agencyId: agency.id,
-      });
+      const high = await seedBanner(t.prisma, { slot: 'MAIN_STRIP', priority: 9, sortOrder: 2 });
       const mid = await seedBanner(t.prisma, { slot: 'MAIN_STRIP', priority: 5, sortOrder: 1 });
       const res = await t.http().get('/api/v1/banners?slot=MAIN_STRIP').expect(200);
       expect(pluck(res)).toEqual([mid.id, high.id]);
       expect(pluck(res)).not.toContain(low.id);
-      expect(res.body.items[1].agency).toBeNull();
 
       await t.prisma.bannerSlotConfig.create({
         data: { slot: 'MAP_AD', maxActive: 3, isEnabled: false },
@@ -110,6 +105,51 @@ describe('ads: public serving, tracking and stats (e2e)', () => {
       await seedBanner(t.prisma, { slot: 'MAP_AD' });
       const off = await t.http().get('/api/v1/banners?slot=MAP_AD').expect(200);
       expect(off.body.items).toEqual([]);
+    });
+
+    it('does not serve banners of unapproved agencies or with a removed image', async () => {
+      const { agency: suspended } = await createAgency(t.prisma, {
+        status: AgencyStatus.SUSPENDED,
+      });
+      const { agency: approved } = await createAgency(t.prisma);
+      const ok = await seedBanner(t.prisma, { sortOrder: 0, agencyId: approved.id });
+      const noAgency = await seedBanner(t.prisma, { sortOrder: 1 });
+      const sanctioned = await seedBanner(t.prisma, { agencyId: suspended.id });
+      const brokenImage = await seedBanner(t.prisma);
+      await t.prisma.media.update({
+        where: { id: brokenImage.pcMediaId },
+        data: { deletedAt: new Date() },
+      });
+      const withMobile = await seedBanner(t.prisma, { sortOrder: 2 });
+      const mobile = await createMedia(t.prisma, { purpose: MediaPurpose.BANNER });
+      await t.prisma.banner.update({
+        where: { id: withMobile.id },
+        data: { mobileMediaId: mobile.id },
+      });
+      await t.prisma.media.update({ where: { id: mobile.id }, data: { deletedAt: new Date() } });
+
+      const res = await t.http().get('/api/v1/banners?slot=MAIN_HERO').expect(200);
+      expect(pluck(res)).toEqual([ok.id, noAgency.id, withMobile.id]);
+      expect(pluck(res)).not.toContain(sanctioned.id);
+      expect(pluck(res)).not.toContain(brokenImage.id);
+      expect(res.body.items[2].mobileImageUrl).toBeNull();
+
+      // Not servable → impressions and clicks are not counted either.
+      await t
+        .http()
+        .post('/api/v1/banners/impressions')
+        .set('Origin', PUBLIC_ORIGIN)
+        .set('User-Agent', CHROME_UA)
+        .send({ ids: [sanctioned.id, brokenImage.id] })
+        .expect(204);
+      await t
+        .http()
+        .get(`/api/v1/banners/${sanctioned.id}/click`)
+        .set('User-Agent', CHROME_UA)
+        .redirects(0)
+        .expect(302);
+      await flush();
+      expect(await t.prisma.bannerStatDaily.count()).toBe(0);
     });
 
     it('serves from cache and invalidates on admin writes', async () => {
@@ -187,7 +227,10 @@ describe('ads: public serving, tracking and stats (e2e)', () => {
           .expect(204);
       await send(live.id, CHROME_UA);
       await send(live.id, CHROME_UA); // same visitor → deduped
-      await send(live.id, SAFARI_UA); // different UA → different anonymous visitor
+      // Anonymous visitors are their IP: rotating the User-Agent does not mint new visitors.
+      await send(live.id, SAFARI_UA);
+      await send(live.id, `${CHROME_UA} rotated/1`);
+      await send(live.id, CHROME_UA, '10.0.0.2'); // another IP → another visitor
       await send(
         live.id,
         'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
@@ -206,6 +249,30 @@ describe('ads: public serving, tracking and stats (e2e)', () => {
       const row = await t.prisma.bannerStatDaily.findFirstOrThrow({ where: { bannerId: live.id } });
       expect(row).toMatchObject({ impressions: 3, clicks: 0 });
       expect(await t.prisma.bannerStatDaily.count({ where: { bannerId: ended.id } })).toBe(0);
+    });
+
+    it('counts distinct visitors in a bounded HyperLogLog', async () => {
+      const b = await seedBanner(t.prisma);
+      const n = 300;
+      for (let i = 0; i < n; i++) {
+        await tracking.recordImpressions([b.id], {
+          ip: `10.1.${Math.floor(i / 250)}.${i % 250}`,
+          userAgent: CHROME_UA,
+        });
+      }
+      // Repeat visits (any UA) do not add anything.
+      for (let i = 0; i < 50; i++) {
+        await tracking.recordImpressions([b.id], {
+          ip: '10.1.0.7',
+          userAgent: `${CHROME_UA} ${i}`,
+        });
+      }
+      const key = ADS_REDIS.impressions(kstDate(), b.id);
+      expect(await t.redis.type(key)).toBe('string'); // HLL, not a SET
+      expect(await t.redis.pfcount(key)).toBeGreaterThan(n * 0.97);
+      await flush();
+      const row = await t.prisma.bannerStatDaily.findFirstOrThrow({ where: { bannerId: b.id } });
+      expect(Math.abs(row.impressions - n)).toBeLessThanOrEqual(n * 0.03);
     });
 
     it('403 for a foreign Origin, or a session without the CSRF token', async () => {
@@ -271,6 +338,23 @@ describe('ads: public serving, tracking and stats (e2e)', () => {
 
       await flush();
       const row = await t.prisma.bannerStatDaily.findFirstOrThrow({ where: { bannerId: ext.id } });
+      expect(row.clicks).toBe(1);
+    });
+
+    it('302 but no count for embedded (non-navigation) requests', async () => {
+      const b = await seedBanner(t.prisma);
+      const req = () =>
+        t.http().get(`/api/v1/banners/${b.id}/click`).set('User-Agent', CHROME_UA).redirects(0);
+      // <img src=".../click"> on a third-party page.
+      await req().set('Sec-Fetch-Dest', 'image').set('Sec-Fetch-Mode', 'no-cors').expect(302);
+      await req().set('Sec-Fetch-Dest', 'image').expect(302);
+      await req().set('Sec-Fetch-Mode', 'cors').expect(302);
+      await flush();
+      expect(await t.prisma.bannerStatDaily.count()).toBe(0);
+
+      await req().set('Sec-Fetch-Dest', 'document').set('Sec-Fetch-Mode', 'navigate').expect(302);
+      await flush();
+      const row = await t.prisma.bannerStatDaily.findFirstOrThrow({ where: { bannerId: b.id } });
       expect(row.clicks).toBe(1);
     });
 

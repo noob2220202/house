@@ -103,6 +103,21 @@ describe('dealRequestCreateSchema', () => {
     expect(issuePaths({ ...sell, lat: 34.95 })).toEqual(['lat']);
   });
 
+  it('rejects mobile numbers typed into the description', () => {
+    for (const d of [
+      '연락주세요 010-1234-5678',
+      '01012345678',
+      '010 1234 5678',
+      '+82 10.1234.5678',
+    ]) {
+      expect(issuePaths({ ...sell, description: d })).toEqual(['description']);
+      expect(issuePaths({ ...wanted, description: d })).toEqual(['description']);
+    }
+    expect(issuePaths({ ...sell, description: '84㎡ 남향, 2019년 준공, 관리비 15만원' })).toEqual(
+      [],
+    );
+  });
+
   it('rejects an unknown type', () => {
     expect(issuePaths({ ...sell, type: 'OTHER' })).toEqual(['type']);
   });
@@ -116,9 +131,14 @@ describe('proposal schemas', () => {
     ).toBe(false);
   });
 
-  it('accept defaults to sharing contact (explicit consent in the UI)', () => {
-    expect(proposalAcceptSchema.parse(undefined)).toEqual({ shareContact: true });
+  it('accept requires an explicit shareContact choice (no default consent)', () => {
+    expect(proposalAcceptSchema.parse({ shareContact: true })).toEqual({ shareContact: true });
     expect(proposalAcceptSchema.parse({ shareContact: false })).toEqual({ shareContact: false });
+    expect(proposalAcceptSchema.safeParse(undefined).success).toBe(false);
+    const empty = proposalAcceptSchema.safeParse({});
+    expect(empty.success).toBe(false);
+    expect(empty.error?.issues[0]?.message).toBe('연락처 공개 여부를 선택해 주세요.');
+    expect(proposalAcceptSchema.safeParse({ shareContact: 'true' }).success).toBe(false);
   });
 
   it('terms must match the request deal types', () => {

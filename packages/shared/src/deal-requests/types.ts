@@ -77,6 +77,8 @@ export interface MyDealRequestView extends DealRequestBaseView {
   addressDetail: string | null;
   targetAgencyIds: string[];
   closeReason: string | null;
+  /** Extensions used so far (max DEAL_REQUEST_LIMITS.MAX_EXTENSIONS). */
+  extensionCount: number;
   contactGrants: ContactGrantView[];
 }
 

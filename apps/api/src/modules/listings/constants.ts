@@ -17,3 +17,21 @@ export const LISTINGS_REDIS_KEYS = {
 /** BullMQ job (queue counters-flush) that writes Redis view totals to the DB. */
 export const FLUSH_VIEW_COUNTS_JOB = 'listings.flush-view-counts';
 export const FLUSH_VIEW_COUNTS_EVERY_MS = 5 * 60_000;
+
+/**
+ * 광고 기간: an ACTIVE/RESERVED listing reverts to DRAFT this many days after publication or its
+ * latest 실매물 확인, so ads for already-traded properties don't stay up (제18조의2④).
+ */
+export const LISTING_AD_TTL_DAYS = 30;
+/** BullMQ job (queue cleanup) that expires overdue ads. */
+export const EXPIRE_LISTING_ADS_JOB = 'listings.expire-ads';
+export const EXPIRE_LISTING_ADS_EVERY_MS = 60 * 60_000;
+export const EXPIRE_LISTING_ADS_BATCH = 500;
+
+/**
+ * Coarse service-region guard (no 시군구 boundary polygons yet): a property must lie within this
+ * distance of the 시군구 centroid (regions table, REGION_SGG_CODE) and, when its 법정동 has a
+ * centroid, within EMD_MAX_DISTANCE_M of it.
+ */
+export const SERVICE_REGION_RADIUS_M = 30_000;
+export const EMD_MAX_DISTANCE_M = 15_000;

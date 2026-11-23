@@ -30,6 +30,7 @@ import { TermsService } from './terms/terms.service';
 import { AccountService } from './users/account.service';
 import { MeController } from './users/me.controller';
 import { UserSessionService } from './users/user-session.service';
+import { WithdrawnIdentityService } from './users/withdrawn-identity.service';
 
 /**
  * Auth module. Global so every module's guards resolve sessions through SESSION_RESOLVER and can
@@ -69,6 +70,7 @@ import { UserSessionService } from './users/user-session.service';
     SignupService,
     UserSessionService,
     AccountService,
+    WithdrawnIdentityService,
     TermsService,
     PasswordService,
     SecretBox,

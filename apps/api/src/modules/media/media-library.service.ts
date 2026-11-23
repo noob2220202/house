@@ -2,6 +2,7 @@ import type { ReadStream } from 'node:fs';
 import {
   AGENCY_ROLES,
   ErrorCode,
+  MEDIA_OWNER_ONLY_LOOKUP_PURPOSES,
   MediaStatus,
   MediaVisibility,
   type AdminMediaListQuery,
@@ -67,7 +68,10 @@ export class MediaLibraryService {
     return this.page(q, where, (row) => this.mapper.toOwnView(row));
   }
 
-  /** Owners see their uploads in any state; everyone else only READY public media. */
+  /**
+   * Owners see their uploads in any state; everyone else only READY public media of purposes that
+   * are not owner-only (deal-request photos are shown through the deal-requests module).
+   */
   async getForViewer(id: string, principal: Principal | undefined): Promise<MediaView> {
     const row = await this.prisma.media.findFirst({
       where: { id, deletedAt: null },
@@ -77,7 +81,11 @@ export class MediaLibraryService {
     if (isUserPrincipal(principal) && row.ownerUserId === principal.userId) {
       return this.mapper.toOwnView(row);
     }
-    if (row.visibility !== MediaVisibility.PUBLIC || row.status !== MediaStatus.READY) {
+    if (
+      row.visibility !== MediaVisibility.PUBLIC ||
+      row.status !== MediaStatus.READY ||
+      MEDIA_OWNER_ONLY_LOOKUP_PURPOSES.includes(row.purpose)
+    ) {
       throw notFound();
     }
     return this.mapper.toView(row);

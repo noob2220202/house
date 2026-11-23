@@ -6,14 +6,19 @@ import {
   type BannerSlotUpdateInput,
   type BannerSlotView,
 } from '@house/shared';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { CacheService } from '../../../common/cache/cache.service';
 import { RequestContext } from '../../../common/context/request-context';
 import { AppException } from '../../../common/errors/app.exception';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
 import { ADS_CACHE } from '../constants';
 import { liveWhere } from '../domain/schedule';
-import { peakConcurrency, type TimeWindow } from '../domain/slot-capacity';
+import {
+  worstContextConcurrency,
+  type CapacityContext,
+  type PlacedWindow,
+} from '../domain/slot-capacity';
+import { ADS_REFERENCES, type AdsReferencesPort } from '../ports/ads-references.port';
 
 export interface SlotSettings {
   maxActive: number;
@@ -27,6 +32,7 @@ export class BannerSlotsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
+    @Inject(ADS_REFERENCES) private readonly refs: AdsReferencesPort,
   ) {}
 
   async settings(slot: BannerSlot, db: PrismaTx = this.prisma): Promise<SlotSettings> {
@@ -103,37 +109,62 @@ export class BannerSlotsService {
   }
 
   /**
-   * Throws 409 BANNER_SLOT_FULL when adding `window` would exceed the slot's simultaneous limit at
-   * any instant from now on. Paused, ended and deleted banners do not count.
+   * Throws 409 BANNER_SLOT_FULL when adding `banner` would exceed the slot's simultaneous limit
+   * on some page at some instant from now on. The limit applies per page context, like serving:
+   * COMPLEX_FEATURED_AGENCY holds `maxActive` agencies per complex page, MAP_AD per 읍면동, and
+   * an ALL banner competes everywhere. Paused, ended and deleted banners do not count.
    */
   async assertCapacity(
     tx: PrismaTx,
     slot: BannerSlot,
-    window: TimeWindow,
+    banner: PlacedWindow,
     opts: { excludeId?: string; now?: Date } = {},
   ): Promise<void> {
     const now = opts.now ?? new Date();
-    const from = window.startAt > now ? window.startAt : now;
-    if (from >= window.endAt) return;
+    const from = banner.startAt > now ? banner.startAt : now;
+    if (from >= banner.endAt) return;
     const { maxActive } = await this.settings(slot, tx);
-    const others = await tx.banner.findMany({
+    const rows = await tx.banner.findMany({
       where: {
         slot,
         deletedAt: null,
         paused: false,
-        startAt: { lt: window.endAt },
+        startAt: { lt: banner.endAt },
         endAt: { gt: from },
         ...(opts.excludeId ? { id: { not: opts.excludeId } } : {}),
       },
-      select: { startAt: true, endAt: true },
+      select: {
+        startAt: true,
+        endAt: true,
+        targeting: true,
+        targetRegions: { select: { regionCode: true } },
+        targetComplexes: { select: { complexId: true } },
+      },
     });
-    const { peak, at } = peakConcurrency({ startAt: from, endAt: window.endAt }, others);
+    const others: PlacedWindow[] = rows.map((r) => ({
+      startAt: r.startAt,
+      endAt: r.endAt,
+      targeting: r.targeting,
+      regionCodes: r.targetRegions.map((t) => t.regionCode),
+      complexIds: r.targetComplexes.map((t) => t.complexId),
+    }));
+    const complexCodes = await this.refs.complexRegionCodesMany(
+      [...banner.complexIds, ...others.flatMap((o) => o.complexIds)],
+      tx,
+    );
+    const { peak, at, context } = worstContextConcurrency(
+      { startAt: from, endAt: banner.endAt },
+      banner,
+      others,
+      complexCodes,
+    );
     if (peak + 1 > maxActive) {
       throw AppException.conflict(ErrorCode.BANNER_SLOT_FULL, {
         slot,
         maxActive,
         concurrent: peak + 1,
         at: (at ?? from).toISOString(),
+        context: contextDetails(context),
       });
     }
   }
@@ -154,8 +185,18 @@ export class BannerSlotsService {
       defaultMaxActive: spec.maxActive,
       isEnabled: s.isEnabled,
       note: s.note,
+      requiresAgency: spec.requiresAgency,
+      requiredTargeting: spec.requiredTargeting,
       activeCount,
       upcomingCount,
     };
   }
+}
+
+function contextDetails(
+  ctx: CapacityContext | null,
+): { complexId: string } | { regionCode: string } | Record<string, never> {
+  if (ctx?.kind === 'complex') return { complexId: ctx.complexId };
+  if (ctx?.kind === 'region') return { regionCode: ctx.regionCode };
+  return {};
 }

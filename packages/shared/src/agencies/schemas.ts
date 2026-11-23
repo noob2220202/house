@@ -312,3 +312,25 @@ export type AgencyDecisionInput = z.infer<typeof agencyDecisionSchema>;
 export const agencyRegistryCheckQuerySchema = z.object({
   refresh: queryBoolean.transform((v) => v ?? false),
 });
+
+/**
+ * PATCH /admin/agencies/:id/location — 소재지 변경 of an approved office, applied by an admin after
+ * checking the 이전신고 (updated 등록증). Owners cannot change these fields once approved.
+ */
+export const agencyLocationUpdateSchema = z
+  .object({
+    roadAddress: profileFields.roadAddress.optional(),
+    jibunAddress: profileFields.jibunAddress,
+    addressDetail: profileFields.addressDetail,
+    zipCode: profileFields.zipCode,
+    emdCode: profileFields.emdCode,
+    lat: latSchema.optional(),
+    lng: lngSchema.optional(),
+    /** Why / on what evidence (e.g. "이전신고 확인, 등록증 재발급본 첨부"). Audited. */
+    reason: trimmed(1000),
+  })
+  .refine(({ reason: _reason, ...fields }) => nonEmpty(fields), {
+    message: '변경할 항목을 입력해 주세요.',
+  })
+  .refine(latLngTogether, { message: '위도와 경도를 함께 입력해 주세요.', path: ['lng'] });
+export type AgencyLocationUpdateInput = z.infer<typeof agencyLocationUpdateSchema>;

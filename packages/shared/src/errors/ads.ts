@@ -20,7 +20,7 @@ export const ADS_ERROR_MESSAGES: Record<keyof typeof AdsErrorCode, string> = {
   BANNER_MEDIA_INVALID:
     '배너 이미지가 올바르지 않습니다. 배너용으로 업로드된 이미지를 선택해 주세요.',
   BANNER_TARGET_INVALID: '타게팅 대상(지역 또는 단지)이 올바르지 않습니다.',
-  BANNER_AGENCY_INVALID: '광고주 중개사무소를 찾을 수 없습니다.',
+  BANNER_AGENCY_INVALID: '승인된 광고주 중개사무소를 찾을 수 없습니다.',
   BANNER_REORDER_INVALID: '정렬할 배너 목록이 올바르지 않습니다.',
   BANNER_STATS_RANGE_INVALID: '통계 조회 기간이 올바르지 않습니다.',
   POPUP_NOT_FOUND: '팝업을 찾을 수 없습니다.',

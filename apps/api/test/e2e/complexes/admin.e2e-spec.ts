@@ -1,4 +1,8 @@
+import { getQueueToken } from '@nestjs/bullmq';
 import { AdminRole, ErrorCode, MediaPurpose } from '@house/shared';
+import type { Job, Queue } from 'bullmq';
+import { TradeSyncProcessor } from '../../../src/modules/complexes/trade-sync/trade-sync.processor';
+import { QUEUES } from '../../../src/queue/queue.constants';
 import {
   createComplex,
   createMedia,
@@ -247,7 +251,59 @@ describe('complexes: admin API (e2e)', () => {
     });
   });
 
+  const queue = (): Queue => t.app.get<Queue>(getQueueToken(QUEUES.TRADE_SYNC));
+
   describe('DELETE /admin/complexes/:id', () => {
+    it('detaches its 실거래 and stats; the queued rematch hands them to a replacement 단지', async () => {
+      const { complex, at84 } = await seedBuyoung(t, { externalCode: '46150-1001' });
+      const trade = await insertTrade(t, {
+        complexId: complex.id,
+        areaTypeId: at84.id,
+        aptName: '연향부영3차',
+        emdName: '연향동',
+        jibun: '1234-5',
+        raw: { aptSeq: '46150-1001' },
+      });
+      await t.prisma.complexTradeStat.create({
+        data: {
+          complexId: complex.id,
+          exclusiveArea: '84.97',
+          dealType: 'SALE',
+          yearMonth: 202410,
+          tradeCount: 1,
+          medianPrice: 20000,
+          minPrice: 20000,
+          maxPrice: 20000,
+          avgPrice: 20000,
+        },
+      });
+      await withSession(t.http().delete(`${BASE}/${complex.id}`), admin).expect(204);
+      expect(
+        await t.prisma.tradeRecord.findUniqueOrThrow({ where: { id: trade.id } }),
+      ).toMatchObject({ complexId: null, areaTypeId: null });
+      expect(await t.prisma.complexTradeStat.count({ where: { complexId: complex.id } })).toBe(0);
+
+      const created = await withSession(t.http().post(BASE), admin)
+        .send({
+          ...validComplex,
+          name: '연향부영3차',
+          jibunAddress: '전라남도 순천시 연향동 1234-5',
+          emdCode: '46150114',
+          externalCode: '46150-1001',
+          areaTypes: [{ exclusiveArea: 84.97, typeName: '84' }],
+        })
+        .expect(201);
+      const job = await queue().getJob('rematch.46150.all');
+      expect(job).toBeDefined();
+      await t.app.get(TradeSyncProcessor).process(job as Job);
+      const moved = await t.prisma.tradeRecord.findUniqueOrThrow({ where: { id: trade.id } });
+      expect(moved.complexId).toBe(created.body.id);
+      expect(moved.areaTypeId).toBe(created.body.areaTypes[0].id);
+      expect(await t.prisma.complexTradeStat.count({ where: { complexId: created.body.id } })).toBe(
+        1,
+      );
+    });
+
     it('soft-deletes (ADMIN only), releases the 국토교통부 code and hides it publicly', async () => {
       const { complex } = await seedBuyoung(t, { externalCode: '46150-1001' });
       const r = await withSession(t.http().delete(`${BASE}/${complex.id}`), operator).expect(403);
@@ -316,6 +372,70 @@ describe('complexes: admin API (e2e)', () => {
       ).toBe(3);
     });
 
+    it('changing a 평형 re-assigns every trade to its nearest 평형 and rebuilds the stats series', async () => {
+      const { complex, at84, at59 } = await seedBuyoung(t);
+      const big = await insertTrade(t, {
+        complexId: complex.id,
+        areaTypeId: at84.id,
+        price: 30000,
+      });
+      const small = await insertTrade(t, {
+        complexId: complex.id,
+        areaTypeId: at59.id,
+        exclusiveArea: '59.98',
+        price: 15000,
+      });
+      const loose = await insertTrade(t, {
+        complexId: complex.id,
+        exclusiveArea: '84.7',
+        price: 29000,
+      });
+      const areaOf = async (id: string) =>
+        (await t.prisma.tradeRecord.findUniqueOrThrow({ where: { id } })).areaTypeId;
+      const series = async () =>
+        (
+          await t.prisma.complexTradeStat.findMany({
+            where: { complexId: complex.id },
+            orderBy: { exclusiveArea: 'asc' },
+          })
+        ).map((r) => [r.exclusiveArea.toFixed(2), r.tradeCount]);
+
+      // correcting 84.97 → 59.98: the 84㎡ trades must not follow it into the 59㎡ series
+      await withSession(t.http().patch(`${BASE}/${complex.id}/area-types/${at84.id}`), operator)
+        .send({ exclusiveArea: 59.98 })
+        .expect(200);
+      expect(await areaOf(big.id)).toBeNull();
+      expect(await areaOf(loose.id)).toBeNull();
+      expect(await areaOf(small.id)).toBe(at84.id); // 59.98 is now exactly at84
+      expect(await series()).toEqual([
+        ['59.98', 1],
+        ['84.70', 1],
+        ['84.97', 1],
+      ]);
+
+      // a new 평형 picks up every trade it is nearest to
+      const added = await withSession(t.http().post(`${BASE}/${complex.id}/area-types`), operator)
+        .send({ exclusiveArea: 84.9, typeName: '84' })
+        .expect(201);
+      expect(await areaOf(big.id)).toBe(added.body.id);
+      expect(await areaOf(loose.id)).toBe(added.body.id);
+      expect(await series()).toEqual([
+        ['59.98', 1],
+        ['84.90', 2],
+      ]);
+
+      // deleting a 평형 moves its trades to the nearest remaining one within tolerance
+      await withSession(
+        t.http().delete(`${BASE}/${complex.id}/area-types/${at84.id}`),
+        operator,
+      ).expect(204);
+      expect(await areaOf(small.id)).toBe(at59.id);
+      expect(await series()).toEqual([
+        ['59.84', 1],
+        ['84.90', 2],
+      ]);
+    });
+
     it('404 for a 평형 of another 단지, 400 for invalid input, authz', async () => {
       const { complex } = await seedBuyoung(t);
       const other = await seedBuyoung(t, { name: '다른단지' });
@@ -360,10 +480,21 @@ describe('complexes: admin API (e2e)', () => {
         [m2.id, 0],
         [m1.id, 1],
       ]);
+      const past = new Date('2020-01-01T00:00:00Z');
+      await t.prisma.media.updateMany({
+        where: { id: { in: [m1.id, m2.id] } },
+        data: { updatedAt: past },
+      });
       const cleared = await withSession(t.http().put(url), operator)
         .send({ items: [{ mediaId: m1.id }] })
         .expect(200);
       expect(cleared.body).toHaveLength(1);
+      // the removed photo is released: its orphan grace period restarts
+      const [r1, r2] = await Promise.all(
+        [m1.id, m2.id].map((id) => t.prisma.media.findUniqueOrThrow({ where: { id } })),
+      );
+      expect(r1?.updatedAt.getTime()).toBe(past.getTime());
+      expect(r2?.updatedAt.getTime()).toBeGreaterThan(past.getTime());
 
       const listingPhoto = await createMedia(t.prisma, { purpose: MediaPurpose.LISTING_PHOTO });
       const pending = await createMedia(t.prisma, {

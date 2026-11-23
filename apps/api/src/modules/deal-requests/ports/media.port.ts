@@ -27,6 +27,11 @@ export interface DealRequestMediaPort {
    */
   assertPhotosUsable(mediaIds: readonly string[], userId: string, db?: PrismaTx): Promise<void>;
   publicUrl(media: DealRequestMediaRef, variant?: ImageVariant): string;
+  /**
+   * Detaches every photo of the given requests and soft-deletes their media, so the media cleanup
+   * job removes the files (member withdrawal). Returns the number of photos detached.
+   */
+  discardPhotos(dealRequestIds: readonly string[], now: Date, db: PrismaTx): Promise<number>;
 }
 
 export const DEAL_REQUEST_MEDIA = Symbol('DEAL_REQUEST_MEDIA');
@@ -70,6 +75,22 @@ export class PrismaDealRequestMedia implements DealRequestMediaPort {
     if (usable !== new Set(mediaIds).size) {
       throw AppException.badRequest(ErrorCode.DEAL_REQUEST_PHOTO_INVALID);
     }
+  }
+
+  async discardPhotos(dealRequestIds: readonly string[], now: Date, db: PrismaTx): Promise<number> {
+    if (dealRequestIds.length === 0) return 0;
+    const photos = await db.dealRequestPhoto.findMany({
+      where: { dealRequestId: { in: [...dealRequestIds] } },
+      select: { mediaId: true },
+    });
+    if (photos.length === 0) return 0;
+    const mediaIds = photos.map((p) => p.mediaId);
+    await db.dealRequestPhoto.deleteMany({ where: { dealRequestId: { in: [...dealRequestIds] } } });
+    await db.media.updateMany({
+      where: { id: { in: mediaIds }, deletedAt: null },
+      data: { deletedAt: now },
+    });
+    return photos.length;
   }
 
   publicUrl(media: DealRequestMediaRef, variant: ImageVariant = 'medium'): string {

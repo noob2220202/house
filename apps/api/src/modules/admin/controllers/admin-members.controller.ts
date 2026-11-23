@@ -2,12 +2,14 @@ import type { MemberDetail, MemberListItem, Paginated } from '@house/shared';
 import { AdminPermission } from '@house/shared';
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Audit } from '../../../common/decorators';
 import { IdParamDto, MemberListQueryDto, MemberSuspendDto } from '../dto';
 import { RequirePermission } from '../permissions.decorator';
 import { MembersService } from '../services/members.service';
 
-/** Site members: search/detail for operators, suspension for ADMIN+. */
+/**
+ * Site members: search/detail for operators, suspension for ADMIN+. GET /:id shows unmasked
+ * contacts and is logged as `member.pii-view`; suspension is audited inside its transaction.
+ */
 @ApiTags('admin/users')
 @RequirePermission(AdminPermission.MEMBERS_READ)
 @Controller('admin/users')
@@ -27,7 +29,6 @@ export class AdminMembersController {
   @Post(':id/suspend')
   @HttpCode(HttpStatus.OK)
   @RequirePermission(AdminPermission.MEMBERS_SUSPEND)
-  @Audit({ action: 'member.suspend', resourceType: 'User' })
   suspend(@Param() p: IdParamDto, @Body() dto: MemberSuspendDto): Promise<MemberDetail> {
     return this.members.suspend(p.id, dto);
   }
@@ -35,7 +36,6 @@ export class AdminMembersController {
   @Post(':id/unsuspend')
   @HttpCode(HttpStatus.OK)
   @RequirePermission(AdminPermission.MEMBERS_SUSPEND)
-  @Audit({ action: 'member.unsuspend', resourceType: 'User' })
   unsuspend(@Param() p: IdParamDto): Promise<MemberDetail> {
     return this.members.unsuspend(p.id);
   }

@@ -1,4 +1,4 @@
-import { ErrorCode } from '@house/shared';
+import { AgencyStatus, ErrorCode } from '@house/shared';
 import { Injectable } from '@nestjs/common';
 import { AppException } from '../../../common/errors/app.exception';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
@@ -8,7 +8,7 @@ import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
  * need. Kept behind a port so the module does not depend on those modules' internals.
  */
 export interface AdsReferencesPort {
-  /** Throws BANNER_AGENCY_INVALID unless the agency exists (not deleted). */
+  /** Throws BANNER_AGENCY_INVALID unless the agency exists, is APPROVED and not deleted. */
   assertAgency(agencyId: string, db?: PrismaTx): Promise<void>;
   /** Throws BANNER_TARGET_INVALID (details.missing) unless every code is an active region. */
   assertRegions(codes: readonly string[], db?: PrismaTx): Promise<void>;
@@ -16,6 +16,8 @@ export interface AdsReferencesPort {
   assertComplexes(ids: readonly string[], db?: PrismaTx): Promise<void>;
   /** Region codes of a complex (for region-targeted banners on complex pages). */
   complexRegionCodes(complexId: string): Promise<string[]>;
+  /** Region codes of several complexes (unknown/deleted ids are absent from the map). */
+  complexRegionCodesMany(ids: readonly string[], db?: PrismaTx): Promise<Map<string, string[]>>;
 }
 
 export const ADS_REFERENCES = Symbol('ADS_REFERENCES');
@@ -25,7 +27,9 @@ export class PrismaAdsReferences implements AdsReferencesPort {
   constructor(private readonly prisma: PrismaService) {}
 
   async assertAgency(agencyId: string, db: PrismaTx = this.prisma): Promise<void> {
-    const n = await db.agency.count({ where: { id: agencyId, deletedAt: null } });
+    const n = await db.agency.count({
+      where: { id: agencyId, deletedAt: null, status: AgencyStatus.APPROVED },
+    });
     if (n !== 1) throw AppException.badRequest(ErrorCode.BANNER_AGENCY_INVALID);
   }
 
@@ -66,5 +70,23 @@ export class PrismaAdsReferences implements AdsReferencesPort {
     });
     if (!c) return [];
     return [c.sggCode, c.emdCode].filter((x): x is string => typeof x === 'string');
+  }
+
+  async complexRegionCodesMany(
+    ids: readonly string[],
+    db: PrismaTx = this.prisma,
+  ): Promise<Map<string, string[]>> {
+    const unique = [...new Set(ids)];
+    if (unique.length === 0) return new Map();
+    const rows = await db.complex.findMany({
+      where: { id: { in: unique }, deletedAt: null },
+      select: { id: true, sggCode: true, emdCode: true },
+    });
+    return new Map(
+      rows.map((c) => [
+        c.id,
+        [c.sggCode, c.emdCode].filter((x): x is string => typeof x === 'string'),
+      ]),
+    );
   }
 }

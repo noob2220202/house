@@ -13,7 +13,11 @@ import { toPaginated } from '../../../common/pagination/pagination';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ListingSearchRepository } from '../listing-search.repository';
 import { ListingMapper } from '../listing.mapper';
-import { LISTING_PUBLIC_DETAIL_SELECT, LISTING_SUMMARY_SELECT } from '../listing.selects';
+import {
+  LISTING_PUBLIC_DETAIL_SELECT,
+  LISTING_SUMMARY_SELECT,
+  PUBLIC_PRIMARY_AGENCY_WHERE,
+} from '../listing.selects';
 import { FavoritesService } from './favorites.service';
 import { ListingViewsService } from './listing-views.service';
 import { RecentViewsService } from './recent-views.service';
@@ -55,7 +59,12 @@ export class ListingQueryService {
   /** Public detail of an ACTIVE/RESERVED listing; counts a deduped view and a recent view. */
   async detail(id: string, principal: Principal | undefined): Promise<ListingDetail> {
     const row = await this.prisma.listing.findFirst({
-      where: { id, deletedAt: null, status: { in: [...PUBLIC_LISTING_STATUSES] } },
+      where: {
+        id,
+        deletedAt: null,
+        status: { in: [...PUBLIC_LISTING_STATUSES] },
+        ...PUBLIC_PRIMARY_AGENCY_WHERE,
+      },
       select: LISTING_PUBLIC_DETAIL_SELECT,
     });
     if (!row) throw AppException.notFound(ErrorCode.LISTING_NOT_FOUND);

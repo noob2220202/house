@@ -165,6 +165,11 @@ describe('admin media: /api/v1/admin/media (e2e)', () => {
         .expect(200);
       expect(file.headers['content-type']).toBe('application/pdf');
       expect(file.headers['cache-control']).toBe('private, no-store');
+      expect(file.headers['content-disposition']).toBe(
+        `attachment; filename="media-${doc.id}.pdf"`,
+      );
+      expect(file.headers['content-security-policy']).toMatch(/sandbox/);
+      expect(file.headers['x-content-type-options']).toBe('nosniff');
       expect(file.body).toEqual(pdf());
       // recordSafe is fire-and-forget: wait for the row.
       let log = null;

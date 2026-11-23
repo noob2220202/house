@@ -116,6 +116,24 @@ describe('content: notices / FAQ / videos / site settings (e2e)', () => {
         .send({ title: 'a', content: 'b' })
         .expect(201);
       await as(t, session, 'patch', `/admin/notices/${body.id}`).send({}).expect(400);
+      // Content is Markdown without raw HTML: markup and script links are refused on write.
+      for (const content of [
+        '<script>alert(1)</script>',
+        '안내 <img src=x onerror=alert(document.cookie)>',
+        '[바로가기](javascript:alert(1))',
+        '[바로가기](java&#115;cript&colon;alert(1))',
+      ]) {
+        expectCode(
+          await as(t, session, 'post', '/admin/notices').send({ title: 'x', content }).expect(400),
+          ErrorCode.VALIDATION_FAILED,
+        );
+        await as(t, session, 'patch', `/admin/notices/${body.id}`).send({ content }).expect(400);
+      }
+      const markdown =
+        '## 점검 안내\n\n- 일시: 3시 < 5시\n- [공지](https://example.com/a) · [FAQ](/faqs)';
+      await as(t, session, 'patch', `/admin/notices/${body.id}`)
+        .send({ content: markdown })
+        .expect(200);
       await as(t, session, 'get', '/admin/notices?page=0').expect(400);
       await t.http().get(api('/notices?pageSize=1000')).expect(400);
       await t.http().get(api('/notices/not-an-id')).expect(400);
@@ -176,6 +194,9 @@ describe('content: notices / FAQ / videos / site settings (e2e)', () => {
       const { session } = await adminActor(t, AdminRole.OPERATOR);
       await as(t, session, 'post', '/admin/faqs')
         .send({ category: 'NOPE', question: 'q', answer: 'a' })
+        .expect(400);
+      await as(t, session, 'post', '/admin/faqs')
+        .send({ category: FaqCategory.LISTING, question: 'q', answer: '<svg onload=alert(1)>' })
         .expect(400);
       const unknown = await as(t, session, 'put', '/admin/faqs/order')
         .send({ ids: ['01890a5d-ac96-774b-bcce-b302099a8057'] })

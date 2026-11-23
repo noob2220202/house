@@ -1,3 +1,4 @@
+import { BullModule } from '@nestjs/bullmq';
 import { type MiddlewareConsumer, Module, type NestModule, RequestMethod } from '@nestjs/common';
 import { APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
 import { AgenciesModule } from '../agencies/agencies.module';
@@ -21,6 +22,8 @@ import {
 import { AdminReportsController } from './controllers/admin-reports.controller';
 import { AdminSiteSettingsController } from './controllers/admin-site-settings.controller';
 import { AdminTermsController } from './controllers/admin-terms.controller';
+import { ADMIN_QUEUE } from './constants';
+import { AdminMaintenanceProcessor } from './jobs/admin-maintenance.processor';
 import { PublicContentController } from './controllers/public-content.controller';
 import { PublicReportsController } from './controllers/public-reports.controller';
 import { LISTING_MODERATION, ListingModerationAdapter } from './ports/listing-moderation.port';
@@ -44,7 +47,13 @@ import { VisitorStatsService } from './visitors/visitor-stats.service';
  * Auth (SessionService, PasswordService, TermsService) comes from the global AuthModule.
  */
 @Module({
-  imports: [DiscoveryModule, ListingsModule, AgenciesModule, DealRequestsModule],
+  imports: [
+    DiscoveryModule,
+    ListingsModule,
+    AgenciesModule,
+    DealRequestsModule,
+    BullModule.registerQueue({ name: ADMIN_QUEUE }),
+  ],
   controllers: [
     PublicReportsController,
     PublicContentController,
@@ -65,6 +74,7 @@ import { VisitorStatsService } from './visitors/visitor-stats.service';
     { provide: LISTING_MODERATION, useClass: ListingModerationAdapter },
     { provide: APP_INTERCEPTOR, useClass: AdminMutationAuditInterceptor },
     AdminAuditCoverageService,
+    AdminMaintenanceProcessor,
     VisitorStatsService,
     ReportsService,
     AdminListingsService,

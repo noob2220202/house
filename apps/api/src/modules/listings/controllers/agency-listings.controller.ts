@@ -1,6 +1,7 @@
 import {
   UserRole,
   type AgencyListingDetail,
+  type CoBrokerRequestResult,
   type ListingSummary,
   type Paginated,
   type PhotoUrls,
@@ -85,6 +86,7 @@ export class AgencyListingsController {
   }
 
   @Post(':id/publish')
+  @Throttle(THROTTLE.WRITE)
   @HttpCode(HttpStatus.OK)
   publish(
     @CurrentUser() user: UserPrincipal,
@@ -94,6 +96,7 @@ export class AgencyListingsController {
   }
 
   @Post(':id/status')
+  @Throttle(THROTTLE.WRITE)
   @HttpCode(HttpStatus.OK)
   changeStatus(
     @CurrentUser() user: UserPrincipal,
@@ -121,7 +124,7 @@ export class AgencyListingsController {
     return this.listings.replacePhotos(user, p.id, dto);
   }
 
-  /** The caller's agency joins this listing as a co-broker (공동중개). */
+  /** The caller's agency requests to co-broker this listing (공동중개); the primary must accept. */
   @Post(':id/co-brokers')
   @Roles(UserRole.AGENCY_OWNER)
   @Throttle(THROTTLE.WRITE)
@@ -129,11 +132,32 @@ export class AgencyListingsController {
     @CurrentUser() user: UserPrincipal,
     @Param() p: IdParamDto,
     @Body() dto: CoBrokerJoinDto,
-  ): Promise<AgencyListingDetail> {
+  ): Promise<CoBrokerRequestResult> {
     return this.coBrokerage.join(user, p.id, dto);
   }
 
-  /** The caller's agency leaves the co-brokerage. */
+  /** The primary agency accepts a co-broker request (or takes back a removed agency). */
+  @Post(':id/co-brokers/:agencyId/accept')
+  @Roles(UserRole.AGENCY_OWNER)
+  @Throttle(THROTTLE.WRITE)
+  @HttpCode(HttpStatus.OK)
+  acceptCoBroker(
+    @CurrentUser() user: UserPrincipal,
+    @Param() p: CoBrokerParamDto,
+  ): Promise<AgencyListingDetail> {
+    return this.coBrokerage.accept(user, p.id, p.agencyId);
+  }
+
+  /** The primary agency rejects a pending co-broker request. */
+  @Post(':id/co-brokers/:agencyId/reject')
+  @Roles(UserRole.AGENCY_OWNER)
+  @Throttle(THROTTLE.WRITE)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  rejectCoBroker(@CurrentUser() user: UserPrincipal, @Param() p: CoBrokerParamDto): Promise<void> {
+    return this.coBrokerage.reject(user, p.id, p.agencyId);
+  }
+
+  /** The caller's agency leaves the co-brokerage (or cancels its pending request). */
   @Delete(':id/co-brokers')
   @Roles(UserRole.AGENCY_OWNER)
   @HttpCode(HttpStatus.NO_CONTENT)

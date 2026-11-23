@@ -19,6 +19,7 @@ import {
   AdminLoginDto,
   AdminPasswordChangeDto,
   AdminTotpActivateDto,
+  AdminTotpSetupDto,
   AdminTotpVerifyDto,
 } from '../dto';
 import { SessionService } from '../session/session.service';
@@ -59,13 +60,20 @@ export class AdminAuthController {
     return { csrfToken: session.csrfToken };
   }
 
-  /** Starts TOTP enrollment (first login) or rotation (from a verified session). */
+  /**
+   * Starts TOTP enrollment (first login) or rotation (verified session + current password + current
+   * code or recovery code in the body).
+   */
   @Public()
   @Post('totp/setup')
   @HttpCode(HttpStatus.OK)
   @Throttle(THROTTLE.ADMIN_LOGIN)
-  setup(@CurrentAdmin() admin: AdminPrincipal): Promise<AdminTotpSetupResponse> {
-    return this.auth.setupTotp(admin);
+  setup(
+    @CurrentAdmin() admin: AdminPrincipal,
+    @Body() dto: AdminTotpSetupDto,
+    @Req() req: Request,
+  ): Promise<AdminTotpSetupResponse> {
+    return this.auth.setupTotp(admin, dto, req);
   }
 
   @Public()

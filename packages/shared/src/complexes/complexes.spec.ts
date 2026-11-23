@@ -16,6 +16,7 @@ import {
 import {
   complexCreateSchema,
   complexTradesQuerySchema,
+  tradeSyncJobParamSchema,
   tradeSyncRequestSchema,
   yearMonthSchema,
 } from '../schemas';
@@ -93,6 +94,21 @@ describe('complexes schemas', () => {
       yearMonth: 202410,
       kinds: ['APT_TRADE', 'APT_RENT'],
     });
+  });
+
+  it('accepts only derived trade-sync job ids', () => {
+    for (const jobId of ['month.46150.202410.APT_TRADE+APT_RENT', 'rematch.46150.all']) {
+      expect(tradeSyncJobParamSchema.safeParse({ jobId }).success).toBe(true);
+    }
+    for (const jobId of [
+      'repeat:x',
+      'other.1',
+      'month',
+      'month./etc',
+      `month.${'x'.repeat(100)}`,
+    ]) {
+      expect(tradeSyncJobParamSchema.safeParse({ jobId }).success).toBe(false);
+    }
   });
 
   it('rejects inverted trade ranges', () => {

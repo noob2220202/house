@@ -1,4 +1,5 @@
 import {
+  AgencyStatus,
   DealType,
   ListingAgencyStatus,
   ListingSort,
@@ -25,9 +26,19 @@ const PUBLIC_STATUS_SQL = Prisma.sql`l.status IN (${Prisma.join(
 const PRICE_DEALS = Prisma.sql`(${DealType.SALE}::deal_type, ${DealType.PRESALE}::deal_type)`;
 const DEPOSIT_DEALS = Prisma.sql`(${DealType.JEONSE}::deal_type, ${DealType.MONTHLY}::deal_type)`;
 
+/**
+ * The primary agency must be disclosable (approved, not deleted): a suspended/rejected agency's
+ * ads drop out of every public query. Written as NOT IN over the (small) set of non-disclosable
+ * agencies so Postgres evaluates it as a hashed filter and keeps the index-ordered list scans; an
+ * EXISTS semi-join made the planner abandon the (status, key) indexes on deep pages.
+ */
+export const PRIMARY_AGENCY_APPROVED_SQL = Prisma.sql`l.primary_agency_id NOT IN (
+  SELECT pa.id FROM agencies pa
+  WHERE pa.status <> ${AgencyStatus.APPROVED}::agency_status OR pa.deleted_at IS NOT NULL)`;
+
 /** WHERE conditions for public search filters (status is added by the caller). */
 export function filterConditions(f: ListingFilter, bbox?: Bbox): Prisma.Sql[] {
-  const c: Prisma.Sql[] = [Prisma.sql`l.deleted_at IS NULL`];
+  const c: Prisma.Sql[] = [Prisma.sql`l.deleted_at IS NULL`, PRIMARY_AGENCY_APPROVED_SQL];
   if (bbox) c.push(withinBbox(Prisma.raw('l.location'), bbox));
   if (f.assetTypes?.length) c.push(Prisma.sql`l.asset_type = ANY(${f.assetTypes}::asset_type[])`);
   if (f.dealTypes?.length) c.push(Prisma.sql`l.deal_type = ANY(${f.dealTypes}::deal_type[])`);
@@ -101,7 +112,8 @@ export interface GridAggRow extends DealTypeAggRow {
   lng: number;
 }
 
-export interface ComplexAggRow extends DealTypeAggRow {
+/** One row per complex; `byDealType` is built in SQL (jsonb keyed by deal type). */
+export interface ComplexAggRow {
   complexId: string;
   name: string;
   assetType: AssetType;
@@ -109,6 +121,8 @@ export interface ComplexAggRow extends DealTypeAggRow {
   lng: number;
   households: number | null;
   builtYear: number | null;
+  count: number;
+  byDealType: Partial<Record<DealType, Omit<DealTypeAggRow, 'dealType'>>>;
 }
 
 export interface ListingMarkerRow {
@@ -189,18 +203,31 @@ export class ListingSearchRepository {
       GROUP BY 1, 2, g.deal_type`;
   }
 
-  /** Complex markers (listings that belong to a 단지), capped. */
-  complexAggregates(where: Prisma.Sql): Promise<ComplexAggRow[]> {
+  /**
+   * Complex markers (listings that belong to a 단지): one row per complex with its per-deal-type
+   * stats aggregated in SQL, busiest complexes first. Returns up to limit+1 rows so the caller can
+   * detect truncation without cutting a complex's deal types apart.
+   */
+  complexAggregates(where: Prisma.Sql, limit: number = MAP_MAX_MARKERS): Promise<ComplexAggRow[]> {
     return this.prisma.$queryRaw<ComplexAggRow[]>`
       SELECT c.id AS "complexId", c.name AS "name", c.asset_type::text AS "assetType",
              c.lat AS "lat", c.lng AS "lng", c.households AS "households",
-             c.built_year AS "builtYear", ${AGG_COLUMNS}
-      FROM listings l
-      JOIN complexes c ON c.id = l.complex_id
-      WHERE ${where} AND l.complex_id IS NOT NULL AND c.deleted_at IS NULL
-      GROUP BY c.id, l.deal_type
-      ORDER BY c.id
-      LIMIT ${MAP_MAX_MARKERS * 4}`;
+             c.built_year AS "builtYear", sum(g.count)::int AS "count",
+             jsonb_object_agg(g.deal_type, jsonb_build_object(
+               'count', g.count, 'priceMin', g.price_min, 'priceMax', g.price_max,
+               'rentMin', g.rent_min, 'rentMax', g.rent_max)) AS "byDealType"
+      FROM (
+        SELECT l.complex_id, l.deal_type::text AS deal_type, count(*)::int AS count,
+               min(l.price_sort) AS price_min, max(l.price_sort) AS price_max,
+               min(l.monthly_rent) AS rent_min, max(l.monthly_rent) AS rent_max
+        FROM listings l
+        WHERE ${where} AND l.complex_id IS NOT NULL
+        GROUP BY l.complex_id, l.deal_type
+      ) g
+      JOIN complexes c ON c.id = g.complex_id AND c.deleted_at IS NULL
+      GROUP BY c.id
+      ORDER BY sum(g.count) DESC, c.id
+      LIMIT ${limit + 1}`;
   }
 
   /** Individual markers for listings outside a 단지 (most recent first), limit+1 to detect truncation. */

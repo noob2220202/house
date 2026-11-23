@@ -83,7 +83,7 @@ describe('POST /api/v1/media (e2e)', () => {
       }
     });
 
-    it('any user: deal-request photo (png) and profile image (webp)', async () => {
+    it('any user: deal-request photo (png) and agency logo (webp)', async () => {
       const { s } = await plainUser();
       const a = await upload(t, s, {
         purpose: 'DEAL_REQUEST_PHOTO',
@@ -91,9 +91,18 @@ describe('POST /api/v1/media (e2e)', () => {
         filename: 'a.png',
       }).expect(201);
       expect(a.body).toMatchObject({ status: 'READY', width: 64, height: 48 });
-      await upload(t, s, { purpose: 'PROFILE', file: await webp(), filename: 'me.webp' }).expect(
-        201,
-      );
+      await upload(t, s, {
+        purpose: 'AGENCY_LOGO',
+        file: await webp(),
+        filename: 'me.webp',
+      }).expect(201);
+    });
+
+    it('403 PROFILE for everyone: no FK link yet, so uploads would never be collected', async () => {
+      const { s } = await plainUser();
+      const res = await upload(t, s, { purpose: 'PROFILE', file: await png() }).expect(403);
+      expect(res.body.code).toBe(ErrorCode.MEDIA_PURPOSE_NOT_ALLOWED);
+      expect(await t.prisma.media.count()).toBe(0);
     });
 
     it('agency document (pdf): private, stored outside the public root, no URL', async () => {
@@ -137,13 +146,13 @@ describe('POST /api/v1/media (e2e)', () => {
 
   describe('authorization', () => {
     it('401 without a session (body never read)', async () => {
-      const res = await upload(t, null, { purpose: 'PROFILE', file: await png() }).expect(401);
+      const res = await upload(t, null, { purpose: 'AGENCY_LOGO', file: await png() }).expect(401);
       expect(res.body.code).toBe(ErrorCode.UNAUTHENTICATED);
     });
 
     it('403 CSRF_FAILED with a forged CSRF token', async () => {
       const { s } = await plainUser();
-      const req = withBadCsrf(t.http().post('/api/v1/media?purpose=PROFILE'), s).attach(
+      const req = withBadCsrf(t.http().post('/api/v1/media?purpose=AGENCY_LOGO'), s).attach(
         'file',
         await png(),
         'a.png',
@@ -163,18 +172,18 @@ describe('POST /api/v1/media (e2e)', () => {
     it('429 when the daily upload cap is used up', async () => {
       const { user, s } = await plainUser();
       await t.redis.set(`cap:MEDIA_UPLOAD:${kstDateKey()}:${user.id}`, '300');
-      const res = await upload(t, s, { purpose: 'PROFILE', file: await png() }).expect(429);
+      const res = await upload(t, s, { purpose: 'AGENCY_LOGO', file: await png() }).expect(429);
       expect(res.body.code).toBe(ErrorCode.RATE_LIMITED);
     });
 
     it('409 MEDIA_QUOTA_EXCEEDED when the storage quota is full', async () => {
       const { user, s } = await plainUser();
       await createMedia(t.prisma, {
-        purpose: 'PROFILE',
+        purpose: 'AGENCY_LOGO',
         ownerUserId: user.id,
         sizeBytes: MEDIA_USER_QUOTA.maxBytes - 10,
       });
-      const res = await upload(t, s, { purpose: 'PROFILE', file: await png() }).expect(409);
+      const res = await upload(t, s, { purpose: 'AGENCY_LOGO', file: await png() }).expect(409);
       expect(res.body).toMatchObject({
         code: ErrorCode.MEDIA_QUOTA_EXCEEDED,
         details: { maxBytes: MEDIA_USER_QUOTA.maxBytes },
@@ -214,21 +223,21 @@ describe('POST /api/v1/media (e2e)', () => {
 
     it('400 MEDIA_FILE_REQUIRED without a multipart file', async () => {
       const { s } = await plainUser();
-      const json = await upload(t, s, { purpose: 'PROFILE' }).send({ file: 'x' }).expect(400);
+      const json = await upload(t, s, { purpose: 'AGENCY_LOGO' }).send({ file: 'x' }).expect(400);
       expect(json.body.code).toBe(ErrorCode.MEDIA_FILE_REQUIRED);
-      const noFile = await upload(t, s, { purpose: 'PROFILE' }).field('note', 'hi').expect(400);
+      const noFile = await upload(t, s, { purpose: 'AGENCY_LOGO' }).field('note', 'hi').expect(400);
       expect(noFile.body.code).toBe(ErrorCode.MEDIA_FILE_REQUIRED);
     });
 
     it('400 MEDIA_UPLOAD_INVALID for a wrong field name or several files', async () => {
       const { s } = await plainUser();
       const wrong = await upload(t, s, {
-        purpose: 'PROFILE',
+        purpose: 'AGENCY_LOGO',
         file: await png(),
         field: 'image',
       }).expect(400);
       expect(wrong.body.code).toBe(ErrorCode.MEDIA_UPLOAD_INVALID);
-      const two = await upload(t, s, { purpose: 'PROFILE', file: await png() })
+      const two = await upload(t, s, { purpose: 'AGENCY_LOGO', file: await png() })
         .attach('file', await png(), 'b.png')
         .expect(400);
       expect(two.body.code).toBe(ErrorCode.MEDIA_UPLOAD_INVALID);
@@ -243,7 +252,9 @@ describe('POST /api/v1/media (e2e)', () => {
         pdf(),
       ];
       for (const file of disguised) {
-        const res = await upload(t, s, { purpose: 'PROFILE', file, filename: 'x.jpg' }).expect(415);
+        const res = await upload(t, s, { purpose: 'AGENCY_LOGO', file, filename: 'x.jpg' }).expect(
+          415,
+        );
         expect(res.body.code).toBe(ErrorCode.MEDIA_UNSUPPORTED_TYPE);
       }
       // A webp is fine as an image but not as an agency document.
@@ -257,7 +268,7 @@ describe('POST /api/v1/media (e2e)', () => {
     it('415 for a corrupt image behind a valid signature', async () => {
       const { s } = await plainUser();
       const res = await upload(t, s, {
-        purpose: 'PROFILE',
+        purpose: 'AGENCY_LOGO',
         file: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0]),
       }).expect(415);
       expect(res.body.code).toBe(ErrorCode.MEDIA_UNSUPPORTED_TYPE);

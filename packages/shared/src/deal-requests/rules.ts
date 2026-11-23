@@ -50,6 +50,7 @@ export interface DealRequestRuleInput {
   dealTypes: readonly DealTypeValue[];
   visibility: DealRequestVisibility;
   targetAgencyIds: readonly string[];
+  description?: string | undefined;
   // SELL_OR_LEASE
   complexId?: string | undefined;
   lat?: number | undefined;
@@ -71,6 +72,13 @@ export interface DealRequestRuleInput {
   areaMax?: number | undefined;
   roomsMin?: number | undefined;
 }
+
+/**
+ * Korean mobile numbers (010-1234-5678, 010 1234 5678, 01012345678, +82 10-…) typed into free text.
+ * The description is shown to every agency before any contact grant, so a number there would
+ * bypass the requester's consent.
+ */
+export const FREE_TEXT_PHONE_PATTERN = /(?:\+?82[-\s.]?|0)1[016789][-\s.]?\d{3,4}[-\s.]?\d{4}/;
 
 const has = (v: unknown): boolean => v !== undefined && v !== null;
 const anyOf = (dealTypes: readonly DealTypeValue[], set: readonly DealTypeValue[]): boolean =>
@@ -124,6 +132,12 @@ export function dealRequestRuleIssues(input: DealRequestRuleInput): DealRequestR
   }
   if (new Set(input.targetAgencyIds).size !== input.targetAgencyIds.length) {
     issues.push({ path: ['targetAgencyIds'], message: '중개사무소가 중복되었습니다.' });
+  }
+  if (input.description && FREE_TEXT_PHONE_PATTERN.test(input.description)) {
+    issues.push({
+      path: ['description'],
+      message: '연락처는 설명란이 아닌 연락처 항목에 입력해 주세요.',
+    });
   }
 
   const saleLike = anyOf(dealTypes, SALE_LIKE);

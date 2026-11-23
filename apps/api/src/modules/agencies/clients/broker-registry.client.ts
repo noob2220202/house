@@ -1,4 +1,4 @@
-import type { BrokerRegistryRecord } from '@house/shared';
+import { registrationNumberKey, type BrokerRegistryRecord } from '@house/shared';
 import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { AppConfig } from '../../../config/app-config.service';
@@ -54,7 +54,9 @@ export function parseRegistryResponse(
   if (!parsed.success) throw new BrokerRegistryUnavailableError('unexpected registry response');
   const field = parsed.data.EBOfficeInfos?.field;
   const offices = field === undefined ? [] : Array.isArray(field) ? field : [field];
-  const office = offices.find((o) => o.jurirno.replace(/\s/g, '') === registrationNumber);
+  // The registry prints numbers with or without hyphens; compare punctuation-free keys.
+  const key = registrationNumberKey(registrationNumber);
+  const office = offices.find((o) => registrationNumberKey(o.jurirno) === key);
   if (!office) return null;
   const registeredOn = office.registDe?.trim() ?? null;
   return {

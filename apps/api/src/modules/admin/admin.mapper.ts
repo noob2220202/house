@@ -7,6 +7,7 @@ import {
   type AuditLogView,
   type FaqView,
   type LocalVideoView,
+  maskPhone,
   type NoticeListItem,
   type NoticeView,
   youtubeEmbedUrl,
@@ -67,7 +68,11 @@ export const reportSelect = {
 } satisfies Prisma.ReportSelect;
 export type ReportRow = Prisma.ReportGetPayload<{ select: typeof reportSelect }>;
 
-export function toAdminReportView(r: ReportRow): AdminReportView {
+/** `revealContact`: full reporterPhone (audited read); masked otherwise. */
+export function toAdminReportView(
+  r: ReportRow,
+  opts: { revealContact?: boolean } = {},
+): AdminReportView {
   return {
     id: r.id,
     targetType: r.targetType,
@@ -81,7 +86,8 @@ export function toAdminReportView(r: ReportRow): AdminReportView {
       : null,
     agency: r.agency,
     reporter: r.reporter,
-    reporterPhone: r.reporterPhone,
+    reporterPhone:
+      r.reporterPhone && !opts.revealContact ? maskPhone(r.reporterPhone) : r.reporterPhone,
     reason: r.reason,
     detail: r.detail,
     status: r.status,

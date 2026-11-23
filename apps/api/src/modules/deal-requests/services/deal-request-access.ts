@@ -14,7 +14,7 @@ export interface AgencyScope {
 
 /**
  * Requests an agency may see:
- *  - any request it already proposed to (so it can follow up), and
+ *  - any request it already proposed to (so it can follow up), unless the requester withdrew, and
  *  - OPEN, unexpired requests of active members that are either region-wide in its 시군구 or
  *    explicitly target it.
  * Deleted requests are never visible.
@@ -23,7 +23,10 @@ export function agencyVisibleWhere(scope: AgencyScope, now: Date): Prisma.DealRe
   return {
     deletedAt: null,
     OR: [
-      { proposals: { some: { agencyId: scope.agencyId } } },
+      {
+        proposals: { some: { agencyId: scope.agencyId } },
+        user: { status: { not: UserStatus.WITHDRAWN } },
+      },
       {
         status: DealRequestStatus.OPEN,
         OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],

@@ -9,7 +9,7 @@ import {
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import sharp, { type Sharp } from 'sharp';
 import { AppException } from '../../common/errors/app.exception';
-import { JPEG_DOCUMENT_QUALITY, WEBP_QUALITY } from './constants';
+import { JPEG_DOCUMENT_QUALITY, MAX_STORED_EDGE, SHARP_THREADS, WEBP_QUALITY } from './constants';
 import { HEIC_DECODER, type HeicDecoder } from './ports/heic-decoder.port';
 
 export interface ProcessedFile {
@@ -19,7 +19,7 @@ export interface ProcessedFile {
 }
 
 export interface ProcessedImage {
-  /** Full-size, oriented, metadata-free webp (kept so variants can be regenerated later). */
+  /** Oriented, metadata-free webp, longest edge ≤ MAX_STORED_EDGE (kept to regenerate variants). */
   original: ProcessedFile;
   variants: Record<ImageVariant, ProcessedFile>;
 }
@@ -63,14 +63,40 @@ function assertPixels(width: number, height: number): void {
   }
 }
 
+/** Output format of an image document: PNG stays PNG (scans with text), everything else → JPEG. */
+export function documentOutputFor(mime: string): { mimeType: string; ext: string } {
+  return mime === SniffedMime.PNG
+    ? { mimeType: SniffedMime.PNG, ext: 'png' }
+    : { mimeType: SniffedMime.JPEG, ext: 'jpg' };
+}
+
+interface Decoded {
+  data: Buffer;
+  info: { width: number; height: number; channels: 1 | 2 | 3 | 4 };
+}
+
+let sharpTuned = false;
+/** Process-wide: few libvips threads per image and no operation cache (the API shares the process). */
+function tuneSharp(): void {
+  if (sharpTuned) return;
+  sharp.concurrency(SHARP_THREADS);
+  sharp.cache(false);
+  sharpTuned = true;
+}
+
 /**
  * sharp pipeline. Every output is re-encoded (never the uploaded bytes for images), auto-rotated
  * from EXIF orientation, converted to sRGB and stripped of all metadata (EXIF/GPS/XMP/ICC).
+ * Memory: the input is decoded ONCE (shrink-on-load where the format allows) into an oriented
+ * sRGB pixel buffer capped at MAX_STORED_EDGE, and every output is then encoded from that buffer
+ * one after another, so a job holds at most one full decode plus one ≤ 4096² buffer.
  * Errors are AppExceptions (MEDIA_*), which the worker treats as permanent failures.
  */
 @Injectable()
 export class ImageProcessor {
-  constructor(@Inject(HEIC_DECODER) private readonly heic: HeicDecoder) {}
+  constructor(@Inject(HEIC_DECODER) private readonly heic: HeicDecoder) {
+    tuneSharp();
+  }
 
   /** Throws MEDIA_HEIC_UNSUPPORTED (415) up front when HEIC/HEIF cannot be converted here. */
   assertDecodable(mime: string): void {
@@ -103,33 +129,24 @@ export class ImageProcessor {
   }
 
   async processImage(data: Buffer, mime: string): Promise<ProcessedImage> {
-    const base = await this.open(data, mime);
+    const decoded = await this.decode(data, mime);
     try {
-      const [original, ...variants] = await Promise.all([
-        render(base.clone().webp({ quality: WEBP_QUALITY.original })),
-        ...VARIANT_NAMES.map((name) => {
-          const spec = IMAGE_VARIANTS[name];
-          return render(
-            base
-              .clone()
-              .resize({
-                width: spec.width,
-                height: spec.height,
-                fit: spec.fit,
-                withoutEnlargement: true,
-              })
-              .webp({ quality: WEBP_QUALITY.variant }),
-          );
-        }),
-      ]);
-      if (!original) throw processingFailed();
-      const out = {} as Record<ImageVariant, ProcessedFile>;
-      VARIANT_NAMES.forEach((name, i) => {
-        const v = variants[i];
-        if (!v) throw processingFailed();
-        out[name] = v;
-      });
-      return { original, variants: out };
+      const original = await render(fromRaw(decoded).webp({ quality: WEBP_QUALITY.original }));
+      const variants = {} as Record<ImageVariant, ProcessedFile>;
+      for (const name of VARIANT_NAMES) {
+        const spec = IMAGE_VARIANTS[name];
+        variants[name] = await render(
+          fromRaw(decoded)
+            .resize({
+              width: spec.width,
+              height: spec.height,
+              fit: spec.fit,
+              withoutEnlargement: true,
+            })
+            .webp({ quality: WEBP_QUALITY.variant }),
+        );
+      }
+      return { original, variants };
     } catch (err) {
       if (err instanceof AppException) throw err;
       throw processingFailed(err);
@@ -142,31 +159,65 @@ export class ImageProcessor {
       assertPdfComplete(data);
       return { data, mimeType: SniffedMime.PDF, ext: 'pdf', width: null, height: null };
     }
-    const base = await this.open(data, mime);
+    const decoded = await this.decode(data, mime);
+    const out = documentOutputFor(mime);
     try {
-      if (mime === SniffedMime.PNG) {
-        const png = await render(base.png({ compressionLevel: 9 }));
-        return { ...png, mimeType: SniffedMime.PNG, ext: 'png' };
-      }
-      const jpeg = await render(base.jpeg({ quality: JPEG_DOCUMENT_QUALITY, mozjpeg: true }));
-      return { ...jpeg, mimeType: SniffedMime.JPEG, ext: 'jpg' };
+      const file =
+        out.mimeType === SniffedMime.PNG
+          ? await render(fromRaw(decoded).png({ compressionLevel: 9 }))
+          : await render(
+              fromRaw(decoded)
+                .flatten({ background: '#ffffff' })
+                .jpeg({ quality: JPEG_DOCUMENT_QUALITY, mozjpeg: true }),
+            );
+      return { ...file, ...out };
     } catch (err) {
       if (err instanceof AppException) throw err;
       throw processingFailed(err);
     }
   }
 
-  private async open(data: Buffer, mime: string): Promise<Sharp> {
+  /** Oriented, sRGB, 8-bit pixels, longest edge ≤ MAX_STORED_EDGE (never enlarged). */
+  private async decode(data: Buffer, mime: string): Promise<Decoded> {
+    let pipeline: Sharp;
     if (isHeifMime(mime)) {
       const raw = await this.heic.decode(data);
       assertPixels(raw.width, raw.height);
-      return sharp(raw.data, {
+      pipeline = sharp(raw.data, {
         raw: { width: raw.width, height: raw.height, channels: raw.channels },
       });
+    } else {
+      await this.probe(data, mime);
+      pipeline = sharp(data, {
+        limitInputPixels: MEDIA_MAX_INPUT_PIXELS,
+        failOn: 'error',
+        sequentialRead: true,
+      }).rotate();
     }
-    await this.probe(data, mime);
-    return sharp(data, { limitInputPixels: MEDIA_MAX_INPUT_PIXELS, failOn: 'error' }).rotate();
+    try {
+      const { data: pixels, info } = await pipeline
+        .resize({
+          width: MAX_STORED_EDGE,
+          height: MAX_STORED_EDGE,
+          fit: 'inside',
+          withoutEnlargement: true,
+        })
+        .toColourspace('srgb')
+        .raw({ depth: 'uchar' })
+        .toBuffer({ resolveWithObject: true });
+      return {
+        data: pixels,
+        info: { width: info.width, height: info.height, channels: info.channels },
+      };
+    } catch (err) {
+      if (err instanceof AppException) throw err;
+      throw processingFailed(err);
+    }
   }
+}
+
+function fromRaw({ data, info }: Decoded): Sharp {
+  return sharp(data, { raw: info });
 }
 
 async function render(pipeline: Sharp): Promise<ProcessedFile> {

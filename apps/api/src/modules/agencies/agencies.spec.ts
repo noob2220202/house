@@ -39,6 +39,19 @@ describe('broker registry response parsing', () => {
     );
   });
 
+  it('matches the registry number regardless of hyphens', () => {
+    const plain = { ...office, jurirno: '46150202000012' };
+    expect(
+      parseRegistryResponse({ EBOfficeInfos: { field: [plain] } }, REG)?.registrationNumber,
+    ).toBe(REG);
+    expect(
+      parseRegistryResponse(
+        { EBOfficeInfos: { field: [{ ...office, jurirno: '46150-2020-00013' }] } },
+        REG,
+      ),
+    ).toBeNull();
+  });
+
   it('returns null when absent and throws on unexpected payloads', () => {
     expect(parseRegistryResponse({ EBOfficeInfos: { field: [] } }, REG)).toBeNull();
     expect(parseRegistryResponse({}, REG)).toBeNull();

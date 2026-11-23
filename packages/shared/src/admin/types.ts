@@ -61,6 +61,10 @@ export interface MemberListItem {
   lastLoginAt: string | null;
 }
 
+/**
+ * GET /admin/users/:id returns email/phone unmasked (and logs a `member.pii-view` audit row);
+ * the suspend/unsuspend responses return them masked like the list.
+ */
 export interface MemberDetail extends Omit<MemberListItem, 'providers'> {
   marketingOptIn: boolean;
   suspendedAt: string | null;
@@ -136,6 +140,10 @@ export interface AdminReportView {
   } | null;
   agency: { id: string; name: string; status: AgencyStatus; warningCount: number } | null;
   reporter: { id: string; nickname: string | null } | null;
+  /**
+   * Callback number typed by the reporter. Masked (010-****-5678) everywhere except
+   * GET /admin/reports/:id, which returns it in full and records a `report.pii-view` audit row.
+   */
   reporterPhone: string | null;
   reason: ReportReason;
   detail: string | null;

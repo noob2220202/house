@@ -41,6 +41,9 @@ model Agency {
   representativeName String                                 @map("representative_name") @db.VarChar(50)
   /// 중개사무소 등록번호
   registrationNumber String                                 @unique @map("registration_number") @db.VarChar(40)
+  /// Uniqueness key of the 등록번호 (letters/digits/한글 only, upper-cased). GENERATED column
+  /// (see migration 20261123160000_agencies_registration_key): never write it; read-only here.
+  registrationKey    String?                                @unique @default(dbgenerated("upper(regexp_replace((registration_number)::text, '[^0-9A-Za-z가-힣]'::text, ''::text, 'g'::text))")) @map("registration_key") @db.VarChar(40)
   businessNumber     String?                                @map("business_number") @db.VarChar(20)
   phone              String                                 @db.VarChar(20)
   mobile             String?                                @db.VarChar(20)

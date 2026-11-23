@@ -42,7 +42,8 @@ export const ADMIN_ERROR_MESSAGES: Record<keyof typeof AdminErrorCode, string> =
   TERMS_NOT_FOUND: '약관을 찾을 수 없습니다.',
   TERMS_VERSION_DUPLICATE: '같은 종류의 약관에 이미 존재하는 버전입니다.',
   TERMS_ALREADY_PUBLISHED: '게시된 약관은 수정하거나 삭제할 수 없습니다. 새 버전을 만들어 주세요.',
-  TERMS_EFFECTIVE_AT_INVALID: '시행일은 현재 게시된 버전의 시행일보다 이후여야 합니다.',
+  TERMS_EFFECTIVE_AT_INVALID:
+    '시행일이 올바르지 않습니다. 시행일은 현재 이후이자 기존 버전보다 늦어야 하며, 개정 약관은 시행 7일 전까지 게시해야 합니다.',
   SETTING_INVALID: '설정값이 올바르지 않습니다.',
   MEMBER_NOT_FOUND: '회원을 찾을 수 없습니다.',
   MEMBER_INVALID_STATUS: '현재 회원 상태에서는 처리할 수 없습니다.',

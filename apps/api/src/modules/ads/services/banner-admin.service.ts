@@ -1,6 +1,7 @@
 import {
   BannerTargeting,
   checkAdWindow,
+  checkBannerSlotRules,
   checkBannerTargeting,
   ErrorCode,
   MediaPurpose,
@@ -24,6 +25,7 @@ import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
 import { adminBannerSelect, AdsMapper, type AdminBannerRow } from '../ads.mapper';
 import { ADS_CACHE } from '../constants';
 import { scheduleStatusWhere } from '../domain/schedule';
+import { placementGrows, windowGrows } from '../domain/slot-capacity';
 import { ADS_MEDIA, type AdsMediaPort } from '../ports/ads-media.port';
 import { ADS_REFERENCES, type AdsReferencesPort } from '../ports/ads-references.port';
 import { BannerSlotsService } from './banner-slots.service';
@@ -78,16 +80,29 @@ export class BannerAdminService {
     const now = new Date();
     const startAt = new Date(dto.startAt);
     const endAt = new Date(dto.endAt);
-    await this.assertReferences({
-      mediaIds: [dto.pcMediaId, dto.mobileMediaId],
-      agencyId: dto.agencyId,
-      regionCodes: dto.targetRegionCodes,
-      complexIds: dto.targetComplexIds,
-    });
 
     const row = await this.prisma.$transaction(async (tx) => {
       await this.slots.lock(tx, dto.slot);
-      if (!dto.paused) await this.slots.assertCapacity(tx, dto.slot, { startAt, endAt }, { now });
+      await this.assertReferences(tx, {
+        mediaIds: [dto.pcMediaId, dto.mobileMediaId],
+        agencyId: dto.agencyId,
+        regionCodes: dto.targetRegionCodes,
+        complexIds: dto.targetComplexIds,
+      });
+      if (!dto.paused) {
+        await this.slots.assertCapacity(
+          tx,
+          dto.slot,
+          {
+            startAt,
+            endAt,
+            targeting: dto.targeting,
+            regionCodes: dto.targetRegionCodes,
+            complexIds: dto.targetComplexIds,
+          },
+          { now },
+        );
+      }
       const last = await tx.banner.aggregate({
         where: { slot: dto.slot, deletedAt: null },
         _max: { sortOrder: true },
@@ -139,7 +154,9 @@ export class BannerAdminService {
     const startAt = dto.startAt ? new Date(dto.startAt) : current.startAt;
     const endAt = dto.endAt ? new Date(dto.endAt) : current.endAt;
     const paused = dto.paused ?? current.paused;
+    const agencyId = dto.agencyId === undefined ? (current.agency?.id ?? null) : dto.agencyId;
 
+    // Cross-field rules on the merged row (PATCH bodies are partial).
     parseOrThrow(
       z.unknown().superRefine((_, ctx) => {
         checkAdWindow({ startAt: startAt.toISOString(), endAt: endAt.toISOString() }, ctx);
@@ -147,33 +164,59 @@ export class BannerAdminService {
           { targeting, targetRegionCodes: regions, targetComplexIds: complexes },
           ctx,
         );
+        checkBannerSlotRules({ slot: current.slot, agencyId, targeting }, ctx);
       }),
       null,
     );
 
     const regionsChanged = !sameSet(regions, oldRegions);
     const complexesChanged = !sameSet(complexes, oldComplexes);
-    await this.assertReferences({
-      mediaIds: [dto.pcMediaId, dto.mobileMediaId ?? undefined],
-      agencyId: dto.agencyId ?? undefined,
-      regionCodes: regionsChanged ? regions.filter((c) => !oldRegions.includes(c)) : [],
-      complexIds: complexesChanged ? complexes.filter((c) => !oldComplexes.includes(c)) : [],
-    });
+    const newPc = dto.pcMediaId && dto.pcMediaId !== current.pcMedia.id ? dto.pcMediaId : undefined;
+    const oldMobile = current.mobileMedia?.id ?? null;
+    const newMobile =
+      dto.mobileMediaId && dto.mobileMediaId !== oldMobile ? dto.mobileMediaId : undefined;
+    const releasedMedia = [
+      ...(newPc ? [current.pcMedia.id] : []),
+      ...(oldMobile && dto.mobileMediaId !== undefined && dto.mobileMediaId !== oldMobile
+        ? [oldMobile]
+        : []),
+    ];
 
-    // Re-check capacity only when the schedule gets "more live"; editing copy of an existing
-    // banner must keep working even after an admin lowered the slot limit.
-    const scheduleChanged =
-      startAt.getTime() !== current.startAt.getTime() ||
-      endAt.getTime() !== current.endAt.getTime() ||
-      (current.paused && !paused);
+    // Re-check capacity only when the banner becomes live somewhere/somewhen it was not:
+    // copy edits, shortening, pausing or narrowing must keep working after a slot limit was
+    // lowered (that is exactly when admins cut banners back).
+    const grows =
+      !paused &&
+      (windowGrows(
+        { startAt: current.startAt, endAt: current.endAt, paused: current.paused },
+        {
+          startAt,
+          endAt,
+          paused,
+        },
+      ) ||
+        placementGrows(
+          {
+            targeting: current.targeting,
+            regionCodes: oldRegions,
+            complexIds: oldComplexes,
+          },
+          { targeting, regionCodes: regions, complexIds: complexes },
+        ));
 
     const row = await this.prisma.$transaction(async (tx) => {
-      if (scheduleChanged && !paused) {
-        await this.slots.lock(tx, current.slot);
+      if (grows) await this.slots.lock(tx, current.slot);
+      await this.assertReferences(tx, {
+        mediaIds: [newPc, newMobile],
+        agencyId: dto.agencyId && dto.agencyId !== current.agency?.id ? dto.agencyId : undefined,
+        regionCodes: regionsChanged ? regions.filter((c) => !oldRegions.includes(c)) : [],
+        complexIds: complexesChanged ? complexes.filter((c) => !oldComplexes.includes(c)) : [],
+      });
+      if (grows) {
         await this.slots.assertCapacity(
           tx,
           current.slot,
-          { startAt, endAt },
+          { startAt, endAt, targeting, regionCodes: regions, complexIds: complexes },
           { excludeId: id, now },
         );
       }
@@ -189,7 +232,7 @@ export class BannerAdminService {
           data: complexes.map((complexId) => ({ bannerId: id, complexId })),
         });
       }
-      return tx.banner.update({
+      const updated = await tx.banner.update({
         where: { id },
         data: {
           title: dto.title,
@@ -208,16 +251,27 @@ export class BannerAdminService {
         },
         select: adminBannerSelect,
       });
+      await this.media.released(releasedMedia, tx);
+      return updated;
     });
     await this.cache.bump(ADS_CACHE.BANNERS);
     return this.mapper.adminBanner(row, now);
   }
 
-  /** Soft delete; stats rows stay for reporting. */
+  /**
+   * Soft delete; stats rows stay for reporting. The row keeps its media FKs, so the images stay
+   * "attached" for the media library; released() only restarts their grace period.
+   */
   async remove(id: string): Promise<void> {
     const current = await this.load(id);
     RequestContext.setAuditBefore(this.mapper.adminBanner(current));
-    await this.prisma.banner.update({ where: { id }, data: { deletedAt: new Date() } });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.banner.update({ where: { id }, data: { deletedAt: new Date() } });
+      await this.media.released(
+        [current.pcMedia.id, ...(current.mobileMedia ? [current.mobileMedia.id] : [])],
+        tx,
+      );
+    });
     await this.cache.bump(ADS_CACHE.BANNERS);
   }
 
@@ -285,19 +339,22 @@ export class BannerAdminService {
       WHERE b.id = v.id AND b.sort_order IS DISTINCT FROM v.ord`;
   }
 
-  private async assertReferences(refs: {
-    mediaIds: (string | undefined)[];
-    agencyId: string | undefined;
-    regionCodes: string[];
-    complexIds: string[];
-  }): Promise<void> {
+  /** Inside the write transaction: media rows stay locked (FOR SHARE) until commit. */
+  private async assertReferences(
+    tx: PrismaTx,
+    refs: {
+      mediaIds: (string | undefined)[];
+      agencyId: string | undefined;
+      regionCodes: string[];
+      complexIds: string[];
+    },
+  ): Promise<void> {
     const mediaIds = refs.mediaIds.filter((m): m is string => typeof m === 'string');
-    await Promise.all([
-      this.media.assertUsable(mediaIds, MediaPurpose.BANNER),
-      refs.agencyId ? this.refs.assertAgency(refs.agencyId) : Promise.resolve(),
-      this.refs.assertRegions(refs.regionCodes),
-      this.refs.assertComplexes(refs.complexIds),
-    ]);
+    // Sequential: one transaction connection.
+    await this.media.assertUsable(mediaIds, MediaPurpose.BANNER, tx);
+    if (refs.agencyId) await this.refs.assertAgency(refs.agencyId, tx);
+    await this.refs.assertRegions(refs.regionCodes, tx);
+    await this.refs.assertComplexes(refs.complexIds, tx);
   }
 }
 

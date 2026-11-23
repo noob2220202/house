@@ -17,6 +17,7 @@ import {
   loginUser,
   resetAll,
   type TestSession,
+  withSession,
 } from '../../utils';
 import { fakeHeic, png } from './fixtures';
 import { createMediaTestApp, solidRaw, upload, type MediaTestApp } from './helpers';
@@ -63,6 +64,40 @@ describe('media lifecycle: processing, cleanup, MediaService (e2e)', () => {
   }
 
   describe('background processing', () => {
+    it('HEIC agency documents go through the worker too: PENDING → private JPEG', async () => {
+      const s = await loginUser(t.app, { id: (await createUser(t.prisma)).id });
+      const res = await upload(t, s, {
+        purpose: 'AGENCY_DOCUMENT',
+        file: fakeHeic(),
+        filename: 'scan.heic',
+        contentType: 'image/heic',
+      }).expect(202);
+      const id = res.body.id as string;
+      expect(res.body).toMatchObject({ status: 'PENDING', visibility: 'PRIVATE', url: null });
+      await expect(stat(path.join(t.privateDir, 'staging', id))).resolves.toBeTruthy();
+
+      await expect(processing.processPending(id)).resolves.toBe('READY');
+      const row = await t.prisma.media.findUniqueOrThrow({ where: { id } });
+      expect(row).toMatchObject({
+        status: 'READY',
+        visibility: 'PRIVATE',
+        mimeType: 'image/jpeg',
+        width: 80,
+        height: 60,
+        variants: null,
+      });
+      expect(row.storageKey).toMatch(/^doc\/\d{4}\/\d{2}\/[0-9a-f]{32}\.jpg$/);
+      const stored = await readFile(path.join(t.privateDir, row.storageKey));
+      expect((await sharp(stored).metadata()).format).toBe('jpeg');
+      expect(row.sizeBytes).toBe(stored.length);
+      await expect(stat(path.join(t.privateDir, 'staging', id))).rejects.toThrow();
+      await expect(stat(path.join(t.publicDir, row.storageKey))).rejects.toThrow();
+      const file = await withSession(t.http().get(`/api/v1/media/${id}/private`), s).expect(200);
+      expect(file.headers['content-type']).toBe('image/jpeg');
+      expect(file.headers['content-disposition']).toBe(`inline; filename="media-${id}.jpg"`);
+      expect(file.headers['content-security-policy']).toMatch(/sandbox/);
+    });
+
     it('PENDING → READY: variants written, staging removed; reruns are no-ops', async () => {
       const { s } = await agentSession();
       const id = await queuedHeic(s);
@@ -141,7 +176,8 @@ describe('media lifecycle: processing, cleanup, MediaService (e2e)', () => {
       const attached = await upload(t, s, { purpose: 'LISTING_PHOTO', file: await png() }).expect(
         201,
       );
-      const profile = await upload(t, s, { purpose: 'PROFILE', file: await png() }).expect(201);
+      // CONTENT (embedded in notice bodies, no FK yet) is exempt.
+      const content = await createMedia(t.prisma, { purpose: 'CONTENT' });
       const { listing } = await createListing(t.prisma, { agencyId: agency.id });
       await t.prisma.listingPhoto.create({
         data: { listingId: listing.id, mediaId: attached.body.id },
@@ -163,7 +199,7 @@ describe('media lifecycle: processing, cleanup, MediaService (e2e)', () => {
         (await t.prisma.media.findUniqueOrThrow({ where: { id: attached.body.id } })).deletedAt,
       ).toBeNull();
       expect(
-        (await t.prisma.media.findUniqueOrThrow({ where: { id: profile.body.id } })).deletedAt,
+        (await t.prisma.media.findUniqueOrThrow({ where: { id: content.id } })).deletedAt,
       ).toBeNull();
       await expect(stat(path.join(t.publicDir, orphanRow.storageKey))).resolves.toBeTruthy();
 
@@ -258,8 +294,14 @@ describe('media lifecycle: processing, cleanup, MediaService (e2e)', () => {
       ).resolves.toHaveLength(1);
       // unattached: the same photo is not usable for a one-shot attachment.
       await expect(
-        media.assertUsable([coPhoto.id], { purpose: 'LISTING_PHOTO', unattached: true }),
+        t.prisma.$transaction((tx) =>
+          media.assertUsable([coPhoto.id], { purpose: 'LISTING_PHOTO', unattached: true }, tx),
+        ),
       ).rejects.toMatchObject({ code: ErrorCode.MEDIA_INVALID });
+      // ...and an unlocked one-shot check is a programming error.
+      await expect(
+        media.assertUsable([mine.id], { purpose: 'DEAL_REQUEST_PHOTO', unattached: true }),
+      ).rejects.toThrow(/requires a transaction/);
     });
 
     it('assertUsable inside a transaction locks rows; views/privateFilePath helpers', async () => {

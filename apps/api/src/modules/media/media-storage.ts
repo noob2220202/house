@@ -26,6 +26,7 @@ export class MediaStorage {
       PUBLIC: path.resolve(config.get('UPLOAD_DIR')),
       PRIVATE: path.resolve(config.get('PRIVATE_UPLOAD_DIR')),
     };
+    assertDisjointRoots(this.roots.PUBLIC, this.roots.PRIVATE);
     this.baseUrl = config.get('MEDIA_BASE_URL').replace(/\/+$/, '');
   }
 
@@ -118,6 +119,20 @@ export class MediaStorage {
     const resolved = this.resolve(visibility, key);
     if (!resolved) throw new Error(`invalid storage key "${key}"`);
     return resolved;
+  }
+}
+
+/**
+ * Refuses to start when one root contains the other: nginx would then serve private documents
+ * (or raw staging uploads with EXIF/GPS) under /media, or private paths would shadow public ones.
+ */
+export function assertDisjointRoots(publicRoot: string, privateRoot: string): void {
+  const pub = path.resolve(publicRoot) + path.sep;
+  const priv = path.resolve(privateRoot) + path.sep;
+  if (pub.startsWith(priv) || priv.startsWith(pub)) {
+    throw new Error(
+      `UPLOAD_DIR (${publicRoot}) and PRIVATE_UPLOAD_DIR (${privateRoot}) must not contain each other`,
+    );
   }
 }
 

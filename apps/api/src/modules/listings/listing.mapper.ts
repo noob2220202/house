@@ -1,6 +1,8 @@
 import {
   AgencyStatus,
+  applicablePrices,
   FloorDisplay,
+  ListingAgencyStatus,
   floorLabel,
   sqmToPyeong,
   type AgencyListingDetail,
@@ -69,11 +71,8 @@ export class ListingMapper {
       assetType: row.assetType,
       status: row.status,
       title: row.title,
-      salePrice: row.salePrice,
-      deposit: row.deposit,
-      monthlyRent: row.monthlyRent,
-      presalePrice: row.presalePrice,
-      premium: row.premium,
+      // Rows written before prices were normalized per deal type may still carry stale fields.
+      ...applicablePrices(row.dealType, row),
       priceSort: row.priceSort,
       maintenanceFeeWon: row.maintenanceFeeWon,
       exclusiveArea: area,
@@ -184,30 +183,42 @@ export class ListingMapper {
     };
   }
 
+  /**
+   * Agency view. Co-brokers get the shared ad content only: no 호, no hidden reason, no other
+   * agencies' pending/ended rows or member ids — those belong to the primary agency.
+   */
   agencyDetail(row: ListingAgencyDetailRow, actingAgencyId: string): AgencyListingDetail {
     const p = row.property;
     const base = this.detailBase(row, true);
+    const isPrimary = row.primaryAgencyId === actingAgencyId;
     return {
       ...base,
       property: {
         ...base.property,
         id: p.id,
-        ho: p.ho,
+        ho: isPrimary ? p.ho : null,
         emdCode: p.emdCode,
         complexId: p.complexId,
         areaTypeId: p.areaTypeId,
       },
-      hiddenReason: row.hiddenReason,
+      hiddenReason: isPrimary ? row.hiddenReason : null,
       closedAt: iso(row.closedAt),
+      expiresAt: iso(row.expiresAt),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
-      isPrimaryAgency: row.primaryAgencyId === actingAgencyId,
-      agencies: row.agencies.map((a) => ({
-        ...this.disclosure(a),
-        status: a.status,
-        contactMemberId: a.contactMemberId,
-        joinedAt: a.joinedAt.toISOString(),
-      })),
+      version: row.version,
+      isPrimaryAgency: isPrimary,
+      agencies: row.agencies
+        .filter(
+          (a) =>
+            isPrimary || a.status === ListingAgencyStatus.ACTIVE || a.agencyId === actingAgencyId,
+        )
+        .map((a) => ({
+          ...this.disclosure(a),
+          status: a.status,
+          contactMemberId: a.agencyId === actingAgencyId ? a.contactMemberId : null,
+          joinedAt: a.joinedAt.toISOString(),
+        })),
       verifications: row.verifications.map((v) => ({
         id: v.id,
         method: v.method,

@@ -63,8 +63,10 @@ function row(): ListingAgencyDetailRow {
     maintenanceFeeItems: [],
     moveInType: 'IMMEDIATE',
     moveInDate: null,
-    hiddenReason: null,
+    hiddenReason: 'PRIVATE-REASON',
     closedAt: null,
+    expiresAt: null,
+    version: 3,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     updatedAt: new Date('2026-01-01T00:00:00Z'),
     complex: null,
@@ -132,13 +134,28 @@ function row(): ListingAgencyDetailRow {
         joinedAt: new Date('2026-01-02T00:00:00Z'),
         agency: { ...agency, id: 'a2', status: 'SUSPENDED' },
       },
+      {
+        agencyId: 'a3',
+        isPrimary: false,
+        status: 'PENDING',
+        contactMemberId: 'mem3',
+        contactName: '대기',
+        contactPhone: null,
+        joinedAt: new Date('2026-01-03T00:00:00Z'),
+        agency: { ...agency, id: 'a3' },
+      },
     ],
   };
 }
 
 describe('ListingMapper', () => {
   it('public detail hides 호, private note, member ids, the exact floor (CLASS) and suspended agencies', () => {
-    const out = mapper.publicDetail(row(), false);
+    // The public select only loads ACTIVE rows.
+    const r = row();
+    const out = mapper.publicDetail(
+      { ...r, agencies: r.agencies.filter((a) => a.status === 'ACTIVE') },
+      false,
+    );
     const json = JSON.stringify(out);
     expect(json).not.toContain('SECRET-HO');
     expect(json).not.toContain('mem1');
@@ -155,6 +172,29 @@ describe('ListingMapper', () => {
     expect(out.property.ho).toBe('SECRET-HO');
     expect(out.property.floor).toBe(9);
     expect(out.isPrimaryAgency).toBe(true);
-    expect(out.agencies).toHaveLength(2);
+    expect(out.hiddenReason).toBe('PRIVATE-REASON');
+    expect(out.version).toBe(3);
+    expect(out.agencies.map((a) => [a.agencyId, a.status])).toEqual([
+      ['a1', 'ACTIVE'],
+      ['a2', 'ACTIVE'],
+      ['a3', 'PENDING'],
+    ]);
+    // Member ids only on the caller's own row.
+    expect(out.agencies.map((a) => a.contactMemberId)).toEqual(['mem1', null, null]);
+  });
+
+  it('co-broker detail hides 호, the hidden reason, pending rows and other member ids', () => {
+    const out = mapper.agencyDetail(row(), 'a2');
+    expect(out.isPrimaryAgency).toBe(false);
+    expect(out.property.ho).toBeNull();
+    expect(out.hiddenReason).toBeNull();
+    expect(out.agencies.map((a) => a.agencyId)).toEqual(['a1', 'a2']);
+    expect(JSON.stringify(out)).not.toContain('mem1');
+    expect(JSON.stringify(out)).not.toContain('SECRET-HO');
+  });
+
+  it('summary drops price fields that do not apply to the deal type', () => {
+    const out = mapper.summary({ ...row(), monthlyRent: 50, deposit: 1000 });
+    expect(out).toMatchObject({ salePrice: 30000, deposit: null, monthlyRent: null });
   });
 });

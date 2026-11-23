@@ -32,6 +32,7 @@ import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
 import { AgenciesService } from '../../agencies/services/agencies.service';
 import { NotificationsService } from '../../deal-requests/notifications/notifications.service';
 import { reportSelect, toAdminReportView, type ReportRow } from '../admin.mapper';
+import { REPORT_CONTACT_RETENTION_DAYS } from '../constants';
 import { LISTING_MODERATION, type ListingModerationPort } from '../ports/listing-moderation.port';
 
 interface ReportTarget {
@@ -132,11 +133,48 @@ export class ReportsService {
         }),
       () => this.prisma.report.count({ where }),
     );
-    return { ...page, items: page.items.map(toAdminReportView) };
+    return { ...page, items: page.items.map((r) => toAdminReportView(r)) };
   }
 
+  /**
+   * Full view including the reporter's callback number. Viewing it is a 개인정보 접속기록
+   * (안전성 확보조치 기준 제8조), so it writes a `report.pii-view` audit row (no PII in the row).
+   */
   async detail(id: string): Promise<AdminReportView> {
-    return toAdminReportView(await this.load(id));
+    const row = await this.load(id);
+    if (row.reporterPhone) {
+      await this.audit.record({
+        action: 'report.pii-view',
+        resourceType: 'Report',
+        resourceId: id,
+        after: { fields: ['reporterPhone'] },
+      });
+    }
+    return toAdminReportView(row, { revealContact: true });
+  }
+
+  /** Masked view returned by mutations (and therefore stored in their audit rows). */
+  private async view(id: string, db: PrismaTx = this.prisma): Promise<AdminReportView> {
+    return toAdminReportView(await this.load(id, db));
+  }
+
+  /**
+   * Retention of the reporter's contact data: once a report has been closed for
+   * REPORT_CONTACT_RETENTION_DAYS, its callback number and source ip have served their purpose
+   * and are erased (withdrawn reporters are scrubbed earlier by the auth module's PiiScrubService).
+   * Idempotent; returns the number of reports scrubbed.
+   */
+  async scrubExpiredContacts(now: Date = new Date()): Promise<number> {
+    const cutoff = new Date(now.getTime() - REPORT_CONTACT_RETENTION_DAYS * 86_400_000);
+    const { count } = await this.prisma.report.updateMany({
+      where: {
+        status: { notIn: [...OPEN_REPORT_STATUSES] },
+        handledAt: { lt: cutoff },
+        OR: [{ reporterPhone: { not: null } }, { ip: { not: null } }],
+      },
+      data: { reporterPhone: null, ip: null },
+    });
+    return count;
   }
 
   /** Takes the report into review and/or records an internal note. */
@@ -157,7 +195,7 @@ export class ReportsService {
       },
     });
     if (count === 0) throw AppException.conflict(ErrorCode.REPORT_ALREADY_HANDLED);
-    return this.detail(id);
+    return this.view(id);
   }
 
   async resolve(
@@ -181,17 +219,7 @@ export class ReportsService {
       });
     }
 
-    // Hiding goes first, outside the transaction: the listings module maintains its counters and
-    // map cache only on its own commit. If the report update below then fails, the listing stays
-    // hidden and the operator retries — the safe direction.
     const listingId = before.listingId;
-    if (hideListing && listingId) {
-      await this.moderation.hide(
-        listingId,
-        `허위매물 신고 처리: ${REPORT_REASON_LABEL[before.reason]}`,
-      );
-    }
-
     const notifications = await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.report.updateMany({
         where: { id, status: { in: [...OPEN_REPORT_STATUSES] } },
@@ -204,6 +232,16 @@ export class ReportsService {
         },
       });
       if (count === 0) throw AppException.conflict(ErrorCode.REPORT_ALREADY_HANDLED);
+
+      // Only the admin who claimed the report above gets here, so a concurrent REJECTED decision
+      // can never leave the listing hidden.
+      if (hideListing && listingId) {
+        await this.moderation.hide(
+          listingId,
+          `허위매물 신고 처리: ${REPORT_REASON_LABEL[before.reason]}`,
+          tx,
+        );
+      }
 
       if (warnAgency && before.agencyId) {
         await this.agencies.recordWarning(
@@ -221,7 +259,7 @@ export class ReportsService {
         );
       }
       const rows = await this.notify(tx, before, dto, hideListing);
-      const after = toAdminReportView(await this.load(id, tx));
+      const after = await this.view(id, tx);
       await this.audit.record(
         {
           action: 'report.resolve',
@@ -234,8 +272,9 @@ export class ReportsService {
       );
       return rows;
     });
+    if (hideListing) await this.moderation.invalidateSearch();
     await this.notifications.dispatch(notifications);
-    return this.detail(id);
+    return this.view(id);
   }
 
   private async notify(

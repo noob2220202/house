@@ -68,5 +68,7 @@ model Media {
   @@index([ownerUserId, createdAt(sort: Desc)])
   @@index([status, createdAt])
   @@index([sha256])
+  /// Cleanup scans: live rows by last attach/detach (deleted_at IS NULL, updated_at <), purge (deleted_at <).
+  @@index([deletedAt, updatedAt])
   @@map("media")
 }

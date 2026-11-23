@@ -8,15 +8,15 @@ export const ADS_CACHE = {
 export const ADS_SERVE_TTL_SECONDS = 60;
 export const POPUP_SERVE_LIMIT = 20;
 
-/** Redis keys (auto-prefixed with REDIS_KEY_PREFIX). Sets hold per-day visitor hashes. */
+/** Redis keys (auto-prefixed with REDIS_KEY_PREFIX). HyperLogLogs of per-day visitor hashes. */
 export const ADS_REDIS = {
-  impressions: (date: string, bannerId: string) => `ads:imp:${date}:${bannerId}`,
-  clicks: (date: string, bannerId: string) => `ads:clk:${date}:${bannerId}`,
+  impressions: (date: string, bannerId: string) => `ads:hll:imp:${date}:${bannerId}`,
+  clicks: (date: string, bannerId: string) => `ads:hll:clk:${date}:${bannerId}`,
   /** ZSET of "<date>:<bannerId>" scored by last-touched epoch ms (pending flush). */
   DIRTY: 'ads:stats:dirty',
 } as const;
 
-/** Visitor sets live long enough for late flushes and the live part of the stats endpoint. */
+/** Visitor HLLs live long enough for late flushes and the live part of the stats endpoint. */
 export const ADS_COUNTER_RETENTION_DAYS = 3;
 /** Dirty entries touched in the last few seconds stay for the next run (in-flight writes). */
 export const ADS_FLUSH_GRACE_MS = 5_000;

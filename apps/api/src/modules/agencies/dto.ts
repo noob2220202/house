@@ -7,6 +7,7 @@ import {
   agencyInviteCreateSchema,
   agencyInviteParamSchema,
   agencyJoinSchema,
+  agencyLocationUpdateSchema,
   agencyMapQuerySchema,
   agencyMemberListQuerySchema,
   agencyMemberParamSchema,
@@ -37,4 +38,5 @@ export class AgencyInviteParamDto extends createZodDto(agencyInviteParamSchema) 
 export class AgencyJoinDto extends createZodDto(agencyJoinSchema) {}
 export class AdminAgencyListQueryDto extends createZodDto(adminAgencyListQuerySchema) {}
 export class AgencyDecisionDto extends createZodDto(agencyDecisionSchema) {}
+export class AgencyLocationUpdateDto extends createZodDto(agencyLocationUpdateSchema) {}
 export class AgencyRegistryCheckQueryDto extends createZodDto(agencyRegistryCheckQuerySchema) {}

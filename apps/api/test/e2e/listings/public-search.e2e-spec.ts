@@ -1,4 +1,6 @@
-import { ErrorCode, ListingStatus, MapResultKind, RegionLevel } from '@house/shared';
+import { AgencyStatus, ErrorCode, ListingStatus, MapResultKind, RegionLevel } from '@house/shared';
+import { ListingSearchRepository } from '../../../src/modules/listings/listing-search.repository';
+import { ListingExpiryService } from '../../../src/modules/listings/services/listing-expiry.service';
 import { ListingViewsService } from '../../../src/modules/listings/services/listing-views.service';
 import { ListingsModerationService } from '../../../src/modules/listings/services/listings-moderation.service';
 import {
@@ -10,7 +12,14 @@ import {
   withSession,
   type TestApp,
 } from '../../utils';
-import { agencyWithOwner, createPublished, EMD_CODE, OTHER_EMD_CODE, seedListing } from './helpers';
+import {
+  addCoBroker,
+  agencyWithOwner,
+  createPublished,
+  EMD_CODE,
+  OTHER_EMD_CODE,
+  seedListing,
+} from './helpers';
 
 const BBOX = '127.40,34.90,127.60,35.00';
 const SECRET_HO = '비밀호수7777';
@@ -334,6 +343,38 @@ describe('public listing search (e2e)', () => {
       expect(res.body).toMatchObject({ total: 3, truncated: false });
     });
 
+    it('complex markers are aggregated per complex, busiest first, and flag truncation', async () => {
+      const { agency } = await agencyWithOwner(t);
+      const complexes = [];
+      for (const n of [1, 3, 2]) {
+        const c = await createComplex(t.prisma);
+        complexes.push(c);
+        for (let i = 0; i < n; i++) {
+          await seedListing(t, agency.id, {
+            property: { complexId: c.id },
+            listing: {
+              complexId: c.id,
+              ...(i === 1
+                ? { dealType: 'JEONSE', salePrice: null, deposit: 9_000, priceSort: 9_000 }
+                : {}),
+            },
+          });
+        }
+      }
+      const repo = t.app.get(ListingSearchRepository);
+      const rows = await repo.complexAggregates(repo.publicWhere({}), 2);
+      // limit + 1 rows → the caller knows it was cut; no complex is split across the cut.
+      expect(rows.map((r) => [r.complexId, r.count])).toEqual([
+        [complexes[1]!.id, 3],
+        [complexes[2]!.id, 2],
+        [complexes[0]!.id, 1],
+      ]);
+      expect(rows[0]!.byDealType).toEqual({
+        SALE: expect.objectContaining({ count: 2, priceMin: 30_000 }),
+        JEONSE: expect.objectContaining({ count: 1, priceMin: 9_000, priceMax: 9_000 }),
+      });
+    });
+
     it('caches hot tiles and invalidates them when public data changes', async () => {
       const a = await agencyWithOwner(t);
       const url = `/api/v1/map/search?bbox=${BBOX}&zoom=11`;
@@ -363,6 +404,103 @@ describe('public listing search (e2e)', () => {
     });
   });
 
+  describe('agency approval gates public visibility', () => {
+    it('suspending the primary agency removes its listings from list, map, detail and favorites', async () => {
+      const a = await agencyWithOwner(t);
+      const b = await agencyWithOwner(t);
+      const id = await createPublished(t, a.ownerSession);
+      const other = await createPublished(t, b.ownerSession);
+      const user = await createUser(t.prisma);
+      const us = await loginUser(t.app, user);
+      await withSession(t.http().put(`/api/v1/me/favorites/listings/${id}`), us).expect(200);
+
+      await t.prisma.agency.update({
+        where: { id: a.agency.id },
+        data: { status: AgencyStatus.SUSPENDED },
+      });
+      expect(await t.app.get(ListingsModerationService).onAgencyStatusChanged(a.agency.id)).toBe(1);
+
+      const list = await t.http().get('/api/v1/listings').expect(200);
+      expect((list.body.items as { id: string }[]).map((i) => i.id)).toEqual([other]);
+      const map = await t.http().get(`/api/v1/map/search?bbox=${BBOX}&zoom=17`).expect(200);
+      expect(map.body.total).toBe(1);
+      await t.http().get(`/api/v1/listings/${id}`).expect(404);
+      const favs = await withSession(t.http().get('/api/v1/me/favorites/listings'), us).expect(200);
+      expect(favs.body.total).toBe(0);
+      await withSession(t.http().put(`/api/v1/me/favorites/listings/${id}`), us).expect(404);
+      const ag = await t.prisma.agency.findUniqueOrThrow({ where: { id: a.agency.id } });
+      expect(ag.activeListingCount).toBe(0);
+
+      // Re-approval brings it back.
+      await t.prisma.agency.update({
+        where: { id: a.agency.id },
+        data: { status: AgencyStatus.APPROVED },
+      });
+      await t.app.get(ListingsModerationService).onAgencyStatusChanged(a.agency.id);
+      await t.http().get(`/api/v1/listings/${id}`).expect(200);
+    });
+
+    it('a suspended co-broker is neither disclosed nor counted', async () => {
+      const a = await agencyWithOwner(t);
+      const b = await agencyWithOwner(t);
+      const id = await createPublished(t, a.ownerSession);
+      await addCoBroker(t, id, a, b);
+      await t.prisma.agency.update({
+        where: { id: b.agency.id },
+        data: { status: AgencyStatus.SUSPENDED },
+      });
+      const pub = await t.http().get(`/api/v1/listings/${id}`).expect(200);
+      expect(pub.body.agencyCount).toBe(1);
+      expect(pub.body.agencies).toHaveLength(1);
+    });
+  });
+
+  describe('ad expiry job (ListingExpiryService)', () => {
+    it('reverts overdue ads to DRAFT, refreshes counters, notifies the primary, and is idempotent', async () => {
+      const a = await agencyWithOwner(t);
+      const complex = await createComplex(t.prisma);
+      const id = await createPublished(t, a.ownerSession, { property: { complexId: complex.id } });
+      const fresh = await createPublished(t, a.ownerSession);
+      await t.prisma.listing.update({
+        where: { id },
+        data: { expiresAt: new Date(Date.now() - 60_000) },
+      });
+      const before = await t.prisma.listing.findUniqueOrThrow({ where: { id } });
+      const svc = t.app.get(ListingExpiryService);
+
+      expect(await svc.expireDue()).toBe(1);
+      const row = await t.prisma.listing.findUniqueOrThrow({ where: { id } });
+      expect(row).toMatchObject({ status: ListingStatus.DRAFT, version: before.version + 1 });
+      await t.http().get(`/api/v1/listings/${id}`).expect(404);
+      await t.http().get(`/api/v1/listings/${fresh}`).expect(200);
+      const [c, ag] = await Promise.all([
+        t.prisma.complex.findUniqueOrThrow({ where: { id: complex.id } }),
+        t.prisma.agency.findUniqueOrThrow({ where: { id: a.agency.id } }),
+      ]);
+      expect(c.activeListingCount).toBe(0);
+      expect(ag.activeListingCount).toBe(1);
+      const notes = await t.prisma.notification.findMany({ where: { userId: a.owner.id } });
+      expect(notes).toHaveLength(1);
+      expect(notes[0]!.data).toEqual({ listingId: id });
+
+      expect(await svc.expireDue()).toBe(0);
+      expect(await t.prisma.notification.count({ where: { userId: a.owner.id } })).toBe(1);
+
+      // Small batches loop until everything due is processed.
+      await t.prisma.listing.updateMany({
+        where: { id: fresh },
+        data: { expiresAt: new Date(Date.now() - 1000) },
+      });
+      await seedListing(t, a.agency.id, { listing: { expiresAt: new Date(Date.now() - 1000) } });
+      expect(await svc.expireDue(new Date(), 1)).toBe(2);
+      expect(
+        await t.prisma.listing.count({
+          where: { status: { in: ['ACTIVE', 'RESERVED'] }, expiresAt: { lt: new Date() } },
+        }),
+      ).toBe(0);
+    });
+  });
+
   describe('moderation hooks (exported service)', () => {
     it('hide removes a listing from public search; unhide returns it to DRAFT', async () => {
       const a = await agencyWithOwner(t);
@@ -385,6 +523,20 @@ describe('public listing search (e2e)', () => {
       await moderation.unhide(id);
       const row = await t.prisma.listing.findUniqueOrThrow({ where: { id } });
       expect(row).toMatchObject({ status: 'DRAFT', hiddenReason: null });
+    });
+
+    it('close force-closes a public listing, refreshes counters and bumps the version', async () => {
+      const a = await agencyWithOwner(t);
+      const id = await createPublished(t, a.ownerSession);
+      const before = await t.prisma.listing.findUniqueOrThrow({ where: { id } });
+      const moderation = t.app.get(ListingsModerationService);
+      expect(await moderation.close(id, '거래완료 확인')).toBe(ListingStatus.ACTIVE);
+      const row = await t.prisma.listing.findUniqueOrThrow({ where: { id } });
+      expect(row).toMatchObject({ status: 'CLOSED', version: before.version + 1 });
+      expect(row.closedAt).not.toBeNull();
+      await t.http().get(`/api/v1/listings/${id}`).expect(404);
+      const ag = await t.prisma.agency.findUniqueOrThrow({ where: { id: a.agency.id } });
+      expect(ag.activeListingCount).toBe(0);
     });
   });
 });

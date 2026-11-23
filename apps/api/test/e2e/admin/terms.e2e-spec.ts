@@ -1,4 +1,4 @@
-import { AdminRole, ErrorCode, TermsType } from '@house/shared';
+import { AdminRole, ErrorCode, TERMS_NOTICE_DAYS, TermsType } from '@house/shared';
 import {
   createTestApp,
   createUser,
@@ -32,9 +32,16 @@ describe('admin terms (e2e)', () => {
     title: '서비스 이용약관',
     content: '제1조 (목적) …',
     isRequired: true,
-    effectiveAt: isoIn(-1),
+    effectiveAt: isoIn(1),
     ...overrides,
   });
+
+  /** Time passes: the published version's effectiveAt is reached. */
+  const reachEffectiveAt = (id: string) =>
+    t.prisma.termsDocument.update({
+      where: { id },
+      data: { effectiveAt: new Date(Date.now() - 1000) },
+    });
 
   it('draft → edit → publish; a new required version asks users to agree again', async () => {
     const user = await createUser(t.prisma);
@@ -57,7 +64,9 @@ describe('admin terms (e2e)', () => {
     expect(before.body.pendingRequiredTerms).toEqual([]);
 
     const { session: admin } = await adminActor(t, AdminRole.ADMIN);
-    const created = await as(t, admin, 'post', '/admin/terms').send(draft()).expect(201);
+    const created = await as(t, admin, 'post', '/admin/terms')
+      .send(draft({ effectiveAt: isoIn(8) }))
+      .expect(201);
     expect(created.body).toMatchObject({
       publishedAt: null,
       isCurrent: false,
@@ -71,12 +80,22 @@ describe('admin terms (e2e)', () => {
     const published = await as(t, admin, 'post', `/admin/terms/${created.body.id}/publish`).expect(
       200,
     );
-    expect(published.body).toMatchObject({ isCurrent: true, requiresReconsent: true });
+    // Scheduled with advance notice: published now, current from its effectiveAt.
+    expect(published.body).toMatchObject({ isCurrent: false, requiresReconsent: true });
     expect(published.body.publishedAt).not.toBeNull();
-    expect((await auditRows(t, 'terms.publish'))[0]?.before).toMatchObject({ publishedAt: null });
+    const audits = await auditRows(t, 'terms.publish');
+    expect(audits).toHaveLength(1);
+    expect(audits[0]?.before).toMatchObject({ publishedAt: null });
+    expect(audits[0]?.after).toMatchObject({ urgent: false, urgentReason: null, noticeDays: 7 });
+    const notice = await withSession(t.http().get(api('/auth/me')), session).expect(200);
+    expect(notice.body.pendingRequiredTerms).toEqual([]);
 
+    await reachEffectiveAt(created.body.id as string);
     const after = await withSession(t.http().get(api('/auth/me')), session).expect(200);
     expect(after.body.pendingRequiredTerms).toEqual([TermsType.SERVICE]);
+    expect(
+      (await as(t, admin, 'get', `/admin/terms/${created.body.id}`).expect(200)).body,
+    ).toMatchObject({ isCurrent: true });
 
     const list = await as(t, admin, 'get', '/admin/terms?type=SERVICE&published=true').expect(200);
     expect(pluck(list.body.items, 'version')).toEqual(['2.0', '1.0']);
@@ -100,13 +119,15 @@ describe('admin terms (e2e)', () => {
       ErrorCode.TERMS_VERSION_DUPLICATE,
     );
 
+    // Not later than the published version (both in the future).
     const older = await as(t, admin, 'post', '/admin/terms')
-      .send(draft({ version: '1.9', effectiveAt: isoIn(-5) }))
+      .send(draft({ version: '1.9', effectiveAt: isoIn(0.5) }))
       .expect(201);
-    expectCode(
-      await as(t, admin, 'post', `/admin/terms/${older.body.id}/publish`).expect(400),
-      ErrorCode.TERMS_EFFECTIVE_AT_INVALID,
+    const notAfter = await as(t, admin, 'post', `/admin/terms/${older.body.id}/publish`).expect(
+      400,
     );
+    expectCode(notAfter, ErrorCode.TERMS_EFFECTIVE_AT_INVALID);
+    expect(notAfter.body.details).toMatchObject({ reason: 'NOT_AFTER_LATEST' });
     // A scheduled (future) version is published but not current yet.
     const scheduled = await as(t, admin, 'post', '/admin/terms')
       .send(draft({ version: '3.0', effectiveAt: isoIn(10) }))
@@ -116,6 +137,57 @@ describe('admin terms (e2e)', () => {
 
     await as(t, admin, 'delete', `/admin/terms/${older.body.id}`).expect(204);
     await as(t, admin, 'get', `/admin/terms/${older.body.id}`).expect(404);
+  });
+
+  it('never publishes retroactively, even the first version of a type', async () => {
+    const { session: admin } = await adminActor(t, AdminRole.ADMIN);
+    const past = await as(t, admin, 'post', '/admin/terms')
+      .send(draft({ effectiveAt: isoIn(-1) }))
+      .expect(201);
+    const res = await as(t, admin, 'post', `/admin/terms/${past.body.id}/publish`)
+      .send({ urgent: true, reason: '법령 개정에 따른 긴급 변경' })
+      .expect(400);
+    expectCode(res, ErrorCode.TERMS_EFFECTIVE_AT_INVALID);
+    expect(res.body.details).toMatchObject({ reason: 'PAST' });
+    expect(await t.prisma.termsDocument.count({ where: { publishedAt: { not: null } } })).toBe(0);
+    expect(await auditRows(t, 'terms.publish')).toHaveLength(0);
+  });
+
+  it(`a revision needs ${TERMS_NOTICE_DAYS} days of advance notice unless urgent (with a reason, audited)`, async () => {
+    const { session: admin } = await adminActor(t, AdminRole.ADMIN);
+    // The first version of a type has nothing to give notice about.
+    const first = await as(t, admin, 'post', '/admin/terms').send(draft()).expect(201);
+    await as(t, admin, 'post', `/admin/terms/${first.body.id}/publish`).expect(200);
+
+    const soon = await as(t, admin, 'post', '/admin/terms')
+      .send(draft({ version: '2.1', effectiveAt: isoIn(3) }))
+      .expect(201);
+    const tooSoon = await as(t, admin, 'post', `/admin/terms/${soon.body.id}/publish`).expect(400);
+    expectCode(tooSoon, ErrorCode.TERMS_EFFECTIVE_AT_INVALID);
+    expect(tooSoon.body.details).toMatchObject({
+      reason: 'NOTICE_PERIOD',
+      noticeDays: TERMS_NOTICE_DAYS,
+    });
+    // urgent without a reason is a validation error
+    await as(t, admin, 'post', `/admin/terms/${soon.body.id}/publish`)
+      .send({ urgent: true })
+      .expect(400);
+    await as(t, admin, 'post', `/admin/terms/${soon.body.id}/publish`)
+      .send({ urgent: 'yes', reason: '법령 개정에 따른 긴급 변경' })
+      .expect(400);
+
+    const urgent = await as(t, admin, 'post', `/admin/terms/${soon.body.id}/publish`)
+      .send({ urgent: true, reason: '법령 개정에 따른 긴급 변경' })
+      .expect(200);
+    expect(urgent.body.publishedAt).not.toBeNull();
+    const [, audit] = await auditRows(t, 'terms.publish');
+    expect(audit).toMatchObject({ resourceId: soon.body.id });
+    expect(audit?.after).toMatchObject({
+      urgent: true,
+      urgentReason: '법령 개정에 따른 긴급 변경',
+      noticeDays: 2,
+    });
+    expect(JSON.stringify(audit?.after)).not.toContain('제1조');
   });
 
   it('validation failures (400)', async () => {
@@ -128,6 +200,9 @@ describe('admin terms (e2e)', () => {
       .expect(400);
     await as(t, admin, 'post', '/admin/terms')
       .send(draft({ effectiveAt: '2026-01-01' }))
+      .expect(400);
+    await as(t, admin, 'post', '/admin/terms')
+      .send(draft({ content: '제1조 <a href="javascript:alert(1)">목적</a>' }))
       .expect(400);
     const { body } = await as(t, admin, 'post', '/admin/terms').send(draft()).expect(201);
     await as(t, admin, 'patch', `/admin/terms/${body.id}`).send({}).expect(400);

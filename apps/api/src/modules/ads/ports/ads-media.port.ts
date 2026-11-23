@@ -1,16 +1,8 @@
-import {
-  ErrorCode,
-  MediaPurpose,
-  MediaStatus,
-  MediaVisibility,
-  type AdMediaView,
-  type ImageVariant,
-} from '@house/shared';
+import { ErrorCode, MediaPurpose, type AdMediaView, type ImageVariant } from '@house/shared';
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import { AppException } from '../../../common/errors/app.exception';
-import { AppConfig } from '../../../config/app-config.service';
-import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
+import type { PrismaTx } from '../../../prisma/prisma.service';
+import { MediaService } from '../../media/media.service';
 
 /** Media columns needed to build public URLs. */
 export const adMediaSelect = {
@@ -25,12 +17,15 @@ export type AdMediaRef = Prisma.MediaGetPayload<{ select: typeof adMediaSelect }
 export type AdMediaPurpose = typeof MediaPurpose.BANNER | typeof MediaPurpose.POPUP;
 
 /**
- * What the ads module needs from the media domain. Bound to a Prisma implementation until
- * MediaService exposes `assertUsable` / URL helpers; swap the binding then.
+ * What the ads module needs from the media domain, following MediaService's attach/detach
+ * contract: `assertUsable` inside the write transaction (locks the rows FOR SHARE until commit),
+ * `released` after a reference is dropped or replaced.
  */
 export interface AdsMediaPort {
-  /** Throws BANNER_MEDIA_INVALID / POPUP_MEDIA_INVALID unless every id is a READY, PUBLIC image of that purpose. */
-  assertUsable(mediaIds: readonly string[], purpose: AdMediaPurpose, db?: PrismaTx): Promise<void>;
+  /** Throws BANNER_MEDIA_INVALID / POPUP_MEDIA_INVALID unless every id is a READY image of that purpose. */
+  assertUsable(mediaIds: readonly string[], purpose: AdMediaPurpose, tx: PrismaTx): Promise<void>;
+  /** Restarts the orphan grace period of uploads no longer referenced by this row. */
+  released(mediaIds: readonly string[], tx: PrismaTx): Promise<void>;
   /** Public URL of the large variant (falls back to the original). */
   url(media: AdMediaRef, variant?: ImageVariant): string;
   view(media: AdMediaRef): AdMediaView;
@@ -38,52 +33,34 @@ export interface AdsMediaPort {
 
 export const ADS_MEDIA = Symbol('ADS_MEDIA');
 
-function variantKey(variants: Prisma.JsonValue | null, name: ImageVariant): string | null {
-  if (!variants || typeof variants !== 'object' || Array.isArray(variants)) return null;
-  const v = variants[name];
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
-  const key = v.key;
-  return typeof key === 'string' && key.length > 0 ? key : null;
-}
-
 @Injectable()
-export class PrismaAdsMedia implements AdsMediaPort {
-  private readonly base: string;
-
-  constructor(
-    private readonly prisma: PrismaService,
-    config: AppConfig,
-  ) {
-    this.base = config.get('MEDIA_BASE_URL').replace(/\/+$/, '');
-  }
+export class MediaServiceAdsMedia implements AdsMediaPort {
+  constructor(private readonly media: MediaService) {}
 
   async assertUsable(
     mediaIds: readonly string[],
     purpose: AdMediaPurpose,
-    db: PrismaTx = this.prisma,
+    tx: PrismaTx,
   ): Promise<void> {
-    const ids = [...new Set(mediaIds)];
-    if (ids.length === 0) return;
-    const usable = await db.media.count({
-      where: {
-        id: { in: ids },
+    await this.media.assertUsable(
+      mediaIds,
+      {
         purpose,
-        deletedAt: null,
-        status: MediaStatus.READY,
-        visibility: MediaVisibility.PUBLIC,
+        errorCode:
+          purpose === MediaPurpose.BANNER
+            ? ErrorCode.BANNER_MEDIA_INVALID
+            : ErrorCode.POPUP_MEDIA_INVALID,
       },
-    });
-    if (usable !== ids.length) {
-      throw AppException.badRequest(
-        purpose === MediaPurpose.BANNER
-          ? ErrorCode.BANNER_MEDIA_INVALID
-          : ErrorCode.POPUP_MEDIA_INVALID,
-      );
-    }
+      tx,
+    );
+  }
+
+  released(mediaIds: readonly string[], tx: PrismaTx): Promise<void> {
+    return this.media.released(mediaIds, tx);
   }
 
   url(media: AdMediaRef, variant: ImageVariant = 'large'): string {
-    return `${this.base}/${variantKey(media.variants, variant) ?? media.storageKey}`;
+    return this.media.url(media, variant);
   }
 
   view(media: AdMediaRef): AdMediaView {

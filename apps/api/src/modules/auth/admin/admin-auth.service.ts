@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   type AdminLoginInput,
@@ -6,7 +7,9 @@ import {
   type AdminSessionResponse,
   type AdminTotpActivateResponse,
   AdminStatus,
+  type AdminTotpSetupInput,
   type AdminTotpSetupResponse,
+  AuditActorType,
   type AdminTotpVerifyInput,
   ErrorCode,
 } from '@house/shared';
@@ -55,8 +58,8 @@ export function toAdminMe(a: AdminUser): AdminMeResponse {
 /**
  * Back-office login: email + argon2id password → short pre-MFA session → mandatory TOTP
  * (enrollment on first login) → session rotated into a verified one. Failed password and TOTP
- * attempts share one counter; reaching ADMIN_MAX_FAILED_ATTEMPTS locks the account and kills its
- * sessions.
+ * attempts share one counter that only a completed second factor resets; reaching
+ * ADMIN_MAX_FAILED_ATTEMPTS locks the account, kills its sessions and writes an audit row.
  */
 @Injectable()
 export class AdminAuthService {
@@ -72,48 +75,68 @@ export class AdminAuthService {
     @Inject(REDIS) private readonly redis: Redis,
   ) {}
 
+  /**
+   * Password step. Every refusal (unknown email, disabled, outside the account's IP allowlist,
+   * locked, wrong password) is the same 401 after the same argon2 work, so the endpoint reveals
+   * neither which emails exist nor whether a password is right while the account is locked or the
+   * caller is outside its allowlist. Only wrong passwords from an allowed network count toward the
+   * lock. The failure counter is NOT reset here: only a completed second factor resets it, so
+   * "right password, then a few wrong codes" cannot be repeated forever.
+   */
   async login(dto: AdminLoginInput, req: Request, res: Response): Promise<AdminLoginResponse> {
     const admin = await this.prisma.adminUser.findUnique({ where: { email: dto.email } });
-    if (!admin) {
+    const refusal = !admin
+      ? 'unknown email'
+      : admin.status !== AdminStatus.ACTIVE
+        ? 'account not active'
+        : !ipAllowed(admin.ipAllowlist, req.ip)
+          ? 'IP not allowlisted'
+          : null;
+    if (!admin || refusal) {
       await this.passwords.verifyDummy(dto.password);
-      this.logger.warn({ ip: req.ip }, 'admin login: unknown email');
+      this.logger.warn({ adminId: admin?.id, ip: req.ip, reason: refusal }, 'admin login refused');
       throw invalidCredentials();
     }
-    if (this.isLocked(admin)) throw locked();
     const ok = await this.passwords.verify(admin.passwordHash, dto.password);
+    if (this.isLocked(admin)) {
+      this.logger.warn({ adminId: admin.id, ip: req.ip }, 'admin login refused: account locked');
+      throw invalidCredentials();
+    }
     if (!ok) {
-      await this.registerFailure(admin.id);
+      await this.registerFailure(admin.id, req);
       this.logger.warn({ adminId: admin.id, ip: req.ip }, 'admin login: wrong password');
       throw invalidCredentials();
-    }
-    if (admin.status !== AdminStatus.ACTIVE) throw invalidCredentials();
-    if (!ipAllowed(admin.ipAllowlist, req.ip)) {
-      this.logger.warn({ adminId: admin.id, ip: req.ip }, 'admin login: IP not allowlisted');
-      throw AppException.forbidden(ErrorCode.AUTH_IP_NOT_ALLOWED);
-    }
-    if (admin.failedLoginCount > 0) {
-      await this.prisma.adminUser.update({
-        where: { id: admin.id },
-        data: { failedLoginCount: 0 },
-      });
     }
     const csrfToken = await this.issueSession(req, res, admin, false);
     return { mfaRequired: true, totpEnrolled: admin.totpEnabledAt !== null, csrfToken };
   }
 
-  /** Starts (or, from a verified session, rotates) TOTP enrollment. Secret is kept in Redis until activated. */
-  async setupTotp(principal: AdminPrincipal): Promise<AdminTotpSetupResponse> {
+  /**
+   * Starts TOTP enrollment (first login, pre-MFA session) or rotation. Rotation needs a verified
+   * session AND re-authentication with the current password plus a current TOTP / recovery code,
+   * so a hijacked session alone cannot swap the second factor. The pending secret is bound to the
+   * session that asked for it and kept in Redis until activated.
+   */
+  async setupTotp(
+    principal: AdminPrincipal,
+    dto: AdminTotpSetupInput,
+    req: Request,
+  ): Promise<AdminTotpSetupResponse> {
     const admin = await this.loadActive(principal.adminId);
-    if (admin.totpEnabledAt && !principal.mfaVerified) {
-      throw AppException.unauthenticated(ErrorCode.AUTH_TOTP_REQUIRED);
+    if (admin.totpEnabledAt) {
+      if (!principal.mfaVerified) throw AppException.unauthenticated(ErrorCode.AUTH_TOTP_REQUIRED);
+      await this.reauthenticate(admin, dto, req);
     }
     const secret = this.totp.generateSecret();
     await this.redis.set(
       REDIS_KEYS.totpSetup(admin.id),
-      this.box.encrypt(secret, `totp-setup:${admin.id}`),
+      this.box.encrypt(secret, setupAad(admin.id, principal.sessionId)),
       'EX',
       TOTP_SETUP_TTL_SECONDS,
     );
+    if (admin.totpEnabledAt) {
+      this.logger.log({ adminId: admin.id, ip: req.ip }, 'admin TOTP rotation started');
+    }
     return {
       secret,
       otpauthUrl: this.totp.keyUri(admin.email, secret),
@@ -133,11 +156,10 @@ export class AdminAuthService {
     if (admin.totpEnabledAt && !principal.mfaVerified) {
       throw AppException.unauthenticated(ErrorCode.AUTH_TOTP_REQUIRED);
     }
-    const pending = await this.redis.get(REDIS_KEYS.totpSetup(admin.id));
-    if (!pending) throw AppException.badRequest(ErrorCode.AUTH_TOTP_SETUP_EXPIRED);
-    const secret = this.box.decrypt(pending, `totp-setup:${admin.id}`);
+    const secret = await this.pendingSetupSecret(admin.id, principal.sessionId);
+    if (!secret) throw AppException.badRequest(ErrorCode.AUTH_TOTP_SETUP_EXPIRED);
     if (!(await this.checkTotp(admin.id, secret, code))) {
-      await this.registerFailure(admin.id);
+      if (await this.registerFailure(admin.id, req)) throw locked();
       throw totpInvalid();
     }
 
@@ -163,7 +185,7 @@ export class AdminAuthService {
           resourceType: 'AdminUser',
           resourceId: admin.id,
           before: { totpEnabledAt: admin.totpEnabledAt },
-          after: { totpEnabledAt: row.totpEnabledAt },
+          after: { totpEnabledAt: row.totpEnabledAt, ip: req.ip ?? null },
         },
         tx,
       );
@@ -199,8 +221,9 @@ export class AdminAuthService {
       ok = await this.consumeRecoveryCode(admin, dto.recoveryCode);
     }
     if (!ok) {
-      await this.registerFailure(admin.id);
       this.logger.warn({ adminId: admin.id, ip: req.ip }, 'admin TOTP verification failed');
+      // The caller already proved the password, so saying "locked" here leaks nothing.
+      if (await this.registerFailure(admin.id, req)) throw locked();
       throw totpInvalid();
     }
     const updated = await this.prisma.adminUser.update({
@@ -242,7 +265,7 @@ export class AdminAuthService {
   ): Promise<AdminSessionResponse> {
     const admin = await this.loadActive(principal.adminId);
     if (!(await this.passwords.verify(admin.passwordHash, dto.currentPassword))) {
-      await this.registerFailure(admin.id);
+      if (await this.registerFailure(admin.id, req)) throw locked();
       throw invalidCredentials();
     }
     const passwordHash = await this.passwords.hash(dto.newPassword);
@@ -309,7 +332,11 @@ export class AdminAuthService {
     const step = this.totp.verify(secret, code);
     if (step === null) return false;
     const fresh = await this.redis.set(
-      REDIS_KEYS.totpUsedStep(adminId, step),
+      REDIS_KEYS.totpUsedStep(
+        adminId,
+        createHash('sha256').update(secret).digest('hex').slice(0, 16),
+        step,
+      ),
       '1',
       'EX',
       180,
@@ -334,25 +361,84 @@ export class AdminAuthService {
     return false;
   }
 
-  private async registerFailure(adminId: string): Promise<void> {
+  /** Rotation re-auth: current password + a current TOTP code or a recovery code. */
+  private async reauthenticate(
+    admin: AdminUser,
+    dto: AdminTotpSetupInput,
+    req: Request,
+  ): Promise<void> {
+    if (dto.currentPassword === undefined || (dto.code ?? dto.recoveryCode) === undefined) {
+      throw AppException.forbidden(ErrorCode.AUTH_REAUTH_REQUIRED);
+    }
+    if (this.isLocked(admin)) throw locked();
+    const passwordOk = await this.passwords.verify(admin.passwordHash, dto.currentPassword);
+    let factorOk = false;
+    // Never consume a recovery code (or burn a TOTP step) behind a wrong password.
+    if (passwordOk && admin.totpSecretEnc) {
+      factorOk =
+        dto.code !== undefined
+          ? await this.checkTotp(
+              admin.id,
+              this.box.decrypt(admin.totpSecretEnc, totpAad(admin.id)),
+              dto.code,
+            )
+          : await this.consumeRecoveryCode(admin, dto.recoveryCode ?? '');
+    }
+    if (passwordOk && factorOk) return;
+    this.logger.warn({ adminId: admin.id, ip: req.ip }, 'admin TOTP rotation: re-auth failed');
+    if (await this.registerFailure(admin.id, req)) throw locked();
+    throw passwordOk ? totpInvalid() : invalidCredentials();
+  }
+
+  /** The pending enrollment secret, only for the session that started it. */
+  private async pendingSetupSecret(adminId: string, sessionId: string): Promise<string | null> {
+    const pending = await this.redis.get(REDIS_KEYS.totpSetup(adminId));
+    if (!pending) return null;
+    try {
+      return this.box.decrypt(pending, setupAad(adminId, sessionId));
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Counts a failed password / second-factor attempt. Returns true when this attempt locked the
+   * account (sessions are destroyed and the lock is audited).
+   */
+  private async registerFailure(adminId: string, req: Request): Promise<boolean> {
     const row = await this.prisma.adminUser.update({
       where: { id: adminId },
       data: { failedLoginCount: { increment: 1 } },
       select: { failedLoginCount: true },
     });
-    if (row.failedLoginCount < ADMIN_MAX_FAILED_ATTEMPTS) return;
-    await this.prisma.adminUser.update({
-      where: { id: adminId },
-      data: {
-        failedLoginCount: 0,
-        lockedUntil: new Date(Date.now() + ADMIN_LOCK_MINUTES * 60_000),
-      },
+    if (row.failedLoginCount < ADMIN_MAX_FAILED_ATTEMPTS) return false;
+    const lockedUntil = new Date(Date.now() + ADMIN_LOCK_MINUTES * 60_000);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.adminUser.update({
+        where: { id: adminId },
+        data: { failedLoginCount: 0, lockedUntil },
+      });
+      await this.audit.record(
+        {
+          action: 'admin.account.lock',
+          resourceType: 'AdminUser',
+          resourceId: adminId,
+          after: { lockedUntil, failedAttempts: row.failedLoginCount, ip: req.ip ?? null },
+          actorType: AuditActorType.SYSTEM,
+        },
+        tx,
+      );
     });
     await this.sessions.destroyAllForSubject('ADMIN', adminId);
-    this.logger.warn({ adminId }, 'admin account locked after repeated failures');
+    this.logger.warn({ adminId, ip: req.ip }, 'admin account locked after repeated failures');
+    return true;
   }
 }
 
 function totpAad(adminId: string): string {
   return `totp:${adminId}`;
+}
+
+function setupAad(adminId: string, sessionId: string): string {
+  return `totp-setup:${adminId}:${sessionId}`;
 }

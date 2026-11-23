@@ -168,6 +168,14 @@ describe('deal-requests: requester (e2e)', () => {
         ],
         ['targetAgencyIds', 'depositMin', 'assetType'],
       ],
+      [
+        'phone numbers typed into the description (would bypass contact consent)',
+        [
+          sellBody({ description: '바로 연락주세요 010-1234-5678' }),
+          wantedBody({ description: '문자 주세요 010 9876 5432' }),
+        ],
+        ['description', 'description'],
+      ],
     ])('400 VALIDATION_FAILED: %s', async (_name, bodies, paths) => {
       const { s } = await requester(t);
       const cases = bodies.map((b, i) => [b, paths[i]] as const);
@@ -380,6 +388,85 @@ describe('deal-requests: requester (e2e)', () => {
     });
   });
 
+  describe('POST /api/v1/me/deal-requests/:id/extend', () => {
+    const DAY = 86_400_000;
+    const extend = (id: string) => t.http().post(`/api/v1/me/deal-requests/${id}/extend`);
+
+    it('200: extends an OPEN request and reopens an EXPIRED one, counting extensions', async () => {
+      const { user, s } = await requester(t);
+      const open = await dealRequest(t.prisma, user.id, {
+        expiresAt: new Date(Date.now() + 2 * DAY),
+      });
+      const before = Date.now();
+      const res = await withSession(extend(open.id), s).expect(200);
+      expect(res.body).toMatchObject({ id: open.id, status: 'OPEN', extensionCount: 1 });
+      const expiresAt = new Date(String(res.body.expiresAt)).getTime();
+      expect(expiresAt).toBeGreaterThanOrEqual(before + 30 * DAY - 1000);
+      expect(expiresAt).toBeLessThanOrEqual(Date.now() + 30 * DAY + 1000);
+
+      const expired = await dealRequest(t.prisma, user.id, {
+        status: DealRequestStatus.EXPIRED,
+        expiresAt: new Date(Date.now() - DAY),
+        closedAt: new Date(Date.now() - DAY),
+      });
+      const reopened = await withSession(extend(expired.id), s).expect(200);
+      expect(reopened.body).toMatchObject({ status: 'OPEN', closedAt: null, extensionCount: 1 });
+      expect(new Date(String(reopened.body.expiresAt)).getTime()).toBeGreaterThan(
+        Date.now() + 29 * DAY,
+      );
+    });
+
+    it('400 at the extension limit, for ended / scrubbed requests and at the active limit', async () => {
+      const { user, s } = await requester(t);
+      const maxed = await dealRequest(t.prisma, user.id, { extensionCount: 3 });
+      const limit = await withSession(extend(maxed.id), s).expect(400);
+      expect(limit.body).toMatchObject({
+        code: 'DEAL_REQUEST_EXTEND_LIMIT',
+        details: { limit: 3 },
+      });
+
+      for (const status of [
+        DealRequestStatus.MATCHED,
+        DealRequestStatus.CLOSED,
+        DealRequestStatus.CANCELLED,
+      ]) {
+        const r = await dealRequest(t.prisma, user.id, { status });
+        const res = await withSession(extend(r.id), s).expect(400);
+        expect(res.body.code).toBe('DEAL_REQUEST_STATE_INVALID');
+      }
+      const scrubbed = await dealRequest(t.prisma, user.id, {
+        status: DealRequestStatus.EXPIRED,
+        contactScrubbedAt: new Date(),
+      });
+      expect((await withSession(extend(scrubbed.id), s).expect(400)).body.code).toBe(
+        'DEAL_REQUEST_STATE_INVALID',
+      );
+
+      const busy = await requester(t);
+      for (let i = 0; i < 10; i++) await dealRequest(t.prisma, busy.user.id);
+      const expired = await dealRequest(t.prisma, busy.user.id, {
+        status: DealRequestStatus.EXPIRED,
+      });
+      const capped = await withSession(extend(expired.id), busy.s).expect(400);
+      expect(capped.body.code).toBe('DEAL_REQUEST_ACTIVE_LIMIT');
+      expect(
+        (await t.prisma.dealRequest.findUniqueOrThrow({ where: { id: expired.id } })).status,
+      ).toBe('EXPIRED');
+      await withSession(t.http().post('/api/v1/me/deal-requests/xyz/extend'), s).expect(400);
+    });
+
+    it("404 for another user's request; 401 anonymous", async () => {
+      const { s } = await requester(t);
+      const other = await requester(t);
+      const req = await dealRequest(t.prisma, other.user.id, { status: DealRequestStatus.EXPIRED });
+      await withSession(extend(req.id), s).expect(404);
+      await withSession(extend(MISSING), s).expect(404);
+      await extend(req.id).expect(401);
+      const row = await t.prisma.dealRequest.findUniqueOrThrow({ where: { id: req.id } });
+      expect(row).toMatchObject({ status: 'EXPIRED', extensionCount: 0 });
+    });
+  });
+
   describe('contact grants', () => {
     it('201: grant to a proposing agency (idempotent, notified once), 204 revoke', async () => {
       const { user, s } = await requester(t);
@@ -454,9 +541,9 @@ describe('deal-requests: requester (e2e)', () => {
       const b = await broker(t);
       const req = await dealRequest(t.prisma, user.id);
       const p = await proposal(t.prisma, req.id, b.agency.id);
-      const res = await withSession(t.http().post(`/api/v1/me/proposals/${p.id}/accept`), s).expect(
-        200,
-      );
+      const res = await withSession(t.http().post(`/api/v1/me/proposals/${p.id}/accept`), s)
+        .send({ shareContact: true })
+        .expect(200);
       expect(res.body).toMatchObject({ id: p.id, status: 'ACCEPTED', contactShared: true });
       expect((await t.prisma.dealRequest.findUniqueOrThrow({ where: { id: req.id } })).status).toBe(
         'MATCHED',
@@ -470,10 +557,9 @@ describe('deal-requests: requester (e2e)', () => {
         proposalId: p.id,
         contactShared: true,
       });
-      const again = await withSession(
-        t.http().post(`/api/v1/me/proposals/${p.id}/accept`),
-        s,
-      ).expect(400);
+      const again = await withSession(t.http().post(`/api/v1/me/proposals/${p.id}/accept`), s)
+        .send({ shareContact: true })
+        .expect(400);
       expect(again.body.code).toBe('PROPOSAL_STATE_INVALID');
     });
 
@@ -503,7 +589,9 @@ describe('deal-requests: requester (e2e)', () => {
       const b = await broker(t);
       const req = await dealRequest(t.prisma, other.user.id);
       const p = await proposal(t.prisma, req.id, b.agency.id);
-      await withSession(t.http().post(`/api/v1/me/proposals/${p.id}/accept`), s).expect(404);
+      await withSession(t.http().post(`/api/v1/me/proposals/${p.id}/accept`), s)
+        .send({ shareContact: true })
+        .expect(404);
       await withSession(t.http().post(`/api/v1/me/proposals/${p.id}/decline`), s).expect(404);
       const w = await proposal(
         t.prisma,
@@ -513,7 +601,9 @@ describe('deal-requests: requester (e2e)', () => {
           status: ProposalStatus.WITHDRAWN,
         },
       );
-      await withSession(t.http().post(`/api/v1/me/proposals/${w.id}/accept`), other.s).expect(404);
+      await withSession(t.http().post(`/api/v1/me/proposals/${w.id}/accept`), other.s)
+        .send({ shareContact: false })
+        .expect(404);
       expect((await t.prisma.proposal.findUniqueOrThrow({ where: { id: p.id } })).status).toBe(
         'SENT',
       );
@@ -527,6 +617,20 @@ describe('deal-requests: requester (e2e)', () => {
       await withSession(t.http().post(`/api/v1/me/proposals/${p.id}/accept`), s)
         .send({ shareContact: 'yes' })
         .expect(400);
+      // Consent to share contact is never implied: an empty body is rejected.
+      const empty = await withSession(
+        t.http().post(`/api/v1/me/proposals/${p.id}/accept`),
+        s,
+      ).expect(400);
+      expect(empty.body.code).toBe('VALIDATION_FAILED');
+      const unset = await withSession(t.http().post(`/api/v1/me/proposals/${p.id}/accept`), s)
+        .send({})
+        .expect(400);
+      expect(issuePaths(unset.body)).toContain('shareContact');
+      expect((await t.prisma.proposal.findUniqueOrThrow({ where: { id: p.id } })).status).toBe(
+        'SENT',
+      );
+      expect(await t.prisma.dealRequestContactGrant.count()).toBe(0);
       await withSession(t.http().post('/api/v1/me/proposals/123/decline'), s).expect(400);
       await t.http().post(`/api/v1/me/proposals/${p.id}/accept`).expect(401);
     });

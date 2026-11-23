@@ -1,14 +1,16 @@
 import {
   ASSET_TYPE_LABEL,
-  DEAL_REQUEST_ACTIVE_STATUSES,
   DEAL_REQUEST_LIMITS,
+  DEAL_REQUEST_STATUS_LABEL,
   DEAL_REQUEST_TYPE_LABEL,
   DEAL_TYPE_LABEL,
   DealRequestStatus,
   DealRequestVisibility,
   NotificationType,
+  ProposalStatus,
   UserStatus,
 } from '@house/shared';
+import type { Prisma } from '@prisma/client';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
 import { JOB_BATCH_SIZE } from '../constants';
@@ -18,12 +20,29 @@ import {
   DEAL_REQUEST_AGENCIES,
   type DealRequestAgencyDirectory,
 } from '../ports/agency-directory.port';
+import { DEAL_REQUEST_MEDIA, type DealRequestMediaPort } from '../ports/media.port';
 
 const ENDED_STATUSES = [
   DealRequestStatus.CLOSED,
   DealRequestStatus.CANCELLED,
   DealRequestStatus.EXPIRED,
 ];
+
+const WITHDRAWAL_REASON = '회원 탈퇴';
+
+/** Withdrawn members' requests that still hold anything identifying. */
+const WITHDRAWN_RESIDUE: Prisma.DealRequestWhereInput = {
+  user: { status: UserStatus.WITHDRAWN },
+  OR: [
+    { contactScrubbedAt: null },
+    { roadAddress: { not: null } },
+    { lat: { not: null } },
+    { floor: { not: null } },
+    { description: { not: null } },
+    { exclusiveArea: { not: null } },
+    { photos: { some: {} } },
+  ],
+};
 
 /**
  * Background work of the module (run by DealRequestsProcessor; e2e calls these directly). Every
@@ -37,6 +56,7 @@ export class DealRequestMaintenanceService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     @Inject(DEAL_REQUEST_AGENCIES) private readonly agencies: DealRequestAgencyDirectory,
+    @Inject(DEAL_REQUEST_MEDIA) private readonly media: DealRequestMediaPort,
   ) {}
 
   /**
@@ -100,7 +120,11 @@ export class DealRequestMaintenanceService {
     return sent.length;
   }
 
-  /** OPEN/MATCHED requests past expiresAt → EXPIRED, with a notice to the requester. */
+  /**
+   * OPEN requests past expiresAt → EXPIRED, with a notice to the requester. MATCHED requests never
+   * expire: an agency is mid-deal with the requester, who ends the request by closing or cancelling
+   * it. Expired requests can be reopened with POST /me/deal-requests/:id/extend.
+   */
   async expireDue(now: Date = new Date()): Promise<number> {
     let total = 0;
     for (;;) {
@@ -110,7 +134,7 @@ export class DealRequestMaintenanceService {
           SET status = 'EXPIRED'::deal_request_status, closed_at = ${now}, updated_at = ${now}
           WHERE id IN (
             SELECT id FROM deal_requests
-            WHERE status IN ('OPEN'::deal_request_status, 'MATCHED'::deal_request_status)
+            WHERE status = 'OPEN'::deal_request_status
               AND deleted_at IS NULL
               AND expires_at <= ${now}
             ORDER BY expires_at
@@ -123,6 +147,7 @@ export class DealRequestMaintenanceService {
             userId: r.userId,
             type: NotificationType.SYSTEM,
             title: '등록하신 요청의 기간이 만료되었습니다.',
+            body: '요청 상세에서 기간을 연장하면 다시 진행할 수 있습니다.',
             data: { dealRequestId: r.id, status: DealRequestStatus.EXPIRED },
           })),
           tx,
@@ -138,9 +163,12 @@ export class DealRequestMaintenanceService {
   }
 
   /**
-   * Data minimization: erases contact name/phone and 동·호 of requests that ended more than
-   * CONTACT_RETENTION_DAYS ago, and of every request of withdrawn members (live ones are cancelled
-   * first). Contact grants are revoked with it.
+   * Data minimization, two passes:
+   *  - requests that ended more than CONTACT_RETENTION_DAYS ago lose contact name/phone and 동·호;
+   *  - requests of withdrawn members are cancelled (agencies told) and lose everything identifying
+   *    (see eraseWithdrawn). AccountService.withdraw should do this at once via scrubUser; this pass
+   *    is the safety net.
+   * Contact grants are revoked with both.
    */
   async scrubDue(now: Date = new Date()): Promise<number> {
     const cutoff = new Date(
@@ -151,31 +179,18 @@ export class DealRequestMaintenanceService {
       const batch = await this.prisma.dealRequest.findMany({
         where: {
           contactScrubbedAt: null,
-          OR: [
-            { status: { in: ENDED_STATUSES }, closedAt: { lte: cutoff } },
-            { user: { status: UserStatus.WITHDRAWN } },
-          ],
+          status: { in: ENDED_STATUSES },
+          closedAt: { lte: cutoff },
+          user: { status: { not: UserStatus.WITHDRAWN } },
         },
-        select: { id: true, status: true },
+        select: { id: true },
         orderBy: { id: 'asc' },
         take: JOB_BATCH_SIZE,
       });
       if (batch.length === 0) break;
       const ids = batch.map((r) => r.id);
-      const live = batch
-        .filter((r) => DEAL_REQUEST_ACTIVE_STATUSES.includes(r.status))
-        .map((r) => r.id);
       await this.prisma.$transaction(async (tx) => {
-        if (live.length > 0) {
-          await tx.dealRequest.updateMany({
-            where: { id: { in: live }, status: { in: [...DEAL_REQUEST_ACTIVE_STATUSES] } },
-            data: { status: DealRequestStatus.CANCELLED, closedAt: now, closeReason: '회원 탈퇴' },
-          });
-        }
-        await tx.dealRequestContactGrant.updateMany({
-          where: { dealRequestId: { in: ids }, revokedAt: null },
-          data: { revokedAt: now },
-        });
+        await this.revokeGrants(tx, ids, now);
         await tx.dealRequest.updateMany({
           where: { id: { in: ids }, contactScrubbedAt: null },
           data: { contactName: '', contactPhone: '', addressDetail: null, contactScrubbedAt: now },
@@ -184,8 +199,135 @@ export class DealRequestMaintenanceService {
       total += ids.length;
       if (batch.length < JOB_BATCH_SIZE) break;
     }
+    for (;;) {
+      const batch = await this.prisma.dealRequest.findMany({
+        where: WITHDRAWN_RESIDUE,
+        select: { id: true },
+        orderBy: { id: 'asc' },
+        take: JOB_BATCH_SIZE,
+      });
+      if (batch.length === 0) break;
+      const ids = batch.map((r) => r.id);
+      const notices = await this.prisma.$transaction((tx) => this.eraseWithdrawn(tx, ids, now));
+      await this.notifications.dispatch(notices);
+      total += ids.length;
+      if (batch.length < JOB_BATCH_SIZE) break;
+    }
     if (total > 0) this.logger.log({ count: total }, 'scrubbed deal request contacts');
     return total;
+  }
+
+  /**
+   * Immediate erasure for one member (회원 탈퇴): cancels the member's live requests (notifying
+   * agencies with live proposals), revokes every contact grant, and erases contact, 동·호, address,
+   * position, floor, area, description and photos of all their requests.
+   *
+   * With `tx` (e.g. the withdrawal transaction) the caller must pass the returned notices to
+   * `dispatch` after commit; without it, this runs its own transaction and dispatches itself.
+   */
+  async scrubUser(
+    userId: string,
+    now: Date = new Date(),
+    tx?: PrismaTx,
+  ): Promise<DispatchableNotification[]> {
+    const run = async (db: PrismaTx): Promise<DispatchableNotification[]> => {
+      const rows = await db.dealRequest.findMany({ where: { userId }, select: { id: true } });
+      return this.eraseWithdrawn(
+        db,
+        rows.map((r) => r.id),
+        now,
+      );
+    };
+    if (tx) return run(tx);
+    const notices = await this.prisma.$transaction(run);
+    await this.notifications.dispatch(notices);
+    return notices;
+  }
+
+  /** Best-effort delivery of notices returned by `scrubUser(…, tx)` once its transaction commits. */
+  dispatch(notices: readonly DispatchableNotification[]): Promise<void> {
+    return this.notifications.dispatch(notices);
+  }
+
+  private async eraseWithdrawn(
+    tx: PrismaTx,
+    ids: readonly string[],
+    now: Date,
+  ): Promise<DispatchableNotification[]> {
+    if (ids.length === 0) return [];
+    const cancelled = await tx.$queryRaw<{ id: string }[]>`
+      UPDATE deal_requests
+      SET status = 'CANCELLED'::deal_request_status, closed_at = ${now},
+          close_reason = ${WITHDRAWAL_REASON}, updated_at = ${now}
+      WHERE id = ANY(${[...ids]}::uuid[])
+        AND status IN ('OPEN'::deal_request_status, 'MATCHED'::deal_request_status)
+      RETURNING id`;
+    const notices = await this.notifyCancelled(
+      tx,
+      cancelled.map((r) => r.id),
+    );
+    await this.revokeGrants(tx, ids, now);
+    await this.media.discardPhotos(ids, now, tx);
+    // lat/lng → NULL also clears `location` (deal_requests_sync_location trigger).
+    await tx.dealRequest.updateMany({
+      where: { id: { in: [...ids] } },
+      data: {
+        contactName: '',
+        contactPhone: '',
+        addressDetail: null,
+        roadAddress: null,
+        lat: null,
+        lng: null,
+        floor: null,
+        exclusiveArea: null,
+        description: null,
+        contactScrubbedAt: now,
+      },
+    });
+    return notices;
+  }
+
+  /** Same notice as DealRequestLifecycleService.end, for agencies with live proposals. */
+  private async notifyCancelled(
+    tx: PrismaTx,
+    ids: readonly string[],
+  ): Promise<DispatchableNotification[]> {
+    if (ids.length === 0) return [];
+    const proposals = await tx.proposal.findMany({
+      where: {
+        dealRequestId: { in: [...ids] },
+        status: { in: [ProposalStatus.SENT, ProposalStatus.VIEWED, ProposalStatus.ACCEPTED] },
+      },
+      select: { dealRequestId: true, agencyId: true },
+    });
+    const byRequest = new Map<string, string[]>();
+    for (const p of proposals) {
+      byRequest.set(p.dealRequestId, [...(byRequest.get(p.dealRequestId) ?? []), p.agencyId]);
+    }
+    const out: DispatchableNotification[] = [];
+    for (const [dealRequestId, agencyIds] of byRequest) {
+      const recipients = await this.agencies.memberUserIds(agencyIds, tx);
+      out.push(
+        ...(await this.notifications.createFor(
+          recipients,
+          {
+            type: NotificationType.SYSTEM,
+            title: `제안하신 요청이 ${DEAL_REQUEST_STATUS_LABEL[DealRequestStatus.CANCELLED]} 처리되었습니다.`,
+            body: '요청자가 탈퇴하여 요청이 종료되었습니다.',
+            data: { dealRequestId, status: DealRequestStatus.CANCELLED },
+          },
+          tx,
+        )),
+      );
+    }
+    return out;
+  }
+
+  private async revokeGrants(tx: PrismaTx, ids: readonly string[], now: Date): Promise<void> {
+    await tx.dealRequestContactGrant.updateMany({
+      where: { dealRequestId: { in: [...ids] }, revokedAt: null },
+      data: { revokedAt: now },
+    });
   }
 
   private async notYetNotified(

@@ -29,6 +29,7 @@ import {
   siteSettingKeyParamSchema,
   termsAdminListQuerySchema,
   termsDocumentInputSchema,
+  termsPublishSchema,
   termsDocumentUpdateSchema,
 } from '@house/shared';
 import { createZodDto } from '../../common/pipes/zod-validation.pipe';
@@ -59,6 +60,7 @@ export class LocalVideoAdminListQueryDto extends createZodDto(localVideoAdminLis
 export class TermsInputDto extends createZodDto(termsDocumentInputSchema) {}
 export class TermsUpdateDto extends createZodDto(termsDocumentUpdateSchema) {}
 export class TermsAdminListQueryDto extends createZodDto(termsAdminListQuerySchema) {}
+export class TermsPublishDto extends createZodDto(termsPublishSchema) {}
 
 export class SiteSettingKeyParamDto extends createZodDto(siteSettingKeyParamSchema) {}
 

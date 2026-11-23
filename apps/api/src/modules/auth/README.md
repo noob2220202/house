@@ -22,26 +22,42 @@ Adding a provider: a class implementing `OAuthProvider`, an `AuthProvider` enum 
 
 ## Endpoints (prefix `/api/v1`)
 
-| Method   | Path                                                         | Auth                    | Notes                                                                                      |
-| -------- | ------------------------------------------------------------ | ----------------------- | ------------------------------------------------------------------------------------------ |
-| GET      | `/auth/providers`                                            | Public                  | enabled providers                                                                          |
-| GET      | `/auth/oauth/{kakao,naver,google}/start`                     | Public                  | `?returnTo=/path&intent=login\|link` → 302 to provider (link needs a user session)         |
-| GET      | `/auth/oauth/{kakao,naver,google}/callback`                  | Public                  | 302 to web: `returnTo` / `/signup?provider=` / `/login?error=CODE` / `/my/account?linked=` |
-| GET      | `/auth/signup`                                               | Public (pending cookie) | provider prefill + current terms                                                           |
-| POST     | `/auth/signup`                                               | Public (pending cookie) | `{nickname, phone?, consents[], marketingOptIn}` → user + session (`csrfToken` in body)    |
-| GET      | `/auth/csrf`                                                 | Public                  | re-issues `house_csrf`, returns `{csrfToken}`                                              |
-| GET      | `/auth/me`                                                   | User                    | profile, identities, agency membership, `pendingRequiredTerms`                             |
-| POST     | `/auth/logout` · `/auth/logout-all`                          | User                    |                                                                                            |
-| GET      | `/auth/sessions` · DELETE `/auth/sessions/:id`               | User                    | logged-in devices                                                                          |
-| PATCH    | `/me/profile`                                                | User                    | nickname, phone (format only, never verified), marketingOptIn (+ consent row)              |
-| GET      | `/me/identities` · DELETE `/me/identities/:provider`         | User                    | last identity can't be removed                                                             |
-| GET/POST | `/me/consents`                                               | User                    | required terms can't be revoked                                                            |
-| POST     | `/me/withdraw`                                               | User                    | `{confirm: true, reason?}`; blocked while owning an agency                                 |
-| GET      | `/terms` · `/terms/:type?version=`                           | Public                  |                                                                                            |
-| POST     | `/admin/auth/login`                                          | Public                  | → pre-TOTP session (10 min idle)                                                           |
-| POST     | `/admin/auth/totp/setup` · `/totp/activate` · `/totp/verify` | pre-TOTP admin session  | session rotated on success; `csrfToken` in body                                            |
-| GET      | `/admin/auth/csrf`                                           | admin session           |                                                                                            |
-| GET      | `/admin/auth/me` · POST `/logout` · POST `/password`         | Admin (TOTP verified)   |                                                                                            |
+| Method   | Path                                                         | Auth                    | Notes                                                                                            |
+| -------- | ------------------------------------------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------ |
+| GET      | `/auth/providers`                                            | Public                  | enabled providers                                                                                |
+| GET      | `/auth/oauth/{kakao,naver,google}/start`                     | Public                  | `?returnTo=/path&intent=login\|link` → 302 to provider (link needs a user session)               |
+| GET      | `/auth/oauth/{kakao,naver,google}/callback`                  | Public                  | 302 to web: `returnTo` / `/signup?provider=` / `/login?error=CODE` / `/my/account?linked=`       |
+| GET      | `/auth/signup`                                               | Public (pending cookie) | provider prefill + current terms                                                                 |
+| POST     | `/auth/signup`                                               | Public (pending cookie) | `{nickname, ageOver14: true, phone?, consents[], marketingOptIn}` → user + session               |
+| GET      | `/auth/csrf`                                                 | Public                  | re-issues `house_csrf`, returns `{csrfToken}`                                                    |
+| GET      | `/auth/me`                                                   | User                    | profile, identities, agency membership, `pendingRequiredTerms`                                   |
+| POST     | `/auth/logout` · `/auth/logout-all`                          | User                    |                                                                                                  |
+| GET      | `/auth/sessions` · DELETE `/auth/sessions/:id`               | User                    | logged-in devices                                                                                |
+| PATCH    | `/me/profile`                                                | User                    | nickname, phone (format only, never verified), marketingOptIn (+ consent row)                    |
+| GET      | `/me/identities` · DELETE `/me/identities/:provider`         | User                    | last identity can't be removed                                                                   |
+| GET/POST | `/me/consents`                                               | User                    | required terms can't be revoked                                                                  |
+| POST     | `/me/withdraw`                                               | User                    | `{confirm: true, reason?}`; blocked while owning an agency or suspended                          |
+| GET      | `/terms` · `/terms/:type?version=`                           | Public                  |                                                                                                  |
+| POST     | `/admin/auth/login`                                          | Public                  | → pre-TOTP session (10 min idle)                                                                 |
+| POST     | `/admin/auth/totp/setup` · `/totp/activate` · `/totp/verify` | pre-TOTP admin session  | session rotated on success; rotation: verified session + `{currentPassword, code\|recoveryCode}` |
+| GET      | `/admin/auth/csrf`                                           | admin session           |                                                                                                  |
+| GET      | `/admin/auth/me` · POST `/logout` · POST `/password`         | Admin (TOTP verified)   |                                                                                                  |
+
+## Security rules worth knowing
+
+- Sessions: every rewrite (sliding touch, patch) is a compare-and-set Lua script that also requires
+  the id to still be in its subject index, so a revoke can never be undone by a concurrent request
+  and a touch never overwrites a patch. A record missing from its index is not a session.
+- Admin login answers every refusal (unknown email, disabled, outside the account allowlist,
+  locked, wrong password) with the same 401. Password and TOTP failures share one counter that only
+  a completed second factor resets; 5 failures lock for 15 min (audited as `admin.account.lock`).
+  The TOTP step answers 423 when it locks (the caller already proved the password).
+- Admin path checks (`isAdminPath`) normalize case, escapes and duplicate slashes like the router.
+- Withdrawal: identities are removed, but an HMAC tombstone (`withdrawn_identities`) blocks signup
+  with the same social account for 30 days (`AUTH_REJOIN_COOLDOWN`). Live deal requests are
+  cancelled and their contacts erased at once; the PII scrub later clears profile fields, consent
+  ip/UA, report phone/ip, notifications, recent views and favorites, and drops expired tombstones.
+- Signup requires the 만 14세 이상 confirmation (`ageOver14: true`, stored as `ageConfirmedAt`).
 
 ## Frontend contract
 

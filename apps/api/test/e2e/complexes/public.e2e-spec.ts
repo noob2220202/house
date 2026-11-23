@@ -1,4 +1,12 @@
-import { DealType, ErrorCode, ListingStatus, MediaPurpose } from '@house/shared';
+import { DealType, ErrorCode, kstDayKey, ListingStatus, MediaPurpose } from '@house/shared';
+import { CacheService } from '../../../src/common/cache/cache.service';
+import { RequestContext } from '../../../src/common/context/request-context';
+import {
+  ANON_VIEW_DAILY_CAP_PER_NETWORK,
+  COMPLEXES_CACHE,
+  COMPLEXES_REDIS_KEYS,
+} from '../../../src/modules/complexes/constants';
+import { ComplexPopularityService } from '../../../src/modules/complexes/services/complex-popularity.service';
 import { TradeStatsService } from '../../../src/modules/complexes/trade-sync/trade-stats.service';
 import {
   createAgency,
@@ -21,6 +29,8 @@ import {
 } from './helpers';
 
 const d = (iso: string): Date => new Date(`${iso}T00:00:00Z`);
+const BROWSER_UA =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1';
 
 describe('complexes: public read API (e2e)', () => {
   let t: TestApp;
@@ -144,12 +154,18 @@ describe('complexes: public read API (e2e)', () => {
       const b = await createComplex(t.prisma, { name: '인기B' });
       const c = await createComplex(t.prisma, { name: '조용C', viewCount: 5 });
       await createComplex(t.prisma, { name: '조용D', viewCount: 1 });
-      const view = (id: string, ua: string) =>
-        t.http().get(`/api/v1/complexes/${id}`).set('User-Agent', ua).expect(200);
-      await view(a.id, 'ua-1');
-      await view(a.id, 'ua-1'); // same viewer, same day → counted once
-      await view(a.id, 'ua-2');
-      await view(b.id, 'ua-1');
+      const view = (id: string, ip: string, ua = BROWSER_UA) =>
+        t
+          .http()
+          .get(`/api/v1/complexes/${id}`)
+          .set('User-Agent', ua)
+          .set('X-Forwarded-For', ip)
+          .expect(200);
+      await view(a.id, '198.51.100.7');
+      await view(a.id, '198.51.100.7'); // same viewer, same day → counted once
+      await view(a.id, '198.51.100.99', `${BROWSER_UA} rotated`); // same /24 network → once
+      await view(a.id, '203.0.113.5');
+      await view(b.id, '198.51.100.7');
 
       const { agency } = await createAgency(t.prisma);
       await createListing(t.prisma, { agencyId: agency.id, property: { complexId: a.id } });
@@ -175,6 +191,42 @@ describe('complexes: public read API (e2e)', () => {
       expect(r.body[2]).toMatchObject({ rank: 3, score: 0 });
     });
 
+    it('does not count bots or a network beyond its daily cap', async () => {
+      const a = await createComplex(t.prisma, { name: '인기A' });
+      const score = async () => {
+        await t.app.get(CacheService).bump(COMPLEXES_CACHE.POPULAR);
+        const r = await t.http().get('/api/v1/complexes/popular?limit=1').expect(200);
+        return (r.body as { id: string; score: number }[])[0]?.score ?? 0;
+      };
+      const get = (ip: string, ua: string) =>
+        t
+          .http()
+          .get(`/api/v1/complexes/${a.id}`)
+          .set('User-Agent', ua)
+          .set('X-Forwarded-For', ip)
+          .expect(200);
+      await get('198.51.100.1', 'Googlebot/2.1 (+http://www.google.com/bot.html)');
+      await get('198.51.100.1', 'curl/8.5.0');
+      expect(await score()).toBe(0);
+
+      // the network already counted views on ANON_VIEW_DAILY_CAP_PER_NETWORK 단지 today
+      const viewer = t.app.get(ComplexPopularityService);
+      const key = RequestContext.run(
+        { requestId: 'test-req-1', ip: '198.51.100.1', userAgent: BROWSER_UA },
+        () => viewer.viewerKey(undefined),
+      );
+      expect(key).toMatchObject({ anonymous: true });
+      expect(key?.key).not.toContain('198.51');
+      await t.redis.set(
+        COMPLEXES_REDIS_KEYS.viewNetworkCap(key?.key ?? '', kstDayKey(new Date())),
+        String(ANON_VIEW_DAILY_CAP_PER_NETWORK),
+      );
+      await get('198.51.100.1', BROWSER_UA);
+      expect(await score()).toBe(0);
+      await get('203.0.113.1', BROWSER_UA);
+      expect(await score()).toBe(1);
+    });
+
     it('400 for an out-of-range limit', async () => {
       await t.http().get('/api/v1/complexes/popular?limit=0').expect(400);
       await t.http().get('/api/v1/complexes/popular?limit=51').expect(400);
@@ -188,7 +240,7 @@ describe('complexes: public read API (e2e)', () => {
       const media = await createMedia(t.prisma, {
         purpose: MediaPurpose.COMPLEX_PHOTO,
         storageKey: 'c/a.webp',
-        variants: { thumb: { key: 'c/a-thumb.webp' } },
+        variants: { thumb: { key: 'c/a-thumb.webp', width: 320, height: 240 } },
       });
       await t.prisma.complexPhoto.create({
         data: { complexId: complex.id, mediaId: media.id, caption: '정문' },
@@ -226,7 +278,11 @@ describe('complexes: public read API (e2e)', () => {
         listing: { salePrice: 21000, priceSort: 21000 },
       });
 
-      const r = await t.http().get(`/api/v1/complexes/${complex.id}`).expect(200);
+      const r = await t
+        .http()
+        .get(`/api/v1/complexes/${complex.id}`)
+        .set('User-Agent', BROWSER_UA)
+        .expect(200);
       expect(r.body).toMatchObject({
         id: complex.id,
         name: '연향부영3차',

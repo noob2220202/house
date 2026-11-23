@@ -10,6 +10,8 @@ import {
 export const DEAL_REQUEST_LIMITS = {
   /** A request stays open this long, then the expiry job marks it EXPIRED. */
   TTL_DAYS: 30,
+  /** How many times the requester may extend an OPEN request or reopen an EXPIRED one. */
+  MAX_EXTENSIONS: 3,
   /** Contact name/phone and 동·호 are erased this many days after a request ends. */
   CONTACT_RETENTION_DAYS: 90,
   /** OPEN + MATCHED requests one member may have at the same time (anti-spam). */

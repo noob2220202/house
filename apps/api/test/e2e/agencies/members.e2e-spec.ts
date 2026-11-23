@@ -2,6 +2,7 @@ import { AgencyStatus, UserRole } from '@house/shared';
 import { SessionService } from '../../../src/modules/auth/session/session.service';
 import {
   createAgency,
+  createListing,
   createTestApp,
   createUser,
   loginUser,
@@ -263,6 +264,59 @@ describe('agencies: staff, invites & membership (e2e)', () => {
       expect(session).toMatchObject({ role: 'USER', agencyId: null });
       // The removed agent's session no longer passes AGENCY_OWNER/AGENT role checks.
       await withSession(t.http().get('/api/v1/agencies/mine/members'), sa).expect(403);
+    });
+
+    it("removing / leaving takes the agent off the agency's listing ads (contact moves to the 대표)", async () => {
+      const { agency, s } = await ownerSession();
+      const ownerMember = await t.prisma.agencyMember.update({
+        where: { agencyId_userId: { agencyId: agency.id, userId: agency.ownerUserId } },
+        data: { phone: '01011112222' },
+      });
+      const removed = await createAgent(t.prisma, agency.id);
+      const leaving = await createAgent(t.prisma, agency.id);
+      const other = await createAgency(t.prisma);
+      const ad = async (agencyId: string, contactMemberId: string) => {
+        const { listing } = await createListing(t.prisma, { agencyId });
+        if (agencyId !== agency.id) {
+          await t.prisma.listingAgency.create({
+            data: { listingId: listing.id, agencyId: agency.id },
+          });
+        }
+        await t.prisma.listingAgency.update({
+          where: { listingId_agencyId: { listingId: listing.id, agencyId: agency.id } },
+          data: { contactMemberId, contactName: '김실장', contactPhone: '01099998888' },
+        });
+        return listing.id;
+      };
+      const own = await ad(agency.id, removed.memberId);
+      // Co-brokered listing of another office where our agent is our contact.
+      const coBrokered = await ad(other.agency.id, leaving.memberId);
+      const contactOf = async (listingId: string) => {
+        const res = await t.http().get(`/api/v1/listings/${listingId}`).expect(200);
+        return (res.body.agencies as Record<string, unknown>[]).find(
+          (a) => a.agencyId === agency.id,
+        );
+      };
+      expect(await contactOf(own)).toMatchObject({ contactPhone: '01099998888' });
+
+      await withSession(
+        t.http().delete(`/api/v1/agencies/mine/members/${removed.memberId}`),
+        s,
+      ).expect(204);
+      const sl = await loginUser(t.app, leaving.user, { agencyId: agency.id });
+      await withSession(t.http().post('/api/v1/agencies/membership/leave'), sl).expect(204);
+
+      for (const id of [own, coBrokered]) {
+        expect(await contactOf(id)).toMatchObject({
+          contactName: ownerMember.displayName,
+          contactPhone: '01011112222',
+        });
+      }
+      expect(
+        await t.prisma.listingAgency.count({
+          where: { contactMemberId: { in: [removed.memberId, leaving.memberId] } },
+        }),
+      ).toBe(0);
     });
 
     it("authz: owners cannot remove themselves; other agencies' members are 404; agents get 403", async () => {

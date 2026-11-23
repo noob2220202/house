@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { COOKIE_NAMES, ErrorCode, TermsType } from '@house/shared';
+import { WithdrawnIdentityService } from '../../../src/modules/auth/users/withdrawn-identity.service';
 import { resetAll, type TestApp } from '../../utils';
 import type { FakeOAuthHttp } from './fakes/fake-oauth-http';
 import {
@@ -39,9 +41,10 @@ describe('auth: social signup completion (e2e)', () => {
     return `house_signup=${token}`;
   }
 
-  const post = (cookie: string | null, body: unknown) => {
+  /** Sends the signup body; the 만 14세 이상 confirmation is added unless the body sets it. */
+  const post = (cookie: string | null, body: object) => {
     const req = t.http().post('/api/v1/auth/signup').set('Origin', WEB_ORIGIN);
-    return (cookie ? req.set('Cookie', cookie) : req).send(body as object);
+    return (cookie ? req.set('Cookie', cookie) : req).send({ ageOver14: true, ...body });
   };
 
   describe('GET /api/v1/auth/signup', () => {
@@ -101,6 +104,7 @@ describe('auth: social signup completion (e2e)', () => {
       const user = await t.prisma.user.findFirstOrThrow({
         include: { identities: true, consents: true },
       });
+      expect(user.ageConfirmedAt).not.toBeNull();
       expect(user.identities).toHaveLength(1);
       expect(user.identities[0]).toMatchObject({ provider: 'KAKAO', providerUserId: '1001' });
       // 3 required + the derived marketing decision
@@ -166,6 +170,40 @@ describe('auth: social signup completion (e2e)', () => {
         consents: [],
       }).expect(400);
       expect(phone.body.details[0].path).toBe('phone');
+    });
+
+    it('400 without the 만 14세 이상 confirmation (missing or false)', async () => {
+      const terms = await seedTerms(t.prisma);
+      const cookie = await pendingKakaoSignup();
+      const consents = [terms.service, terms.privacy, terms.location].map((d) => ({
+        termsDocumentId: d.id,
+        agreed: true,
+      }));
+      for (const ageOver14 of [undefined, false]) {
+        const res = await post(cookie, { nickname: '어린이', consents, ageOver14 }).expect(400);
+        expect(res.body.code).toBe(ErrorCode.VALIDATION_FAILED);
+        expect(res.body.details[0].path).toBe('ageOver14');
+      }
+      expect(await t.prisma.user.count()).toBe(0);
+    });
+
+    it('403 AUTH_REJOIN_COOLDOWN when the social account withdrew while the signup was pending', async () => {
+      const terms = await seedTerms(t.prisma);
+      const cookie = await pendingKakaoSignup(77);
+      await t.prisma.$transaction((tx) =>
+        t.app
+          .get(WithdrawnIdentityService)
+          .record(tx, randomUUID(), [{ provider: 'KAKAO', providerUserId: '77' }], new Date()),
+      );
+      const res = await post(cookie, {
+        nickname: '재가입',
+        consents: [terms.service, terms.privacy, terms.location].map((d) => ({
+          termsDocumentId: d.id,
+          agreed: true,
+        })),
+      }).expect(403);
+      expect(res.body.code).toBe(ErrorCode.AUTH_REJOIN_COOLDOWN);
+      expect(await t.prisma.user.count()).toBe(0);
     });
 
     it('401 without a pending signup; 403 from a foreign origin', async () => {

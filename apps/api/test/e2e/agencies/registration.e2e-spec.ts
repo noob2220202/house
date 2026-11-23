@@ -156,6 +156,38 @@ describe('agencies: registration & my agency (e2e)', () => {
         .expect(409);
       expect(member.body.code).toBe('AGENCY_ALREADY_MEMBER');
     });
+
+    it('409 when the same 등록번호 is written without hyphens or in another case', async () => {
+      const first = await createUser(t.prisma);
+      const s1 = await loginUser(t.app, first);
+      const d1 = await createDocumentMedia(t.prisma, first.id);
+      const created = await withSession(t.http().post('/api/v1/agencies'), s1)
+        .send(registerBody(d1.id, { registrationNumber: '46150202600777' }))
+        .expect(201);
+      // The modern 시군구-연도-일련번호 form is stored hyphenated.
+      expect(created.body.registrationNumber).toBe('46150-2026-00777');
+
+      const second = await createUser(t.prisma);
+      const s2 = await loginUser(t.app, second);
+      const d2 = await createDocumentMedia(t.prisma, second.id);
+      for (const spelling of ['46150-2026-00777', '제 46150 2026 00777 호', '46150--2026-00777']) {
+        const dup = await withSession(t.http().post('/api/v1/agencies'), s2)
+          .send(registerBody(d2.id, { registrationNumber: spelling }))
+          .expect(409);
+        expect(dup.body.code).toBe('AGENCY_REGISTRATION_DUPLICATE');
+      }
+
+      // Older formats: punctuation and letter case do not make a new number either.
+      await t.prisma.agency.update({
+        where: { id: created.body.id as string },
+        data: { registrationNumber: 'AB1234-5678' },
+      });
+      const legacy = await withSession(t.http().post('/api/v1/agencies'), s2)
+        .send(registerBody(d2.id, { registrationNumber: 'ab12345678' }))
+        .expect(409);
+      expect(legacy.body.code).toBe('AGENCY_REGISTRATION_DUPLICATE');
+      expect(await t.prisma.agency.count({ where: { ownerUserId: second.id } })).toBe(0);
+    });
   });
 
   describe('GET/PATCH /api/v1/agencies/mine', () => {
@@ -172,8 +204,8 @@ describe('agencies: registration & my agency (e2e)', () => {
       await t.http().get('/api/v1/agencies/mine').expect(401);
     });
 
-    it('200: owner updates profile fields and logo; 시군구 follows 읍면동', async () => {
-      const { agency, owner } = await createAgency(t.prisma);
+    it('200: owner of a pending application updates profile, address and logo; 시군구 follows 읍면동', async () => {
+      const { agency, owner } = await createPendingAgency(t.prisma);
       const logo = await createMedia(t.prisma, {
         ownerUserId: owner.id,
         purpose: MediaPurpose.AGENCY_LOGO,
@@ -204,6 +236,44 @@ describe('agencies: registration & my agency (e2e)', () => {
       });
       const row = await t.prisma.agency.findUniqueOrThrow({ where: { id: agency.id } });
       expect(row.sggCode).toBe('46150');
+    });
+
+    it('approved office: 소재지 changes need admin review (400 with fields); 연락처 changes are audited', async () => {
+      const { agency, owner } = await createAgency(t.prisma);
+      const s = await loginUser(t.app, owner, { agencyId: agency.id });
+      const refused = await withSession(t.http().patch('/api/v1/agencies/mine'), s)
+        .send({ intro: '이전', roadAddress: '전라남도 순천시 다른로 1', lat: 34.95, lng: 127.49 })
+        .expect(400);
+      expect(refused.body.code).toBe('AGENCY_NOT_EDITABLE');
+      expect(refused.body.details).toMatchObject({
+        fields: ['roadAddress', 'lat', 'lng'],
+        reason: 'LOCATION_REQUIRES_REVIEW',
+      });
+      const unchanged = await t.prisma.agency.findUniqueOrThrow({ where: { id: agency.id } });
+      expect(unchanged).toMatchObject({ roadAddress: agency.roadAddress, intro: agency.intro });
+
+      const ok = await withSession(t.http().patch('/api/v1/agencies/mine'), s)
+        .send({ phone: '061-700-0000', intro: '소개' })
+        .expect(200);
+      expect(ok.body).toMatchObject({ phone: '0617000000', intro: '소개' });
+      const audit = await t.prisma.auditLog.findFirstOrThrow({
+        where: { action: 'agency.contact.update', resourceId: agency.id },
+      });
+      expect(audit).toMatchObject({
+        actorType: 'USER',
+        userId: owner.id,
+        before: { office_phone: agency.phone },
+        after: { office_phone: '0617000000' },
+      });
+      // An unchanged phone writes no audit row.
+      await withSession(t.http().patch('/api/v1/agencies/mine'), s)
+        .send({ phone: '061-700-0000' })
+        .expect(200);
+      expect(
+        await t.prisma.auditLog.count({
+          where: { action: 'agency.contact.update', resourceId: agency.id },
+        }),
+      ).toBe(1);
     });
 
     it('400: validation (empty body, lat without lng, foreign logo); 404 for non-owners', async () => {
@@ -271,6 +341,42 @@ describe('agencies: registration & my agency (e2e)', () => {
       });
       const [session] = await t.app.get(SessionService).listForSubject('USER', owner.id);
       expect(session?.agencyId).toBe(agency.id);
+    });
+
+    it('409 AGENCY_ALREADY_MEMBER when the rejected owner has joined another agency meanwhile', async () => {
+      const { agency, owner } = await createPendingAgency(t.prisma, {
+        status: AgencyStatus.REJECTED,
+        statusReason: '서류 불명확',
+      });
+      const { agency: other, owner: otherOwner } = await createAgency(t.prisma);
+      const so = await loginUser(t.app, otherOwner, { agencyId: other.id });
+      // The owner of a REJECTED application may join another office (via an invite)...
+      const s = await loginUser(t.app, owner);
+      const invite = await withSession(t.http().post('/api/v1/agencies/mine/invites'), so)
+        .send({})
+        .expect(201);
+      await withSession(t.http().post('/api/v1/agencies/join'), s)
+        .send({ code: invite.body.code, displayName: '홍실장' })
+        .expect(201);
+      // ...but then cannot revive the application while acting for that office.
+      const res = await withSession(t.http().post('/api/v1/agencies/mine/resubmit'), s)
+        .send({ message: '다시 신청합니다.' })
+        .expect(409);
+      expect(res.body.code).toBe('AGENCY_ALREADY_MEMBER');
+      const row = await t.prisma.agency.findUniqueOrThrow({ where: { id: agency.id } });
+      expect(row.status).toBe(AgencyStatus.REJECTED);
+      const [session] = await t.app.get(SessionService).listForSubject('USER', owner.id);
+      expect(session?.agencyId).toBe(other.id);
+    });
+
+    it('409 when the corrected 등록번호 belongs to another office (any spelling)', async () => {
+      const { owner } = await createPendingAgency(t.prisma, { status: AgencyStatus.REJECTED });
+      await createAgency(t.prisma, { registrationNumber: '46150-2026-00555' });
+      const s = await loginUser(t.app, owner);
+      const res = await withSession(t.http().post('/api/v1/agencies/mine/resubmit'), s)
+        .send({ registrationNumber: '46150202600555' })
+        .expect(409);
+      expect(res.body.code).toBe('AGENCY_REGISTRATION_DUPLICATE');
     });
 
     it('400 for a non-rejected agency or invalid body; 401 anonymous; 404 without an agency', async () => {

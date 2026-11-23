@@ -105,6 +105,7 @@ export class DealRequestMapper {
       addressDetail: r.addressDetail,
       targetAgencyIds: r.targets.map((t) => t.agencyId),
       closeReason: r.closeReason,
+      extensionCount: r.extensionCount,
       contactGrants: r.contactGrants.map((g) => ({
         agencyId: g.agencyId,
         agencyName: g.agency.name,

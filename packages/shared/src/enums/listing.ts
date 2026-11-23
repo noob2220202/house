@@ -201,8 +201,13 @@ export const LISTING_OPTION_LABEL: Record<ListingOption, string> = {
 };
 
 export const ListingAgencyStatus = {
+  /** Co-broker request awaiting the primary agency's acceptance. */
+  PENDING: 'PENDING',
   ACTIVE: 'ACTIVE',
+  /** Left voluntarily (may request again). */
   WITHDRAWN: 'WITHDRAWN',
+  /** Removed/rejected by the primary agency (cannot rejoin on its own). */
+  REMOVED: 'REMOVED',
 } as const;
 export type ListingAgencyStatus = EnumValue<typeof ListingAgencyStatus>;
 

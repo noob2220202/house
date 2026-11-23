@@ -20,7 +20,10 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { InjectRedis } from '../../../redis/redis.constants';
 import {
   COMPLEXES_REDIS_KEYS,
+  REMATCH_PAGE_SIZE,
+  STATS_RECOMPUTE_CHUNK,
   TRADE_API,
+  TRADE_SYNC_LOCK_HEARTBEAT_MS,
   TRADE_SYNC_LOCK_TTL_SECONDS,
   TRADE_UPSERT_BATCH,
 } from '../constants';
@@ -40,6 +43,26 @@ const FIRST_DATA_MONTH = 200601;
 const RELEASE_LOCK_LUA = `
 if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end
 return 0`;
+
+const EXTEND_LOCK_LUA = `
+if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('EXPIRE', KEYS[1], ARGV[2]) end
+return 0`;
+
+export interface HeldLock {
+  key: string;
+  token: string;
+}
+
+interface RematchRow {
+  id: string;
+  complexId: string | null;
+  areaTypeId: string | null;
+  aptName: string;
+  emdName: string | null;
+  jibun: string | null;
+  exclusiveArea: number;
+  aptSeq: string | null;
+}
 
 interface RunCounts {
   fetched: number;
@@ -94,19 +117,11 @@ export class TradeSyncService {
     now?: Date;
   }): Promise<TradeSyncResult> {
     const { yearMonth } = input;
-    const now = input.now ?? new Date();
-    if (yearMonth < FIRST_DATA_MONTH || yearMonth > yearMonthOf(now)) {
-      throw AppException.badRequest(ErrorCode.TRADE_SYNC_INVALID_MONTH);
-    }
-    if (!this.api.configured) {
-      throw new AppException(ErrorCode.TRADE_SYNC_NOT_CONFIGURED, {
-        status: HttpStatus.SERVICE_UNAVAILABLE,
-      });
-    }
+    this.assertSyncable(yearMonth, input.now);
     const sggCode = this.config.get('REGION_SGG_CODE');
     const kinds = [...new Set(input.kinds)];
-    const locks = await this.acquireLocks(kinds, sggCode, yearMonth);
-    try {
+    const keys = kinds.map((k) => COMPLEXES_REDIS_KEYS.tradeSyncLock(k, sggCode, yearMonth));
+    return this.withLocks(keys, async () => {
       const runs: TradeSyncRunView[] = [];
       let firstError: unknown;
       for (const kind of kinds) {
@@ -122,8 +137,18 @@ export class TradeSyncService {
         });
       }
       return { yearMonth, runs };
-    } finally {
-      await this.releaseLocks(locks);
+    });
+  }
+
+  /** TRADE_SYNC_INVALID_MONTH (400) / TRADE_SYNC_NOT_CONFIGURED (503) before anything runs. */
+  assertSyncable(yearMonth: number, now: Date = new Date()): void {
+    if (yearMonth < FIRST_DATA_MONTH || yearMonth > yearMonthOf(now)) {
+      throw AppException.badRequest(ErrorCode.TRADE_SYNC_INVALID_MONTH);
+    }
+    if (!this.api.configured) {
+      throw new AppException(ErrorCode.TRADE_SYNC_NOT_CONFIGURED, {
+        status: HttpStatus.SERVICE_UNAVAILABLE,
+      });
     }
   }
 
@@ -149,71 +174,65 @@ export class TradeSyncService {
   }
 
   /**
-   * Re-runs matching for trades without a 단지 (or without a 평형) — e.g. after an admin adds a
-   * 단지 or its 국토교통부 code — and rebuilds stats of every 단지 that gained trades.
+   * Re-evaluates the 단지 / 평형 of every trade (from `fromYm` on) with the current 단지 list:
+   * unmatched rows are matched, rows of deleted 단지 or contradicted by a 국토교통부 code / 지번
+   * are moved or detached, and 평형 are re-assigned. Rebuilds stats of every 단지 that gained or
+   * lost trades. Serialized per 시군구 by a Redis lock (TRADE_SYNC_IN_PROGRESS when held).
    */
   async rematch(fromYm?: number): Promise<TradeRematchResult> {
     const sggCode = this.config.get('REGION_SGG_CODE');
-    const complexes = await this.loadMatchable(sggCode);
-    const matcher = new ComplexMatcher(complexes);
-    const complexById = new Map<string, MatchableComplex>(complexes.map((c) => [c.id, c]));
+    return this.withLocks([COMPLEXES_REDIS_KEYS.rematchLock(sggCode)], () =>
+      this.rematchLocked(sggCode, fromYm),
+    );
+  }
+
+  // ---------- internals ----------
+
+  private async rematchLocked(sggCode: string, fromYm?: number): Promise<TradeRematchResult> {
+    const matcher = new ComplexMatcher(await this.loadMatchable(sggCode));
     const touched = new Set<string>();
     let scanned = 0;
     let matched = 0;
-    let cursor: string | undefined;
+    let unmatched = 0;
+    let cursor: string | null = null;
     for (;;) {
-      const rows = await this.prisma.tradeRecord.findMany({
-        where: {
-          sggCode,
-          ...(fromYm ? { dealYm: { gte: fromYm } } : {}),
-          OR: [{ complexId: null }, { areaTypeId: null }],
-          ...(cursor ? { id: { gt: cursor } } : {}),
-        },
-        orderBy: { id: 'asc' },
-        take: 500,
-        select: {
-          id: true,
-          complexId: true,
-          areaTypeId: true,
-          aptName: true,
-          emdName: true,
-          jibun: true,
-          exclusiveArea: true,
-          raw: true,
-        },
-      });
+      const rows: RematchRow[] = await this.prisma.$queryRaw<RematchRow[]>`
+        SELECT id, complex_id AS "complexId", area_type_id AS "areaTypeId",
+               apt_name AS "aptName", emd_name AS "emdName", jibun,
+               exclusive_area::float8 AS "exclusiveArea",
+               NULLIF(btrim(raw->>'aptSeq'), '') AS "aptSeq"
+        FROM trade_records
+        WHERE sgg_code = ${sggCode}
+          ${fromYm ? Prisma.sql`AND deal_ym >= ${fromYm}` : Prisma.empty}
+          ${cursor ? Prisma.sql`AND id > ${cursor}::uuid` : Prisma.empty}
+        ORDER BY id
+        LIMIT ${REMATCH_PAGE_SIZE}`;
       if (rows.length === 0) break;
-      cursor = rows[rows.length - 1]?.id;
+      cursor = rows[rows.length - 1]?.id ?? null;
       scanned += rows.length;
       const updates: Prisma.PrismaPromise<unknown>[] = [];
       for (const r of rows) {
-        const complex = r.complexId
-          ? complexById.get(r.complexId)
-          : matcher.match({
-              aptSeq: rawString(r.raw, 'aptSeq'),
-              aptName: r.aptName,
-              emdName: r.emdName,
-              jibun: r.jibun,
-            });
-        if (!complex) continue;
-        const areaTypeId = ComplexMatcher.areaTypeFor(complex, r.exclusiveArea.toNumber());
-        if (complex.id === r.complexId && areaTypeId === r.areaTypeId) continue;
-        if (!r.complexId) matched += 1;
-        touched.add(complex.id);
+        const complex = matcher.resolve(r, r.complexId);
+        const complexId = complex?.id ?? null;
+        const areaTypeId = complex ? ComplexMatcher.areaTypeFor(complex, r.exclusiveArea) : null;
+        if (complexId === r.complexId && areaTypeId === r.areaTypeId) continue;
+        if (!r.complexId && complexId) matched += 1;
+        if (r.complexId && !complexId) unmatched += 1;
+        if (r.complexId) touched.add(r.complexId);
+        if (complexId) touched.add(complexId);
         updates.push(
-          this.prisma.tradeRecord.update({
-            where: { id: r.id },
-            data: { complexId: complex.id, areaTypeId },
-          }),
+          this.prisma.tradeRecord.update({ where: { id: r.id }, data: { complexId, areaTypeId } }),
         );
       }
       if (updates.length > 0) await this.prisma.$transaction(updates);
     }
-    if (touched.size > 0) await this.stats.recompute([...touched]);
-    return { scanned, matched, complexesRecomputed: touched.size };
+    // A deleted 단지's stats were already removed with it; recomputing it is a harmless no-op.
+    const ids = [...touched];
+    for (let i = 0; i < ids.length; i += STATS_RECOMPUTE_CHUNK) {
+      await this.stats.recompute(ids.slice(i, i + STATS_RECOMPUTE_CHUNK));
+    }
+    return { scanned, matched, unmatched, complexesRecomputed: touched.size };
   }
-
-  // ---------- internals ----------
 
   /** Never throws for upstream/processing failures: they are recorded on the run and returned. */
   private async runOne(
@@ -322,13 +341,11 @@ export class TradeSyncService {
     let matched = 0;
 
     for (const t of trades) {
-      const complex = matcher.match(t);
       const prev = byKey.get(t.sourceKey);
-      // A later run never un-matches a row (it may have been matched by rematch()).
-      const complexId = complex?.id ?? prev?.complexId ?? null;
-      const areaTypeId = complex
-        ? ComplexMatcher.areaTypeFor(complex, t.exclusiveArea)
-        : (prev?.areaTypeId ?? null);
+      // Same rule as rematch(): an earlier match survives unless contradicted or its 단지 is gone.
+      const complex = matcher.resolve(t, prev?.complexId ?? null);
+      const complexId = complex?.id ?? null;
+      const areaTypeId = complex ? ComplexMatcher.areaTypeFor(complex, t.exclusiveArea) : null;
       if (complexId) matched += 1;
 
       if (!prev) {
@@ -386,26 +403,58 @@ export class TradeSyncService {
     }));
   }
 
-  private async acquireLocks(
-    kinds: readonly TradeSyncKind[],
-    sggCode: string,
-    yearMonth: number,
-  ): Promise<{ key: string; token: string }[]> {
-    const held: { key: string; token: string }[] = [];
-    for (const kind of kinds) {
-      const key = COMPLEXES_REDIS_KEYS.tradeSyncLock(kind, sggCode, yearMonth);
-      const token = randomBytes(16).toString('hex');
-      const ok = await this.redis.set(key, token, 'EX', TRADE_SYNC_LOCK_TTL_SECONDS, 'NX');
-      if (ok !== 'OK') {
-        await this.releaseLocks(held);
-        throw new AppException(ErrorCode.TRADE_SYNC_IN_PROGRESS, { status: HttpStatus.CONFLICT });
+  /**
+   * Runs `fn` holding every Redis lock in `keys` (TRADE_SYNC_IN_PROGRESS, 409, when one is held
+   * elsewhere). The locks are extended every TRADE_SYNC_LOCK_HEARTBEAT_MS while `fn` runs, so a
+   * slow upstream never lets a second run start, while a crashed worker frees them within the TTL.
+   */
+  private async withLocks<T>(keys: readonly string[], fn: () => Promise<T>): Promise<T> {
+    const held: HeldLock[] = [];
+    try {
+      for (const key of keys) {
+        const token = randomBytes(16).toString('hex');
+        const ok = await this.redis.set(key, token, 'EX', TRADE_SYNC_LOCK_TTL_SECONDS, 'NX');
+        if (ok !== 'OK') {
+          throw new AppException(ErrorCode.TRADE_SYNC_IN_PROGRESS, { status: HttpStatus.CONFLICT });
+        }
+        held.push({ key, token });
       }
-      held.push({ key, token });
+    } catch (err) {
+      await this.releaseLocks(held);
+      throw err;
     }
-    return held;
+    const heartbeat = setInterval(() => void this.extendLocks(held), TRADE_SYNC_LOCK_HEARTBEAT_MS);
+    heartbeat.unref();
+    try {
+      return await fn();
+    } finally {
+      clearInterval(heartbeat);
+      await this.releaseLocks(held);
+    }
   }
 
-  private async releaseLocks(locks: readonly { key: string; token: string }[]): Promise<void> {
+  /** Exposed for tests: one heartbeat tick. Returns how many locks were still ours. */
+  async extendLocks(locks: readonly HeldLock[]): Promise<number> {
+    let extended = 0;
+    for (const { key, token } of locks) {
+      try {
+        const r = await this.redis.eval(
+          EXTEND_LOCK_LUA,
+          1,
+          key,
+          token,
+          String(TRADE_SYNC_LOCK_TTL_SECONDS),
+        );
+        if (Number(r) === 1) extended += 1;
+        else this.logger.warn({ key }, 'trade sync lock lost before the run finished');
+      } catch (err) {
+        this.logger.warn({ err, key }, 'failed to extend trade sync lock');
+      }
+    }
+    return extended;
+  }
+
+  private async releaseLocks(locks: readonly HeldLock[]): Promise<void> {
     for (const { key, token } of locks) {
       try {
         await this.redis.eval(RELEASE_LOCK_LUA, 1, key, token);
@@ -414,12 +463,6 @@ export class TradeSyncService {
       }
     }
   }
-}
-
-function rawString(raw: Prisma.JsonValue | null, key: string): string | null {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const v = raw[key];
-  return typeof v === 'string' && v.trim() !== '' ? v.trim() : null;
 }
 
 function toCreateInput(

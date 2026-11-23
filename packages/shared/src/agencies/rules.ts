@@ -24,15 +24,30 @@ export const LIVE_AGENCY_STATUSES: readonly AgencyStatusValue[] = [
 ];
 
 /**
- * 중개사무소 등록번호 normalization: drops whitespace and the "제 … 호" wrapper printed on the
- * certificate ("제46150-2020-00012호" → "46150-2020-00012"). Uniqueness is checked on this form.
+ * 중개사무소 등록번호 canonical form: drops whitespace and the "제 … 호" wrapper printed on the
+ * certificate ("제46150-2020-00012호" → "46150-2020-00012"), unifies dashes, upper-cases letters
+ * and collapses repeated hyphens. The modern 시군구-연도-일련번호 format is always hyphenated
+ * ("4615020200012" → "46150-2020-00012") so both spellings store the same value.
  */
 export function normalizeRegistrationNumber(input: string): string {
-  return input
+  const s = input
     .replace(/\s+/g, '')
     .replace(/^제/, '')
     .replace(/호$/, '')
-    .replace(/[‐-―−]/g, '-');
+    .replace(/[‐-―−]/g, '-')
+    .toUpperCase()
+    .replace(/-{2,}/g, '-');
+  const modern = /^(\d{5})-?(\d{4})-?(\d{5})$/.exec(s);
+  return modern ? `${modern[1]}-${modern[2]}-${modern[3]}` : s;
+}
+
+/**
+ * Uniqueness / comparison key of a 등록번호: only letters, digits and 한글, upper-cased, so
+ * spellings that differ in punctuation ("가1234-5678" / "가12345678") identify the same office.
+ * Mirrors the generated column agencies.registration_key (keep the two in sync).
+ */
+export function registrationNumberKey(input: string): string {
+  return normalizeRegistrationNumber(input).replace(/[^0-9A-Z가-힣]/g, '');
 }
 
 /** 등록번호 characters: digits, ASCII letters, 한글 (older formats like "가1234-5678"), hyphens. */

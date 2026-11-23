@@ -50,7 +50,7 @@ describe('media library: GET/DELETE /api/v1/media (e2e)', () => {
       const me = await userSession();
       const other = await userSession();
       const a = await uploadPng(me.s);
-      const b = await uploadPng(me.s, 'PROFILE');
+      const b = await uploadPng(me.s, 'AGENCY_LOGO');
       await uploadPng(other.s);
 
       const all = await withSession(t.http().get('/api/v1/media'), me.s).expect(200);
@@ -59,7 +59,7 @@ describe('media library: GET/DELETE /api/v1/media (e2e)', () => {
       expect(all.body.items[0]).toHaveProperty('originalFilename', 'p.png');
 
       const filtered = await withSession(
-        t.http().get('/api/v1/media?purpose=PROFILE&status=READY&pageSize=1'),
+        t.http().get('/api/v1/media?purpose=AGENCY_LOGO&status=READY&pageSize=1'),
         me.s,
       ).expect(200);
       expect(filtered.body).toMatchObject({ total: 1, pageSize: 1 });
@@ -81,7 +81,7 @@ describe('media library: GET/DELETE /api/v1/media (e2e)', () => {
   describe('GET /media/:id', () => {
     it('200: anyone sees READY public media without owner-only fields', async () => {
       const me = await userSession();
-      const m = await uploadPng(me.s);
+      const m = await uploadPng(me.s, 'AGENCY_LOGO');
       const res = await t.http().get(`/api/v1/media/${m.id}`).expect(200);
       expect(res.body).toMatchObject({ id: m.id, status: 'READY', url: m.url });
       expect(res.body).not.toHaveProperty('originalFilename');
@@ -108,7 +108,7 @@ describe('media library: GET/DELETE /api/v1/media (e2e)', () => {
       await withSession(t.http().get(`/api/v1/media/${doc.id}`), other.s).expect(404);
       const pending = await t.prisma.media.create({
         data: {
-          purpose: 'PROFILE',
+          purpose: 'AGENCY_LOGO',
           status: 'PENDING',
           mimeType: 'image/webp',
           sizeBytes: 1,
@@ -118,6 +118,18 @@ describe('media library: GET/DELETE /api/v1/media (e2e)', () => {
         },
       });
       await withSession(t.http().get(`/api/v1/media/${pending.id}`), other.s).expect(404);
+    });
+
+    it('deal-request photos: metadata for the uploader only (the request itself is restricted)', async () => {
+      const me = await userSession();
+      const other = await userSession();
+      const photo = await uploadPng(me.s, 'DEAL_REQUEST_PHOTO');
+      await t.http().get(`/api/v1/media/${photo.id}`).expect(404);
+      await withSession(t.http().get(`/api/v1/media/${photo.id}`), other.s).expect(404);
+      const mine = await withSession(t.http().get(`/api/v1/media/${photo.id}`), me.s).expect(200);
+      expect(mine.body).toMatchObject({ id: photo.id, purpose: 'DEAL_REQUEST_PHOTO' });
+      const logo = await uploadPng(me.s, 'AGENCY_LOGO');
+      await t.http().get(`/api/v1/media/${logo.id}`).expect(200);
     });
 
     it('400 for a malformed id', async () => {
@@ -141,7 +153,10 @@ describe('media library: GET/DELETE /api/v1/media (e2e)', () => {
       expect(res.headers['content-type']).toBe('application/pdf');
       expect(res.headers['cache-control']).toBe('private, no-store');
       expect(res.headers['x-content-type-options']).toBe('nosniff');
-      expect(res.headers['content-disposition']).toBe(`inline; filename="media-${doc.id}.pdf"`);
+      // PDFs are stored as uploaded: always a download, sandboxed, never active on the site origin.
+      expect(res.headers['content-disposition']).toBe(`attachment; filename="media-${doc.id}.pdf"`);
+      expect(res.headers['content-security-policy']).toMatch(/default-src 'none'.*sandbox/);
+      expect(res.headers['cross-origin-resource-policy']).toBe('same-origin');
       expect(res.body).toEqual(doc.file);
     });
 

@@ -43,11 +43,14 @@ export async function agencyWithOwner(
   return { agency, owner, ownerSession };
 }
 
-/** An AGENT staff member of `agencyId` with a session acting for that agency. */
+/**
+ * An AGENT staff member of `agencyId` with a session acting for that agency. `isLicensed` = 소속
+ * 공인중개사 (default true); false = 중개보조원, who may never be shown in an ad.
+ */
 export async function agentOf(
   t: TestApp,
   agencyId: string,
-  opts: { status?: 'ACTIVE' | 'REMOVED' } = {},
+  opts: { status?: 'ACTIVE' | 'REMOVED'; isLicensed?: boolean } = {},
 ): Promise<{ user: User; memberId: string; session: TestSession }> {
   const user = await createUser(t.prisma, { role: UserRole.AGENT });
   const member = await t.prisma.agencyMember.create({
@@ -58,6 +61,7 @@ export async function agentOf(
       displayName: '김중개',
       phone: '01022223333',
       status: opts.status ?? 'ACTIVE',
+      isLicensed: opts.isLicensed ?? true,
     },
   });
   const session = await loginUser(t.app, { id: user.id, role: UserRole.AGENT }, { agencyId });
@@ -120,6 +124,29 @@ export async function createPublished(
   const id = await createDraft(t, session, overrides);
   await withSession(t.http().post(`/api/v1/agency/listings/${id}/publish`), session).expect(200);
   return id;
+}
+
+/** `co` requests to co-broker `listingId` and the primary agency accepts (공동중개 established). */
+export async function addCoBroker(
+  t: TestApp,
+  listingId: string,
+  primary: AgencyCtx,
+  co: AgencyCtx,
+  body: Record<string, unknown> = {},
+): Promise<void> {
+  const base = `/api/v1/agency/listings/${listingId}/co-brokers`;
+  await withSession(t.http().post(base), co.ownerSession).send(body).expect(201);
+  await withSession(t.http().post(`${base}/${co.agency.id}/accept`), primary.ownerSession).expect(
+    200,
+  );
+}
+
+/** The OWNER (대표 개업공인중개사) member id of an agency. */
+export async function ownerMemberId(t: TestApp, agencyId: string): Promise<string> {
+  const m = await t.prisma.agencyMember.findFirstOrThrow({
+    where: { agencyId, role: AgencyMemberRole.OWNER },
+  });
+  return m.id;
 }
 
 /** Direct DB listing (bypasses the API) — for search fixtures. */

@@ -13,6 +13,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   StreamableFile,
@@ -24,6 +25,7 @@ import {
   AdminAgencyListQueryDto,
   AgencyAdminDocumentParamDto,
   AgencyDecisionDto,
+  AgencyLocationUpdateDto,
   AgencyRegistryCheckQueryDto,
   IdParamDto,
 } from '../dto';
@@ -57,6 +59,15 @@ export class AdminAgenciesController {
     @CurrentAdmin() admin: AdminPrincipal,
   ): Promise<AdminAgencyDetail> {
     return this.review.decide(p.id, dto, admin);
+  }
+
+  /** 소재지 변경 (이전신고 확인 후). Owners of approved offices cannot edit these fields. */
+  @Patch(':id/location')
+  updateLocation(
+    @Param() p: IdParamDto,
+    @Body() dto: AgencyLocationUpdateDto,
+  ): Promise<AdminAgencyDetail> {
+    return this.review.updateLocation(p.id, dto);
   }
 
   @Get(':id/registry-check')

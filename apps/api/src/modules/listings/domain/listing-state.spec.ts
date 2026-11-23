@@ -70,4 +70,32 @@ describe('listing state', () => {
       presalePrice: 30_000,
     });
   });
+
+  it('nulls price fields that do not apply to the deal type (incl. after a deal-type patch)', () => {
+    const p = propertyStateFromInput(draft.property, '46150');
+    const monthly = listingStateFromInput(
+      listingDraftSchema.parse({
+        dealType: 'MONTHLY',
+        deposit: 1000,
+        monthlyRent: 50,
+        salePrice: 30_000,
+        property: draft.property,
+      }),
+    );
+    expect(listingWriteColumns(monthly, p, null)).toMatchObject({
+      salePrice: null,
+      deposit: 1000,
+      monthlyRent: 50,
+      priceSort: 1000,
+    });
+    const sale = applyListingPatch(monthly, { dealType: 'SALE', salePrice: 30_000 });
+    expect(listingWriteColumns(sale, p, null)).toMatchObject({
+      salePrice: 30_000,
+      deposit: null,
+      monthlyRent: null,
+      presalePrice: null,
+      premium: null,
+      priceSort: 30_000,
+    });
+  });
 });

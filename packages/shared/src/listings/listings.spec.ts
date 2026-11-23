@@ -1,6 +1,14 @@
 import { listingDraftSchema, listingPhotosSchema, listingUpdateSchema } from '../schemas/listings';
 import { checkPublishRequirements, type PublishCheckInput } from './publish';
-import { canAgencyTransition, floorClassOf, floorLabel, priceSortOf, searchAreaOf } from './rules';
+import {
+  AGENCY_EDITABLE_STATUSES,
+  applicablePrices,
+  canAgencyTransition,
+  floorClassOf,
+  floorLabel,
+  priceSortOf,
+  searchAreaOf,
+} from './rules';
 
 const agency = {
   name: '순천공인중개사사무소',
@@ -21,6 +29,7 @@ function complete(overrides: Partial<PublishCheckInput> = {}): PublishCheckInput
     property: {
       assetType: 'APT',
       roadAddress: '전라남도 순천시 연향로 100',
+      emdCode: '4615010400',
       floor: 3,
       totalFloors: 15,
       exclusiveArea: 84.97,
@@ -50,6 +59,7 @@ describe('checkPublishRequirements (표시·광고 명시사항)', () => {
     });
     expect(issues.map((i) => i.label)).toEqual([
       '소재지',
+      '소재지(법정동)',
       '면적',
       '가격',
       '총 층수',
@@ -74,7 +84,12 @@ describe('checkPublishRequirements (표시·광고 명시사항)', () => {
     const land = checkPublishRequirements({
       dealType: 'SALE',
       salePrice: 5000,
-      property: { assetType: 'LAND', roadAddress: '순천시 해룡면 1', landArea: 330 },
+      property: {
+        assetType: 'LAND',
+        roadAddress: '순천시 해룡면 1',
+        emdCode: '4615025000',
+        landArea: 330,
+      },
       agency,
     });
     expect(land).toEqual([]);
@@ -85,7 +100,7 @@ describe('checkPublishRequirements (표시·광고 명시사항)', () => {
         property: { assetType: 'LAND', roadAddress: 'x' },
         agency,
       }),
-    ).toEqual(['property.area']);
+    ).toEqual(['property.emdCode', 'property.area']);
   });
 
   it('price rules per deal type', () => {
@@ -119,6 +134,27 @@ describe('checkPublishRequirements (표시·광고 명시사항)', () => {
         }),
       ),
     ).toEqual([]);
+  });
+
+  it('해당 층 must be a real floor of the building (no 0층, ≤ 총 층수, classifiable for 저/중/고)', () => {
+    expect(fields(complete({ property: { assetType: 'APT', floor: 0 } }))).toEqual([
+      'property.floor',
+    ]);
+    expect(fields(complete({ property: { assetType: 'APT', floor: 16 } }))).toEqual([
+      'property.floor',
+    ]);
+    expect(fields(complete({ property: { assetType: 'APT', floor: -1 } }))).toEqual([]);
+    expect(
+      fields(complete({ floorDisplay: 'CLASS', property: { assetType: 'APT', floor: 9 } })),
+    ).toEqual([]);
+    // 단독주택 may omit 해당 층.
+    expect(fields(complete({ property: { assetType: 'HOUSE', floor: null } }))).toEqual([]);
+  });
+
+  it('소재지(법정동) is required for every asset type', () => {
+    expect(fields(complete({ property: { assetType: 'APT', emdCode: null } }))).toEqual([
+      'property.emdCode',
+    ]);
   });
 
   it('입주가능일 DATE requires the date', () => {
@@ -159,6 +195,32 @@ describe('listing rules', () => {
     expect(searchAreaOf({})).toBeNull();
   });
 
+  it('applicablePrices keeps only the fields of the deal type', () => {
+    const all = { salePrice: 1, deposit: 2, monthlyRent: 3, presalePrice: 4, premium: 5 };
+    expect(applicablePrices('SALE', all)).toEqual({
+      salePrice: 1,
+      deposit: null,
+      monthlyRent: null,
+      presalePrice: null,
+      premium: null,
+    });
+    expect(applicablePrices('JEONSE', all)).toMatchObject({ deposit: 2, monthlyRent: null });
+    expect(applicablePrices('MONTHLY', all)).toMatchObject({
+      salePrice: null,
+      deposit: 2,
+      monthlyRent: 3,
+    });
+    expect(applicablePrices('PRESALE', all)).toMatchObject({
+      salePrice: null,
+      presalePrice: 4,
+      premium: 5,
+    });
+  });
+
+  it('hidden listings are not agency-editable', () => {
+    expect(AGENCY_EDITABLE_STATUSES).not.toContain('HIDDEN');
+  });
+
   it('agency status transitions', () => {
     expect(canAgencyTransition('ACTIVE', 'RESERVED')).toBe(true);
     expect(canAgencyTransition('RESERVED', 'ACTIVE')).toBe(true);
@@ -187,6 +249,32 @@ describe('listing write schemas', () => {
     });
     expect(listingUpdateSchema.safeParse({ property: { roadAddress: null } }).success).toBe(false);
     expect(listingUpdateSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('floor: no 0층 and not above 총 층수 (draft and patch)', () => {
+    const p = { ...property, floor: 0, totalFloors: 10 };
+    expect(listingDraftSchema.safeParse({ dealType: 'SALE', property: p }).success).toBe(false);
+    expect(
+      listingDraftSchema.safeParse({ dealType: 'SALE', property: { ...p, floor: 11 } }).success,
+    ).toBe(false);
+    expect(
+      listingDraftSchema.safeParse({ dealType: 'SALE', property: { ...p, floor: -1 } }).success,
+    ).toBe(true);
+    expect(listingUpdateSchema.safeParse({ property: { floor: 0 } }).success).toBe(false);
+    expect(
+      listingUpdateSchema.safeParse({ property: { floor: 12, totalFloors: 10 } }).success,
+    ).toBe(false);
+  });
+
+  it('update: version alone is not a change; contact has no free-text name', () => {
+    expect(listingUpdateSchema.safeParse({ version: 3 }).success).toBe(false);
+    expect(listingUpdateSchema.parse({ version: 3, title: '새 제목' })).toMatchObject({
+      version: 3,
+    });
+    const c = listingUpdateSchema.parse({
+      contact: { contactName: '아무개', contactPhone: '01012345678' },
+    });
+    expect(c.contact).not.toHaveProperty('contactName');
   });
 
   it('photos: unique media and a cover from the set', () => {

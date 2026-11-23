@@ -2,10 +2,14 @@ import {
   AGENCY_EDITABLE_STATUSES,
   canAgencyTransition,
   checkPublishRequirements,
+  DEFAULT_MAP_CENTER,
+  DEFAULT_SGG_CODE,
   ErrorCode,
+  floorWithinBuilding,
   ListingAgencyStatus,
   ListingStatus,
   PUBLIC_LISTING_STATUSES,
+  ReportStatus,
   type AgencyListingDetail,
   type AgencyListingListQuery,
   type ListingContactInput,
@@ -20,12 +24,14 @@ import {
   type PublishCheckInput,
 } from '@house/shared';
 import { Inject, Injectable } from '@nestjs/common';
-import type { Listing, Prisma, Property } from '@prisma/client';
+import { Prisma, type Listing, type Property } from '@prisma/client';
 import type { UserPrincipal } from '../../../common/auth/principal';
 import { AppException } from '../../../common/errors/app.exception';
+import { geoPoint } from '../../../common/geo/geo';
 import { paginate } from '../../../common/pagination/pagination';
 import { AppConfig } from '../../../config/app-config.service';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
+import { EMD_MAX_DISTANCE_M, LISTING_AD_TTL_DAYS, SERVICE_REGION_RADIUS_M } from '../constants';
 import { kstDayStart, kstToday } from '../domain/dates';
 import {
   applyListingPatch,
@@ -45,6 +51,8 @@ import { ListingMapper } from '../listing.mapper';
 import { LISTING_AGENCY_DETAIL_SELECT, LISTING_SUMMARY_SELECT } from '../listing.selects';
 import {
   LISTING_AGENCY_MEMBERSHIP,
+  mayBeAdvertised,
+  type AgencyMemberRef,
   type AgencyMembershipPort,
   type ListingActor,
 } from '../ports/agency-membership.port';
@@ -53,12 +61,42 @@ import { ListingCountersService } from './listing-counters.service';
 
 type ListingWithProperty = Listing & { property: Property };
 
+export interface ResolvedContact {
+  contactMemberId: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
+}
+
 const isPublic = (status: ListingStatus): boolean => PUBLIC_LISTING_STATUSES.includes(status);
+const DAY_MS = 86_400_000;
+export const adExpiryFrom = (from: Date): Date =>
+  new Date(from.getTime() + LISTING_AD_TTL_DAYS * DAY_MS);
+
+/** Reports that are still being handled (the listing content is evidence). */
+const OPEN_REPORT_STATUSES = [ReportStatus.RECEIVED, ReportStatus.IN_REVIEW];
+
+const PUBLIC_STATUS_SQL = Prisma.join(
+  PUBLIC_LISTING_STATUSES.map((s) => Prisma.sql`${s}::listing_status`),
+);
+const EDITABLE_STATUS_SQL = Prisma.join(
+  AGENCY_EDITABLE_STATUSES.map((s) => Prisma.sql`${s}::listing_status`),
+);
+
+/** True when a PATCH changes the shared ad content (anything besides the caller's own contact). */
+function touchesContent(dto: ListingUpdateInput): boolean {
+  return Object.entries(dto).some(
+    ([key, value]) => key !== 'contact' && key !== 'version' && value !== undefined,
+  );
+}
+
+const concurrentModification = (): AppException =>
+  AppException.conflict(ErrorCode.LISTING_CONCURRENT_MODIFICATION);
 
 /**
- * Agency (중개사무소) side of listings. Any ACTIVE member of a participating agency may edit
- * content, photos and 실매물 확인; status, publish and delete belong to the primary agency.
- * Listings the caller's agency doesn't participate in answer 404.
+ * Agency (중개사무소) side of listings. The primary agency owns the ad: content, photos, 실매물
+ * 확인, status, publish and delete. Co-brokers (ACTIVE ListingAgency rows the primary accepted) may
+ * read it and change only their own contact. Listings the caller's agency doesn't participate in
+ * answer 404. Every content/status write is guarded by `listings.version` (409 on a lost race).
  */
 @Injectable()
 export class AgencyListingsService {
@@ -111,6 +149,7 @@ export class AgencyListingsService {
   async create(principal: UserPrincipal, dto: ListingDraftInput): Promise<AgencyListingDetail> {
     const actor = await this.membership.resolveActor(principal);
     const property = propertyStateFromInput(dto.property, this.sggCodeFor(dto.property.emdCode));
+    await this.assertInServiceRegion(property);
     const listing = listingStateFromInput(dto);
     const complexBuiltYear = await this.resolveComplex(property);
     const contact = await this.resolveContact(actor, dto.contact);
@@ -138,6 +177,10 @@ export class AgencyListingsService {
     return this.detail(id, actor);
   }
 
+  /**
+   * PATCH. Content changes are primary-only; a co-broker may send only `contact` (its own row).
+   * Edits of a public listing re-run the 명시사항 check.
+   */
   async update(
     principal: UserPrincipal,
     id: string,
@@ -145,25 +188,61 @@ export class AgencyListingsService {
   ): Promise<AgencyListingDetail> {
     const actor = await this.membership.resolveActor(principal);
     const current = await this.loadForActor(id, actor);
-    if (!AGENCY_EDITABLE_STATUSES.includes(current.status)) {
-      throw AppException.badRequest(ErrorCode.LISTING_NOT_EDITABLE);
+    this.assertEditable(current.status);
+    if (dto.version !== undefined && dto.version !== current.version) {
+      throw concurrentModification();
     }
+    const contentChanged = touchesContent(dto);
+    if (contentChanged && current.primaryAgencyId !== actor.agencyId) {
+      throw AppException.forbidden(ErrorCode.LISTING_PRIMARY_AGENCY_ONLY);
+    }
+    const contact = dto.contact ? await this.resolveContact(actor, dto.contact) : null;
+
+    if (!contentChanged) {
+      if (contact) {
+        await this.prisma.listingAgency.update({
+          where: { listingId_agencyId: { listingId: id, agencyId: actor.agencyId } },
+          data: contact,
+        });
+      }
+      return this.detail(id, actor);
+    }
+
     const propertyChanged = hasPropertyChanges(dto.property);
     let property = propertyStateFromRow(current.property);
     if (dto.property) {
       property = applyPropertyPatch(property, dto.property);
       if (dto.property.emdCode !== undefined) property.sggCode = this.sggCodeFor(property.emdCode);
       if (dto.property.complexId === null) property.areaTypeId = null;
+      if (!floorWithinBuilding(property.floor, property.totalFloors)) {
+        throw AppException.badRequest(ErrorCode.LISTING_FLOOR_INVALID);
+      }
+      if (
+        dto.property.lat !== undefined ||
+        dto.property.lng !== undefined ||
+        dto.property.emdCode !== undefined
+      ) {
+        await this.assertInServiceRegion(property);
+      }
     }
     const listing = applyListingPatch(listingStateFromRow(current), dto);
     const complexBuiltYear = await this.resolveComplex(property);
-    const contact = dto.contact ? await this.resolveContact(actor, dto.contact) : null;
 
     if (isPublic(current.status)) {
       await this.assertPublishable(listing, property, current.primaryAgencyId);
     }
 
     await this.prisma.$transaction(async (tx) => {
+      // Guarded write first: a concurrent publish/status change/edit bumps `version` and makes
+      // this a no-op, so a stale merge can never overwrite newer data or skip the publish check.
+      const { count } = await tx.listing.updateMany({
+        where: { id, status: current.status, version: current.version, deletedAt: null },
+        data: {
+          ...listingWriteColumns(listing, property, complexBuiltYear),
+          version: { increment: 1 },
+        },
+      });
+      if (count === 0) throw concurrentModification();
       if (propertyChanged) {
         await tx.property.update({ where: { id: current.propertyId }, data: property });
         // Every listing of the property carries copies of its search columns.
@@ -172,10 +251,6 @@ export class AgencyListingsService {
           data: propertySearchColumns(property, complexBuiltYear),
         });
       }
-      await tx.listing.update({
-        where: { id },
-        data: listingWriteColumns(listing, property, complexBuiltYear),
-      });
       if (contact) {
         await tx.listingAgency.update({
           where: { listingId_agencyId: { listingId: id, agencyId: actor.agencyId } },
@@ -192,12 +267,26 @@ export class AgencyListingsService {
     return this.detail(id, actor);
   }
 
-  /** Soft delete (primary agency only). */
+  /**
+   * Soft delete (primary agency only). Hidden listings and listings with open reports are kept:
+   * they are evidence for the 허위매물 신고 workflow.
+   */
   async remove(principal: UserPrincipal, id: string): Promise<void> {
     const actor = await this.membership.resolveActor(principal);
     const current = await this.loadForActor(id, actor, { primaryOnly: true });
+    if (current.status === ListingStatus.HIDDEN) {
+      throw AppException.badRequest(ErrorCode.LISTING_NOT_EDITABLE);
+    }
+    const openReports = await this.prisma.report.count({
+      where: { listingId: id, status: { in: OPEN_REPORT_STATUSES } },
+    });
+    if (openReports > 0) throw AppException.badRequest(ErrorCode.LISTING_UNDER_REVIEW);
     await this.prisma.$transaction(async (tx) => {
-      await tx.listing.update({ where: { id }, data: { deletedAt: new Date() } });
+      const { count } = await tx.listing.updateMany({
+        where: { id, version: current.version, status: current.status, deletedAt: null },
+        data: { deletedAt: new Date(), version: { increment: 1 } },
+      });
+      if (count === 0) throw concurrentModification();
       if (isPublic(current.status)) await this.refreshFor(tx, id, current.complexId);
     });
     if (isPublic(current.status)) await this.counters.invalidateSearch();
@@ -205,7 +294,11 @@ export class AgencyListingsService {
 
   // ------------------------------------------------------------------ lifecycle
 
-  /** DRAFT → ACTIVE after the 표시·광고 명시사항 check (primary agency only). */
+  /**
+   * DRAFT → ACTIVE after the 표시·광고 명시사항 check (primary agency only). The first publication
+   * time is kept, so taking an ad down and republishing it does not bump it to the top of 최신순.
+   * Every publication starts a new ad period (expiresAt).
+   */
   async publish(principal: UserPrincipal, id: string): Promise<AgencyListingDetail> {
     const actor = await this.membership.resolveActor(principal);
     const current = await this.loadForActor(id, actor, { primaryOnly: true });
@@ -215,17 +308,22 @@ export class AgencyListingsService {
         to: ListingStatus.ACTIVE,
       });
     }
-    await this.assertPublishable(
-      listingStateFromRow(current),
-      propertyStateFromRow(current.property),
-      current.primaryAgencyId,
-    );
+    const property = propertyStateFromRow(current.property);
+    await this.assertInServiceRegion(property);
+    await this.assertPublishable(listingStateFromRow(current), property, current.primaryAgencyId);
+    const now = new Date();
     await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.listing.updateMany({
-        where: { id, status: ListingStatus.DRAFT, deletedAt: null },
-        data: { status: ListingStatus.ACTIVE, publishedAt: new Date(), closedAt: null },
+        where: { id, status: ListingStatus.DRAFT, version: current.version, deletedAt: null },
+        data: {
+          status: ListingStatus.ACTIVE,
+          publishedAt: current.publishedAt ?? now,
+          expiresAt: adExpiryFrom(now),
+          closedAt: null,
+          version: { increment: 1 },
+        },
       });
-      if (count === 0) throw AppException.conflict(ErrorCode.LISTING_INVALID_STATUS_TRANSITION);
+      if (count === 0) throw concurrentModification();
       await this.refreshFor(tx, id, current.complexId);
     });
     await this.counters.invalidateSearch();
@@ -255,10 +353,14 @@ export class AgencyListingsService {
     }
     await this.prisma.$transaction(async (tx) => {
       const { count } = await tx.listing.updateMany({
-        where: { id, status: current.status, deletedAt: null },
-        data: { status: to, closedAt: to === ListingStatus.CLOSED ? new Date() : null },
+        where: { id, status: current.status, version: current.version, deletedAt: null },
+        data: {
+          status: to,
+          closedAt: to === ListingStatus.CLOSED ? new Date() : null,
+          version: { increment: 1 },
+        },
       });
-      if (count === 0) throw AppException.conflict(ErrorCode.LISTING_INVALID_STATUS_TRANSITION);
+      if (count === 0) throw concurrentModification();
       if (isPublic(current.status) !== isPublic(to)) {
         await this.refreshFor(tx, id, current.complexId);
       }
@@ -269,19 +371,32 @@ export class AgencyListingsService {
 
   // ------------------------------------------------------------------ 실매물 확인 / photos
 
+  /** 실매물 확인 (primary only). A public ad's period is extended from the 확인일. */
   async addVerification(
     principal: UserPrincipal,
     id: string,
     dto: ListingVerificationInput,
   ): Promise<AgencyListingDetail> {
     const actor = await this.membership.resolveActor(principal);
-    const current = await this.loadForActor(id, actor);
+    const current = await this.loadForActor(id, actor, { primaryOnly: true });
     this.assertEditable(current.status);
     if (dto.verifiedAt > kstToday()) {
       throw AppException.badRequest(ErrorCode.LISTING_VERIFICATION_FUTURE_DATE);
     }
     const verifiedAt = kstDayStart(dto.verifiedAt);
+    const extendedTo = adExpiryFrom(verifiedAt);
     await this.prisma.$transaction(async (tx) => {
+      // Keep the latest date: a back-dated record must not move verified_at (or expiry) backwards.
+      const updated = await tx.$executeRaw`
+        UPDATE listings
+        SET verified_at = GREATEST(COALESCE(verified_at, ${verifiedAt}::timestamptz), ${verifiedAt}::timestamptz),
+            expires_at = CASE WHEN status IN (${PUBLIC_STATUS_SQL})
+              THEN GREATEST(COALESCE(expires_at, ${extendedTo}::timestamptz), ${extendedTo}::timestamptz)
+              ELSE expires_at END,
+            version = version + 1,
+            updated_at = now()
+        WHERE id = ${id}::uuid AND deleted_at IS NULL AND status IN (${EDITABLE_STATUS_SQL})`;
+      if (updated === 0) throw concurrentModification();
       await tx.listingVerification.create({
         data: {
           listingId: id,
@@ -291,29 +406,29 @@ export class AgencyListingsService {
           verifiedByUserId: actor.userId,
         },
       });
-      // Keep the latest date: a back-dated record must not move verified_at backwards.
-      await tx.$executeRaw`
-        UPDATE listings SET verified_at = GREATEST(COALESCE(verified_at, ${verifiedAt}::timestamptz), ${verifiedAt}::timestamptz),
-               updated_at = now()
-        WHERE id = ${id}::uuid`;
     });
     return this.detail(id, actor);
   }
 
-  /** Replaces the photo set in the given order; the cover defaults to the first photo. */
+  /** Replaces the photo set in the given order (primary only); the cover defaults to the first. */
   async replacePhotos(
     principal: UserPrincipal,
     id: string,
     dto: ListingPhotosInput,
   ): Promise<PhotoUrls[]> {
     const actor = await this.membership.resolveActor(principal);
-    const current = await this.loadForActor(id, actor);
+    const current = await this.loadForActor(id, actor, { primaryOnly: true });
     this.assertEditable(current.status);
     const ids = dto.photos.map((p) => p.mediaId);
     await this.media.assertUsableForListing(ids, { userId: actor.userId, listingId: id });
     const cover = dto.coverMediaId ?? ids[0];
 
     await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.listing.updateMany({
+        where: { id, deletedAt: null, status: { in: [...AGENCY_EDITABLE_STATUSES] } },
+        data: { photoCount: dto.photos.length, version: { increment: 1 } },
+      });
+      if (count === 0) throw concurrentModification();
       await tx.listingPhoto.deleteMany({ where: { listingId: id } });
       if (dto.photos.length > 0) {
         await tx.listingPhoto.createMany({
@@ -326,8 +441,8 @@ export class AgencyListingsService {
           })),
         });
       }
-      await tx.listing.update({ where: { id }, data: { photoCount: dto.photos.length } });
     });
+    if (isPublic(current.status)) await this.counters.invalidateSearch();
     const rows = await this.prisma.listingPhoto.findMany({
       where: { listingId: id },
       orderBy: { sortOrder: 'asc' },
@@ -373,22 +488,44 @@ export class AgencyListingsService {
   }
 
   /**
-   * Contact person for the acting agency's ListingAgency row. Defaults to the acting member;
-   * an explicit member must be an ACTIVE member of the same agency.
+   * Public contact person for the acting agency's ListingAgency row. 공인중개사법 제18조의2①: an ad
+   * must not show a 중개보조원, so the contact is always the 개업공인중개사 (OWNER) or a
+   * 소속공인중개사. Defaults to the acting member when licensed, else the agency's representative
+   * (or no personal contact, so only the agency phone shows). An explicit member must be licensed;
+   * a phone override is accepted only from a licensed acting member.
    */
   async resolveContact(
     actor: ListingActor,
     input: ListingContactInput | undefined,
-  ): Promise<{ contactMemberId: string; contactName: string; contactPhone: string | null }> {
-    let member = { id: actor.memberId, displayName: actor.displayName, phone: actor.phone };
-    if (input?.contactMemberId && input.contactMemberId !== actor.memberId) {
-      const found = await this.membership.findActiveMember(actor.agencyId, input.contactMemberId);
-      if (!found) throw AppException.badRequest(ErrorCode.LISTING_CONTACT_MEMBER_INVALID);
-      member = found;
+  ): Promise<ResolvedContact> {
+    const self: AgencyMemberRef = {
+      id: actor.memberId,
+      displayName: actor.displayName,
+      phone: actor.phone,
+      role: actor.role,
+      isLicensed: actor.isLicensed,
+    };
+    let member: AgencyMemberRef | null;
+    if (input?.contactMemberId) {
+      member =
+        input.contactMemberId === actor.memberId
+          ? self
+          : await this.membership.findActiveMember(actor.agencyId, input.contactMemberId);
+      if (!member || !mayBeAdvertised(member)) {
+        throw AppException.badRequest(ErrorCode.LISTING_CONTACT_MEMBER_INVALID);
+      }
+    } else {
+      member = mayBeAdvertised(self)
+        ? self
+        : await this.membership.findRepresentative(actor.agencyId);
     }
+    if (input?.contactPhone !== undefined && (!mayBeAdvertised(self) || !member)) {
+      throw AppException.badRequest(ErrorCode.LISTING_CONTACT_MEMBER_INVALID);
+    }
+    if (!member) return { contactMemberId: null, contactName: null, contactPhone: null };
     return {
       contactMemberId: member.id,
-      contactName: input?.contactName ?? member.displayName,
+      contactName: member.displayName,
       contactPhone: input?.contactPhone ?? member.phone,
     };
   }
@@ -441,6 +578,30 @@ export class AgencyListingsService {
       throw AppException.badRequest(ErrorCode.LISTING_REGION_NOT_SUPPORTED);
     }
     return sgg;
+  }
+
+  /**
+   * The map position must lie in the service region: within SERVICE_REGION_RADIUS_M of the
+   * 시군구 centroid (regions row; the built-in 순천시 centre when that row is missing) and, when the
+   * 법정동 has a centroid, within EMD_MAX_DISTANCE_M of it. Unknown centroids skip that check.
+   */
+  private async assertInServiceRegion(p: PropertyState): Promise<void> {
+    const sgg = this.config.get('REGION_SGG_CODE');
+    const fallback =
+      sgg === DEFAULT_SGG_CODE
+        ? geoPoint(DEFAULT_MAP_CENTER.lat, DEFAULT_MAP_CENTER.lng)
+        : Prisma.sql`NULL::geography`;
+    const point = geoPoint(p.lat, p.lng);
+    const [row] = await this.prisma.$queryRaw<{ inSgg: boolean | null; nearEmd: boolean | null }[]>`
+      SELECT
+        ST_DWithin(${point},
+          COALESCE((SELECT r.location FROM regions r WHERE r.code = ${sgg}), ${fallback}),
+          ${SERVICE_REGION_RADIUS_M}) AS "inSgg",
+        (SELECT ST_DWithin(r.location, ${point}, ${EMD_MAX_DISTANCE_M})
+           FROM regions r WHERE r.code = ${p.emdCode}) AS "nearEmd"`;
+    if (row?.inSgg === false || row?.nearEmd === false) {
+      throw AppException.badRequest(ErrorCode.LISTING_REGION_NOT_SUPPORTED);
+    }
   }
 
   /** Validates complex/평형 references; returns the complex's 준공년도 (search fallback). */

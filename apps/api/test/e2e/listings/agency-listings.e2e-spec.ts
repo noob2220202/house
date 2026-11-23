@@ -9,13 +9,18 @@ import {
   withSession,
   type TestApp,
 } from '../../utils';
+import { LISTING_AD_TTL_DAYS } from '../../../src/modules/listings/constants';
+import { AgencyListingsService } from '../../../src/modules/listings/services/agency-listings.service';
+import { ListingsModerationService } from '../../../src/modules/listings/services/listings-moderation.service';
 import {
+  addCoBroker,
   agencyWithOwner,
   agentOf,
   createDraft,
   createPublished,
   NIL_UUID,
   OTHER_EMD_CODE,
+  ownerMemberId,
   publishablePayload,
 } from './helpers';
 
@@ -62,7 +67,7 @@ describe('agency listings (e2e)', () => {
       expect(loc?.ok).toBe(true);
     });
 
-    it('an AGENT member can create; contact defaults to the member', async () => {
+    it('a licensed AGENT member can create; contact defaults to the member', async () => {
       const a = await agencyWithOwner(t);
       const agent = await agentOf(t, a.agency.id);
       const res = await withSession(t.http().post(BASE), agent.session)
@@ -73,6 +78,45 @@ describe('agency listings (e2e)', () => {
         contactName: '김중개',
         contactPhone: '01022223333',
       });
+    });
+
+    it('a 중개보조원 may create, but the ad contact falls back to the 대표 (제18조의2①)', async () => {
+      const a = await agencyWithOwner(t);
+      const assistant = await agentOf(t, a.agency.id, { isLicensed: false });
+      const res = await withSession(t.http().post(BASE), assistant.session)
+        .send(publishablePayload())
+        .expect(201);
+      expect(res.body.agencies[0]).toMatchObject({
+        contactMemberId: await ownerMemberId(t, a.agency.id),
+        contactName: a.agency.representativeName,
+      });
+      expect(JSON.stringify(res.body.agencies)).not.toContain('김중개');
+      await withSession(t.http().post(`${BASE}/${res.body.id}/publish`), a.ownerSession).expect(
+        200,
+      );
+      const pub = await t.http().get(`/api/v1/listings/${res.body.id}`).expect(200);
+      expect(pub.body.agencies[0].contactName).toBe(a.agency.representativeName);
+      expect(pub.body.agencies[0].contactPhone).not.toBe('01022223333');
+
+      // An assistant cannot publish its own phone number as the contact either.
+      const phone = await withSession(t.http().post(BASE), assistant.session)
+        .send(publishablePayload({ contact: { contactPhone: '010-2222-3333' } }))
+        .expect(400);
+      expect(phone.body.code).toBe(ErrorCode.LISTING_CONTACT_MEMBER_INVALID);
+    });
+
+    it('400 when an unlicensed member is chosen explicitly as the contact', async () => {
+      const a = await agencyWithOwner(t);
+      const assistant = await agentOf(t, a.agency.id, { isLicensed: false });
+      const res = await withSession(t.http().post(BASE), a.ownerSession)
+        .send(publishablePayload({ contact: { contactMemberId: assistant.memberId } }))
+        .expect(400);
+      expect(res.body.code).toBe(ErrorCode.LISTING_CONTACT_MEMBER_INVALID);
+      const id = await createDraft(t, a.ownerSession);
+      const patch = await withSession(t.http().patch(`${BASE}/${id}`), a.ownerSession)
+        .send({ contact: { contactMemberId: assistant.memberId } })
+        .expect(400);
+      expect(patch.body.code).toBe(ErrorCode.LISTING_CONTACT_MEMBER_INVALID);
     });
 
     it('401 anonymous, 403 plain user, 403 removed member, 403 unapproved agency', async () => {
@@ -117,6 +161,15 @@ describe('agency listings (e2e)', () => {
         .send(publishablePayload({ property: { emdCode: '1111010100' } }))
         .expect(400);
       expect(region.body.code).toBe(ErrorCode.LISTING_REGION_NOT_SUPPORTED);
+      // A 순천 법정동 code with a map position in Seoul.
+      const seoul = await withSession(t.http().post(BASE), a.ownerSession)
+        .send(publishablePayload({ property: { lat: 37.5665, lng: 126.978 } }))
+        .expect(400);
+      expect(seoul.body.code).toBe(ErrorCode.LISTING_REGION_NOT_SUPPORTED);
+      const floor = await withSession(t.http().post(BASE), a.ownerSession)
+        .send(publishablePayload({ property: { floor: 21 } }))
+        .expect(400);
+      expect(floor.body.code).toBe(ErrorCode.VALIDATION_FAILED);
 
       const complex = await withSession(t.http().post(BASE), a.ownerSession)
         .send(publishablePayload({ property: { complexId: NIL_UUID } }))
@@ -190,23 +243,80 @@ describe('agency listings (e2e)', () => {
           monthlyRent: 50,
           floorDisplay: 'CLASS',
           property: { floor: 2, emdCode: OTHER_EMD_CODE, lat: 34.96 },
-          contact: { contactName: '박실장', contactPhone: '061-700-1234' },
+          contact: { contactPhone: '061-700-1234' },
         })
         .expect(200);
       expect(res.body).toMatchObject({
         dealType: 'MONTHLY',
         salePrice: null,
+        version: 1,
         priceSort: 1000,
         floorClass: 'LOW',
         floorLabel: '저/20층',
         emdCode: OTHER_EMD_CODE,
       });
       expect(res.body.agencies[0]).toMatchObject({
-        contactName: '박실장',
+        contactName: a.agency.representativeName,
         contactPhone: '0617001234',
       });
       const row = await t.prisma.listing.findUniqueOrThrow({ where: { id } });
       expect(row).toMatchObject({ lat: 34.96, emdCode: OTHER_EMD_CODE, priceSort: 1000 });
+    });
+
+    it('a deal-type change drops prices that no longer apply', async () => {
+      const a = await agencyWithOwner(t);
+      const id = await createDraft(t, a.ownerSession, {
+        dealType: 'MONTHLY',
+        salePrice: undefined,
+        deposit: 1000,
+        monthlyRent: 50,
+      });
+      const res = await withSession(t.http().patch(`${BASE}/${id}`), a.ownerSession)
+        .send({ dealType: 'SALE', salePrice: 30_000 })
+        .expect(200);
+      expect(res.body).toMatchObject({ salePrice: 30_000, deposit: null, monthlyRent: null });
+      const row = await t.prisma.listing.findUniqueOrThrow({ where: { id } });
+      expect(row).toMatchObject({ deposit: null, monthlyRent: null, priceSort: 30_000 });
+    });
+
+    it('409 when the client edited an outdated version; 400 for a floor above the building', async () => {
+      const a = await agencyWithOwner(t);
+      const id = await createDraft(t, a.ownerSession);
+      await withSession(t.http().patch(`${BASE}/${id}`), a.ownerSession)
+        .send({ title: '첫 수정', version: 0 })
+        .expect(200);
+      const stale = await withSession(t.http().patch(`${BASE}/${id}`), a.ownerSession)
+        .send({ title: '늦은 수정', version: 0 })
+        .expect(409);
+      expect(stale.body.code).toBe(ErrorCode.LISTING_CONCURRENT_MODIFICATION);
+      const floor = await withSession(t.http().patch(`${BASE}/${id}`), a.ownerSession)
+        .send({ property: { totalFloors: 10 } })
+        .expect(400);
+      expect(floor.body.code).toBe(ErrorCode.LISTING_FLOOR_INVALID);
+      const zero = await withSession(t.http().patch(`${BASE}/${id}`), a.ownerSession)
+        .send({ property: { floor: 0 } })
+        .expect(400);
+      expect(zero.body.code).toBe(ErrorCode.VALIDATION_FAILED);
+    });
+
+    it('concurrent writes: a stale merge never lands (publish vs. edit race)', async () => {
+      const a = await agencyWithOwner(t);
+      const id = await createDraft(t, a.ownerSession);
+      const svc = t.app.get(AgencyListingsService);
+      // Simulate a PATCH that loaded the row, then lost the race to another write.
+      const original = svc.loadForActor.bind(svc);
+      const spy = jest.spyOn(svc, 'loadForActor').mockImplementationOnce(async (...args) => {
+        const row = await original(...args);
+        await t.prisma.listing.update({ where: { id }, data: { version: { increment: 1 } } });
+        return row;
+      });
+      const r = await withSession(t.http().patch(`${BASE}/${id}`), a.ownerSession)
+        .send({ maintenanceFeeWon: null })
+        .expect(409);
+      expect(r.body.code).toBe(ErrorCode.LISTING_CONCURRENT_MODIFICATION);
+      spy.mockRestore();
+      const row = await t.prisma.listing.findUniqueOrThrow({ where: { id } });
+      expect(row.maintenanceFeeWon).toBe(150_000);
     });
 
     it('an edit that breaks 명시사항 on a public listing is rejected', async () => {
@@ -288,6 +398,7 @@ describe('agency listings (e2e)', () => {
       expect(r.body.message).toBe('광고 게시에 필요한 필수 표시사항이 누락되었습니다.');
       const labels = (r.body.details as { label: string }[]).map((d) => d.label);
       expect(labels).toEqual([
+        '소재지(법정동)',
         '면적',
         '가격',
         '총 층수',
@@ -303,14 +414,47 @@ describe('agency listings (e2e)', () => {
       ]);
     });
 
+    it('republishing keeps the first publication time and starts a new ad period', async () => {
+      const a = await agencyWithOwner(t);
+      const id = await createPublished(t, a.ownerSession);
+      const first = await t.prisma.listing.findUniqueOrThrow({ where: { id } });
+      expect(first.expiresAt!.getTime() - first.publishedAt!.getTime()).toBe(
+        LISTING_AD_TTL_DAYS * 86_400_000,
+      );
+      await withSession(t.http().post(`${BASE}/${id}/status`), a.ownerSession)
+        .send({ status: 'DRAFT' })
+        .expect(200);
+      const res = await withSession(t.http().post(`${BASE}/${id}/publish`), a.ownerSession).expect(
+        200,
+      );
+      expect(res.body.publishedAt).toBe(first.publishedAt!.toISOString());
+      expect(new Date(res.body.expiresAt as string).getTime()).toBeGreaterThanOrEqual(
+        first.expiresAt!.getTime(),
+      );
+    });
+
+    it('a listing placed outside the service region cannot be published', async () => {
+      const a = await agencyWithOwner(t);
+      const id = await createDraft(t, a.ownerSession);
+      // A draft written before the region guard existed.
+      await t.prisma.listing.update({ where: { id }, data: { lat: 37.5665, lng: 126.978 } });
+      const row = await t.prisma.listing.findUniqueOrThrow({ where: { id } });
+      await t.prisma.property.update({
+        where: { id: row.propertyId },
+        data: { lat: 37.5665, lng: 126.978 },
+      });
+      const r = await withSession(t.http().post(`${BASE}/${id}/publish`), a.ownerSession).expect(
+        400,
+      );
+      expect(r.body.code).toBe(ErrorCode.LISTING_REGION_NOT_SUPPORTED);
+    });
+
     it('403 for a co-broker (primary only), 404 for outsiders, 400 when already ACTIVE / bad id', async () => {
       const a = await agencyWithOwner(t);
       const b = await agencyWithOwner(t);
       const c = await agencyWithOwner(t);
       const id = await createPublished(t, a.ownerSession);
-      await withSession(t.http().post(`${BASE}/${id}/co-brokers`), b.ownerSession)
-        .send({})
-        .expect(201);
+      await addCoBroker(t, id, a, b);
       const r = await withSession(t.http().post(`${BASE}/${id}/publish`), b.ownerSession).expect(
         403,
       );
@@ -363,9 +507,7 @@ describe('agency listings (e2e)', () => {
       await withSession(t.http().post(`${BASE}/${id}/status`), b.ownerSession)
         .send({ status: 'CLOSED' })
         .expect(404);
-      await withSession(t.http().post(`${BASE}/${id}/co-brokers`), b.ownerSession)
-        .send({})
-        .expect(201);
+      await addCoBroker(t, id, a, b);
       const agentB = await agentOf(t, b.agency.id);
       await withSession(t.http().post(`${BASE}/${id}/status`), agentB.session)
         .send({ status: 'CLOSED' })
@@ -389,6 +531,26 @@ describe('agency listings (e2e)', () => {
         method: 'SITE_VISIT',
         verifiedAt: '2026-01-09T15:00:00.000Z',
       });
+    });
+
+    it('a 실매물 확인 today extends the ad period; co-brokers cannot add one (403)', async () => {
+      const a = await agencyWithOwner(t);
+      const b = await agencyWithOwner(t);
+      const id = await createPublished(t, a.ownerSession);
+      const shortExpiry = new Date(Date.now() + 86_400_000);
+      await t.prisma.listing.update({ where: { id }, data: { expiresAt: shortExpiry } });
+      const today = new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10);
+      const res = await withSession(t.http().post(`${BASE}/${id}/verifications`), a.ownerSession)
+        .send({ method: 'OWNER_CALL', verifiedAt: today })
+        .expect(201);
+      expect(new Date(res.body.expiresAt as string).getTime()).toBeGreaterThan(
+        shortExpiry.getTime() + 20 * 86_400_000,
+      );
+      await addCoBroker(t, id, a, b);
+      const r = await withSession(t.http().post(`${BASE}/${id}/verifications`), b.ownerSession)
+        .send({ method: 'OWNER_CALL', verifiedAt: today })
+        .expect(403);
+      expect(r.body.code).toBe(ErrorCode.LISTING_PRIMARY_AGENCY_ONLY);
     });
 
     it('400 for future dates / bad method, 404 for outsiders, 401 anonymous', async () => {
@@ -439,15 +601,16 @@ describe('agency listings (e2e)', () => {
       const row = await t.prisma.listing.findUniqueOrThrow({ where: { id } });
       expect(row.photoCount).toBe(2);
 
-      // A co-broker agent may reorder photos it did not upload.
+      // Photos belong to the primary agency's ad: a co-broker cannot replace or delete them.
       const b = await agencyWithOwner(t);
       await withSession(t.http().post(`${BASE}/${id}/publish`), a.ownerSession).expect(200);
-      await withSession(t.http().post(`${BASE}/${id}/co-brokers`), b.ownerSession)
-        .send({})
-        .expect(201);
-      await withSession(t.http().put(`${BASE}/${id}/photos`), b.ownerSession)
-        .send({ photos: [{ mediaId: m1.id }] })
-        .expect(200);
+      await addCoBroker(t, id, a, b);
+      const co = await withSession(t.http().put(`${BASE}/${id}/photos`), b.ownerSession)
+        .send({ photos: [] })
+        .expect(403);
+      expect(co.body.code).toBe(ErrorCode.LISTING_PRIMARY_AGENCY_ONLY);
+      const after = await t.prisma.listing.findUniqueOrThrow({ where: { id } });
+      expect(after.photoCount).toBe(2);
     });
 
     it('rejects foreign / private / non-ready media, duplicates and over-limit sets', async () => {
@@ -503,13 +666,40 @@ describe('agency listings (e2e)', () => {
       const b = await agencyWithOwner(t);
       const c = await agencyWithOwner(t);
       const id = await createPublished(t, a.ownerSession);
-      await withSession(t.http().post(`${BASE}/${id}/co-brokers`), b.ownerSession)
-        .send({})
-        .expect(201);
+      await addCoBroker(t, id, a, b);
       await withSession(t.http().delete(`${BASE}/${id}`), b.ownerSession).expect(403);
       await withSession(t.http().delete(`${BASE}/${id}`), c.ownerSession).expect(404);
       await t.http().delete(`${BASE}/${id}`).expect(401);
       await withSession(t.http().delete(`${BASE}/1`), a.ownerSession).expect(400);
+    });
+
+    it('hidden listings and listings under report review cannot be deleted or edited', async () => {
+      const a = await agencyWithOwner(t);
+      const hidden = await createPublished(t, a.ownerSession);
+      await t.app.get(ListingsModerationService).hide(hidden, '허위매물 신고');
+      const h1 = await withSession(t.http().delete(`${BASE}/${hidden}`), a.ownerSession).expect(
+        400,
+      );
+      expect(h1.body.code).toBe(ErrorCode.LISTING_NOT_EDITABLE);
+      const h2 = await withSession(t.http().patch(`${BASE}/${hidden}`), a.ownerSession)
+        .send({ description: '증거 인멸' })
+        .expect(400);
+      expect(h2.body.code).toBe(ErrorCode.LISTING_NOT_EDITABLE);
+      const m = await createMedia(t.prisma, { ownerUserId: a.owner.id });
+      await withSession(t.http().put(`${BASE}/${hidden}/photos`), a.ownerSession)
+        .send({ photos: [{ mediaId: m.id }] })
+        .expect(400);
+
+      const reported = await createPublished(t, a.ownerSession);
+      await t.prisma.report.create({
+        data: { targetType: 'LISTING', listingId: reported, reason: 'ALREADY_DEALT' },
+      });
+      const r = await withSession(t.http().delete(`${BASE}/${reported}`), a.ownerSession).expect(
+        400,
+      );
+      expect(r.body.code).toBe(ErrorCode.LISTING_UNDER_REVIEW);
+      const row = await t.prisma.listing.findUniqueOrThrow({ where: { id: reported } });
+      expect(row.deletedAt).toBeNull();
     });
 
     it('CSRF: a session request without the token is refused', async () => {

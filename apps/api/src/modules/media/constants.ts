@@ -6,6 +6,13 @@ export const ASYNC_PROCESSING_THRESHOLD = {
   pixels: 24_000_000,
 } as const;
 
+/** Longest edge of the stored "original" (and of documents re-encoded from images). */
+export const MAX_STORED_EDGE = 4096;
+/** libvips threads per image operation (process-wide; the API shares the process). */
+export const SHARP_THREADS = 2;
+/** Background jobs processed at once by this process (one large decode at a time). */
+export const MEDIA_WORKER_CONCURRENCY = 1;
+
 export const WEBP_QUALITY = { variant: 82, original: 88 } as const;
 export const JPEG_DOCUMENT_QUALITY = 90;
 

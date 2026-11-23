@@ -10,7 +10,7 @@ import { paginate } from '../../../common/pagination/pagination';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { RECENT_VIEWS_CAP } from '../constants';
 import { ListingMapper } from '../listing.mapper';
-import { LISTING_SUMMARY_SELECT } from '../listing.selects';
+import { LISTING_SUMMARY_SELECT, PUBLIC_PRIMARY_AGENCY_WHERE } from '../listing.selects';
 
 /** 최근 본 매물/단지/중개사무소. Exported so the complexes/agencies modules can record views. */
 @Injectable()
@@ -73,7 +73,12 @@ export class RecentViewsService {
     switch (q.targetType) {
       case RecentViewTarget.LISTING: {
         const rows = await this.prisma.listing.findMany({
-          where: { id: { in: ids }, deletedAt: null, status: { in: [...PUBLIC_LISTING_STATUSES] } },
+          where: {
+            id: { in: ids },
+            deletedAt: null,
+            status: { in: [...PUBLIC_LISTING_STATUSES] },
+            ...PUBLIC_PRIMARY_AGENCY_WHERE,
+          },
           select: LISTING_SUMMARY_SELECT,
         });
         const byId = new Map(rows.map((r) => [r.id, this.mapper.summary(r)]));

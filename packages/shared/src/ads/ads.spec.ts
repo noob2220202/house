@@ -104,6 +104,22 @@ describe('ad schemas', () => {
     });
   });
 
+  it('enforces slot rules: COMPLEX_FEATURED_AGENCY needs an agency and complex targeting', () => {
+    const r = bannerCreateSchema.safeParse({ ...base, slot: 'COMPLEX_FEATURED_AGENCY' });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues.map((i) => i.path.join('.'))).toEqual(
+      expect.arrayContaining(['agencyId', 'targeting']),
+    );
+    const ok = bannerCreateSchema.safeParse({
+      ...base,
+      slot: 'COMPLEX_FEATURED_AGENCY',
+      agencyId: '01937a2b-0000-7000-8000-000000000003',
+      targeting: 'COMPLEXES',
+      targetComplexIds: ['01937a2b-0000-7000-8000-000000000002'],
+    });
+    expect(ok.success).toBe(true);
+  });
+
   it('rejects an inverted window and inconsistent targeting', () => {
     const r = bannerCreateSchema.safeParse({
       ...base,

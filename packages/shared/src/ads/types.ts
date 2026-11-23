@@ -85,6 +85,10 @@ export interface BannerSlotView {
   defaultMaxActive: number;
   isEnabled: boolean;
   note: string | null;
+  /** Banners of the slot must name an (APPROVED) advertiser agency. */
+  requiresAgency: boolean;
+  /** Targeting every banner of the slot must use (null = any). */
+  requiredTargeting: BannerTargeting | null;
   /** Banners live right now (not paused, inside their window). */
   activeCount: number;
   /** Banners not ended yet and not paused (live + scheduled). */

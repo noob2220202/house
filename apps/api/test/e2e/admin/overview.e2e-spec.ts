@@ -276,6 +276,46 @@ describe('admin dashboard, visitors, audit log, permissions (e2e)', () => {
       );
     });
 
+    it('a client-chosen x-request-id shared by several calls cannot hide a mutation', async () => {
+      const { session } = await adminActor(t, AdminRole.OPERATOR);
+      const actionsOf = async (requestId: string) =>
+        (
+          await t.prisma.auditLog.findMany({
+            where: { requestId },
+            select: { action: true },
+          })
+        )
+          .map((r) => r.action)
+          .sort();
+
+      // Alone, a client-chosen id still matches the handler's own audit row (no double).
+      await as(t, session, 'post', '/admin/probe-things/self-audited')
+        .set('x-request-id', 'solo-request-0001')
+        .expect(201);
+      expect(await actionsOf('solo-request-0001')).toEqual(['probe.self']);
+
+      // Concurrent: the in-service audit row of one call must not count for the other.
+      const shared = 'shared-request-0001';
+      await Promise.all([
+        as(t, session, 'post', '/admin/probe-things/self-audited')
+          .set('x-request-id', shared)
+          .expect(201),
+        as(t, session, 'post', '/admin/probe-things').set('x-request-id', shared).expect(201),
+      ]);
+      expect(await actionsOf(shared)).toEqual(
+        expect.arrayContaining(['probe.self', 'auto:probe-things.create']),
+      );
+
+      // Sequential reuse after an @Audit-decorated mutation (within the old 1 s lookup window).
+      const reused = 'reused-request-0001';
+      await as(t, session, 'post', '/admin/notices')
+        .set('x-request-id', reused)
+        .send({ title: '공지', content: '본문' })
+        .expect(201);
+      await as(t, session, 'post', '/admin/probe-things').set('x-request-id', reused).expect(201);
+      expect(await actionsOf(reused)).toEqual(['auto:probe-things.create', 'notice.create']);
+    });
+
     it('every admin-module mutation route carries @Audit or audits in its transaction', () => {
       const routes = t.app.get(AdminAuditCoverageService).adminMutationRoutes();
       const ours = routes.filter((r) => r.controller !== AdminProbeController.name);
@@ -294,8 +334,13 @@ describe('admin dashboard, visitors, audit log, permissions (e2e)', () => {
       const undecorated = ours
         .filter((r) => ownControllers.has(r.controller) && !r.decorated)
         .map((r) => `${r.controller}.${r.handler}`);
-      // ReportsService.resolve writes its audit row inside the resolution transaction.
-      expect(undecorated).toEqual(['AdminReportsController.resolve']);
+      // These write their audit row inside their transaction (with PII-free projections).
+      expect(undecorated.sort()).toEqual([
+        'AdminMembersController.suspend',
+        'AdminMembersController.unsuspend',
+        'AdminReportsController.resolve',
+        'AdminTermsController.publish',
+      ]);
     });
   });
 });

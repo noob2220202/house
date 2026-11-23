@@ -1,10 +1,24 @@
-import { ListingAgencyStatus } from '@house/shared';
+import { AgencyStatus, ListingAgencyStatus } from '@house/shared';
 import type { Prisma } from '@prisma/client';
 
 /**
  * Explicit Prisma selects. PUBLIC selects never include Property.ho, Listing.hiddenReason
  * or member ids; only AGENCY_* selects do (served to agency members only).
  */
+
+/** An agency that may appear in public listing data (approved, not deleted). */
+export const DISCLOSABLE_AGENCY_WHERE = {
+  status: AgencyStatus.APPROVED,
+  deletedAt: null,
+} as const satisfies Prisma.AgencyWhereInput;
+
+/**
+ * Publicly visible listings also need a disclosable primary agency: without it the 명시사항
+ * (명칭·등록번호·대표 성명) could not be shown. Mirrors the SQL rule in listing-search.repository.
+ */
+export const PUBLIC_PRIMARY_AGENCY_WHERE = {
+  primaryAgency: DISCLOSABLE_AGENCY_WHERE,
+} as const satisfies Prisma.ListingWhereInput;
 
 const mediaRef = { select: { storageKey: true, variants: true } } as const;
 
@@ -55,7 +69,13 @@ export const LISTING_SUMMARY_SELECT = {
     take: 1,
     select: { mediaId: true, caption: true, isCover: true, media: mediaRef },
   },
-  _count: { select: { agencies: { where: { status: ListingAgencyStatus.ACTIVE } } } },
+  _count: {
+    select: {
+      agencies: {
+        where: { status: ListingAgencyStatus.ACTIVE, agency: DISCLOSABLE_AGENCY_WHERE },
+      },
+    },
+  },
 } as const satisfies Prisma.ListingSelect;
 export type ListingSummaryRow = Prisma.ListingGetPayload<{ select: typeof LISTING_SUMMARY_SELECT }>;
 
@@ -138,8 +158,10 @@ export const LISTING_AGENCY_DETAIL_SELECT = {
   ...DETAIL_EXTRA,
   hiddenReason: true,
   closedAt: true,
+  expiresAt: true,
   createdAt: true,
   updatedAt: true,
+  version: true,
   property: {
     select: {
       ...PUBLIC_PROPERTY_SELECT,

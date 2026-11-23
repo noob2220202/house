@@ -42,7 +42,7 @@ describe('admin members & accounts (e2e)', () => {
       const { agency } = await createAgency(t.prisma, { ownerUserId: member.id });
       await loginUser(t.app, member);
 
-      const { session } = await adminActor(t, AdminRole.OPERATOR);
+      const { admin, session } = await adminActor(t, AdminRole.OPERATOR);
       const byName = await as(t, session, 'get', '/admin/users?q=순천').expect(200);
       expect(byName.body.items).toEqual([
         expect.objectContaining({
@@ -66,14 +66,30 @@ describe('admin members & accounts (e2e)', () => {
         memberships: [expect.objectContaining({ agencyId: agency.id, role: 'OWNER' })],
         activeSessions: 1,
       });
+      // 개인정보 접속기록: who viewed whose contacts, when — without the values themselves.
+      const views = await auditRows(t, 'member.pii-view');
+      expect(views).toEqual([
+        expect.objectContaining({
+          adminUserId: admin.id,
+          resourceType: 'User',
+          resourceId: member.id,
+          ip: expect.any(String),
+        }),
+      ]);
+      expect(JSON.stringify(views)).not.toMatch(/love@example\.com|98765432/);
       expectCode(
         await as(t, session, 'get', `/admin/users/${MISSING_ID}`).expect(404),
         ErrorCode.MEMBER_NOT_FOUND,
       );
+      expect(await t.prisma.auditLog.count({ where: { action: 'member.pii-view' } })).toBe(1);
     });
 
     it('suspend logs the member out everywhere; unsuspend restores', async () => {
-      const member = await createUser(t.prisma);
+      const member = await createUser(t.prisma, {
+        name: '홍길동',
+        email: 'hong@example.com',
+        phone: '01011112222',
+      });
       const memberSession = await loginUser(t.app, member);
       await withSession(t.http().get(api('/auth/me')), memberSession).expect(200);
 
@@ -85,11 +101,26 @@ describe('admin members & accounts (e2e)', () => {
         status: UserStatus.SUSPENDED,
         suspendedReason: '허위매물 반복 등록',
         activeSessions: 0,
+        email: 'ho***@example.com',
+        phone: '010-****-2222',
       });
       await withSession(t.http().get(api('/auth/me')), memberSession).expect(401);
-      const [audit] = await auditRows(t, 'member.suspend');
+      const audits = await t.prisma.auditLog.findMany({ where: { resourceId: member.id } });
+      expect(audits.map((a) => a.action)).toEqual(['member.suspend']);
+      const [audit] = audits;
       expect(audit).toMatchObject({ resourceId: member.id });
-      expect(audit?.before).toMatchObject({ status: UserStatus.ACTIVE });
+      // Minimal projection only: audit_logs is append-only and never scrubbed.
+      expect(audit?.before).toEqual({
+        id: member.id,
+        status: UserStatus.ACTIVE,
+        suspendedAt: null,
+        suspendedReason: null,
+      });
+      expect(audit?.after).toMatchObject({
+        status: UserStatus.SUSPENDED,
+        suspendedReason: '허위매물 반복 등록',
+      });
+      expect(JSON.stringify(audits)).not.toMatch(/홍길동|hong@|11112222/);
 
       expectCode(
         await as(t, session, 'post', `/admin/users/${member.id}/suspend`)
@@ -99,6 +130,9 @@ describe('admin members & accounts (e2e)', () => {
       );
       const back = await as(t, session, 'post', `/admin/users/${member.id}/unsuspend`).expect(200);
       expect(back.body).toMatchObject({ status: UserStatus.ACTIVE, suspendedAt: null });
+      expect((await auditRows(t, 'member.unsuspend'))[0]?.after).toMatchObject({
+        status: UserStatus.ACTIVE,
+      });
       await as(t, session, 'post', `/admin/users/${member.id}/unsuspend`).expect(400);
       await as(t, session, 'post', `/admin/users/${MISSING_ID}/unsuspend`).expect(404);
     });

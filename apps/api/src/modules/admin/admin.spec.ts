@@ -6,6 +6,12 @@ import { ROLES_KEY } from '../../common/decorators/metadata-keys';
 import { AppException } from '../../common/errors/app.exception';
 import { resourceTypeFromPath, stripSecrets } from './audit/admin-mutation-audit.interceptor';
 import { RequirePermission } from './permissions.decorator';
+import type { CacheService } from '../../common/cache/cache.service';
+import type { PrismaTx } from '../../prisma/prisma.service';
+import { LISTINGS_SEARCH_CACHE_NS } from '../listings/constants';
+import type { ListingsModerationService } from '../listings/services/listings-moderation.service';
+import { reportSelect, toAdminReportView, type ReportRow } from './admin.mapper';
+import { ListingModerationAdapter } from './ports/listing-moderation.port';
 import { AdminAccountsService } from './services/admin-accounts.service';
 import { startOfKstDay } from './services/dashboard.service';
 import { countsAsVisit } from './visitors/visitor-counter.middleware';
@@ -164,5 +170,68 @@ describe('AdminAccountsService guards', () => {
       ErrorCode.ADMIN_SELF_MODIFICATION,
     );
     expect(await codeOf(svc.resetTotp(actor, 'self'))).toBe(ErrorCode.ADMIN_SELF_MODIFICATION);
+  });
+});
+
+describe('ListingModerationAdapter', () => {
+  function setup() {
+    const moderation = {
+      hide: jest.fn().mockResolvedValue('ACTIVE'),
+      close: jest.fn().mockResolvedValue('ACTIVE'),
+      unhide: jest.fn().mockResolvedValue(undefined),
+    };
+    const cache = { bump: jest.fn().mockResolvedValue(undefined) };
+    const adapter = new ListingModerationAdapter(
+      moderation as unknown as ListingsModerationService,
+      cache as unknown as CacheService,
+    );
+    return { adapter, moderation, cache };
+  }
+
+  it('joins the caller transaction when hiding, and invalidates map tiles on request', async () => {
+    const { adapter, moderation, cache } = setup();
+    const tx = {} as PrismaTx;
+    await adapter.hide('l1', '허위', tx);
+    expect(moderation.hide).toHaveBeenCalledWith('l1', '허위', tx);
+    expect(cache.bump).not.toHaveBeenCalled();
+    await adapter.invalidateSearch();
+    expect(cache.bump).toHaveBeenCalledWith(LISTINGS_SEARCH_CACHE_NS);
+  });
+
+  it('force-closes in a single listings-module transaction', async () => {
+    const { adapter, moderation } = setup();
+    await adapter.forceClose('l1', '거래완료');
+    expect(moderation.close).toHaveBeenCalledWith('l1', '거래완료');
+    expect(moderation.hide).not.toHaveBeenCalled();
+  });
+});
+
+describe('toAdminReportView', () => {
+  const row = {
+    id: 'r1',
+    targetType: 'LISTING',
+    reason: 'NOT_EXIST',
+    detail: null,
+    status: 'RECEIVED',
+    action: null,
+    resolutionNote: null,
+    handledAt: null,
+    reporterPhone: '01012345678',
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+    listingId: null,
+    agencyId: null,
+    reporterUserId: null,
+    listing: null,
+    agency: null,
+    reporter: null,
+    handledBy: null,
+  } as unknown as ReportRow;
+
+  it('masks the reporter phone unless the caller reveals it (audited detail)', () => {
+    expect(Object.keys(reportSelect)).toContain('reporterPhone');
+    expect(toAdminReportView(row).reporterPhone).toBe('010-****-5678');
+    expect(toAdminReportView(row, { revealContact: true }).reporterPhone).toBe('01012345678');
+    expect(toAdminReportView({ ...row, reporterPhone: null }).reporterPhone).toBeNull();
   });
 });

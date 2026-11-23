@@ -221,6 +221,31 @@ export interface TradeSyncResult {
 
 export interface TradeRematchResult {
   scanned: number;
+  /** Previously unmatched trades now attached to a 단지. */
   matched: number;
+  /** Trades detached (their 단지 was deleted or is contradicted by the 국토교통부 code / 지번). */
+  unmatched: number;
   complexesRecomputed: number;
+}
+
+/** Background trade-sync job kinds the admin can start and poll. */
+export type TradeSyncJobKind = 'MONTH' | 'REMATCH';
+export type TradeSyncJobState = 'waiting' | 'delayed' | 'active' | 'completed' | 'failed';
+
+/** 202 answer of POST /admin/complexes/trade-sync and /rematch. */
+export interface TradeSyncJobAccepted {
+  jobId: string;
+  kind: TradeSyncJobKind;
+  state: TradeSyncJobState;
+}
+
+export interface TradeSyncJobView extends TradeSyncJobAccepted {
+  /** { yearMonth, kinds } for MONTH, { fromYm } for REMATCH. */
+  params: Record<string, unknown>;
+  attemptsMade: number;
+  /** Result once completed: TradeSyncResult (MONTH) or TradeRematchResult (REMATCH). */
+  result: TradeSyncResult | TradeRematchResult | null;
+  failedReason: string | null;
+  createdAt: string;
+  finishedAt: string | null;
 }

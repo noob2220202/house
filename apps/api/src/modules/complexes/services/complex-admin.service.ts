@@ -31,6 +31,7 @@ import {
 import { AREA_TYPE_MATCH_TOLERANCE_SQM, COMPLEXES_CACHE } from '../constants';
 import { COMPLEX_MEDIA, type ComplexMediaPort } from '../ports/complex-media.port';
 import { TradeStatsService } from '../trade-sync/trade-stats.service';
+import { TradeSyncJobs } from '../trade-sync/trade-sync.jobs';
 import { COMPLEX_DETAIL_SELECT, ComplexQueryService } from './complex-query.service';
 import { RegionsService } from './regions.service';
 
@@ -78,6 +79,19 @@ function areaTypeData(input: ComplexAreaTypeInput | ComplexAreaTypeUpdate) {
   };
 }
 
+/** Fields the trade matcher reads: changing any of them can re-attribute 실거래 rows. */
+const MATCH_FIELDS = [
+  'name',
+  'emdCode',
+  'emdName',
+  'jibun',
+  'jibunAddress',
+  'externalCode',
+] as const;
+
+/** Interactive transactions that also rebuild one 단지's stats history. */
+const STATS_TX_OPTIONS = { timeout: 30_000 } as const;
+
 /** Admin CRUD for 단지, 평형 and 단지 photos. Every mutation is audited by the controller. */
 @Injectable()
 export class ComplexAdminService {
@@ -88,6 +102,7 @@ export class ComplexAdminService {
     private readonly stats: TradeStatsService,
     private readonly cache: CacheService,
     private readonly config: AppConfig,
+    private readonly jobs: TradeSyncJobs,
     @Inject(COMPLEX_MEDIA) private readonly media: ComplexMediaPort,
   ) {}
 
@@ -181,6 +196,8 @@ export class ComplexAdminService {
       rethrowUnique(err);
     }
     await this.invalidate();
+    // A new 단지 may own trades synced before it existed.
+    await this.jobs.requestRematch();
     return this.get(id);
   }
 
@@ -205,6 +222,7 @@ export class ComplexAdminService {
       rethrowUnique(err);
     }
     await this.invalidate();
+    if (MATCH_FIELDS.some((f) => input[f] !== undefined)) await this.jobs.requestRematch();
     return this.get(id);
   }
 
@@ -212,12 +230,22 @@ export class ComplexAdminService {
     const current = await this.prisma.complex.findFirst({ where: { id, deletedAt: null } });
     if (!current) throw AppException.notFound(ErrorCode.COMPLEX_NOT_FOUND);
     RequestContext.setAuditBefore(current);
-    // Soft delete; the 국토교통부 code is released so a replacement 단지 can take it.
-    await this.prisma.complex.update({
-      where: { id },
-      data: { deletedAt: new Date(), externalCode: null },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      await TradeStatsService.lock(tx, [id]);
+      // Its 실거래 rows become unmatched (a replacement 단지 picks them up on rematch) and its
+      // stats go with it.
+      await tx.$executeRaw`
+        UPDATE trade_records SET complex_id = NULL, area_type_id = NULL
+        WHERE complex_id = ${id}::uuid`;
+      await tx.$executeRaw`DELETE FROM complex_trade_stats WHERE complex_id = ${id}::uuid`;
+      // Soft delete; the 국토교통부 code is released so a replacement 단지 can take it.
+      await tx.complex.update({
+        where: { id },
+        data: { deletedAt: new Date(), externalCode: null },
+      });
+    }, STATS_TX_OPTIONS);
     await this.invalidate();
+    await this.jobs.requestRematch();
   }
 
   async addAreaType(id: string, input: ComplexAreaTypeInput): Promise<ComplexAreaTypeView> {
@@ -225,17 +253,18 @@ export class ComplexAdminService {
     let row;
     try {
       row = await this.prisma.$transaction(async (tx) => {
+        await TradeStatsService.lock(tx, [id]);
         const created = await tx.complexAreaType.create({
           data: { complexId: id, ...areaTypeData(input), exclusiveArea: input.exclusiveArea },
           select: AREA_TYPE_SELECT,
         });
-        await this.assignUnassignedTrades(tx, id, created.id, input.exclusiveArea);
+        await this.reassignAreaTypes(tx, id);
         return created;
-      });
+      }, STATS_TX_OPTIONS);
     } catch (err) {
       rethrowUnique(err);
     }
-    await this.afterAreaTypeChange(id);
+    await this.invalidate();
     return toAreaTypeView(row);
   }
 
@@ -252,15 +281,20 @@ export class ComplexAdminService {
     RequestContext.setAuditBefore(current);
     let row;
     try {
-      row = await this.prisma.complexAreaType.update({
-        where: { id: areaTypeId },
-        data: areaTypeData(input),
-        select: AREA_TYPE_SELECT,
-      });
+      row = await this.prisma.$transaction(async (tx) => {
+        await TradeStatsService.lock(tx, [id]);
+        const updated = await tx.complexAreaType.update({
+          where: { id: areaTypeId },
+          data: areaTypeData(input),
+          select: AREA_TYPE_SELECT,
+        });
+        if (input.exclusiveArea !== undefined) await this.reassignAreaTypes(tx, id);
+        return updated;
+      }, STATS_TX_OPTIONS);
     } catch (err) {
       rethrowUnique(err);
     }
-    await this.afterAreaTypeChange(id);
+    await this.invalidate();
     return toAreaTypeView(row);
   }
 
@@ -271,23 +305,28 @@ export class ComplexAdminService {
     });
     if (!current) throw AppException.notFound(ErrorCode.COMPLEX_AREA_TYPE_NOT_FOUND);
     RequestContext.setAuditBefore(current);
-    // trade_records / properties keep their rows (area_type_id → NULL).
-    await this.prisma.complexAreaType.delete({ where: { id: areaTypeId } });
-    await this.afterAreaTypeChange(id);
+    await this.prisma.$transaction(async (tx) => {
+      await TradeStatsService.lock(tx, [id]);
+      // trade_records / properties keep their rows (area_type_id → NULL, then trades move to the
+      // nearest remaining 평형 within tolerance).
+      await tx.complexAreaType.delete({ where: { id: areaTypeId } });
+      await this.reassignAreaTypes(tx, id);
+    }, STATS_TX_OPTIONS);
+    await this.invalidate();
   }
 
   /** Replaces the photo list (order = array order). */
   async setPhotos(id: string, input: ComplexPhotosInput): Promise<ComplexPhotoView[]> {
     await this.requireComplex(id);
     const mediaIds = input.items.map((i) => i.mediaId);
-    await this.media.assertUsable(mediaIds);
-    const before = await this.prisma.complexPhoto.findMany({
-      where: { complexId: id },
-      orderBy: { sortOrder: 'asc' },
-      select: { mediaId: true, caption: true, sortOrder: true },
-    });
-    RequestContext.setAuditBefore(before);
-    await this.prisma.$transaction(async (tx) => {
+    const before = await this.prisma.$transaction(async (tx) => {
+      // Locks the uploads FOR SHARE so the orphan cleanup cannot delete them under us.
+      await this.media.assertUsable(mediaIds, tx);
+      const prev = await tx.complexPhoto.findMany({
+        where: { complexId: id },
+        orderBy: { sortOrder: 'asc' },
+        select: { mediaId: true, caption: true, sortOrder: true },
+      });
       await tx.complexPhoto.deleteMany({ where: { complexId: id } });
       if (input.items.length > 0) {
         await tx.complexPhoto.createMany({
@@ -299,7 +338,14 @@ export class ComplexAdminService {
           })),
         });
       }
+      const kept = new Set(mediaIds);
+      await this.media.released(
+        prev.map((p) => p.mediaId).filter((m) => !kept.has(m)),
+        tx,
+      );
+      return prev;
     });
+    RequestContext.setAuditBefore(before);
     return (await this.get(id)).photos;
   }
 
@@ -310,22 +356,26 @@ export class ComplexAdminService {
     if (n === 0) throw AppException.notFound(ErrorCode.COMPLEX_NOT_FOUND);
   }
 
-  private async afterAreaTypeChange(complexId: string): Promise<void> {
-    // Stats are grouped by the 평형's 전용면적, so rebuild this 단지's history.
-    await this.stats.recompute([complexId]);
-    await this.invalidate();
-  }
-
-  private async assignUnassignedTrades(
-    tx: PrismaTx,
-    complexId: string,
-    areaTypeId: string,
-    exclusiveArea: number,
-  ): Promise<void> {
+  /**
+   * Re-assigns every trade of the 단지 to its nearest 평형 within the tolerance (ties → lowest id,
+   * as ComplexMatcher.areaTypeFor) and rebuilds the 단지's stats, which are grouped by the 평형's
+   * 전용면적. Call inside the transaction that changed the 평형 (stats lock already held).
+   */
+  private async reassignAreaTypes(tx: PrismaTx, complexId: string): Promise<void> {
     await tx.$executeRaw`
-      UPDATE trade_records SET area_type_id = ${areaTypeId}::uuid
-      WHERE complex_id = ${complexId}::uuid AND area_type_id IS NULL
-        AND abs(exclusive_area - ${exclusiveArea}) <= ${AREA_TYPE_MATCH_TOLERANCE_SQM}`;
+      UPDATE trade_records tr SET area_type_id = best.id
+      FROM (
+        SELECT tr2.id AS tid,
+               (SELECT at.id FROM complex_area_types at
+                WHERE at.complex_id = tr2.complex_id
+                  AND abs(at.exclusive_area - tr2.exclusive_area) <= ${AREA_TYPE_MATCH_TOLERANCE_SQM}
+                ORDER BY abs(at.exclusive_area - tr2.exclusive_area), at.id
+                LIMIT 1) AS id
+        FROM trade_records tr2
+        WHERE tr2.complex_id = ${complexId}::uuid
+      ) best
+      WHERE tr.id = best.tid AND tr.area_type_id IS DISTINCT FROM best.id`;
+    await this.stats.recomputeIn(tx, [complexId]);
   }
 
   private async invalidate(): Promise<void> {

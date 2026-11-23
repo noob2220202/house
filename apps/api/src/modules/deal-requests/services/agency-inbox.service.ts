@@ -1,5 +1,6 @@
 import {
   ErrorCode,
+  UserStatus,
   type AgencyDealRequestListQuery,
   type AgencyDealRequestView,
   type Paginated,
@@ -72,13 +73,17 @@ export class AgencyInboxService {
     return this.mapper.agency(row, contacts.get(row.id) ?? null);
   }
 
+  /**
+   * Contact of granted requests whose requester is still ACTIVE: a suspended or withdrawn member's
+   * contact is never revealed, even before the scrub job runs.
+   */
   private async contactsFor(
     rows: readonly DealRequestAgencyRow[],
   ): Promise<Map<string, DealRequestContactRow>> {
     const ids = rows.filter(canSeeContact).map((r) => r.id);
     if (ids.length === 0) return new Map();
     const contacts = await this.prisma.dealRequest.findMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, contactScrubbedAt: null, user: { status: UserStatus.ACTIVE } },
       select: dealRequestContactSelect,
     });
     return new Map(contacts.map((c) => [c.id, c]));

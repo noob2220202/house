@@ -1,6 +1,12 @@
-import { createHash } from 'node:crypto';
+import { createHmac } from 'node:crypto';
+import { isIP } from 'node:net';
 import { Injectable, Logger } from '@nestjs/common';
-import { kstDayKey, type PopularComplexItem, type PopularComplexesQuery } from '@house/shared';
+import {
+  isBotUserAgent,
+  kstDayKey,
+  type PopularComplexItem,
+  type PopularComplexesQuery,
+} from '@house/shared';
 import type { Prisma } from '@prisma/client';
 import type Redis from 'ioredis';
 import type { Principal } from '../../../common/auth/principal';
@@ -11,6 +17,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { InjectRedis } from '../../../redis/redis.constants';
 import { COMPLEX_SUMMARY_SELECT, toComplexSummary } from '../complex.mapper';
 import {
+  ANON_VIEW_DAILY_CAP_PER_NETWORK,
   CACHE_TTL_SECONDS,
   COMPLEXES_CACHE,
   COMPLEXES_REDIS_KEYS,
@@ -22,20 +29,57 @@ import {
 import { ComplexListingsService } from './complex-listings.service';
 
 /**
- * KEYS: seen marker, daily ZSET, totals HASH; ARGV: id, DB count, dedupe TTL, daily TTL.
- * One counted view per viewer per KST day; the totals hash holds absolute totals seeded from the
- * DB so the flush can SET GREATEST(...) and re-running it is harmless.
+ * KEYS: seen marker, daily ZSET, totals HASH, per-network daily cap counter;
+ * ARGV: id, DB count, dedupe TTL, daily TTL, cap (0 = none), cap TTL.
+ * One counted view per viewer per KST day; anonymous networks additionally stop counting after
+ * `cap` distinct 단지 a day. The totals hash holds absolute totals seeded from the DB so the
+ * flush can SET GREATEST(...) and re-running it is harmless.
  */
 const RECORD_VIEW_LUA = `
-if redis.call('SET', KEYS[1], '1', 'NX', 'EX', tonumber(ARGV[3])) then
-  redis.call('ZINCRBY', KEYS[2], 1, ARGV[1])
-  redis.call('EXPIRE', KEYS[2], tonumber(ARGV[4]))
-  redis.call('HSETNX', KEYS[3], ARGV[1], ARGV[2])
-  return redis.call('HINCRBY', KEYS[3], ARGV[1], 1)
+local function total()
+  local v = redis.call('HGET', KEYS[3], ARGV[1])
+  if v then return tonumber(v) end
+  return -1
 end
-local v = redis.call('HGET', KEYS[3], ARGV[1])
-if v then return tonumber(v) end
-return -1`;
+if not redis.call('SET', KEYS[1], '1', 'NX', 'EX', tonumber(ARGV[3])) then return total() end
+local cap = tonumber(ARGV[5])
+if cap > 0 then
+  local n = redis.call('INCR', KEYS[4])
+  if n == 1 then redis.call('EXPIRE', KEYS[4], tonumber(ARGV[6])) end
+  if n > cap then return total() end
+end
+redis.call('ZINCRBY', KEYS[2], 1, ARGV[1])
+redis.call('EXPIRE', KEYS[2], tonumber(ARGV[4]))
+redis.call('HSETNX', KEYS[3], ARGV[1], ARGV[2])
+return redis.call('HINCRBY', KEYS[3], ARGV[1], 1)`;
+
+/** Who a view is attributed to; `null` from viewerKey() means "do not count". */
+export interface Viewer {
+  key: string;
+  /** Anonymous viewers are keyed by network and subject to the per-network daily cap. */
+  anonymous: boolean;
+}
+
+/**
+ * Network a client address belongs to: IPv4 /24, IPv6 /64 (IPv4-mapped IPv6 is treated as IPv4).
+ * Rotating addresses inside a home/office network or rotating the User-Agent gains nothing.
+ */
+export function networkPrefix(ip: string | undefined): string | null {
+  if (!ip) return null;
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(ip)?.[1];
+  const v4 = mapped ?? ip;
+  if (isIP(v4) === 4) return `${v4.split('.').slice(0, 3).join('.')}.0/24`;
+  const addr = (ip.split('%')[0] ?? '').toLowerCase();
+  if (isIP(addr) !== 6 || addr.includes('.')) return null;
+  const [head = '', tail = ''] = addr.split('::');
+  const h = head ? head.split(':') : [];
+  const t = addr.includes('::') && tail ? tail.split(':') : [];
+  const groups = [...h, ...new Array<string>(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t];
+  return `${groups
+    .slice(0, 4)
+    .map((g) => g.replace(/^0+(?=.)/, ''))
+    .join(':')}::/64`;
+}
 
 /** KEYS[1] totals hash; ARGV = id1, total1, … — deletes fields still at the flushed value. */
 const COMPARE_AND_DELETE_LUA = `
@@ -78,6 +122,7 @@ export function decayedScores(days: readonly (readonly string[])[]): Map<string,
 @Injectable()
 export class ComplexPopularityService {
   private readonly logger = new Logger(ComplexPopularityService.name);
+  private readonly viewerSecret: Buffer;
 
   constructor(
     @InjectRedis() private readonly redis: Redis,
@@ -85,36 +130,55 @@ export class ComplexPopularityService {
     private readonly cache: CacheService,
     private readonly config: AppConfig,
     private readonly listings: ComplexListingsService,
-  ) {}
+  ) {
+    // Purpose-bound subkey so the cookie secret itself is never used as an HMAC key elsewhere.
+    this.viewerSecret = createHmac('sha256', config.get('COOKIE_SECRET'))
+      .update('complexes:viewer-key')
+      .digest();
+  }
 
-  /** Stable per-viewer key: user/admin id, else a hash of IP + user agent (no raw PII in Redis). */
-  viewerKey(principal: Principal | undefined): string {
-    if (principal?.kind === 'USER') return `u:${principal.userId}`;
-    if (principal?.kind === 'ADMIN') return `a:${principal.adminId}`;
+  /**
+   * Per-viewer key: user id, else an HMAC (server secret) of the client's network — never raw or
+   * reversible PII in Redis. Admins, bots and requests without an address are not counted.
+   */
+  viewerKey(principal: Principal | undefined): Viewer | null {
+    if (principal?.kind === 'USER') return { key: `u:${principal.userId}`, anonymous: false };
+    if (principal?.kind === 'ADMIN') return null;
     const ctx = RequestContext.current();
-    const raw = `${ctx?.ip ?? ''}|${ctx?.userAgent ?? ''}`;
-    return `x:${createHash('sha256').update(raw).digest('hex').slice(0, 24)}`;
+    if (isBotUserAgent(ctx?.userAgent)) return null;
+    const network = networkPrefix(ctx?.ip);
+    if (!network) return null;
+    const digest = createHmac('sha256', this.viewerSecret).update(network).digest('base64url');
+    return { key: `n:${digest.slice(0, 22)}`, anonymous: true };
   }
 
   /** Records a deduped view; returns the current total (falls back to `dbCount` on Redis errors). */
   async recordView(
     complexId: string,
-    viewer: string,
+    viewer: Viewer | null,
     dbCount: number,
     now = new Date(),
   ): Promise<number> {
     const day = kstDayKey(now);
     try {
+      if (!viewer) {
+        const v = await this.redis.hget(COMPLEXES_REDIS_KEYS.viewTotals, complexId);
+        return Math.max(Number(v ?? 0) || 0, dbCount);
+      }
+      const seen = COMPLEXES_REDIS_KEYS.viewSeen(complexId, viewer.key, day);
       const result = await this.redis.eval(
         RECORD_VIEW_LUA,
-        3,
-        COMPLEXES_REDIS_KEYS.viewSeen(complexId, viewer, day),
+        4,
+        seen,
         COMPLEXES_REDIS_KEYS.viewsDaily(day),
         COMPLEXES_REDIS_KEYS.viewTotals,
+        viewer.anonymous ? COMPLEXES_REDIS_KEYS.viewNetworkCap(viewer.key, day) : seen,
         complexId,
         String(dbCount),
         String(VIEW_DEDUPE_TTL_SECONDS),
         String(VIEWS_DAILY_TTL_SECONDS),
+        String(viewer.anonymous ? ANON_VIEW_DAILY_CAP_PER_NETWORK : 0),
+        String(VIEW_DEDUPE_TTL_SECONDS),
       );
       const total = Number(result);
       return total >= 0 ? Math.max(total, dbCount) : dbCount;

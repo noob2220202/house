@@ -1,6 +1,7 @@
 import {
   AgencyStatus,
   computeScheduleStatus,
+  MediaStatus,
   type AdminBannerView,
   type AdminPopupView,
   type PublicBannerView,
@@ -51,7 +52,8 @@ export const publicBannerSelect = {
   endAt: true,
   agency: { select: { id: true, name: true, status: true, deletedAt: true } },
   pcMedia: { select: adMediaSelect },
-  mobileMedia: { select: adMediaSelect },
+  // Optional image: the row is served without it when it was removed (pc image is filtered in SQL).
+  mobileMedia: { select: { ...adMediaSelect, status: true, deletedAt: true } },
 } satisfies Prisma.BannerSelect;
 export type PublicBannerRow = Prisma.BannerGetPayload<{ select: typeof publicBannerSelect }>;
 
@@ -139,7 +141,10 @@ export class AdsMapper {
       advertiserName: b.advertiserName,
       agency,
       imageUrl: this.media.url(b.pcMedia),
-      mobileImageUrl: b.mobileMedia ? this.media.url(b.mobileMedia) : null,
+      mobileImageUrl:
+        b.mobileMedia && !b.mobileMedia.deletedAt && b.mobileMedia.status === MediaStatus.READY
+          ? this.media.url(b.mobileMedia)
+          : null,
       clickUrl: b.linkUrl ? this.clickUrl(b.id) : null,
       newWindow: b.newWindow,
     };

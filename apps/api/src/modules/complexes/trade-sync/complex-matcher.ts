@@ -26,6 +26,8 @@ export interface TradeIdentity {
 interface Indexed {
   complex: MatchableComplex;
   emd: string | null;
+  /** Normalized 지번 (explicit, else parsed from the 지번주소). */
+  jibun: string | null;
   names: Set<string>;
 }
 
@@ -33,6 +35,14 @@ function push<K, V>(map: Map<K, V[]>, key: K, value: V): void {
   const list = map.get(key);
   if (list) list.push(value);
   else map.set(key, [value]);
+}
+
+/** A different 국토교통부 code or a different 지번 rules a 단지 out, whatever the name says. */
+function conflicts(c: Indexed, aptSeq: string | null, jibun: string | null): boolean {
+  return (
+    (aptSeq != null && c.complex.externalCode != null && c.complex.externalCode !== aptSeq) ||
+    (jibun != null && c.jibun != null && c.jibun !== jibun)
+  );
 }
 
 function only<T>(items: readonly T[]): T | null {
@@ -45,6 +55,8 @@ function only<T>(items: readonly T[]): T | null {
  *   2. 법정동 + 지번 (disambiguated by name when several 단지 share a 지번)
  *   3. 법정동 + normalized name variants
  *   4. normalized name, when unique in the 시군구 and the 법정동 does not contradict
+ * Steps 2-4 drop candidates contradicted by a stronger signal (a different 국토교통부 code or a
+ * different 지번), so same-named 단지 (현대, 부영, 주공…) never absorb each other's trades.
  * Ambiguous candidates never match: an unmatched trade is better than a wrong one.
  */
 export class ComplexMatcher {
@@ -52,6 +64,7 @@ export class ComplexMatcher {
   private readonly byEmdJibun = new Map<string, Indexed[]>();
   private readonly byEmdName = new Map<string, Indexed[]>();
   private readonly byName = new Map<string, Indexed[]>();
+  private readonly byId = new Map<string, Indexed>();
 
   constructor(complexes: readonly MatchableComplex[]) {
     for (const complex of complexes) {
@@ -59,7 +72,8 @@ export class ComplexMatcher {
       const emd = normalizeEmdName(parsed.emdName ?? complex.emdName);
       const jibun = normalizeJibun(complex.jibun) ?? parsed.jibun;
       const names = new Set(complexNameVariants(complex.name, parsed.emdName ?? complex.emdName));
-      const entry: Indexed = { complex, emd, names };
+      const entry: Indexed = { complex, emd, jibun, names };
+      this.byId.set(complex.id, entry);
       if (complex.externalCode) this.bySeq.set(complex.externalCode, entry);
       if (emd && jibun) push(this.byEmdJibun, `${emd}|${jibun}`, entry);
       for (const n of names) {
@@ -77,9 +91,10 @@ export class ComplexMatcher {
     const emd = normalizeEmdName(t.emdName);
     const variants = complexNameVariants(t.aptName, t.emdName);
     const jibun = normalizeJibun(t.jibun);
+    const ok = (c: Indexed) => !conflicts(c, t.aptSeq, jibun);
 
     if (emd && jibun) {
-      const candidates = this.byEmdJibun.get(`${emd}|${jibun}`) ?? [];
+      const candidates = (this.byEmdJibun.get(`${emd}|${jibun}`) ?? []).filter(ok);
       const unique = only(candidates);
       if (unique) return unique.complex;
       if (candidates.length > 1) {
@@ -88,13 +103,41 @@ export class ComplexMatcher {
       }
     }
     if (emd) {
-      const hit = only(this.distinct(variants.map((v) => this.byEmdName.get(`${emd}|${v}`))));
+      const hit = only(
+        this.distinct(variants.map((v) => this.byEmdName.get(`${emd}|${v}`))).filter(ok),
+      );
       if (hit) return hit.complex;
     }
     const byName = this.distinct(variants.map((v) => this.byName.get(v))).filter(
-      (c) => !emd || !c.emd || c.emd === emd,
+      (c) => ok(c) && (!emd || !c.emd || c.emd === emd),
     );
     return only(byName)?.complex ?? null;
+  }
+
+  /**
+   * Where a trade belongs now: the current match, else the 단지 it is attached to as long as
+   * keeps() allows (rows matched earlier are not dropped just because a name became ambiguous).
+   */
+  resolve(t: TradeIdentity, currentComplexId: string | null): MatchableComplex | null {
+    const hit = this.match(t);
+    if (hit) return hit;
+    return currentComplexId && this.keeps(currentComplexId, t) ? this.get(currentComplexId) : null;
+  }
+
+  /** The indexed (live) 단지 with this id, if any. */
+  get(complexId: string): MatchableComplex | null {
+    return this.byId.get(complexId)?.complex ?? null;
+  }
+
+  /**
+   * Whether a trade currently attached to `complexId` should stay there: false when the 단지 is
+   * unknown (deleted) or a strong signal contradicts it. Weak ambiguity alone never detaches.
+   */
+  keeps(complexId: string, t: Pick<TradeIdentity, 'aptSeq' | 'jibun'>): boolean {
+    const entry = this.byId.get(complexId);
+    if (!entry) return false;
+    if (t.aptSeq && entry.complex.externalCode === t.aptSeq) return true;
+    return !conflicts(entry, t.aptSeq, normalizeJibun(t.jibun));
   }
 
   /** Nearest 평형 by 전용면적 within the tolerance (ties → first declared). */

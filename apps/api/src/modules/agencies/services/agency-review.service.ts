@@ -12,10 +12,12 @@ import {
   RegistryCheckStatus,
   UserRole,
   canAdminTransitionAgency,
+  sggCodeOf,
   type AdminAgencyDetail,
   type AdminAgencyListItem,
   type AdminAgencyListQuery,
   type AgencyDecisionInput,
+  type AgencyLocationUpdateInput,
   type AgencyRegistryCheck,
   type Paginated,
 } from '@house/shared';
@@ -26,6 +28,7 @@ import { AuditService } from '../../../common/audit/audit.service';
 import { CacheService } from '../../../common/cache/cache.service';
 import { AppException } from '../../../common/errors/app.exception';
 import { paginate } from '../../../common/pagination/pagination';
+import { AppConfig } from '../../../config/app-config.service';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
 import { AgencyMapper, toMemberView } from '../agency.mapper';
 import { agencyMemberSelect, myAgencySelect } from '../agency.selects';
@@ -37,6 +40,7 @@ import {
 import { AGENCY_REDIS, REGISTRY_CACHE_TTL_SECONDS } from '../constants';
 import { lockAgency } from '../domain/locks';
 import { compareWithRegistry } from '../domain/registry-compare';
+import { AGENCY_LISTINGS_SYNC, type AgencyListingsSync } from '../ports/agency-listings.sync';
 import { AGENCY_MEDIA, type AgencyMediaPort } from '../ports/agency-media.port';
 import { AgencyCacheService } from './agency-cache.service';
 import { AgencyInviteStore } from './agency-invite.store';
@@ -48,12 +52,18 @@ const DECISION_VERB: Record<AgencyDecisionInput['status'], string> = {
   SUSPENDED: 'suspend',
 };
 
-/** Suspending a live office (its ads disappear) needs ADMIN; approve/reject is OPERATOR work. */
-const MIN_ROLE_FOR: Record<AgencyDecisionInput['status'], AdminRole> = {
-  APPROVED: AdminRole.OPERATOR,
-  REJECTED: AdminRole.OPERATOR,
-  SUSPENDED: AdminRole.ADMIN,
-};
+/**
+ * Suspending a live office (its ads disappear) and lifting a suspension both need ADMIN;
+ * approving / rejecting a pending application is OPERATOR work.
+ */
+function minRoleForTransition(from: AgencyStatus, to: AgencyStatus): AdminRole {
+  return from === AgencyStatus.SUSPENDED || to === AgencyStatus.SUSPENDED
+    ? AdminRole.ADMIN
+    : AdminRole.OPERATOR;
+}
+
+/** Statuses in which an agency's listings are publicly advertised. */
+const isPublic = (s: AgencyStatus): boolean => s === AgencyStatus.APPROVED;
 
 const INLINE_MIME = new Set<string>(ALLOWED_DOCUMENT_MIME);
 
@@ -76,6 +86,8 @@ export class AgencyReviewService {
     private readonly jsonCache: CacheService,
     private readonly sessions: AgencySessionSyncService,
     private readonly invites: AgencyInviteStore,
+    private readonly config: AppConfig,
+    @Inject(AGENCY_LISTINGS_SYNC) private readonly listings: AgencyListingsSync,
     @Inject(AGENCY_MEDIA) private readonly media: AgencyMediaPort,
     @Inject(BROKER_REGISTRY) private readonly registry: BrokerRegistryClient,
   ) {}
@@ -192,7 +204,8 @@ export class AgencyReviewService {
     input: AgencyDecisionInput,
     admin: AdminPrincipal,
   ): Promise<AdminAgencyDetail> {
-    if (ADMIN_ROLE_RANK[admin.role] < ADMIN_ROLE_RANK[MIN_ROLE_FOR[input.status]]) {
+    // Every decision needs at least OPERATOR; the transition-specific check runs on `before`.
+    if (ADMIN_ROLE_RANK[admin.role] < ADMIN_ROLE_RANK[AdminRole.OPERATOR]) {
       throw AppException.forbidden(ErrorCode.AGENCY_DECISION_FORBIDDEN);
     }
     const to = input.status;
@@ -212,6 +225,10 @@ export class AgencyReviewService {
         },
       });
       if (!before) throw AppException.notFound(ErrorCode.AGENCY_NOT_FOUND);
+      const required = minRoleForTransition(before.status, to);
+      if (ADMIN_ROLE_RANK[admin.role] < ADMIN_ROLE_RANK[required]) {
+        throw AppException.forbidden(ErrorCode.AGENCY_DECISION_FORBIDDEN);
+      }
       if (!canAdminTransitionAgency(before.status, to)) {
         throw AppException.badRequest(ErrorCode.AGENCY_INVALID_STATUS_TRANSITION, {
           from: before.status,
@@ -231,6 +248,9 @@ export class AgencyReviewService {
         },
       });
       if (updated.count !== 1) throw AppException.conflict(ErrorCode.AGENCY_STATUS_CONFLICT);
+      const visibilityChanged = isPublic(before.status) !== isPublic(to);
+      // Suspension takes the office's listings off public search (primary must be APPROVED).
+      if (visibilityChanged) await this.listings.agencyVisibilityChanged(tx, agencyId);
       await tx.agencyStatusHistory.create({
         data: {
           agencyId,
@@ -259,7 +279,7 @@ export class AgencyReviewService {
         },
         tx,
       );
-      return { before, firstApproval };
+      return { before, firstApproval, visibilityChanged };
     });
 
     const ownerId = outcome.before.ownerUserId;
@@ -270,6 +290,84 @@ export class AgencyReviewService {
     } else if (to === AgencyStatus.SUSPENDED) {
       await this.invites.revokeAll(agencyId);
     }
+    await this.cache.invalidatePublic();
+    if (outcome.visibilityChanged) await this.listings.invalidateSearch();
+    return this.detail(agencyId);
+  }
+
+  /**
+   * 소재지 변경 of an approved / suspended office after the admin checked its 이전신고 (the owner
+   * cannot edit these fields once approved). Audited with before/after; the owner is notified.
+   */
+  async updateLocation(
+    agencyId: string,
+    input: AgencyLocationUpdateInput,
+  ): Promise<AdminAgencyDetail> {
+    const { reason, ...fields } = input;
+    await this.prisma.$transaction(async (tx) => {
+      await lockAgency(tx, agencyId);
+      const before = await tx.agency.findFirst({
+        where: { id: agencyId, deletedAt: null },
+        select: {
+          id: true,
+          name: true,
+          ownerUserId: true,
+          status: true,
+          roadAddress: true,
+          jibunAddress: true,
+          addressDetail: true,
+          zipCode: true,
+          emdCode: true,
+          sggCode: true,
+          lat: true,
+          lng: true,
+        },
+      });
+      if (!before) throw AppException.notFound(ErrorCode.AGENCY_NOT_FOUND);
+      // Pending / rejected applications are corrected by the owner (PATCH mine / resubmit).
+      if (before.status !== AgencyStatus.APPROVED && before.status !== AgencyStatus.SUSPENDED) {
+        throw AppException.badRequest(ErrorCode.AGENCY_NOT_EDITABLE);
+      }
+      const sggCode =
+        fields.emdCode !== undefined
+          ? fields.emdCode
+            ? sggCodeOf(fields.emdCode)
+            : this.config.get('REGION_SGG_CODE')
+          : before.sggCode;
+      await tx.agency.update({
+        where: { id: agencyId },
+        data: {
+          roadAddress: fields.roadAddress,
+          jibunAddress: fields.jibunAddress,
+          addressDetail: fields.addressDetail,
+          zipCode: fields.zipCode,
+          emdCode: fields.emdCode,
+          lat: fields.lat,
+          lng: fields.lng,
+          sggCode,
+        },
+      });
+      const { id: _id, name, ownerUserId, status: _status, ...location } = before;
+      await this.audit.record(
+        {
+          action: 'agency.location.update',
+          resourceType: 'Agency',
+          resourceId: agencyId,
+          before: location,
+          after: { ...location, ...fields, sggCode, reason },
+        },
+        tx,
+      );
+      await tx.notification.create({
+        data: {
+          userId: ownerUserId,
+          type: NotificationType.SYSTEM,
+          title: `${name} 중개사무소 소재지 정보가 변경되었습니다.`,
+          body: fields.roadAddress ?? null,
+          data: { agencyId },
+        },
+      });
+    });
     await this.cache.invalidatePublic();
     return this.detail(agencyId);
   }

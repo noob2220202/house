@@ -14,7 +14,13 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Audit } from '../../../common/decorators';
-import { IdParamDto, TermsAdminListQueryDto, TermsInputDto, TermsUpdateDto } from '../dto';
+import {
+  IdParamDto,
+  TermsAdminListQueryDto,
+  TermsInputDto,
+  TermsPublishDto,
+  TermsUpdateDto,
+} from '../dto';
 import { RequirePermission } from '../permissions.decorator';
 import { AdminTermsService } from '../services/admin-terms.service';
 
@@ -47,11 +53,11 @@ export class AdminTermsController {
     return this.terms.update(p.id, dto);
   }
 
+  /** Audited inside the publish transaction (records an `urgent` override and its reason). */
   @Post(':id/publish')
   @HttpCode(HttpStatus.OK)
-  @Audit({ action: 'terms.publish', resourceType: 'TermsDocument' })
-  publish(@Param() p: IdParamDto): Promise<AdminTermsView> {
-    return this.terms.publish(p.id);
+  publish(@Param() p: IdParamDto, @Body() dto: TermsPublishDto): Promise<AdminTermsView> {
+    return this.terms.publish(p.id, dto);
   }
 
   @Delete(':id')

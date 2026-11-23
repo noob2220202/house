@@ -23,10 +23,22 @@ describe('complexes (e2e): environment + view counters', () => {
     await t.http().get('/api/v1/health/ready').expect(200);
   });
 
+  const view = (id: string, ip: string) =>
+    t
+      .http()
+      .get(`/api/v1/complexes/${id}`)
+      .set(
+        'User-Agent',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36',
+      )
+      .set('X-Forwarded-For', ip)
+      .expect(200);
+
   it('flushes deduped view totals to complexes.view_count idempotently (worker job)', async () => {
     const c = await createComplex(t.prisma, { viewCount: 10 });
-    for (const ua of ['a', 'b', 'a']) {
-      await t.http().get(`/api/v1/complexes/${c.id}`).set('User-Agent', ua).expect(200);
+    // two networks, the first one twice (deduped)
+    for (const ip of ['198.51.100.1', '203.0.113.1', '198.51.100.1']) {
+      await view(c.id, ip);
     }
     const processor = t.app.get(TradeSyncProcessor);
     expect(await processor.process({ name: TRADE_SYNC_JOBS.FLUSH_VIEWS, data: {} } as Job)).toEqual(
@@ -36,12 +48,8 @@ describe('complexes (e2e): environment + view counters', () => {
     expect(await t.app.get(ComplexPopularityService).flush()).toBe(0);
     expect((await t.prisma.complex.findUniqueOrThrow({ where: { id: c.id } })).viewCount).toBe(12);
     // the next view continues from the persisted total
-    await t.http().get(`/api/v1/complexes/${c.id}`).set('User-Agent', 'c').expect(200);
-    const detail = await t
-      .http()
-      .get(`/api/v1/complexes/${c.id}`)
-      .set('User-Agent', 'c')
-      .expect(200);
+    await view(c.id, '192.0.2.1');
+    const detail = await view(c.id, '192.0.2.1');
     expect(detail.body.viewCount).toBe(13);
   });
 });

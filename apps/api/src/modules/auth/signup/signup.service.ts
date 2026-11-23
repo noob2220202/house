@@ -16,12 +16,16 @@ import { SessionService } from '../session/session.service';
 import { type ConsentDecision, TermsService, toTermsSummary } from '../terms/terms.service';
 import { AccountService } from '../users/account.service';
 import { UserSessionService } from '../users/user-session.service';
+import { WithdrawnIdentityService } from '../users/withdrawn-identity.service';
 import { type PendingSignup, PendingSignupStore } from './pending-signup.store';
 
 const signupExpired = () =>
   new AppException(ErrorCode.AUTH_SIGNUP_EXPIRED, { status: HttpStatus.UNAUTHORIZED });
 
-/** Second half of a first social login: terms consent → User + Identity + consents → session. */
+/**
+ * Second half of a first social login: 만 14세 이상 confirmation (schema-enforced, stored as
+ * ageConfirmedAt) + terms consent → User + Identity + consents → session.
+ */
 @Injectable()
 export class SignupService {
   constructor(
@@ -31,6 +35,7 @@ export class SignupService {
     private readonly sessions: SessionService,
     private readonly userSessions: UserSessionService,
     private readonly accounts: AccountService,
+    private readonly withdrawn: WithdrawnIdentityService,
   ) {}
 
   /** Prefill for the signup form (the provider profile of this browser's pending signup). */
@@ -56,7 +61,12 @@ export class SignupService {
 
     const user = await this.prisma
       .$transaction(async (tx) => {
-        const current = await this.terms.current(new Date(), tx);
+        const now = new Date();
+        // Re-checked here: the cooldown may have started after the OAuth callback.
+        if (await this.withdrawn.inCooldown(profile, now, tx)) {
+          throw AppException.forbidden(ErrorCode.AUTH_REJOIN_COOLDOWN);
+        }
+        const current = await this.terms.current(now, tx);
         this.terms.validate(current, dto.consents, { requireAll: true });
         const decisions: ConsentDecision[] = [...dto.consents];
         let marketingOptIn = dto.marketingOptIn;
@@ -76,6 +86,7 @@ export class SignupService {
             profileImageUrl: profile.profileImageUrl,
             role: UserRole.USER,
             marketingOptIn,
+            ageConfirmedAt: now,
             identities: {
               create: {
                 provider: profile.provider,

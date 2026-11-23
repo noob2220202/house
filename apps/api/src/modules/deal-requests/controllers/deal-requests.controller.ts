@@ -74,6 +74,14 @@ export class MyDealRequestsController {
     return this.requests.cancel(user, p.id);
   }
 
+  /** OPEN → expiry pushed out by TTL_DAYS; EXPIRED → OPEN again (limited number of times). */
+  @Post(':id/extend')
+  @HttpCode(HttpStatus.OK)
+  @Throttle(THROTTLE.WRITE)
+  extend(@CurrentUser() user: UserPrincipal, @Param() p: IdParamDto): Promise<MyDealRequestView> {
+    return this.requests.extend(user, p.id);
+  }
+
   @Post(':id/close')
   @HttpCode(HttpStatus.OK)
   @Throttle(THROTTLE.WRITE)

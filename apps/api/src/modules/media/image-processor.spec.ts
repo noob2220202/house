@@ -1,4 +1,4 @@
-import { ErrorCode } from '@house/shared';
+import { ErrorCode, MEDIA_MAX_INPUT_PIXELS } from '@house/shared';
 import sharp from 'sharp';
 import {
   fakeHeic,
@@ -9,6 +9,7 @@ import {
   webp,
 } from '../../../test/e2e/media/fixtures';
 import { AppException } from '../../common/errors/app.exception';
+import { MAX_STORED_EDGE } from './constants';
 import { ImageProcessor } from './image-processor';
 import type { HeicDecoder, RawImage } from './ports/heic-decoder.port';
 
@@ -77,6 +78,42 @@ describe('ImageProcessor', () => {
     expect(out.variants.thumb).toMatchObject({ width: 320, height: 240 });
     expect(out.variants.medium).toMatchObject({ width: 960, height: 640 });
     expect(out.variants.large).toMatchObject({ width: 1920, height: 1280 });
+  });
+
+  it('caps the stored original at MAX_STORED_EDGE (no full-resolution copy is kept)', async () => {
+    const input = await sharp({
+      create: { width: 6000, height: 1500, channels: 3, background: '#456' },
+    })
+      .png()
+      .toBuffer();
+    const out = await processor.processImage(input, 'image/png');
+    expect(out.original).toMatchObject({ width: MAX_STORED_EDGE, height: 1024 });
+    expect(await sharp(out.original.data).metadata()).toMatchObject({ width: 4096, height: 1024 });
+    expect(out.variants.large).toMatchObject({ width: 1920, height: 480 });
+    const doc = await processor.processDocument(input, 'image/png');
+    expect(doc).toMatchObject({ width: MAX_STORED_EDGE, height: 1024, mimeType: 'image/png' });
+  });
+
+  it('rejects images above MEDIA_MAX_INPUT_PIXELS (50 MP) before decoding', async () => {
+    expect(MEDIA_MAX_INPUT_PIXELS).toBe(50_000_000);
+    expect(await codeOf(processor.processImage(pngHeaderOnly(8000, 7000), 'image/png'))).toBe(
+      `${ErrorCode.MEDIA_DIMENSIONS_INVALID}:400`,
+    );
+    expect(await codeOf(processor.processDocument(pngHeaderOnly(8000, 7000), 'image/png'))).toBe(
+      `${ErrorCode.MEDIA_DIMENSIONS_INVALID}:400`,
+    );
+  });
+
+  it('flattens transparent image documents onto white when converting to JPEG', async () => {
+    const transparent = await sharp({
+      create: { width: 20, height: 10, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+    })
+      .webp({ lossless: true })
+      .toBuffer();
+    const doc = await processor.processDocument(transparent, 'image/webp');
+    expect(doc).toMatchObject({ mimeType: 'image/jpeg', ext: 'jpg' });
+    const { data } = await sharp(doc.data).raw().toBuffer({ resolveWithObject: true });
+    expect(Math.min(...data.subarray(0, 3))).toBeGreaterThan(200);
   });
 
   it('keeps transparency of PNG / webp input', async () => {

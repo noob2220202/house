@@ -1,3 +1,4 @@
+import { applicablePrices } from '@house/shared';
 import type {
   AssetType,
   DealType,
@@ -229,16 +230,22 @@ export interface ListingWriteColumns extends PropertySearchColumns, ListingState
   priceSort: number | null;
 }
 
-/** All listing columns derived from the two states (search columns + price sort key). */
+/**
+ * All listing columns derived from the two states (search columns + price sort key). Price fields
+ * that don't apply to the deal type are nulled, so e.g. a 월세 listing switched to 매매 cannot keep
+ * showing its old 월세 next to the 매매가.
+ */
 export function listingWriteColumns(
   l: ListingState,
   p: PropertyState,
   complexBuiltYear: number | null,
 ): ListingWriteColumns {
+  const prices = applicablePrices(l.dealType, l);
   return {
     ...l,
+    ...prices,
     ...propertySearchColumns(p, complexBuiltYear),
-    priceSort: listingPriceSort(l.dealType, l),
+    priceSort: listingPriceSort(l.dealType, prices),
   };
 }
 
@@ -257,6 +264,7 @@ export function publishCheckInput(
     maintenanceFeeWon: l.maintenanceFeeWon,
     moveInType: l.moveInType,
     moveInDate: l.moveInDate,
+    floorDisplay: l.floorDisplay,
     property: p,
     agency,
   };

@@ -194,6 +194,66 @@ export class DealRequestsService {
     return this.end(user, id, DealRequestStatus.CANCELLED, null, now);
   }
 
+  /**
+   * Extends an OPEN request, or reopens an EXPIRED one, for another TTL_DAYS (at most
+   * MAX_EXTENSIONS times). Reopening counts toward MAX_ACTIVE_PER_USER; requests whose contact was
+   * already erased cannot come back. Serialized per member so concurrent calls cannot exceed caps.
+   */
+  async extend(
+    user: UserPrincipal,
+    id: string,
+    now: Date = new Date(),
+  ): Promise<MyDealRequestView> {
+    await this.prisma.$transaction(async (tx) => {
+      const lockKey = `deal-request-active:${user.userId}`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
+      const req = await tx.dealRequest.findFirst({
+        where: { id, userId: user.userId, deletedAt: null },
+        select: { status: true, extensionCount: true, contactScrubbedAt: true },
+      });
+      if (!req) throw AppException.notFound(ErrorCode.DEAL_REQUEST_NOT_FOUND);
+      const extendable: DealRequestStatus[] = [DealRequestStatus.OPEN, DealRequestStatus.EXPIRED];
+      if (!extendable.includes(req.status) || req.contactScrubbedAt !== null) {
+        throw AppException.badRequest(ErrorCode.DEAL_REQUEST_STATE_INVALID);
+      }
+      if (req.extensionCount >= DEAL_REQUEST_LIMITS.MAX_EXTENSIONS) {
+        throw AppException.badRequest(ErrorCode.DEAL_REQUEST_EXTEND_LIMIT, {
+          limit: DEAL_REQUEST_LIMITS.MAX_EXTENSIONS,
+        });
+      }
+      if (req.status === DealRequestStatus.EXPIRED) {
+        const active = await tx.dealRequest.count({
+          where: {
+            userId: user.userId,
+            status: { in: [...DEAL_REQUEST_ACTIVE_STATUSES] },
+            deletedAt: null,
+          },
+        });
+        if (active >= DEAL_REQUEST_LIMITS.MAX_ACTIVE_PER_USER) {
+          throw AppException.badRequest(ErrorCode.DEAL_REQUEST_ACTIVE_LIMIT, {
+            limit: DEAL_REQUEST_LIMITS.MAX_ACTIVE_PER_USER,
+          });
+        }
+      }
+      const { count } = await tx.dealRequest.updateMany({
+        where: {
+          id,
+          status: req.status,
+          extensionCount: req.extensionCount,
+          contactScrubbedAt: null,
+        },
+        data: {
+          status: DealRequestStatus.OPEN,
+          expiresAt: dealRequestExpiry(now, DEAL_REQUEST_LIMITS.TTL_DAYS),
+          closedAt: null,
+          extensionCount: { increment: 1 },
+        },
+      });
+      if (count === 0) throw AppException.badRequest(ErrorCode.DEAL_REQUEST_STATE_INVALID);
+    });
+    return this.mapper.owner(await this.loadOwned(user.userId, id));
+  }
+
   close(
     user: UserPrincipal,
     id: string,

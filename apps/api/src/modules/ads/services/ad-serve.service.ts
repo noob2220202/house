@@ -1,5 +1,7 @@
 import {
+  AgencyStatus,
   BannerTargeting,
+  MediaStatus,
   PopupPage,
   type BannerServeQuery,
   type BannerSlot,
@@ -19,6 +21,19 @@ import { BannerSlotsService } from './banner-slots.service';
 
 interface Cached<T> {
   items: T[];
+}
+
+/**
+ * Banners the public may see right now: live schedule, advertiser agency (if any) APPROVED and
+ * not deleted (a SUSPENDED agency's banners stop running), pc image still usable.
+ */
+function servableBannerWhere(now: Date): Prisma.BannerWhereInput {
+  return {
+    deletedAt: null,
+    ...liveWhere(now),
+    pcMedia: { deletedAt: null, status: MediaStatus.READY },
+    OR: [{ agencyId: null }, { agency: { status: AgencyStatus.APPROVED, deletedAt: null } }],
+  };
 }
 
 /**
@@ -51,7 +66,10 @@ export class AdServeService {
     const key = `cache:ads:popups:v${version}:${page}`;
     const hit = await this.cache.get<Cached<PublicPopupView>>(key);
     if (hit) return hit.items;
-    const base: Prisma.PopupWhereInput = { deletedAt: null };
+    const base: Prisma.PopupWhereInput = {
+      deletedAt: null,
+      media: { deletedAt: null, status: MediaStatus.READY },
+    };
     const pages = page === PopupPage.ALL ? [PopupPage.ALL] : [page, PopupPage.ALL];
     const [rows, nextStart] = await Promise.all([
       this.prisma.popup.findMany({
@@ -82,7 +100,7 @@ export class AdServeService {
     const hit = await this.cache.get<string[]>(key);
     if (hit) return new Set(hit);
     const rows = await this.prisma.banner.findMany({
-      where: { deletedAt: null, ...liveWhere(now) },
+      where: servableBannerWhere(now),
       select: { id: true, endAt: true },
     });
     const next = await this.prisma.banner.aggregate({
@@ -125,7 +143,7 @@ export class AdServeService {
     const [rows, next] = await Promise.all([
       // Priority decides which banners win when more are live than the slot allows…
       this.prisma.banner.findMany({
-        where: { slot: q.slot, deletedAt: null, ...liveWhere(now), OR: targeting },
+        where: { slot: q.slot, AND: [servableBannerWhere(now), { OR: targeting }] },
         orderBy: [{ priority: 'desc' }, { sortOrder: 'asc' }, { id: 'asc' }],
         take: settings.maxActive,
         select: publicBannerSelect,

@@ -41,18 +41,39 @@ Every admin route also needs an admin session with TOTP verified (global AuthGua
 ## Notes
 
 - **Audit.** Mutations use `@Audit` + `RequestContext.setAuditBefore()`, or `AuditService.record(…, tx)`
-  (report resolution). `AdminMutationAuditInterceptor` (APP_INTERCEPTOR) is the safety net for
-  every module: an undecorated, successful `/admin/**` mutation that wrote no audit row for its
-  request id gets an `auto:<resource>.<handler>` row (secrets stripped). `AdminAuditCoverageService`
-  logs undecorated admin mutations at bootstrap.
+  (report resolution, member suspension, terms publication). `AdminMutationAuditInterceptor`
+  (APP_INTERCEPTOR) is the safety net for every module: an undecorated, successful `/admin/**`
+  mutation that wrote no audit row for its request id gets an `auto:<resource>.<handler>` row
+  (secrets stripped). The request-id match is only trusted for server-generated ids: requests with a
+  client-chosen `x-request-id` are counted in Redis (`admin:audit:rid:<id>`, 10 min), and when two
+  requests share an id (or Redis is unavailable) the fallback row is always written.
+  `AdminAuditCoverageService` logs undecorated admin mutations at bootstrap.
+- **Personal data.** Lists and mutation responses mask contacts. `GET /admin/users/:id` (name,
+  email, phone) and `GET /admin/reports/:id` (reporterPhone, when present) return them in full and
+  write a `member.pii-view` / `report.pii-view` audit row (개인정보 접속기록; the row holds no PII).
+  Audit snapshots of suspensions are projections (`id, status, suspendedAt, suspendedReason`);
+  report snapshots carry the masked phone. Reporter phone + ip: erased with the reporter's PII
+  scrub (auth `PiiScrubService`) or `REPORT_CONTACT_RETENTION_DAYS` (180) after the report closed
+  (`admin-maintenance` queue, daily 04:41 KST, `ReportsService.scrubExpiredContacts`).
 - **Visitors.** `VisitorCounterMiddleware` PFADDs a hashed visitor id (session token, else ip+UA)
   into `admin:visitors:<KST YYYYMMDD>` for public GETs from non-bots. The SSR frontend must forward
   the browser's IP / User-Agent.
 - **Terms.** Publishing a required version that becomes current makes users who agreed only to
   older versions appear in `/auth/me.pendingRequiredTerms` (computed by the auth module).
-- **Listing moderation** goes through `LISTING_MODERATION` (adapter over `ListingsModerationService`).
-- **Reports.** One open report per (user, target); resolution can hide the listing and/or warn the
-  agency (`AgenciesService.recordWarning`) and notifies the reporter and the agency owner.
+  `POST /:id/publish` refuses an effectiveAt in the past (`details.reason: PAST`), not after the
+  latest published version (`NOT_AFTER_LATEST`), or — for a revision of an already published type —
+  less than `TERMS_NOTICE_DAYS` (7) away (`NOTICE_PERIOD`; unfavourable changes should use
+  `TERMS_NOTICE_DAYS_UNFAVORABLE` = 30). Body `{ urgent: true, reason }` overrides the notice
+  period only; the audit row records it.
+- **Content format.** Notice content, FAQ answers and terms content are Markdown without raw HTML
+  (`ADMIN_CONTENT_FORMAT`). The schemas refuse HTML tags and non-http(s)/mailto/tel link
+  destinations; frontends must still render with a Markdown renderer that drops raw HTML (e.g.
+  react-markdown without rehype-raw) and never use `dangerouslySetInnerHTML`.
+- **Listing moderation** goes through `LISTING_MODERATION` (adapter over `ListingsModerationService`;
+  force-close is `ListingsModerationService.close`, one transaction).
+- **Reports.** One open report per (user, target); resolution claims the report, hides the listing
+  (same transaction), warns the agency (`AgenciesService.recordWarning`), notifies the reporter and
+  the agency owner and writes the audit row, all atomically; map tiles are invalidated after commit.
 
 ## Tests
 

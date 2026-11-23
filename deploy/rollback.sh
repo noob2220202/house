@@ -5,6 +5,9 @@
 #   sudo /srv/house/rollback.sh --list       # show releases
 #   sudo /srv/house/rollback.sh 20261123101500-abc1234
 #
+# After the confirmation it runs in its own session (like deploy.sh): a dropped SSH connection
+# cannot leave `current` switched without the reload and health check.
+#
 # Database migrations are NOT reverted (migrations are additive by convention, so older code
 # keeps working). To also restore data, use restore.sh with a pre-migrate dump.
 set -Eeuo pipefail
@@ -20,14 +23,16 @@ usage() {
   릴리스이름    지정한 릴리스로 전환 (./rollback.sh --list 로 확인)
   --list        릴리스 목록
   -y            확인 질문 없이 진행
+  --foreground  별도 세션으로 분리하지 않고 현재 터미널에서 실행
 EOF
 }
 
 ORIG_ARGS=("$@")
-TARGET_NAME="" LIST=false YES=false
+TARGET_NAME="" LIST=false YES=false FOREGROUND=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --list) LIST=true; shift ;;
+    --foreground) FOREGROUND=true; shift ;;
     -y | --yes) YES=true; shift ;;
     -h | --help) usage; exit 0 ;;
     -*) usage >&2; die "알 수 없는 옵션: $1" ;;
@@ -41,13 +46,13 @@ CURRENT="$(current_release)"
 mapfile -t RELEASES < <(list_releases)
 
 if $LIST; then
-  printf '%-28s %-8s %s\n' "릴리스" "상태" "커밋"
+  printf '%-24s %-7s %s\n' "RELEASE" "STATE" "COMMIT"
   for r in "${RELEASES[@]}"; do
     dir="$RELEASES_DIR/$r" state=""
-    [[ "$dir" == "$CURRENT" ]] && state="현재"
-    [[ -f "$dir/.failed" ]] && state="${state:+$state,}실패"
+    [[ "$dir" == "$CURRENT" ]] && state="current"
+    [[ -f "$dir/.failed" ]] && state="${state:+$state,}failed"
     sub="$(sed -n 's/^subject=//p' "$dir/RELEASE_INFO" 2>/dev/null || true)"
-    printf '%-28s %-8s %s\n' "$r" "${state:--}" "${sub:0:70}"
+    printf '%-24s %-7s %s\n' "$r" "${state:--}" "${sub:0:70}"
   done
   exit 0
 fi
@@ -79,8 +84,12 @@ if ! $YES; then
   [[ "$answer" =~ ^[yY] ]] || die "취소했습니다."
 fi
 
+mkdir -p "$LOG_DIR"
+$FOREGROUND || run_detached "$LOG_DIR/deploy.log" "$(basename "$TARGET")" -y
+if [[ -z "${HOUSE_DETACHED:-}" ]]; then
+  exec > >(trap '' HUP INT; exec tee -a "$LOG_DIR/deploy.log") 2>&1
+fi
 acquire_lock
-exec > >(tee -a "$LOG_DIR/deploy.log") 2>&1
 step "롤백 $(date '+%Y-%m-%d %H:%M:%S'): $(basename "${CURRENT:-none}") → $(basename "$TARGET")"
 switch_current "$TARGET"
 pm2_apply "$CURRENT_LINK"

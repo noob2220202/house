@@ -5,6 +5,7 @@ import {
   AgencyStatus,
   ErrorCode,
   LIVE_AGENCY_STATUSES,
+  registrationNumberKey,
   sggCodeOf,
   type AgencyDocumentInput,
   type AssetType,
@@ -17,6 +18,7 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { UserPrincipal } from '../../../common/auth/principal';
+import { AuditService } from '../../../common/audit/audit.service';
 import { AppException } from '../../../common/errors/app.exception';
 import { AppConfig } from '../../../config/app-config.service';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
@@ -31,6 +33,19 @@ import { AgencySessionSyncService } from './agency-session-sync.service';
 
 /** Profile statuses in which the owner may edit the public profile. */
 const EDITABLE_STATUSES: AgencyStatus[] = [AgencyStatus.PENDING, AgencyStatus.APPROVED];
+/**
+ * 소재지 fields are printed on the 등록증 and disclosed with every ad (제18조의2). Once approved
+ * they change only through admin review (이전신고 확인 → PATCH /admin/agencies/:id/location).
+ */
+const REVIEWED_LOCATION_FIELDS = [
+  'roadAddress',
+  'jibunAddress',
+  'addressDetail',
+  'zipCode',
+  'emdCode',
+  'lat',
+  'lng',
+] as const satisfies readonly (keyof AgencyUpdateInput)[];
 /** Documents can be removed only before approval (an approved agency keeps its evidence). */
 const DOCUMENT_REMOVABLE_STATUSES: AgencyStatus[] = [AgencyStatus.PENDING, AgencyStatus.REJECTED];
 
@@ -64,6 +79,7 @@ export class AgencyRegistrationService {
     private readonly mapper: AgencyMapper,
     private readonly cache: AgencyCacheService,
     private readonly sessions: AgencySessionSyncService,
+    private readonly audit: AuditService,
     @Inject(AGENCY_MEDIA) private readonly media: AgencyMediaPort,
   ) {}
 
@@ -73,11 +89,7 @@ export class AgencyRegistrationService {
       agencyId = await this.prisma.$transaction(async (tx) => {
         await lockUserMembership(tx, user.userId);
         await this.assertCanStartAgency(tx, user.userId);
-        const taken = await tx.agency.findUnique({
-          where: { registrationNumber: input.registrationNumber },
-          select: { id: true },
-        });
-        if (taken) throw AppException.conflict(ErrorCode.AGENCY_REGISTRATION_DUPLICATE);
+        await this.assertRegistrationNumberFree(tx, input.registrationNumber);
         await this.media.assertDocumentsUsable(
           input.documents.map((d) => d.mediaId),
           user.userId,
@@ -120,7 +132,10 @@ export class AgencyRegistrationService {
         return agency.id;
       });
     } catch (err) {
-      if (isUniqueViolation(err, 'registrationNumber')) {
+      if (
+        isUniqueViolation(err, 'registrationNumber') ||
+        isUniqueViolation(err, 'registrationKey')
+      ) {
         throw AppException.conflict(ErrorCode.AGENCY_REGISTRATION_DUPLICATE);
       }
       throw err;
@@ -137,18 +152,55 @@ export class AgencyRegistrationService {
 
   async updateMine(user: UserPrincipal, input: AgencyUpdateInput): Promise<MyAgency> {
     const owned = await this.ownedAgency(user.userId);
-    if (!EDITABLE_STATUSES.includes(owned.status)) {
-      throw AppException.badRequest(ErrorCode.AGENCY_NOT_EDITABLE);
-    }
     if (input.logoMediaId) await this.media.assertLogoUsable(input.logoMediaId, user.userId);
     const { logoMediaId, ...profile } = input;
-    await this.prisma.agency.update({
-      where: { id: owned.id },
-      data: {
-        ...this.profileData(profile),
-        ...(profile.emdCode !== undefined ? { sggCode: this.sggCodeFor(profile.emdCode) } : {}),
-        ...(logoMediaId !== undefined ? { logoMediaId } : {}),
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await lockAgency(tx, owned.id);
+      const before = await tx.agency.findUniqueOrThrow({
+        where: { id: owned.id },
+        select: { status: true, phone: true, mobile: true, email: true },
+      });
+      if (!EDITABLE_STATUSES.includes(before.status)) {
+        throw AppException.badRequest(ErrorCode.AGENCY_NOT_EDITABLE);
+      }
+      if (before.status === AgencyStatus.APPROVED) {
+        const fields = REVIEWED_LOCATION_FIELDS.filter((f) => profile[f] !== undefined);
+        if (fields.length > 0) {
+          throw AppException.badRequest(ErrorCode.AGENCY_NOT_EDITABLE, {
+            fields,
+            reason: 'LOCATION_REQUIRES_REVIEW',
+          });
+        }
+      }
+      await tx.agency.update({
+        where: { id: owned.id },
+        data: {
+          ...this.profileData(profile),
+          ...(profile.emdCode !== undefined ? { sggCode: this.sggCodeFor(profile.emdCode) } : {}),
+          ...(logoMediaId !== undefined ? { logoMediaId } : {}),
+        },
+      });
+      // 연락처 of a live office is part of every ad's disclosure: keep a trail of who changed it.
+      if (before.status === AgencyStatus.APPROVED) {
+        const changed = (['phone', 'mobile', 'email'] as const).filter(
+          (f) => profile[f] !== undefined && profile[f] !== before[f],
+        );
+        if (changed.length > 0) {
+          // Office contact data is public; keys avoid the audit PII redaction of "phone".
+          const contact = (v: { phone?: string; mobile?: string | null; email?: string | null }) =>
+            Object.fromEntries(changed.map((f) => [`office_${f}`, v[f] ?? null]));
+          await this.audit.record(
+            {
+              action: 'agency.contact.update',
+              resourceType: 'Agency',
+              resourceId: owned.id,
+              before: contact(before),
+              after: contact(profile),
+            },
+            tx,
+          );
+        }
+      }
     });
     await this.cache.invalidatePublic();
     return this.loadMine(owned.id);
@@ -159,10 +211,12 @@ export class AgencyRegistrationService {
     const owned = await this.ownedAgency(user.userId);
     try {
       await this.prisma.$transaction(async (tx) => {
+        // Same lock order as join(): membership first, then the agency.
+        await lockUserMembership(tx, user.userId);
         await lockAgency(tx, owned.id);
         const current = await tx.agency.findUniqueOrThrow({
           where: { id: owned.id },
-          select: { status: true, registrationNumber: true },
+          select: { status: true },
         });
         if (current.status !== AgencyStatus.REJECTED) {
           throw AppException.badRequest(ErrorCode.AGENCY_INVALID_STATUS_TRANSITION, {
@@ -170,12 +224,19 @@ export class AgencyRegistrationService {
             to: AgencyStatus.PENDING,
           });
         }
-        if (
-          input.registrationNumber &&
-          input.registrationNumber !== current.registrationNumber &&
-          (await tx.agency.count({ where: { registrationNumber: input.registrationNumber } })) > 0
-        ) {
-          throw AppException.conflict(ErrorCode.AGENCY_REGISTRATION_DUPLICATE);
+        // Back to PENDING makes the owner act for this agency again: refuse while they are an
+        // active member of another live agency (e.g. joined elsewhere after the rejection).
+        const elsewhere = await tx.agencyMember.count({
+          where: {
+            userId: user.userId,
+            status: AgencyMemberStatus.ACTIVE,
+            agencyId: { not: owned.id },
+            agency: { deletedAt: null, status: { in: [...LIVE_AGENCY_STATUSES] } },
+          },
+        });
+        if (elsewhere > 0) throw AppException.conflict(ErrorCode.AGENCY_ALREADY_MEMBER);
+        if (input.registrationNumber) {
+          await this.assertRegistrationNumberFree(tx, input.registrationNumber, owned.id);
         }
         if (input.documents?.length) {
           await this.assertDocumentRoom(tx, owned.id, input.documents.length);
@@ -210,7 +271,10 @@ export class AgencyRegistrationService {
         });
       });
     } catch (err) {
-      if (isUniqueViolation(err, 'registrationNumber')) {
+      if (
+        isUniqueViolation(err, 'registrationNumber') ||
+        isUniqueViolation(err, 'registrationKey')
+      ) {
         throw AppException.conflict(ErrorCode.AGENCY_REGISTRATION_DUPLICATE);
       }
       throw err;
@@ -315,6 +379,22 @@ export class AgencyRegistrationService {
       },
     });
     if (member > 0) throw AppException.conflict(ErrorCode.AGENCY_ALREADY_MEMBER);
+  }
+
+  /** 등록번호 uniqueness on the punctuation/case-insensitive key (the DB unique index backs it). */
+  private async assertRegistrationNumberFree(
+    tx: PrismaTx,
+    registrationNumber: string,
+    exceptAgencyId?: string,
+  ): Promise<void> {
+    const taken = await tx.agency.findFirst({
+      where: {
+        registrationKey: registrationNumberKey(registrationNumber),
+        ...(exceptAgencyId ? { id: { not: exceptAgencyId } } : {}),
+      },
+      select: { id: true },
+    });
+    if (taken) throw AppException.conflict(ErrorCode.AGENCY_REGISTRATION_DUPLICATE);
   }
 
   private async assertDocumentRoom(tx: PrismaTx, agencyId: string, adding: number): Promise<void> {

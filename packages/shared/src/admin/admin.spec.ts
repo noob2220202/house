@@ -8,13 +8,19 @@ import {
 import { AdminRole } from '../enums/user';
 import {
   auditLogQuerySchema,
+  faqInputSchema,
   faqOrderSchema,
+  isSafeMarkdownLink,
   localVideoInputSchema,
+  markdownContentIssues,
+  noticeInputSchema,
   noticeUpdateSchema,
   reportCreateSchema,
   reportResolveSchema,
   siteSettingSchemas,
+  termsDocumentInputSchema,
   termsDocumentUpdateSchema,
+  termsPublishSchema,
 } from '../schemas/admin';
 import {
   ADMIN_ROLE_PERMISSIONS,
@@ -195,5 +201,81 @@ describe('admin schemas', () => {
         links: [{ label: 'x', url: 'javascript:alert(1)' }],
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('admin content format (Markdown without raw HTML)', () => {
+  const attacks = [
+    '<script>alert(1)</script>',
+    '공지 <img src=x onerror=alert(document.cookie)>',
+    '<IMG SRC=x OnError=alert(1)>',
+    '</p><svg/onload=alert(1)>',
+    '<!-- --><iframe src=//evil>',
+    '<?xml version="1.0"?>',
+    '<a href="https://ok">x</a>',
+    '[클릭](javascript:alert(1))',
+    '[클릭]( JavaScript:alert(1) )',
+    '[클릭](java&#115;cript&colon;alert(1))',
+    '[클릭](&#x6A;avascript:alert(1))',
+    '![img](data:text/html;base64,PHNjcmlwdD4=)',
+    '[ref]: vbscript:msgbox',
+    '[클릭](<javascript:alert(1)>)',
+  ];
+
+  it.each(attacks)('refuses %s', (content) => {
+    expect(markdownContentIssues(content).length).toBeGreaterThan(0);
+    expect(noticeInputSchema.safeParse({ title: 't', content }).success).toBe(false);
+    expect(
+      faqInputSchema.safeParse({ category: 'GENERAL', question: 'q', answer: content }).success,
+    ).toBe(false);
+    expect(
+      termsDocumentInputSchema.safeParse({
+        type: 'SERVICE',
+        version: '1.0',
+        title: 't',
+        content,
+        isRequired: true,
+        effectiveAt: '2027-01-01T00:00:00.000Z',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts ordinary Markdown, comparison signs and Korean 꺾쇠 titles', () => {
+    const ok = [
+      '## 제1조 (목적)\n\n본 약관은 <개인정보 처리방침>과 함께 적용됩니다.',
+      '- 보증금 < 1억, 월세 > 50만원\n- **중요** _강조_',
+      '[문의](https://example.com/help) · [FAQ](/faqs) · [메일](mailto:help@example.com) · [전화](tel:0612345678)',
+      '[상세](#section-2) [상대](./a) [ref]\n\n[ref]: https://example.com',
+      '수식 1<2 그리고 3 <= 4',
+    ];
+    for (const content of ok) expect(markdownContentIssues(content)).toEqual([]);
+    expect(
+      faqInputSchema.safeParse({ category: 'GENERAL', question: 'q', answer: ok[1] }).success,
+    ).toBe(true);
+  });
+
+  it('classifies link destinations by scheme', () => {
+    expect(isSafeMarkdownLink('https://a.b')).toBe(true);
+    expect(isSafeMarkdownLink('/notices/1')).toBe(true);
+    expect(isSafeMarkdownLink('a/b:c')).toBe(true);
+    expect(isSafeMarkdownLink('ftp://a.b')).toBe(false);
+    expect(isSafeMarkdownLink('java\tscript:x')).toBe(false);
+    expect(isSafeMarkdownLink('&#99999999;')).toBe(true);
+  });
+});
+
+describe('termsPublishSchema', () => {
+  it('defaults to a normal publish when there is no body', () => {
+    expect(termsPublishSchema.parse(undefined)).toEqual({ urgent: false });
+    expect(termsPublishSchema.parse({})).toEqual({ urgent: false });
+  });
+
+  it('requires a reason for an urgent publish', () => {
+    expect(termsPublishSchema.safeParse({ urgent: true }).success).toBe(false);
+    expect(termsPublishSchema.safeParse({ urgent: true, reason: '짧음' }).success).toBe(false);
+    expect(termsPublishSchema.parse({ urgent: true, reason: '법령 개정 반영' })).toEqual({
+      urgent: true,
+      reason: '법령 개정 반영',
+    });
   });
 });

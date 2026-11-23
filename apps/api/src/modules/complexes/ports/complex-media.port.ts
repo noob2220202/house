@@ -1,9 +1,8 @@
-import { ErrorCode, MediaPurpose, MediaStatus, MediaVisibility } from '@house/shared';
+import { ErrorCode, MediaPurpose } from '@house/shared';
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import { AppException } from '../../../common/errors/app.exception';
-import { AppConfig } from '../../../config/app-config.service';
-import { PrismaService } from '../../../prisma/prisma.service';
+import type { PrismaTx } from '../../../prisma/prisma.service';
+import { MediaService } from '../../media/media.service';
 
 export interface ComplexMediaRef {
   storageKey: string;
@@ -16,58 +15,38 @@ export interface ComplexPhotoUrls {
   largeUrl: string;
 }
 
-/**
- * What the complexes module needs from the media domain. Bound to a Prisma implementation until
- * MediaService exposes `assertUsable` / public URL helpers (see openIssues).
- */
+/** What the complexes module needs from the media domain (attach/detach per MediaService). */
 export interface ComplexMediaPort {
-  /** Throws COMPLEX_MEDIA_INVALID unless every id is a READY, PUBLIC, non-deleted 단지 photo. */
-  assertUsable(mediaIds: readonly string[]): Promise<void>;
+  /**
+   * Inside the caller's transaction: locks the rows FOR SHARE and throws COMPLEX_MEDIA_INVALID
+   * unless every id is a live, READY 단지 photo.
+   */
+  assertUsable(mediaIds: readonly string[], tx: PrismaTx): Promise<void>;
+  /** After photo rows were removed: restarts the orphan grace period of those uploads. */
+  released(mediaIds: readonly string[], tx: PrismaTx): Promise<void>;
   urls(media: ComplexMediaRef): ComplexPhotoUrls;
 }
 
 export const COMPLEX_MEDIA = Symbol('COMPLEX_MEDIA');
 
-type VariantName = 'thumb' | 'medium' | 'large';
-
-function variantKey(variants: Prisma.JsonValue | null, name: VariantName): string | null {
-  if (!variants || typeof variants !== 'object' || Array.isArray(variants)) return null;
-  const v = variants[name];
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
-  return typeof v.key === 'string' && v.key.length > 0 ? v.key : null;
-}
-
 @Injectable()
-export class PrismaComplexMedia implements ComplexMediaPort {
-  private readonly base: string;
+export class MediaServiceComplexMedia implements ComplexMediaPort {
+  constructor(private readonly media: MediaService) {}
 
-  constructor(
-    private readonly prisma: PrismaService,
-    config: AppConfig,
-  ) {
-    this.base = config.get('MEDIA_BASE_URL').replace(/\/+$/, '');
+  async assertUsable(mediaIds: readonly string[], tx: PrismaTx): Promise<void> {
+    await this.media.assertUsable(
+      mediaIds,
+      { purpose: MediaPurpose.COMPLEX_PHOTO, errorCode: ErrorCode.COMPLEX_MEDIA_INVALID },
+      tx,
+    );
   }
 
-  async assertUsable(mediaIds: readonly string[]): Promise<void> {
-    if (mediaIds.length === 0) return;
-    const usable = await this.prisma.media.count({
-      where: {
-        id: { in: [...mediaIds] },
-        deletedAt: null,
-        status: MediaStatus.READY,
-        visibility: MediaVisibility.PUBLIC,
-        purpose: MediaPurpose.COMPLEX_PHOTO,
-      },
-    });
-    if (usable !== new Set(mediaIds).size) {
-      throw AppException.badRequest(ErrorCode.COMPLEX_MEDIA_INVALID);
-    }
+  released(mediaIds: readonly string[], tx: PrismaTx): Promise<void> {
+    return this.media.released(mediaIds, tx);
   }
 
   urls(media: ComplexMediaRef): ComplexPhotoUrls {
-    const url = (key: string): string => `${this.base}/${key}`;
-    const pick = (name: VariantName): string =>
-      url(variantKey(media.variants, name) ?? media.storageKey);
-    return { thumbUrl: pick('thumb'), mediumUrl: pick('medium'), largeUrl: pick('large') };
+    const v = this.media.variantUrls(media);
+    return { thumbUrl: v.thumb, mediumUrl: v.medium, largeUrl: v.large };
   }
 }

@@ -30,6 +30,7 @@ import { AdminMediaListQueryDto, IdParamDto, MediaUploadQueryDto } from './dto';
 import { MediaCleanupService } from './media-cleanup.service';
 import { MediaLibraryService } from './media-library.service';
 import { MediaUploadService, type UploadedFileInput } from './media-upload.service';
+import { PRIVATE_FILE_HEADERS, privateFileResponse } from './private-file.response';
 import { MediaUploadInterceptor } from './upload.interceptor';
 
 @ApiTags('media')
@@ -82,15 +83,14 @@ export class AdminMediaController {
 
   /** Streams the stored file (public or private). Every view is audited. */
   @Get(':id/file')
-  @Header('Cache-Control', 'private, no-store')
+  @Header('Cache-Control', PRIVATE_FILE_HEADERS['Cache-Control'])
+  @Header('Content-Security-Policy', PRIVATE_FILE_HEADERS['Content-Security-Policy'])
+  @Header('X-Content-Type-Options', PRIVATE_FILE_HEADERS['X-Content-Type-Options'])
+  @Header('Cross-Origin-Resource-Policy', PRIVATE_FILE_HEADERS['Cross-Origin-Resource-Policy'])
   async file(@Param() p: IdParamDto): Promise<StreamableFile> {
     const file = await this.library.openForAdmin(p.id);
     this.audit.recordSafe({ action: 'media.file.view', resourceType: 'Media', resourceId: p.id });
-    return new StreamableFile(file.stream, {
-      type: file.mimeType,
-      length: file.sizeBytes,
-      disposition: `inline; filename="${file.filename}"`,
-    });
+    return privateFileResponse(file);
   }
 
   /** Moderation: removes an unattached upload (attached ones are removed via their owner). */

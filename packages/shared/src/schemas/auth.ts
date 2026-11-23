@@ -66,9 +66,12 @@ export const nicknameSchema = z
 /**
  * Completes a social signup started by the OAuth callback (pending signup cookie). Required terms
  * must all be agreed; marketing is optional. `phone` is a plain contact field (never verified).
+ * `ageOver14`: "만 14세 이상입니다" — 개인정보 보호법 제22조의2 requires guardian consent below 14,
+ * which this service does not collect, so younger users cannot sign up. Stored as users.age_confirmed_at.
  */
 export const signupSchema = z.object({
   nickname: nicknameSchema,
+  ageOver14: z.literal(true, { error: '만 14세 이상만 가입할 수 있습니다.' }),
   phone: phoneSchema.nullable().optional(),
   consents: z.array(consentItemSchema).max(20),
   marketingOptIn: z.boolean().default(false),
@@ -146,6 +149,23 @@ export const adminTotpVerifySchema = z
     '인증 코드 또는 복구 코드 중 하나를 입력해 주세요.',
   );
 export type AdminTotpVerifyInput = z.infer<typeof adminTotpVerifySchema>;
+
+/**
+ * POST /admin/auth/totp/setup. First enrollment: empty body. Rotation (TOTP already enabled):
+ * the current password plus exactly one of a current TOTP code / a recovery code.
+ */
+export const adminTotpSetupSchema = z
+  .object({
+    currentPassword: z.string().min(1).max(200).optional(),
+    code: totpCodeSchema.optional(),
+    recoveryCode: recoveryCodeSchema.optional(),
+  })
+  .refine(
+    (v) => v.code === undefined || v.recoveryCode === undefined,
+    '인증 코드 또는 복구 코드 중 하나만 입력해 주세요.',
+  )
+  .default({});
+export type AdminTotpSetupInput = z.infer<typeof adminTotpSetupSchema>;
 
 /** Confirms a pending TOTP enrollment with the first code from the authenticator app. */
 export const adminTotpActivateSchema = z.object({ code: totpCodeSchema });

@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { QUEUES } from '../../queue/queue.constants';
+import { MediaModule } from '../media/media.module';
 import { AdsMapper } from './ads.mapper';
 import {
   AdminBannerSlotsController,
@@ -9,7 +10,7 @@ import {
 } from './controllers/admin-banners.controller';
 import { PublicAdsController } from './controllers/public-ads.controller';
 import { BannerStatsProcessor } from './jobs/banner-stats.processor';
-import { ADS_MEDIA, PrismaAdsMedia } from './ports/ads-media.port';
+import { ADS_MEDIA, MediaServiceAdsMedia } from './ports/ads-media.port';
 import { ADS_REFERENCES, PrismaAdsReferences } from './ports/ads-references.port';
 import { AdServeService } from './services/ad-serve.service';
 import { AdTrackingService } from './services/ad-tracking.service';
@@ -20,7 +21,7 @@ import { PopupAdminService } from './services/popup-admin.service';
 
 /** Ads: slot-based banners and popups — admin CRUD, cached public serving, tracking, stats. */
 @Module({
-  imports: [BullModule.registerQueue({ name: QUEUES.BANNER_STATS })],
+  imports: [BullModule.registerQueue({ name: QUEUES.BANNER_STATS }), MediaModule],
   controllers: [
     PublicAdsController,
     AdminBannersController,
@@ -28,7 +29,7 @@ import { PopupAdminService } from './services/popup-admin.service';
     AdminPopupsController,
   ],
   providers: [
-    { provide: ADS_MEDIA, useClass: PrismaAdsMedia },
+    { provide: ADS_MEDIA, useClass: MediaServiceAdsMedia },
     { provide: ADS_REFERENCES, useClass: PrismaAdsReferences },
     AdsMapper,
     BannerSlotsService,

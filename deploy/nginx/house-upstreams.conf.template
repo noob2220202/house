@@ -25,6 +25,8 @@ map $http_upgrade $house_connection_upgrade {
 
 # Per-IP request rate limits. Korean mobile carriers put many users behind one IP (CGNAT),
 # so these are generous; the API enforces finer per-user limits itself (Redis throttler).
+# house_auth covers only login/credential endpoints (see the *-locations.conf snippets), never
+# the per-page reads /auth/me or /auth/csrf. No fail2ban jail bans on these 429s.
 limit_req_zone $binary_remote_addr zone=house_auth:10m rate=30r/m;
 limit_req_zone $binary_remote_addr zone=house_api:20m rate=20r/s;
 limit_req_status 429;

@@ -5,9 +5,12 @@ import {
   type TermsAdminListQuery,
   type TermsDocumentInput,
   type TermsDocumentUpdateInput,
+  TERMS_NOTICE_DAYS,
+  type TermsPublishInput,
 } from '@house/shared';
 import { Injectable } from '@nestjs/common';
 import { Prisma, type TermsDocument } from '@prisma/client';
+import { AuditService } from '../../../common/audit/audit.service';
 import { RequestContext } from '../../../common/context/request-context';
 import { AppException } from '../../../common/errors/app.exception';
 import { paginate } from '../../../common/pagination/pagination';
@@ -33,6 +36,7 @@ export class AdminTermsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly terms: TermsService,
+    private readonly audit: AuditService,
   ) {}
 
   async list(q: TermsAdminListQuery): Promise<Paginated<AdminTermsView>> {
@@ -89,12 +93,20 @@ export class AdminTermsService {
   }
 
   /**
-   * Publishes a draft. Its effectiveAt must be later than every published version of the same type,
-   * so versions stay ordered and "current" is unambiguous.
+   * Publishes a draft. effectiveAt must be
+   *  - not in the past (a version never becomes current retroactively),
+   *  - later than every published version of the same type (versions stay ordered, "current" is
+   *    unambiguous), and
+   *  - for a revision of an already published type, at least TERMS_NOTICE_DAYS away so users get
+   *    advance notice (scheduled versions are readable before they take effect) — unless
+   *    `urgent` with a reason, which the audit row records.
    */
-  async publish(id: string, now: Date = new Date()): Promise<AdminTermsView> {
-    await this.loadDraft(id);
-    RequestContext.setAuditBefore(await this.detail(id));
+  async publish(
+    id: string,
+    dto: TermsPublishInput,
+    now: Date = new Date(),
+  ): Promise<AdminTermsView> {
+    const before = await this.detail((await this.loadDraft(id)).id);
     await this.prisma.$transaction(async (tx) => {
       const draft = await this.loadDraft(id, tx);
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`terms:${draft.type}`}))`;
@@ -103,10 +115,23 @@ export class AdminTermsService {
         orderBy: { effectiveAt: 'desc' },
         select: { id: true, version: true, effectiveAt: true },
       });
-      if (latest && draft.effectiveAt.getTime() <= latest.effectiveAt.getTime()) {
+      const effectiveAt = draft.effectiveAt.getTime();
+      if (effectiveAt < now.getTime()) {
+        throw AppException.badRequest(ErrorCode.TERMS_EFFECTIVE_AT_INVALID, { reason: 'PAST' });
+      }
+      if (latest && effectiveAt <= latest.effectiveAt.getTime()) {
         throw AppException.badRequest(ErrorCode.TERMS_EFFECTIVE_AT_INVALID, {
+          reason: 'NOT_AFTER_LATEST',
           latestVersion: latest.version,
           latestEffectiveAt: latest.effectiveAt.toISOString(),
+        });
+      }
+      const earliest = now.getTime() + TERMS_NOTICE_DAYS * 86_400_000;
+      if (latest && !dto.urgent && effectiveAt < earliest) {
+        throw AppException.badRequest(ErrorCode.TERMS_EFFECTIVE_AT_INVALID, {
+          reason: 'NOTICE_PERIOD',
+          noticeDays: TERMS_NOTICE_DAYS,
+          earliestEffectiveAt: new Date(earliest).toISOString(),
         });
       }
       const { count } = await tx.termsDocument.updateMany({
@@ -114,6 +139,23 @@ export class AdminTermsService {
         data: { publishedAt: now },
       });
       if (count === 0) throw AppException.conflict(ErrorCode.TERMS_ALREADY_PUBLISHED);
+      const { content: _content, ...snapshot } = before;
+      await this.audit.record(
+        {
+          action: 'terms.publish',
+          resourceType: 'TermsDocument',
+          resourceId: id,
+          before: snapshot,
+          after: {
+            ...snapshot,
+            publishedAt: now.toISOString(),
+            noticeDays: Math.floor((effectiveAt - now.getTime()) / 86_400_000),
+            urgent: dto.urgent,
+            urgentReason: dto.urgent ? (dto.reason ?? null) : null,
+          },
+        },
+        tx,
+      );
     });
     return this.detail(id);
   }

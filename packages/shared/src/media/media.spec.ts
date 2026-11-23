@@ -4,6 +4,7 @@ import {
   canAdminUpload,
   canUserUpload,
   isAcceptedMime,
+  MEDIA_ORPHAN_EXEMPT_PURPOSES,
   MEDIA_PURPOSE_RULES,
   mediaMaxBytes,
   mediaVisibilityFor,
@@ -66,6 +67,11 @@ describe('media purpose rules', () => {
     expect(canUserUpload(MediaPurpose.LISTING_PHOTO, UserRole.AGENCY_OWNER)).toBe(true);
     expect(canUserUpload(MediaPurpose.AGENCY_DOCUMENT, UserRole.USER)).toBe(true);
     expect(canUserUpload(MediaPurpose.BANNER, UserRole.AGENCY_OWNER)).toBe(false);
+    // PROFILE has no FK link yet: nobody may upload it (it would never be collected).
+    expect(canUserUpload(MediaPurpose.PROFILE, UserRole.USER)).toBe(false);
+    expect(canUserUpload(MediaPurpose.PROFILE, UserRole.AGENCY_OWNER)).toBe(false);
+    expect(canAdminUpload(MediaPurpose.PROFILE)).toBe(false);
+    expect(MEDIA_ORPHAN_EXEMPT_PURPOSES).toEqual([MediaPurpose.CONTENT]);
     expect(canAdminUpload(MediaPurpose.BANNER)).toBe(true);
     expect(canAdminUpload(MediaPurpose.COMPLEX_PHOTO)).toBe(true);
     expect(canAdminUpload(MediaPurpose.DEAL_REQUEST_PHOTO)).toBe(false);

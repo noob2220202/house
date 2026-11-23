@@ -28,7 +28,38 @@ export class ListingsModerationService {
       if (!current) throw AppException.notFound(ErrorCode.LISTING_NOT_FOUND);
       await db.listing.update({
         where: { id: listingId },
-        data: { status: ListingStatus.HIDDEN, hiddenReason: reason.slice(0, 500) },
+        data: {
+          status: ListingStatus.HIDDEN,
+          hiddenReason: reason.slice(0, 500),
+          version: { increment: 1 },
+        },
+      });
+      if (PUBLIC_LISTING_STATUSES.includes(current.status)) {
+        await this.listings.refreshFor(db, listingId, current.complexId);
+      }
+      return current.status;
+    };
+    const previous = tx ? await run(tx) : await this.prisma.$transaction(run);
+    if (!tx) await this.counters.invalidateSearch();
+    return previous;
+  }
+
+  /** Operator force-close (거래완료 처리). Returns the previous status. */
+  async close(listingId: string, reason: string, tx?: PrismaTx): Promise<ListingStatus> {
+    const run = async (db: PrismaTx): Promise<ListingStatus> => {
+      const current = await db.listing.findFirst({
+        where: { id: listingId, deletedAt: null },
+        select: { status: true, complexId: true },
+      });
+      if (!current) throw AppException.notFound(ErrorCode.LISTING_NOT_FOUND);
+      await db.listing.update({
+        where: { id: listingId },
+        data: {
+          status: ListingStatus.CLOSED,
+          closedAt: new Date(),
+          hiddenReason: reason.slice(0, 500),
+          version: { increment: 1 },
+        },
       });
       if (PUBLIC_LISTING_STATUSES.includes(current.status)) {
         await this.listings.refreshFor(db, listingId, current.complexId);
@@ -45,11 +76,37 @@ export class ListingsModerationService {
     const run = async (db: PrismaTx): Promise<void> => {
       const { count } = await db.listing.updateMany({
         where: { id: listingId, deletedAt: null, status: ListingStatus.HIDDEN },
-        data: { status: ListingStatus.DRAFT, hiddenReason: null },
+        data: { status: ListingStatus.DRAFT, hiddenReason: null, version: { increment: 1 } },
       });
       if (count === 0) throw AppException.notFound(ErrorCode.LISTING_NOT_FOUND);
     };
     if (tx) await run(tx);
     else await this.prisma.$transaction(run);
+  }
+
+  /**
+   * Call when an agency stops being disclosable (suspended, rejected, soft-deleted) or becomes
+   * approved again. Public queries already filter on the primary agency's status; this recomputes
+   * the denormalized counters of everything the agency touches. Returns the affected listing count.
+   */
+  async onAgencyStatusChanged(agencyId: string, tx?: PrismaTx): Promise<number> {
+    const run = async (db: PrismaTx): Promise<number> => {
+      const listings = await db.listing.findMany({
+        where: {
+          deletedAt: null,
+          status: { in: [...PUBLIC_LISTING_STATUSES] },
+          agencies: { some: { agencyId } },
+        },
+        select: { id: true, complexId: true, agencies: { select: { agencyId: true } } },
+      });
+      await this.counters.refresh(db, {
+        complexIds: listings.map((l) => l.complexId),
+        agencyIds: [agencyId, ...listings.flatMap((l) => l.agencies.map((a) => a.agencyId))],
+      });
+      return listings.length;
+    };
+    const n = tx ? await run(tx) : await this.prisma.$transaction(run);
+    if (!tx) await this.counters.invalidateSearch();
+    return n;
   }
 }

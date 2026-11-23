@@ -149,6 +149,36 @@ describe('ads: admin banner slots + popups (e2e)', () => {
       );
     });
 
+    it('PATCH replacing the image validates it and releases the old one; removed images are not served', async () => {
+      const s = await adminSession(t);
+      const p = await seedPopup(t.prisma);
+      const old = await t.prisma.media.update({
+        where: { id: p.mediaId },
+        data: { updatedAt: new Date(Date.now() - 86_400_000) },
+      });
+      const deleted = await popupMedia(t.prisma);
+      await t.prisma.media.update({ where: { id: deleted.id }, data: { deletedAt: new Date() } });
+      const bad = await withSession(t.http().patch(`${POPUPS}/${p.id}`), s)
+        .send({ mediaId: deleted.id })
+        .expect(400);
+      expect(bad.body.code).toBe('POPUP_MEDIA_INVALID');
+
+      const next = await popupMedia(t.prisma);
+      const res = await withSession(t.http().patch(`${POPUPS}/${p.id}`), s)
+        .send({ mediaId: next.id })
+        .expect(200);
+      expect(res.body.image.id).toBe(next.id);
+      const after = await t.prisma.media.findUniqueOrThrow({ where: { id: old.id } });
+      expect(after.updatedAt.getTime()).toBeGreaterThan(old.updatedAt.getTime());
+
+      await t.prisma.media.update({ where: { id: next.id }, data: { deletedAt: new Date() } });
+      await withSession(t.http().patch(`${POPUPS}/${p.id}`), s)
+        .send({ title: '캐시 무효화' })
+        .expect(200);
+      const served = await t.http().get('/api/v1/popups?page=MAIN').expect(200);
+      expect(served.body.items).toEqual([]);
+    });
+
     it('401 anonymous on every popup route', async () => {
       const p = await seedPopup(t.prisma);
       const origin = 'http://localhost:3001';

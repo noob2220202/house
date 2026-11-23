@@ -30,12 +30,20 @@ export interface MediaUsableRule {
   errorCode?: ErrorCode;
 }
 
+export interface MediaScrubResult {
+  /** Uploads whose original file name was removed. */
+  filenamesCleared: number;
+  /** Unattached uploads soft-deleted (files go with the next cleanup purge). */
+  deleted: number;
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * What other modules use from the media domain. Attach/detach semantics:
- *  - attach = inside your transaction, `assertUsable(ids, rule, tx)` (locks the rows FOR SHARE so
- *    they cannot be deleted concurrently), then create your FK row (ListingPhoto, Banner.pcMediaId…).
+ *  - attach = inside your transaction, `assertUsable(ids, rule, tx)` (locks the rows so they cannot
+ *    be deleted concurrently), then create your FK row (ListingPhoto, Banner.pcMediaId…) with the
+ *    SAME `tx`. A DB trigger also refuses any new reference to a soft-deleted row.
  *  - detach = delete/clear your FK row, then `released(ids, tx)` so the orphan grace period
  *    (MEDIA_ORPHAN_GRACE_HOURS) restarts; unreferenced uploads are collected by the cleanup job.
  * "Attached" is always derived from the FK relations, never from a flag that could drift.
@@ -48,7 +56,12 @@ export class MediaService {
     private readonly mapper: MediaMapper,
   ) {}
 
-  /** Throws (400) unless every id is a live, READY upload satisfying `rule`. Returns rows in input order. */
+  /**
+   * Throws (400) unless every id is a live, READY upload satisfying `rule`. Returns rows in input
+   * order. With a transaction client the rows stay locked until it commits: FOR SHARE (blocks
+   * deletes and cleanup), or FOR UPDATE for `unattached` rules so two transactions cannot both
+   * claim the same one-shot upload. Locks are taken in id order (no deadlocks between attachers).
+   */
   async assertUsable(
     mediaIds: readonly string[],
     rule: MediaUsableRule,
@@ -56,10 +69,22 @@ export class MediaService {
   ): Promise<MediaRef[]> {
     const ids = [...new Set(mediaIds)];
     if (ids.length === 0) return [];
+    const inTx = db !== this.prisma;
+    if (rule.unattached && !inTx) {
+      // An unlocked "not attached yet" check proves nothing by the time the FK row is written.
+      throw new Error('MediaService.assertUsable: `unattached` requires a transaction client');
+    }
     const fail = () => AppException.badRequest(rule.errorCode ?? ErrorCode.MEDIA_INVALID);
     if (!ids.every((id) => UUID.test(id))) throw fail();
-    if (db !== this.prisma) {
-      await db.$queryRaw`SELECT id FROM media WHERE id = ANY(${ids}::uuid[]) FOR SHARE`;
+    if (inTx) {
+      const sorted = ids.map((id) => id.toLowerCase()).sort();
+      if (rule.unattached) {
+        await db.$queryRaw`
+          SELECT id FROM media WHERE id = ANY(${sorted}::uuid[]) ORDER BY id FOR UPDATE`;
+      } else {
+        await db.$queryRaw`
+          SELECT id FROM media WHERE id = ANY(${sorted}::uuid[]) ORDER BY id FOR SHARE`;
+      }
     }
     const purposes: MediaPurpose[] =
       typeof rule.purpose === 'string' ? [rule.purpose] : [...rule.purpose];
@@ -86,8 +111,10 @@ export class MediaService {
       select: mediaRefSelect,
     });
     if (rows.length !== ids.length) throw fail();
-    const byId = new Map(rows.map((r) => [r.id, r]));
-    return ids.map((id) => byId.get(id)).filter((r): r is MediaRef => r !== undefined);
+    const byId = new Map(rows.map((r) => [r.id.toLowerCase(), r]));
+    return ids
+      .map((id) => byId.get(id.toLowerCase()))
+      .filter((r): r is MediaRef => r !== undefined);
   }
 
   /** Call after removing a reference: restarts the orphan grace period of those uploads. */
@@ -98,6 +125,35 @@ export class MediaService {
       where: { id: { in: ids }, deletedAt: null },
       data: { updatedAt: new Date() },
     });
+  }
+
+  /**
+   * Member withdrawal (PII scrub job, inside its transaction): forgets the uploaded file names of
+   * all of the user's uploads (often real names, e.g. `홍길동_등록증.pdf`) and soft-deletes every
+   * upload that is not attached anywhere, so the cleanup purge removes the files within the grace
+   * period. Attached uploads stay (they belong to listings/agencies now, and agency documents follow
+   * the registration-record retention policy); they are removed when their owner detaches them.
+   */
+  async scrubOwner(
+    userId: string,
+    db: PrismaTx,
+    now: Date = new Date(),
+  ): Promise<MediaScrubResult> {
+    if (!UUID.test(userId)) return { filenamesCleared: 0, deleted: 0 };
+    // Same lock order as softDelete/cleanup (row locks), so a concurrent attach either commits
+    // first (row stays: attached) or sees the row deleted afterwards (guard trigger refuses).
+    await db.$queryRaw`
+      SELECT id FROM media WHERE owner_user_id = ${userId}::uuid AND deleted_at IS NULL
+      ORDER BY id FOR UPDATE`;
+    const cleared = await db.media.updateMany({
+      where: { ownerUserId: userId, originalFilename: { not: null } },
+      data: { originalFilename: null },
+    });
+    const deleted = await db.media.updateMany({
+      where: { ownerUserId: userId, deletedAt: null, ...unattachedWhere },
+      data: { deletedAt: now },
+    });
+    return { filenamesCleared: cleared.count, deleted: deleted.count };
   }
 
   /** Public URL of a variant (falls back to the full-size image). */

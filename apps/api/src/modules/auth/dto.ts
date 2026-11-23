@@ -2,6 +2,7 @@ import {
   adminLoginSchema,
   adminPasswordChangeSchema,
   adminTotpActivateSchema,
+  adminTotpSetupSchema,
   adminTotpVerifySchema,
   consentInputSchema,
   oauthCallbackQuerySchema,
@@ -28,5 +29,6 @@ export class TermsTypeParamDto extends createZodDto(termsTypeParamSchema) {}
 export class TermsVersionQueryDto extends createZodDto(termsVersionQuerySchema) {}
 export class AdminLoginDto extends createZodDto(adminLoginSchema) {}
 export class AdminTotpVerifyDto extends createZodDto(adminTotpVerifySchema) {}
+export class AdminTotpSetupDto extends createZodDto(adminTotpSetupSchema) {}
 export class AdminTotpActivateDto extends createZodDto(adminTotpActivateSchema) {}
 export class AdminPasswordChangeDto extends createZodDto(adminPasswordChangeSchema) {}

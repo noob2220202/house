@@ -27,9 +27,14 @@ export interface TradeSyncMonthJobData {
   kinds?: TradeSyncKind[];
 }
 
+export interface TradeRematchJobData {
+  fromYm?: number;
+}
+
 /**
- * Worker for the trade-sync queue (owned by complexes): the repeatable 실거래가 sync, one-off month
- * syncs, and the complex view-count flush. Runs only when JOBS_ENABLED (e2e calls services).
+ * Worker for the trade-sync queue (owned by complexes): the repeatable 실거래가 sync, admin-started
+ * month syncs and rematches, and the complex view-count flush. Runs only when JOBS_ENABLED (e2e
+ * processes jobs by calling process()).
  */
 @Processor(QUEUES.TRADE_SYNC, { autorun: false, concurrency: 2 })
 export class TradeSyncProcessor extends WorkerHost implements OnApplicationBootstrap {
@@ -72,6 +77,8 @@ export class TradeSyncProcessor extends WorkerHost implements OnApplicationBoots
           kinds: data.kinds ?? enumValues(TradeSyncKind),
         });
       }
+      case TRADE_SYNC_JOBS.REMATCH:
+        return this.sync.rematch(parseRematchJob(job.data).fromYm);
       default:
         throw new Error(`trade-sync worker cannot handle job "${job.name}"`);
     }
@@ -101,4 +108,13 @@ function parseMonthJob(data: unknown): TradeSyncMonthJobData {
     ? d.kinds.filter((k): k is TradeSyncKind => isEnumValue(TradeSyncKind, k))
     : undefined;
   return { yearMonth: d.yearMonth, kinds: kinds && kinds.length > 0 ? kinds : undefined };
+}
+
+function parseRematchJob(data: unknown): TradeRematchJobData {
+  const d = (data ?? {}) as { fromYm?: unknown };
+  if (d.fromYm === undefined || d.fromYm === null) return {};
+  if (typeof d.fromYm !== 'number' || !isValidYearMonth(d.fromYm)) {
+    throw new Error('invalid trade-sync rematch job payload');
+  }
+  return { fromYm: d.fromYm };
 }

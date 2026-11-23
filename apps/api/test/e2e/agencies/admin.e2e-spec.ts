@@ -4,6 +4,8 @@ import { SessionService } from '../../../src/modules/auth/session/session.servic
 import {
   createAdmin,
   createAgency,
+  createComplex,
+  createListing,
   createTestApp,
   createUser,
   loginAdmin,
@@ -218,9 +220,21 @@ describe('agencies: admin review (e2e)', () => {
         .send({ code: invite.body.code, displayName: 'x' })
         .expect(400);
 
-      const reinstated = await withSession(
+      // Lifting a suspension is as privileged as imposing it.
+      const liftByOperator = await withSession(
         t.http().post(`/api/v1/admin/agencies/${agency.id}/decision`),
         operator.s,
+      )
+        .send({ status: 'APPROVED' })
+        .expect(403);
+      expect(liftByOperator.body.code).toBe('AGENCY_DECISION_FORBIDDEN');
+      expect((await t.prisma.agency.findUniqueOrThrow({ where: { id: agency.id } })).status).toBe(
+        AgencyStatus.SUSPENDED,
+      );
+
+      const reinstated = await withSession(
+        t.http().post(`/api/v1/admin/agencies/${agency.id}/decision`),
+        s,
       )
         .send({ status: 'APPROVED' })
         .expect(200);
@@ -230,6 +244,53 @@ describe('agencies: admin review (e2e)', () => {
           where: { action: 'agency.reinstate', resourceId: agency.id },
         }),
       ).toBe(1);
+    });
+
+    it("suspension takes the office's listings off public search, detail and counters; reinstate restores them", async () => {
+      const { agency } = await createAgency(t.prisma);
+      const { agency: coBroker } = await createAgency(t.prisma);
+      const complex = await createComplex(t.prisma);
+      const { listing } = await createListing(t.prisma, {
+        agencyId: agency.id,
+        property: { complexId: complex.id },
+        listing: { complexId: complex.id },
+      });
+      await t.prisma.listingAgency.create({
+        data: { listingId: listing.id, agencyId: coBroker.id },
+      });
+      const counts = async () => ({
+        agency: (await t.prisma.agency.findUniqueOrThrow({ where: { id: agency.id } }))
+          .activeListingCount,
+        coBroker: (await t.prisma.agency.findUniqueOrThrow({ where: { id: coBroker.id } }))
+          .activeListingCount,
+        complex: (await t.prisma.complex.findUniqueOrThrow({ where: { id: complex.id } }))
+          .activeListingCount,
+      });
+      const listed = async () =>
+        pluck((await t.http().get('/api/v1/listings').expect(200)).body.items, 'id');
+
+      // Warm the cached search so a stale hit would show the listing after suspension.
+      expect(await listed()).toEqual([listing.id]);
+      await t.http().get(`/api/v1/listings/${listing.id}`).expect(200);
+
+      const { s } = await admin(AdminRole.ADMIN);
+      const decide = (status: string, reason?: string) =>
+        withSession(t.http().post(`/api/v1/admin/agencies/${agency.id}/decision`), s)
+          .send({ status, reason })
+          .expect(200);
+
+      await decide('SUSPENDED', '허위매물 반복');
+      expect(await listed()).toEqual([]);
+      await t.http().get(`/api/v1/listings/${listing.id}`).expect(404);
+      // The co-broker's public profile no longer counts it either.
+      const profile = await t.http().get(`/api/v1/agencies/${coBroker.id}`).expect(200);
+      expect(profile.body.listingCounts?.total ?? 0).toBe(0);
+      expect(await counts()).toEqual({ agency: 0, coBroker: 0, complex: 0 });
+
+      await decide('APPROVED');
+      expect(await listed()).toEqual([listing.id]);
+      await t.http().get(`/api/v1/listings/${listing.id}`).expect(200);
+      expect(await counts()).toEqual({ agency: 1, coBroker: 1, complex: 1 });
     });
 
     it('400 for invalid transitions and payloads; 401 for user sessions; 404 unknown', async () => {
@@ -273,6 +334,81 @@ describe('agencies: admin review (e2e)', () => {
       expect((await t.prisma.agency.findUniqueOrThrow({ where: { id: agency.id } })).status).toBe(
         AgencyStatus.PENDING,
       );
+    });
+  });
+
+  describe('PATCH /api/v1/admin/agencies/:id/location', () => {
+    it('200: an admin applies the 소재지 change of an approved office, audited and notified', async () => {
+      const { agency, owner } = await createAgency(t.prisma);
+      const { admin: a, s } = await admin();
+      const res = await withSession(
+        t.http().patch(`/api/v1/admin/agencies/${agency.id}/location`),
+        s,
+      )
+        .send({
+          roadAddress: '전라남도 순천시 연향로 5',
+          addressDetail: '2층',
+          emdCode: '4615010800',
+          lat: 34.95,
+          lng: 127.52,
+          reason: '이전신고 확인 (등록증 재발급본)',
+        })
+        .expect(200);
+      expect(res.body).toMatchObject({
+        roadAddress: '전라남도 순천시 연향로 5',
+        addressDetail: '2층',
+        emdCode: '4615010800',
+        lat: 34.95,
+        lng: 127.52,
+      });
+      const [geo] = await t.prisma.$queryRaw<{ lat: number }[]>`
+        SELECT ST_Y(location::geometry) AS lat FROM agencies WHERE id = ${agency.id}::uuid`;
+      expect(geo?.lat).toBeCloseTo(34.95);
+      const audit = await t.prisma.auditLog.findFirstOrThrow({
+        where: { action: 'agency.location.update', resourceId: agency.id },
+      });
+      expect(audit).toMatchObject({
+        adminUserId: a.id,
+        before: { roadAddress: agency.roadAddress },
+        after: {
+          roadAddress: '전라남도 순천시 연향로 5',
+          reason: '이전신고 확인 (등록증 재발급본)',
+        },
+      });
+      expect(await t.prisma.notification.count({ where: { userId: owner.id } })).toBe(1);
+    });
+
+    it('400 for an empty change, a missing reason or a pending application; 401/404', async () => {
+      const { agency } = await createAgency(t.prisma);
+      const { s } = await admin();
+      const url = `/api/v1/admin/agencies/${agency.id}/location`;
+      await withSession(t.http().patch(url), s).send({ reason: '확인' }).expect(400);
+      await withSession(t.http().patch(url), s).send({ roadAddress: '순천시 어딘가' }).expect(400);
+      await withSession(t.http().patch(url), s).send({ lat: 34.9, reason: '확인' }).expect(400);
+
+      const pending = await createPendingAgency(t.prisma);
+      const notEditable = await withSession(
+        t.http().patch(`/api/v1/admin/agencies/${pending.agency.id}/location`),
+        s,
+      )
+        .send({ roadAddress: '순천시 어딘가', reason: '확인' })
+        .expect(400);
+      expect(notEditable.body.code).toBe('AGENCY_NOT_EDITABLE');
+
+      await withSession(
+        t.http().patch('/api/v1/admin/agencies/0190f3c2-7a4b-7cde-8f00-123456789abc/location'),
+        s,
+      )
+        .send({ roadAddress: '순천시 어딘가', reason: '확인' })
+        .expect(404);
+      const owner = await t.prisma.user.findUniqueOrThrow({ where: { id: agency.ownerUserId } });
+      const user = await loginUser(t.app, owner, { agencyId: agency.id });
+      await withSession(t.http().patch(url), user)
+        .send({ roadAddress: '순천시 어딘가', reason: '확인' })
+        .expect(401);
+      expect(
+        (await t.prisma.agency.findUniqueOrThrow({ where: { id: agency.id } })).roadAddress,
+      ).toBe(agency.roadAddress);
     });
   });
 

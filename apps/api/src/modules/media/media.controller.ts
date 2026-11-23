@@ -23,6 +23,7 @@ import { THROTTLE } from '../../common/throttle/throttle.constants';
 import { IdParamDto, MediaUploadQueryDto, MyMediaListQueryDto } from './dto';
 import { MediaLibraryService } from './media-library.service';
 import { MediaUploadService, type UploadedFileInput } from './media-upload.service';
+import { PRIVATE_FILE_HEADERS, privateFileResponse } from './private-file.response';
 import { MediaUploadInterceptor } from './upload.interceptor';
 
 @ApiTags('media')
@@ -64,17 +65,16 @@ export class MediaController {
 
   /** Private file (agency documents): its uploader or staff of the agency it is attached to. */
   @Get(':id/private')
-  @Header('Cache-Control', 'private, no-store')
+  @Header('Cache-Control', PRIVATE_FILE_HEADERS['Cache-Control'])
+  @Header('Content-Security-Policy', PRIVATE_FILE_HEADERS['Content-Security-Policy'])
+  @Header('X-Content-Type-Options', PRIVATE_FILE_HEADERS['X-Content-Type-Options'])
+  @Header('Cross-Origin-Resource-Policy', PRIVATE_FILE_HEADERS['Cross-Origin-Resource-Policy'])
   async privateFile(
     @Param() p: IdParamDto,
     @CurrentUser() user: UserPrincipal,
   ): Promise<StreamableFile> {
     const file = await this.library.openPrivate(p.id, user);
-    return new StreamableFile(file.stream, {
-      type: file.mimeType,
-      length: file.sizeBytes,
-      disposition: `inline; filename="${file.filename}"`,
-    });
+    return privateFileResponse(file);
   }
 
   @Delete(':id')

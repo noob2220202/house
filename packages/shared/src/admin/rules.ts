@@ -94,3 +94,11 @@ export function maskEmail(email: string | null | undefined): string | null {
 
 /** Dashboard "광고 종료 임박" window. */
 export const ADS_ENDING_SOON_DAYS = 7;
+
+/**
+ * 약관 변경 사전 공지 (약관규제법·전자상거래법 practice): a new version of an already published
+ * terms type is published at least this many days before its effectiveAt. Changes unfavourable to
+ * users need 30 days; the admin UI should suggest that (the API enforces the 7-day floor).
+ */
+export const TERMS_NOTICE_DAYS = 7;
+export const TERMS_NOTICE_DAYS_UNFAVORABLE = 30;

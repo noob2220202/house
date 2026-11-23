@@ -14,7 +14,7 @@ import {
   type Paginated,
   type PaginationQuery,
 } from '@house/shared';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { UserPrincipal } from '../../../common/auth/principal';
 import { AppException } from '../../../common/errors/app.exception';
 import { paginate } from '../../../common/pagination/pagination';
@@ -23,6 +23,7 @@ import { toMemberView } from '../agency.mapper';
 import { agencyMemberSelect } from '../agency.selects';
 import { MAX_ACTIVE_INVITES } from '../constants';
 import { lockUserMembership } from '../domain/locks';
+import { AGENCY_LISTINGS_SYNC, type AgencyListingsSync } from '../ports/agency-listings.sync';
 import { AgencyCacheService } from './agency-cache.service';
 import { AgencyInviteStore, toInviteView } from './agency-invite.store';
 import { AgencySessionSyncService } from './agency-session-sync.service';
@@ -45,6 +46,7 @@ export class AgencyMembersService {
     private readonly invites: AgencyInviteStore,
     private readonly cache: AgencyCacheService,
     private readonly sessions: AgencySessionSyncService,
+    @Inject(AGENCY_LISTINGS_SYNC) private readonly listings: AgencyListingsSync,
   ) {}
 
   async list(
@@ -101,12 +103,11 @@ export class AgencyMembersService {
     if (member.role === AgencyMemberRole.OWNER) {
       throw AppException.badRequest(ErrorCode.AGENCY_OWNER_NOT_REMOVABLE);
     }
-    await this.prisma.$transaction(async (tx) => {
+    const relinked = await this.prisma.$transaction(async (tx) => {
       await lockUserMembership(tx, member.userId);
-      await this.deactivate(tx, member.id, member.userId);
+      return this.deactivate(tx, agencyId, member.id, member.userId);
     });
-    await this.sessions.apply(member.userId, { role: UserRole.USER, agencyId: null });
-    await this.cache.invalidatePublic();
+    await this.afterDeparture(member.userId, relinked);
   }
 
   /** The caller's own live membership (owner or agent), or 404. */
@@ -131,18 +132,17 @@ export class AgencyMembersService {
   async leave(user: UserPrincipal): Promise<void> {
     const m = await this.prisma.agencyMember.findFirst({
       where: liveMembershipWhere(user.userId),
-      select: { id: true, role: true },
+      select: { id: true, role: true, agencyId: true },
     });
     if (!m) throw AppException.notFound(ErrorCode.AGENCY_MEMBER_NOT_FOUND);
     if (m.role === AgencyMemberRole.OWNER) {
       throw AppException.badRequest(ErrorCode.AGENCY_OWNER_NOT_REMOVABLE);
     }
-    await this.prisma.$transaction(async (tx) => {
+    const relinked = await this.prisma.$transaction(async (tx) => {
       await lockUserMembership(tx, user.userId);
-      await this.deactivate(tx, m.id, user.userId);
+      return this.deactivate(tx, m.agencyId, m.id, user.userId);
     });
-    await this.sessions.apply(user.userId, { role: UserRole.USER, agencyId: null });
-    await this.cache.invalidatePublic();
+    await this.afterDeparture(user.userId, relinked);
   }
 
   // ---------- invites ----------
@@ -254,7 +254,13 @@ export class AgencyMembersService {
     if (owned > 0 || member > 0) throw AppException.conflict(ErrorCode.AGENCY_ALREADY_MEMBER);
   }
 
-  private async deactivate(tx: PrismaTx, memberId: string, userId: string): Promise<void> {
+  /** Marks the member REMOVED, downgrades the user and takes them off the agency's listing ads. */
+  private async deactivate(
+    tx: PrismaTx,
+    agencyId: string,
+    memberId: string,
+    userId: string,
+  ): Promise<number> {
     await tx.agencyMember.update({
       where: { id: memberId },
       data: { status: AgencyMemberStatus.REMOVED, removedAt: new Date() },
@@ -263,5 +269,12 @@ export class AgencyMembersService {
       where: { id: userId, role: UserRole.AGENT },
       data: { role: UserRole.USER },
     });
+    return this.listings.memberDeparted(tx, agencyId, memberId);
+  }
+
+  private async afterDeparture(userId: string, relinkedListings: number): Promise<void> {
+    await this.sessions.apply(userId, { role: UserRole.USER, agencyId: null });
+    await this.cache.invalidatePublic();
+    if (relinkedListings > 0) await this.listings.invalidateSearch();
   }
 }

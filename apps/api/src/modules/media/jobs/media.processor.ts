@@ -3,7 +3,7 @@ import { Logger, OnApplicationBootstrap } from '@nestjs/common';
 import type { Job, Queue } from 'bullmq';
 import { AppConfig } from '../../../config/app-config.service';
 import { QUEUES } from '../../../queue/queue.constants';
-import { MEDIA_JOBS, ORPHAN_CLEANUP_CRON } from '../constants';
+import { MEDIA_JOBS, MEDIA_WORKER_CONCURRENCY, ORPHAN_CLEANUP_CRON } from '../constants';
 import { MediaCleanupService } from '../media-cleanup.service';
 import { MediaProcessingService, type ProcessOutcome } from '../media-processing.service';
 import type { ProcessJobData } from '../media-upload.service';
@@ -14,7 +14,7 @@ import type { ProcessJobData } from '../media-upload.service';
  * the services directly). Cleanup lives here rather than on the shared `cleanup` queue so no other
  * module's worker can pick up (and fail) media jobs.
  */
-@Processor(QUEUES.MEDIA_PROCESSING, { autorun: false, concurrency: 2 })
+@Processor(QUEUES.MEDIA_PROCESSING, { autorun: false, concurrency: MEDIA_WORKER_CONCURRENCY })
 export class MediaProcessor extends WorkerHost implements OnApplicationBootstrap {
   private readonly logger = new Logger(MediaProcessor.name);
 

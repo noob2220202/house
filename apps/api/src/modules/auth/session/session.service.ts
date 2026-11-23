@@ -17,6 +17,29 @@ import type { CreateSessionInput, SessionKind, SessionPatch, SessionRecord } fro
 /** Don't rewrite the record on every request; refresh sliding expiry at most this often. */
 const TOUCH_INTERVAL_MS = 60_000;
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const PATCH_RETRIES = 5;
+
+/**
+ * Compare-and-set rewrite of a session record. Writes only if the session is still listed in its
+ * subject index (logout-all / revocation removes it there first) and the stored JSON is exactly
+ * what the caller read, so a concurrent revoke can never resurrect a record and a sliding touch
+ * can never undo a concurrent patch.
+ *   KEYS: session key, subject index key
+ *   ARGV: session id, expected JSON, new JSON, ttl seconds ("" = keep the current TTL)
+ *   returns 1 written, 0 record changed meanwhile, -1 gone / revoked
+ */
+const CAS_SESSION_SCRIPT = `
+if redis.call('SISMEMBER', KEYS[2], ARGV[1]) == 0 then return -1 end
+local current = redis.call('GET', KEYS[1])
+if not current then return -1 end
+if current ~= ARGV[2] then return 0 end
+if ARGV[4] == '' then
+  redis.call('SET', KEYS[1], ARGV[3], 'KEEPTTL')
+else
+  redis.call('SET', KEYS[1], ARGV[3], 'EX', ARGV[4])
+end
+return 1
+`;
 
 /**
  * Server-side sessions in Redis.
@@ -91,13 +114,20 @@ export class SessionService implements SessionResolver {
     await this.updateById(hashSessionToken(token), patch);
   }
 
-  /** Updates mutable fields (e.g. agencyId/role after agency approval) keeping the TTL. */
+  /**
+   * Updates mutable fields (e.g. agencyId/role after agency approval) keeping the TTL. Atomic
+   * against concurrent touches / patches (retried CAS) and never recreates a revoked session.
+   */
   async updateById(id: string, patch: SessionPatch): Promise<void> {
-    const key = sessionKey(id);
-    const [raw, ttl] = await Promise.all([this.redis.get(key), this.redis.ttl(key)]);
-    if (!raw || ttl <= 0) return;
-    const record = { ...(JSON.parse(raw) as SessionRecord), ...patch };
-    await this.redis.set(key, JSON.stringify(record), 'EX', ttl);
+    for (let attempt = 0; attempt < PATCH_RETRIES; attempt++) {
+      const raw = await this.redis.get(sessionKey(id));
+      if (!raw) return;
+      const current = JSON.parse(raw) as SessionRecord;
+      const next = JSON.stringify({ ...current, ...patch });
+      const result = await this.compareAndSet(current, raw, next, null);
+      if (result !== 0) return;
+    }
+    throw new Error(`session ${id.slice(0, 8)}… kept changing; patch not applied`);
   }
 
   /** Applies a patch to every live session of a subject (role change, agency membership change). */
@@ -186,22 +216,57 @@ export class SessionService implements SessionResolver {
     };
   }
 
+  /**
+   * A record counts only while it is listed in its subject index: logout-all deletes the index
+   * together with the records, so a record orphaned by a create/logout-all race is treated as revoked.
+   */
   private async findById(id: string, touch: boolean): Promise<SessionRecord | null> {
     const raw = await this.redis.get(sessionKey(id));
     if (!raw) return null;
     const record = JSON.parse(raw) as SessionRecord;
+    if (record.id !== id) return null;
+    const indexed = await this.redis.sismember(subjectKey(record.kind, record.subjectId), id);
+    if (indexed !== 1) return null;
     const now = Date.now();
     if (now >= record.absoluteExpiresAt) {
       await this.destroyRecord(record);
       return null;
     }
     if (touch && now - record.lastSeenAt >= TOUCH_INTERVAL_MS) {
-      record.lastSeenAt = now;
+      const touched: SessionRecord = { ...record, lastSeenAt: now };
       const idle = record.idleTtlSeconds ?? this.ttls(record.kind).idle;
       const ttl = Math.min(idle, Math.ceil((record.absoluteExpiresAt - now) / 1000));
-      await this.redis.set(sessionKey(id), JSON.stringify(record), 'EX', Math.max(ttl, 1));
+      const result = await this.compareAndSet(
+        record,
+        raw,
+        JSON.stringify(touched),
+        Math.max(ttl, 1),
+      );
+      // -1: revoked between our read and the write. 0: patched meanwhile; the next request
+      // (within TOUCH_INTERVAL_MS) slides the expiry instead.
+      if (result === -1) return null;
+      return result === 1 ? touched : record;
     }
     return record;
+  }
+
+  private async compareAndSet(
+    record: SessionRecord,
+    expectedRaw: string,
+    nextRaw: string,
+    ttlSeconds: number | null,
+  ): Promise<-1 | 0 | 1> {
+    const result = await this.redis.eval(
+      CAS_SESSION_SCRIPT,
+      2,
+      sessionKey(record.id),
+      subjectKey(record.kind, record.subjectId),
+      record.id,
+      expectedRaw,
+      nextRaw,
+      ttlSeconds === null ? '' : String(ttlSeconds),
+    );
+    return result === 1 ? 1 : result === 0 ? 0 : -1;
   }
 
   private ttls(kind: SessionKind): { idle: number; absolute: number } {

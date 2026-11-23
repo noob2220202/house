@@ -12,7 +12,7 @@ import {
 } from '@house/shared';
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
-import { RequestContext } from '../../../common/context/request-context';
+import { AuditService } from '../../../common/audit/audit.service';
 import { AppException } from '../../../common/errors/app.exception';
 import { paginate } from '../../../common/pagination/pagination';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -63,6 +63,14 @@ const detailSelect = {
   _count: { select: { dealRequests: true, reports: true, favoriteListings: true } },
 } satisfies Prisma.UserSelect;
 
+/** What a member status change records in the audit log. */
+const auditSelect = {
+  id: true,
+  status: true,
+  suspendedAt: true,
+  suspendedReason: true,
+} satisfies Prisma.UserSelect;
+
 const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
 
 /** "010-1234" / "5678" → digit search on the phone column; anything else → text search. */
@@ -83,6 +91,7 @@ export class MembersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sessions: SessionService,
+    private readonly audit: AuditService,
   ) {}
 
   async list(q: MemberListQuery): Promise<Paginated<MemberListItem>> {
@@ -119,7 +128,23 @@ export class MembersService {
     };
   }
 
+  /**
+   * Full member record, contacts unmasked. Viewing it is a 개인정보 접속기록 (안전성 확보조치 기준
+   * 제8조: who, when, whose data, what), so it writes a `member.pii-view` audit row. The row names
+   * the fields shown, never their values.
+   */
   async detail(id: string): Promise<MemberDetail> {
+    const detail = await this.build(id);
+    await this.audit.record({
+      action: 'member.pii-view',
+      resourceType: 'User',
+      resourceId: id,
+      after: { fields: ['name', 'email', 'phone'] },
+    });
+    return detail;
+  }
+
+  private async build(id: string): Promise<MemberDetail> {
     const u = await this.prisma.user.findUnique({ where: { id }, select: detailSelect });
     if (!u) throw AppException.notFound(ErrorCode.MEMBER_NOT_FOUND);
     const sessions = await this.sessions.listForSubject('USER', id);
@@ -162,34 +187,49 @@ export class MembersService {
 
   /** ACTIVE → SUSPENDED and logout everywhere (OAuth login is refused while suspended). */
   async suspend(id: string, dto: MemberSuspendInput): Promise<MemberDetail> {
-    await this.transition(id, UserStatus.ACTIVE, {
+    await this.transition(id, 'member.suspend', UserStatus.ACTIVE, {
       status: UserStatus.SUSPENDED,
       suspendedAt: new Date(),
       suspendedReason: dto.reason,
     });
     await this.sessions.destroyAllForSubject('USER', id);
-    return this.detail(id);
+    return this.maskedDetail(id);
   }
 
   async unsuspend(id: string): Promise<MemberDetail> {
-    await this.transition(id, UserStatus.SUSPENDED, {
+    await this.transition(id, 'member.unsuspend', UserStatus.SUSPENDED, {
       status: UserStatus.ACTIVE,
       suspendedAt: null,
       suspendedReason: null,
     });
-    return this.detail(id);
+    return this.maskedDetail(id);
   }
 
+  /** Mutation responses mask contacts like the list does (the full record is GET /:id). */
+  private async maskedDetail(id: string): Promise<MemberDetail> {
+    const d = await this.build(id);
+    return { ...d, email: maskEmail(d.email), phone: d.phone ? maskPhone(d.phone) : null };
+  }
+
+  /**
+   * Status change + audit row in one transaction. The audit snapshots are a minimal projection
+   * (no name, email, phone or withdrawal reason): audit_logs is append-only and never scrubbed.
+   */
   private async transition(
     id: string,
+    action: 'member.suspend' | 'member.unsuspend',
     from: UserStatus,
     data: Prisma.UserUpdateManyMutationInput,
   ): Promise<void> {
-    const before = await this.detail(id);
-    if (before.status !== from) throw AppException.badRequest(ErrorCode.MEMBER_INVALID_STATUS);
-    RequestContext.setAuditBefore(before);
-    const { count } = await this.prisma.user.updateMany({ where: { id, status: from }, data });
-    // Lost a race with another status change (withdrawal, a second operator).
-    if (count === 0) throw AppException.conflict(ErrorCode.MEMBER_INVALID_STATUS);
+    await this.prisma.$transaction(async (tx) => {
+      const before = await tx.user.findUnique({ where: { id }, select: auditSelect });
+      if (!before) throw AppException.notFound(ErrorCode.MEMBER_NOT_FOUND);
+      if (before.status !== from) throw AppException.badRequest(ErrorCode.MEMBER_INVALID_STATUS);
+      const { count } = await tx.user.updateMany({ where: { id, status: from }, data });
+      // Lost a race with another status change (withdrawal, a second operator).
+      if (count === 0) throw AppException.conflict(ErrorCode.MEMBER_INVALID_STATUS);
+      const after = await tx.user.findUniqueOrThrow({ where: { id }, select: auditSelect });
+      await this.audit.record({ action, resourceType: 'User', resourceId: id, before, after }, tx);
+    });
   }
 }

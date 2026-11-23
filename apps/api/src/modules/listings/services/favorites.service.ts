@@ -11,7 +11,7 @@ import { AppException } from '../../../common/errors/app.exception';
 import { paginate } from '../../../common/pagination/pagination';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ListingMapper } from '../listing.mapper';
-import { LISTING_SUMMARY_SELECT } from '../listing.selects';
+import { LISTING_SUMMARY_SELECT, PUBLIC_PRIMARY_AGENCY_WHERE } from '../listing.selects';
 
 /** Favorites stay listed after a deal closes (shown as 거래완료); drafts/hidden/deleted drop out. */
 const FAVORITE_VISIBLE_STATUSES = [...PUBLIC_LISTING_STATUSES, ListingStatus.CLOSED];
@@ -26,7 +26,12 @@ export class FavoritesService {
   /** Idempotent: favoriting twice keeps one row and counts once. */
   async add(userId: string, listingId: string): Promise<{ listingId: string; favorited: true }> {
     const listing = await this.prisma.listing.findFirst({
-      where: { id: listingId, deletedAt: null, status: { in: [...PUBLIC_LISTING_STATUSES] } },
+      where: {
+        id: listingId,
+        deletedAt: null,
+        status: { in: [...PUBLIC_LISTING_STATUSES] },
+        ...PUBLIC_PRIMARY_AGENCY_WHERE,
+      },
       select: { id: true },
     });
     if (!listing) throw AppException.notFound(ErrorCode.LISTING_NOT_FOUND);
@@ -59,7 +64,11 @@ export class FavoritesService {
   async list(userId: string, q: PaginationQuery): Promise<Paginated<FavoriteListingItem>> {
     const where = {
       userId,
-      listing: { deletedAt: null, status: { in: FAVORITE_VISIBLE_STATUSES } },
+      listing: {
+        deletedAt: null,
+        status: { in: FAVORITE_VISIBLE_STATUSES },
+        ...PUBLIC_PRIMARY_AGENCY_WHERE,
+      },
     };
     return paginate(
       q,

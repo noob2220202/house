@@ -4,8 +4,13 @@
  *
  * - house-api     NestJS API, cluster mode (zero-downtime reload), jobs disabled
  * - house-worker  BullMQ jobs (실거래가 sync, banner stats flush, media, cleanup), fork x1
- * - house-web     Next.js user site
- * - house-admin   Next.js back-office
+ * - house-web     Next.js user site, cluster mode
+ * - house-admin   Next.js back-office, cluster mode (also with 1 instance)
+ *
+ * Every HTTP app runs in cluster mode whatever its instance count: PM2 reloads a cluster app by
+ * starting the new worker before stopping the old one, while a fork-mode app is simply restarted
+ * (502s for several seconds). exec_mode never depends on the instance count, so changing
+ * *_INSTANCES is a `pm2 scale`, not a re-registration.
  *
  * Environment comes from /srv/house/shared/.env (API) and /srv/house/shared/deploy.conf
  * (ports/instances), read here so PM2 never depends on the operator's shell environment.
@@ -34,7 +39,11 @@ function readEnvFile(file) {
     let value = line.slice(eq + 1).trim();
     const quoted = /^(["'])(.*?)\1/.exec(value);
     if (quoted) value = quoted[2];
-    else value = value.replace(/\s+#.*$/, '').replace(/^#.*$/, '').trim();
+    else
+      value = value
+        .replace(/\s+#.*$/, '')
+        .replace(/^#.*$/, '')
+        .trim();
     out[key] = value;
   }
   return out;
@@ -79,7 +88,7 @@ const nextApp = (name, dir, port, instances, memory) => ({
   cwd: path.join(CURRENT, 'apps', dir),
   script: 'node_modules/next/dist/bin/next',
   args: `start --port ${port} --hostname 127.0.0.1`,
-  exec_mode: instances > 1 ? 'cluster' : 'fork',
+  exec_mode: 'cluster',
   instances,
   listen_timeout: 20_000,
   kill_timeout: 10_000,

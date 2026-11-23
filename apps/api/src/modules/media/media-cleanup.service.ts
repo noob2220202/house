@@ -10,7 +10,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CLEANUP_BATCH_SIZE } from './constants';
 import { MediaFiles } from './media-files';
-import { orphanWhere, unattachedWhere } from './media.selects';
+import { attachedWhere, orphanWhere, unattachedWhere } from './media.selects';
 
 /**
  * Orphan cleanup (idempotent, safe to run concurrently):
@@ -18,7 +18,10 @@ import { orphanWhere, unattachedWhere } from './media.selects';
  *  2. Unattached uploads whose last attach/detach is older than the grace period → soft-deleted.
  *  3. Soft-deleted rows older than the grace period → files removed, row purged.
  * Rows are locked (FOR UPDATE SKIP LOCKED) and the orphan condition re-checked under the lock, so
- * an upload being attached concurrently (MediaService.assertUsable holds FOR SHARE) is never taken.
+ * an upload being attached concurrently (MediaService.assertUsable and the reference guard trigger
+ * hold FOR SHARE) is never taken; an attach that comes after the soft-delete is refused by the
+ * trigger. Soft-deleted rows that are still referenced (should not exist) are never purged and are
+ * reported in the log.
  */
 @Injectable()
 export class MediaCleanupService {
@@ -62,9 +65,24 @@ export class MediaCleanupService {
     }
 
     const purged = await this.purge(cutoff);
+    await this.reportDeletedButReferenced();
     const result = { orphaned, staleFailed: stale.count, purged };
     if (orphaned + stale.count + purged > 0) this.logger.log(result, 'media cleanup');
     return result;
+  }
+
+  private async reportDeletedButReferenced(): Promise<void> {
+    const rows = await this.prisma.media.findMany({
+      where: { deletedAt: { not: null }, ...attachedWhere },
+      select: { id: true },
+      take: 20,
+    });
+    if (rows.length > 0) {
+      this.logger.warn(
+        { mediaIds: rows.map((r) => r.id) },
+        'soft-deleted media is still referenced; kept (needs manual repair)',
+      );
+    }
   }
 
   private async purge(cutoff: Date): Promise<number> {

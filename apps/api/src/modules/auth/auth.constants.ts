@@ -16,6 +16,8 @@ export const TOTP_ISSUER = 'House Admin';
 
 /** Withdrawn members' PII is scrubbed after this grace period (abuse handling / disputes). */
 export const PII_SCRUB_DELAY_DAYS = 30;
+/** 탈퇴 후 재가입 제한: the same social account cannot sign up again for this long. */
+export const REJOIN_COOLDOWN_DAYS = 30;
 
 /** Cookies owned by the auth module (session cookies are COOKIE_NAMES in @house/shared). */
 export const AUTH_COOKIES = {
@@ -42,7 +44,9 @@ export const REDIS_KEYS = {
   oauthState: (state: string) => `auth:oauth-state:${state}`,
   pendingSignup: (hash: string) => `auth:signup:${hash}`,
   totpSetup: (adminId: string) => `auth:totp-setup:${adminId}`,
-  totpUsedStep: (adminId: string, step: number) => `auth:totp-used:${adminId}:${step}`,
+  /** One accepted code per (admin, secret, time-step); `secretTag` keeps a fresh secret usable. */
+  totpUsedStep: (adminId: string, secretTag: string, step: number) =>
+    `auth:totp-used:${adminId}:${secretTag}:${step}`,
 } as const;
 
 /** Dedicated queue (not the shared `cleanup` queue, so no other processor can take these jobs). */

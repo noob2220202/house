@@ -61,6 +61,32 @@ export interface ListingPriceFields {
   premium?: number | null;
 }
 
+/** Price fields that apply to each deal type; the others are stored and shown as null. */
+export const DEAL_TYPE_PRICE_FIELDS: Record<DealTypeValue, readonly (keyof ListingPriceFields)[]> =
+  {
+    SALE: ['salePrice'],
+    JEONSE: ['deposit'],
+    MONTHLY: ['deposit', 'monthlyRent'],
+    PRESALE: ['presalePrice', 'premium'],
+  };
+
+/** The five price fields with those that don't apply to `dealType` nulled out. */
+export function applicablePrices(
+  dealType: DealTypeValue,
+  p: ListingPriceFields,
+): Required<{ [K in keyof ListingPriceFields]: number | null }> {
+  const keep = DEAL_TYPE_PRICE_FIELDS[dealType];
+  const pick = (k: keyof ListingPriceFields): number | null =>
+    keep.includes(k) ? (p[k] ?? null) : null;
+  return {
+    salePrice: pick('salePrice'),
+    deposit: pick('deposit'),
+    monthlyRent: pick('monthlyRent'),
+    presalePrice: pick('presalePrice'),
+    premium: pick('premium'),
+  };
+}
+
 /** Sort/filter price key in 만원: 매매가, 분양가+프리미엄, or 보증금(전세금) for 전세/월세. */
 export function priceSortOf(dealType: DealTypeValue, p: ListingPriceFields): number | null {
   switch (dealType) {
@@ -118,10 +144,12 @@ export function canAgencyTransition(from: ListingStatusValue, to: ListingStatusV
   return AGENCY_STATUS_TRANSITIONS[from].includes(to);
 }
 
-/** Statuses in which an agency may still edit the listing content. */
+/**
+ * Statuses in which an agency may still edit the listing content. HIDDEN is excluded: an admin
+ * hid it (e.g. 허위매물 신고) and its content is evidence until the admin un-hides it to DRAFT.
+ */
 export const AGENCY_EDITABLE_STATUSES: readonly ListingStatusValue[] = [
   ListingStatus.DRAFT,
   ListingStatus.ACTIVE,
   ListingStatus.RESERVED,
-  ListingStatus.HIDDEN,
 ];

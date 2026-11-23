@@ -31,14 +31,29 @@ All paths are under `/api/v1`. Admin routes need an admin session with TOTP veri
 | DELETE              | `/admin/complexes/:id` (soft delete)                                                     | ADMIN    |
 | POST · PATCH/DELETE | `/admin/complexes/:id/area-types` · `/admin/complexes/:id/area-types/:areaTypeId`        | OPERATOR |
 | PUT                 | `/admin/complexes/:id/photos`                                                            | OPERATOR |
-| POST                | `/admin/complexes/trade-sync` `{ yearMonth, kinds? }` (inline, Redis-locked)             | ADMIN    |
+| POST                | `/admin/complexes/trade-sync` `{ yearMonth, kinds? }` → 202 `{ jobId }` (queued job)     | ADMIN    |
 | GET                 | `/admin/complexes/trade-sync/runs?kind&status&yearMonth&page`                            | OPERATOR |
-| POST                | `/admin/complexes/trade-sync/rematch` `{ fromYm? }`                                      | ADMIN    |
+| POST                | `/admin/complexes/trade-sync/rematch` `{ fromYm? }` → 202 `{ jobId }` (queued job)       | ADMIN    |
+| GET                 | `/admin/complexes/trade-sync/jobs/:jobId` (state, result, failedReason)                  | OPERATOR |
 | POST · PUT          | `/admin/regions/seed-default` · `/admin/regions/:code`                                   | ADMIN    |
 
 Jobs (queue `trade-sync`, only when `JOBS_ENABLED`): `trade-sync:monthly` (cron `13 4 2,16 * *`
-Asia/Seoul, current month + 3 lookback months), `trade-sync:month` (one-off), and
+Asia/Seoul, current month + 3 lookback months), `trade-sync:month` and `trade-sync:rematch`
+(enqueued by the admin endpoints; rematch also after 단지 create/delete/match-field edits; job ids
+are derived from the parameters so repeated requests dedupe while pending), and
 `complexes:flush-views` (every 5 min, Redis view totals → `complexes.view_count`).
+Without `JOBS_ENABLED` the admin endpoints only enqueue — some process must run the worker.
+
+Matching rules (`ComplexMatcher`): aptSeq = external_code first; name/지번 fallbacks never pick a
+단지 whose external_code or 지번 contradicts the trade. Sync and rematch keep an earlier match unless
+it is contradicted or its 단지 was deleted. Stats rebuilds take a per-단지 advisory lock
+(`TradeStatsService.lock`) and run DELETE + INSERT … SELECT in one transaction; admin 평형 edits
+re-assign every trade of the 단지 to its nearest 평형 and rebuild stats in the same transaction.
+
+Views: logged-in users dedupe per user; anonymous viewers per HMAC of their /24 (IPv4) or /64
+(IPv6) network, capped at `ANON_VIEW_DAILY_CAP_PER_NETWORK` 단지 per KST day; bots (shared
+`isBotUserAgent`, which also treats a missing UA as a bot) are not counted. The SSR frontend must
+forward the browser's `X-Forwarded-For` and `User-Agent`.
 
 ## Files you own
 

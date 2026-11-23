@@ -57,6 +57,68 @@ describe('ComplexMatcher', () => {
     ).toBeNull();
   });
 
+  describe('contradicting signals', () => {
+    const hyundai = c({
+      id: 'A',
+      name: '현대아파트',
+      emdName: '연향동',
+      jibun: '100',
+      externalCode: '46150-100',
+    });
+    const mm = new ComplexMatcher([hyundai]);
+
+    it('refuses a name match when the trade carries a different 국토교통부 code', () => {
+      expect(
+        mm.match({ aptSeq: '46150-999', aptName: '현대', emdName: '연향동', jibun: null }),
+      ).toBeNull();
+      expect(
+        mm.match({ aptSeq: '46150-999', aptName: '현대', emdName: null, jibun: null }),
+      ).toBeNull();
+    });
+
+    it('refuses a name match when the 지번 differs', () => {
+      expect(
+        mm.match({ aptSeq: null, aptName: '현대', emdName: '연향동', jibun: '555' }),
+      ).toBeNull();
+      expect(mm.match({ aptSeq: null, aptName: '현대', emdName: null, jibun: '555' })).toBeNull();
+      // the review probe: different code AND different 지번
+      expect(
+        mm.match({ aptSeq: '46150-999', aptName: '현대', emdName: '연향동', jibun: '555' }),
+      ).toBeNull();
+    });
+
+    it('still matches when the signals agree or are missing', () => {
+      expect(
+        mm.match({ aptSeq: null, aptName: '현대', emdName: '연향동', jibun: '0100' })?.id,
+      ).toBe('A');
+      expect(mm.match({ aptSeq: null, aptName: '현대', emdName: '연향동', jibun: null })?.id).toBe(
+        'A',
+      );
+      expect(
+        mm.match({ aptSeq: '46150-100', aptName: '다른이름', emdName: null, jibun: '555' })?.id,
+      ).toBe('A');
+    });
+
+    it('a 지번 conflict drops one twin of a shared 지번 so the other matches', () => {
+      const twins = new ComplexMatcher([
+        c({ id: 'x', name: '부영1차', emdName: '조례동', jibun: '700', externalCode: '46150-1' }),
+        c({ id: 'y', name: '부영2차', emdName: '조례동', jibun: '700' }),
+      ]);
+      expect(
+        twins.match({ aptSeq: '46150-2', aptName: '부영', emdName: '조례동', jibun: '700' })?.id,
+      ).toBe('y');
+    });
+
+    it('keeps() detaches only on contradiction or a deleted 단지', () => {
+      expect(mm.keeps('A', { aptSeq: '46150-100', jibun: '555' })).toBe(true);
+      expect(mm.keeps('A', { aptSeq: null, jibun: '100' })).toBe(true);
+      expect(mm.keeps('A', { aptSeq: null, jibun: null })).toBe(true);
+      expect(mm.keeps('A', { aptSeq: '46150-999', jibun: '100' })).toBe(false);
+      expect(mm.keeps('A', { aptSeq: null, jibun: '555' })).toBe(false);
+      expect(mm.keeps('gone', { aptSeq: null, jibun: null })).toBe(false);
+    });
+  });
+
   it('assigns the nearest 평형 within tolerance', () => {
     const complex = c({
       id: 'x',
