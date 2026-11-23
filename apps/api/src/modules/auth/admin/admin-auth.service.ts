@@ -3,6 +3,8 @@ import {
   type AdminLoginInput,
   type AdminLoginResponse,
   type AdminMeResponse,
+  type AdminSessionResponse,
+  type AdminTotpActivateResponse,
   AdminStatus,
   type AdminTotpSetupResponse,
   type AdminTotpVerifyInput,
@@ -95,8 +97,8 @@ export class AdminAuthService {
         data: { failedLoginCount: 0 },
       });
     }
-    await this.issueSession(req, res, admin, false);
-    return { mfaRequired: true, totpEnrolled: admin.totpEnabledAt !== null };
+    const csrfToken = await this.issueSession(req, res, admin, false);
+    return { mfaRequired: true, totpEnrolled: admin.totpEnabledAt !== null, csrfToken };
   }
 
   /** Starts (or, from a verified session, rotates) TOTP enrollment. Secret is kept in Redis until activated. */
@@ -125,7 +127,7 @@ export class AdminAuthService {
     code: string,
     req: Request,
     res: Response,
-  ): Promise<{ recoveryCodes: string[]; admin: AdminMeResponse }> {
+  ): Promise<AdminTotpActivateResponse> {
     const admin = await this.loadActive(principal.adminId);
     if (this.isLocked(admin)) throw locked();
     if (admin.totpEnabledAt && !principal.mfaVerified) {
@@ -170,8 +172,8 @@ export class AdminAuthService {
     await this.redis.del(REDIS_KEYS.totpSetup(admin.id));
     // New second factor: every older session (possibly verified with the old secret) goes away.
     await this.sessions.destroyAllForSubject('ADMIN', admin.id);
-    await this.issueSession(req, res, updated, true);
-    return { recoveryCodes, admin: toAdminMe(updated) };
+    const csrfToken = await this.issueSession(req, res, updated, true);
+    return { recoveryCodes, admin: toAdminMe(updated), csrfToken };
   }
 
   /** Second factor for an enrolled admin: TOTP code or a one-time recovery code. */
@@ -180,7 +182,7 @@ export class AdminAuthService {
     dto: AdminTotpVerifyInput,
     req: Request,
     res: Response,
-  ): Promise<AdminMeResponse> {
+  ): Promise<AdminSessionResponse> {
     const admin = await this.loadActive(principal.adminId);
     if (!admin.totpEnabledAt || !admin.totpSecretEnc) {
       throw AppException.badRequest(ErrorCode.AUTH_TOTP_NOT_ENROLLED);
@@ -213,9 +215,9 @@ export class AdminAuthService {
         after: { recoveryCodesRemaining: updated.recoveryCodeHashes.length },
       });
     }
-    await this.issueSession(req, res, updated, true);
+    const csrfToken = await this.issueSession(req, res, updated, true);
     this.logger.log({ adminId: admin.id, ip: req.ip }, 'admin logged in');
-    return toAdminMe(updated);
+    return { admin: toAdminMe(updated), csrfToken };
   }
 
   async me(principal: AdminPrincipal): Promise<AdminMeResponse> {
@@ -233,7 +235,7 @@ export class AdminAuthService {
     dto: { currentPassword: string; newPassword: string },
     req: Request,
     res: Response,
-  ): Promise<AdminMeResponse> {
+  ): Promise<AdminSessionResponse> {
     const admin = await this.loadActive(principal.adminId);
     if (!(await this.passwords.verify(admin.passwordHash, dto.currentPassword))) {
       await this.registerFailure(admin.id);
@@ -258,8 +260,8 @@ export class AdminAuthService {
       return row;
     });
     await this.sessions.destroyAllForSubject('ADMIN', admin.id);
-    await this.issueSession(req, res, updated, true);
-    return toAdminMe(updated);
+    const csrfToken = await this.issueSession(req, res, updated, true);
+    return { admin: toAdminMe(updated), csrfToken };
   }
 
   private async issueSession(
@@ -267,7 +269,7 @@ export class AdminAuthService {
     res: Response,
     admin: AdminUser,
     mfaVerified: boolean,
-  ): Promise<void> {
+  ): Promise<string> {
     const previous = readSessionCookie(req, 'ADMIN');
     if (previous) await this.sessions.destroy(previous);
     const ua = req.headers['user-agent'];
@@ -282,6 +284,7 @@ export class AdminAuthService {
       userAgent: typeof ua === 'string' ? ua : undefined,
     });
     this.sessions.setCookies(res, 'ADMIN', token, record);
+    return record.csrfToken;
   }
 
   private async loadActive(adminId: string): Promise<AdminUser> {

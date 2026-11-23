@@ -1,9 +1,9 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import {
   ErrorCode,
-  type MeResponse,
   type PendingSignupResponse,
   type SignupInput,
+  type SignupResponse,
   TermsType,
   UserRole,
 } from '@house/shared';
@@ -54,7 +54,7 @@ export class SignupService {
     req: Request,
     res: Response,
     dto: SignupInput,
-  ): Promise<{ user: MeResponse; returnTo: string | null }> {
+  ): Promise<SignupResponse> {
     const { token, pending } = await this.load(req);
     const profile = pending.profile;
 
@@ -119,7 +119,7 @@ export class SignupService {
       agencyId: record.agencyId,
       sessionId: record.id,
     });
-    return { user: me, returnTo: pending.returnTo };
+    return { user: me, returnTo: pending.returnTo, csrfToken: record.csrfToken };
   }
 
   private async load(req: Request): Promise<{ token: string; pending: PendingSignup }> {

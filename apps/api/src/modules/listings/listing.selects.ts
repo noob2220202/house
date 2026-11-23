@@ -172,24 +172,3 @@ export const LISTING_AGENCY_DETAIL_SELECT = {
 export type ListingAgencyDetailRow = Prisma.ListingGetPayload<{
   select: typeof LISTING_AGENCY_DETAIL_SELECT;
 }>;
-
-/** Everything the write path needs to merge a patch and re-run the publish validator. */
-export const LISTING_WRITE_SELECT = {
-  id: true,
-  status: true,
-  dealType: true,
-  primaryAgencyId: true,
-  propertyId: true,
-  complexId: true,
-  salePrice: true,
-  deposit: true,
-  monthlyRent: true,
-  presalePrice: true,
-  premium: true,
-  maintenanceFeeWon: true,
-  moveInType: true,
-  moveInDate: true,
-  verifiedAt: true,
-  property: true,
-} as const satisfies Prisma.ListingSelect;
-export type ListingWriteRow = Prisma.ListingGetPayload<{ select: typeof LISTING_WRITE_SELECT }>;

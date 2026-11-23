@@ -231,6 +231,13 @@ export interface ConsentStatus {
   decidedAt: string | null;
 }
 
+export interface SignupResponse {
+  user: MeResponse;
+  /** Where the user was heading before login (site-relative), if any. */
+  returnTo: string | null;
+  csrfToken: string;
+}
+
 export interface PendingSignupResponse {
   provider: AuthProvider;
   prefill: {
@@ -247,6 +254,20 @@ export interface AdminLoginResponse {
   mfaRequired: true;
   /** false → the admin must enroll TOTP (setup + activate) before anything else. */
   totpEnrolled: boolean;
+  /** CSRF token of the new (pre-TOTP) session, for the x-csrf-token header. */
+  csrfToken: string;
+}
+
+/** Returned whenever the admin session is (re)issued as TOTP-verified. */
+export interface AdminSessionResponse {
+  admin: AdminMeResponse;
+  /** The session was rotated: use this token from now on. */
+  csrfToken: string;
+}
+
+export interface AdminTotpActivateResponse extends AdminSessionResponse {
+  /** One-time recovery codes, shown exactly once. */
+  recoveryCodes: string[];
 }
 
 export interface AdminTotpSetupResponse {

@@ -1,0 +1,32 @@
+import {
+  adminLoginSchema,
+  adminPasswordChangeSchema,
+  adminTotpActivateSchema,
+  adminTotpVerifySchema,
+  consentInputSchema,
+  oauthCallbackQuerySchema,
+  oauthProviderParamSchema,
+  oauthStartQuerySchema,
+  sessionIdParamSchema,
+  signupSchema,
+  termsTypeParamSchema,
+  termsVersionQuerySchema,
+  updateProfileSchema,
+  withdrawSchema,
+} from '@house/shared';
+import { createZodDto } from '../../common/pipes/zod-validation.pipe';
+
+export class OAuthProviderParamDto extends createZodDto(oauthProviderParamSchema) {}
+export class OAuthStartQueryDto extends createZodDto(oauthStartQuerySchema) {}
+export class OAuthCallbackQueryDto extends createZodDto(oauthCallbackQuerySchema) {}
+export class SignupDto extends createZodDto(signupSchema) {}
+export class SessionIdParamDto extends createZodDto(sessionIdParamSchema) {}
+export class UpdateProfileDto extends createZodDto(updateProfileSchema) {}
+export class ConsentInputDto extends createZodDto(consentInputSchema) {}
+export class WithdrawDto extends createZodDto(withdrawSchema) {}
+export class TermsTypeParamDto extends createZodDto(termsTypeParamSchema) {}
+export class TermsVersionQueryDto extends createZodDto(termsVersionQuerySchema) {}
+export class AdminLoginDto extends createZodDto(adminLoginSchema) {}
+export class AdminTotpVerifyDto extends createZodDto(adminTotpVerifySchema) {}
+export class AdminTotpActivateDto extends createZodDto(adminTotpActivateSchema) {}
+export class AdminPasswordChangeDto extends createZodDto(adminPasswordChangeSchema) {}
