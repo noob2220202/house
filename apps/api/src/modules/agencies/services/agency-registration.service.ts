@@ -224,7 +224,7 @@ export class AgencyRegistrationService {
     const docs = await this.prisma.agencyDocument.findMany({
       where: { agencyId: id },
       select: agencyDocumentSelect,
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
     return docs.map(toDocumentView);
   }
@@ -353,10 +353,7 @@ export class AgencyRegistrationService {
       lat: p.lat,
       lng: p.lng,
       intro: p.intro,
-      businessHours:
-        p.businessHours === null
-          ? Prisma.DbNull
-          : (p.businessHours as Prisma.InputJsonObject | undefined),
+      businessHours: p.businessHours === null ? Prisma.DbNull : p.businessHours,
       specialties: p.specialties,
     };
   }

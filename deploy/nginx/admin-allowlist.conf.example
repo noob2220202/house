@@ -1,0 +1,7 @@
+# /etc/nginx/house/admin-allowlist.conf — IP allow-list for the admin subdomain.
+# Empty (comments only) = everyone may reach the login page (the API still requires password+TOTP).
+# To restrict, uncomment and list your office/home IPs, then: sudo nginx -t && sudo systemctl reload nginx
+#
+# allow 203.0.113.10;      # 사무실
+# allow 198.51.100.0/24;   # 집 (통신사 대역)
+# deny all;

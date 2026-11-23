@@ -33,9 +33,7 @@ export const registrationNumberSchema = z
   .max(60)
   .transform(normalizeRegistrationNumber)
   .pipe(
-    z
-      .string()
-      .regex(REGISTRATION_NUMBER_PATTERN, '중개사무소 등록번호 형식이 올바르지 않습니다.'),
+    z.string().regex(REGISTRATION_NUMBER_PATTERN, '중개사무소 등록번호 형식이 올바르지 않습니다.'),
   );
 
 export const businessNumberSchema = z
@@ -206,15 +204,24 @@ export const agencyMemberParamSchema = z.object({ memberId: idSchema });
 export const agencyDocumentParamSchema = z.object({ docId: idSchema });
 export const agencyAdminDocumentParamSchema = z.object({ id: idSchema, docId: idSchema });
 
-export const agencyInviteIdSchema = z.string().regex(/^[a-f0-9]{24}$/, '초대 ID가 올바르지 않습니다.');
+export const agencyInviteIdSchema = z
+  .string()
+  .regex(/^[a-f0-9]{24}$/, '초대 ID가 올바르지 않습니다.');
 export const agencyInviteParamSchema = z.object({ inviteId: agencyInviteIdSchema });
 
 /** POST /agencies/mine/invites — owner issues a single-use join code for a staff member. */
-export const agencyInviteCreateSchema = z.object({
-  /** Owner's memo (e.g. "김실장"). */
-  label: optionalText(50),
-  expiresInHours: z.int().min(1).max(24 * 14).default(72),
-});
+export const agencyInviteCreateSchema = z.preprocess(
+  (v) => v ?? {},
+  z.object({
+    /** Owner's memo (e.g. "김실장"). */
+    label: optionalText(50),
+    expiresInHours: z
+      .int()
+      .min(1)
+      .max(24 * 14)
+      .default(72),
+  }),
+);
 export type AgencyInviteCreateInput = z.infer<typeof agencyInviteCreateSchema>;
 
 const memberProfileFields = {

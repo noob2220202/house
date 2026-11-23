@@ -77,13 +77,17 @@ model DealRequest {
   areaMax     Decimal? @map("area_max") @db.Decimal(10, 2)
   roomsMin    Int?     @map("rooms_min")
 
-  moveInDate    DateTime? @map("move_in_date") @db.Date
-  expiresAt     DateTime? @map("expires_at") @db.Timestamptz(3)
-  closedAt      DateTime? @map("closed_at") @db.Timestamptz(3)
-  proposalCount Int       @default(0) @map("proposal_count")
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(3)
+  moveInDate        DateTime? @map("move_in_date") @db.Date
+  expiresAt         DateTime? @map("expires_at") @db.Timestamptz(3)
+  closedAt          DateTime? @map("closed_at") @db.Timestamptz(3)
+  proposalCount     Int       @default(0) @map("proposal_count")
+  /// Why the request was closed (admin moderation or requester note).
+  closeReason       String?   @map("close_reason") @db.VarChar(500)
+  /// Contact/동호 erased (data minimization) after closure or member withdrawal.
+  contactScrubbedAt DateTime? @map("contact_scrubbed_at") @db.Timestamptz(3)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(3)
 
   user          User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   complex       Complex?                  @relation(fields: [complexId], references: [id], onDelete: SetNull)
@@ -98,6 +102,7 @@ model DealRequest {
   @@index([complexId, status])
   @@index([regionCodes], type: Gin)
   @@index([expiresAt])
+  @@index([closedAt])
   @@index([location], type: Gist)
   @@map("deal_requests")
 }
@@ -131,16 +136,20 @@ model DealRequestPhoto {
 }
 
 model Proposal {
-  id            String         @id @default(uuid(7)) @db.Uuid
-  dealRequestId String         @map("deal_request_id") @db.Uuid
-  agencyId      String         @map("agency_id") @db.Uuid
-  memberId      String?        @map("member_id") @db.Uuid
-  message       String         @db.VarChar(2000)
-  status        ProposalStatus @default(SENT)
-  viewedAt      DateTime?      @map("viewed_at") @db.Timestamptz(3)
-  respondedAt   DateTime?      @map("responded_at") @db.Timestamptz(3)
-  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                   String         @id @default(uuid(7)) @db.Uuid
+  dealRequestId        String         @map("deal_request_id") @db.Uuid
+  agencyId             String         @map("agency_id") @db.Uuid
+  memberId             String?        @map("member_id") @db.Uuid
+  message              String         @db.VarChar(2000)
+  /// Suggested terms (만원), optional.
+  suggestedPrice       Int?           @map("suggested_price")
+  suggestedDeposit     Int?           @map("suggested_deposit")
+  suggestedMonthlyRent Int?           @map("suggested_monthly_rent")
+  status               ProposalStatus @default(SENT)
+  viewedAt             DateTime?      @map("viewed_at") @db.Timestamptz(3)
+  respondedAt          DateTime?      @map("responded_at") @db.Timestamptz(3)
+  createdAt            DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   dealRequest DealRequest       @relation(fields: [dealRequestId], references: [id], onDelete: Cascade)
   agency      Agency            @relation(fields: [agencyId], references: [id], onDelete: Cascade)

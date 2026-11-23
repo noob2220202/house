@@ -195,6 +195,11 @@ export interface AdminComplexView
   deletedAt: string | null;
 }
 
+export interface AdminComplexListItem extends ComplexSummary {
+  externalCode: string | null;
+  deletedAt: string | null;
+}
+
 export interface TradeSyncRunView {
   id: string;
   kind: TradeSyncKind;

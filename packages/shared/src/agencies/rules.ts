@@ -36,7 +36,8 @@ export function normalizeRegistrationNumber(input: string): string {
 }
 
 /** 등록번호 characters: digits, ASCII letters, 한글 (older formats like "가1234-5678"), hyphens. */
-export const REGISTRATION_NUMBER_PATTERN = /^[0-9A-Za-z가-힣](?:[0-9A-Za-z가-힣-]{2,38})[0-9A-Za-z가-힣]$/;
+export const REGISTRATION_NUMBER_PATTERN =
+  /^[0-9A-Za-z가-힣](?:[0-9A-Za-z가-힣-]{2,38})[0-9A-Za-z가-힣]$/;
 
 /** 사업자등록번호 (10 digits) check-digit validation. */
 export function isValidBusinessNumber(digits: string): boolean {

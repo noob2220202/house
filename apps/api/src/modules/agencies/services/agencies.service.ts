@@ -107,7 +107,10 @@ export class AgenciesService {
    * 표시·광고 명시사항 of an APPROVED agency (명칭·소재지·연락처·등록번호·대표자 성명), or null when the
    * agency cannot advertise. Listings feed this into the publish validator and the ad footer.
    */
-  async getDisclosure(agencyId: string, db: PrismaTx = this.prisma): Promise<AgencyDisclosure | null> {
+  async getDisclosure(
+    agencyId: string,
+    db: PrismaTx = this.prisma,
+  ): Promise<AgencyDisclosure | null> {
     const row = await db.agency.findFirst({
       where: { id: agencyId, status: AgencyStatus.APPROVED, deletedAt: null },
       select: disclosureSelect,

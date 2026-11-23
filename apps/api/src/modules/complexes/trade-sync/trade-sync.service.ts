@@ -25,7 +25,12 @@ import {
   TRADE_UPSERT_BATCH,
 } from '../constants';
 import { ComplexMatcher, type MatchableComplex } from './complex-matcher';
-import { TRADE_API_CLIENT, TradeApiError, type RawTradeItem, type TradeApiClient } from './trade-api.client';
+import {
+  TRADE_API_CLIENT,
+  TradeApiError,
+  type RawTradeItem,
+  type TradeApiClient,
+} from './trade-api.client';
 import { normalizeTradeBatch, type NormalizedTrade } from './trade-normalizer';
 import { TradeStatsService } from './trade-stats.service';
 
@@ -225,7 +230,10 @@ export class TradeSyncService {
       counts.fetched = items.length;
       const { trades, skipped } = normalizeTradeBatch(kind, items, sggCode);
       if (skipped.length > 0) {
-        this.logger.warn({ kind, yearMonth, skipped: skipped.length }, 'skipped invalid trade rows');
+        this.logger.warn(
+          { kind, yearMonth, skipped: skipped.length },
+          'skipped invalid trade rows',
+        );
       }
       const matcher = new ComplexMatcher(await this.loadMatchable(sggCode));
       const affected = new Set<string>();
@@ -272,7 +280,11 @@ export class TradeSyncService {
     }
   }
 
-  private async fetchAll(kind: TradeSyncKind, sggCode: string, yearMonth: number): Promise<RawTradeItem[]> {
+  private async fetchAll(
+    kind: TradeSyncKind,
+    sggCode: string,
+    yearMonth: number,
+  ): Promise<RawTradeItem[]> {
     const items: RawTradeItem[] = [];
     for (let pageNo = 1; pageNo <= TRADE_API.MAX_PAGES; pageNo++) {
       const page = await this.api.fetchPage({

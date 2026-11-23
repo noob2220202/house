@@ -22,7 +22,7 @@ const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() 
 export function toBusinessHours(value: Prisma.JsonValue | null): BusinessHours | null {
   if (value === null) return null;
   const parsed = businessHoursSchema.safeParse(value);
-  return parsed.success ? (parsed.data as BusinessHours) : null;
+  return parsed.success ? parsed.data : null;
 }
 
 export function toDocumentView(d: AgencyDocumentRow): AgencyDocumentView {

@@ -30,9 +30,7 @@ export class TradeStatsService {
     const ids = [...new Set(complexIds)];
     if (ids.length === 0) return 0;
     const months = yearMonths ? [...new Set(yearMonths)] : undefined;
-    const monthFilter = months
-      ? Prisma.sql`AND tr.deal_ym = ANY(${months}::int[])`
-      : Prisma.empty;
+    const monthFilter = months ? Prisma.sql`AND tr.deal_ym = ANY(${months}::int[])` : Prisma.empty;
 
     const rows = await this.prisma.$queryRaw<StatAggRow[]>`
       SELECT tr.complex_id AS "complexId",

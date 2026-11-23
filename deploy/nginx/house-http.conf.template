@@ -1,0 +1,46 @@
+# Rendered by deploy/install.sh to /etc/nginx/sites-available/house.conf (HTTP-only mode).
+# Used before the first certificate is issued and when install.sh runs with --no-tls (testing).
+# Do NOT run production on this: cookies are Secure-only in production, so login needs HTTPS.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name www.{{DOMAIN}};
+    server_tokens off;
+    include /etc/nginx/snippets/house-acme.conf;
+    location / {
+        return 301 http://{{DOMAIN}}$request_uri;
+    }
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{DOMAIN}};
+    include /etc/nginx/snippets/house-acme.conf;
+    include /etc/nginx/snippets/house-server-common.conf;
+    include /etc/nginx/snippets/house-web-locations.conf;
+    access_log /var/log/nginx/house-web.access.log;
+    error_log /var/log/nginx/house-web.error.log warn;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ADMIN_DOMAIN}};
+    include /etc/nginx/snippets/house-acme.conf;
+    include /etc/nginx/snippets/house-server-common.conf;
+    include /etc/nginx/snippets/house-admin-locations.conf;
+    access_log /var/log/nginx/house-admin.access.log;
+    error_log /var/log/nginx/house-admin.error.log warn;
+}
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    include /etc/nginx/snippets/house-acme.conf;
+    location / {
+        return 444;
+    }
+}

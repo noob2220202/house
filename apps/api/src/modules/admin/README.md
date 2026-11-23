@@ -2,41 +2,59 @@
 
 Registered in `AppModule` already — do not edit `app.module.ts`. Read `docs/CONVENTIONS.md` first.
 
-## Responsibilities
+Everything under `/api/v1/admin/*` that no other module owns, public site content, 허위매물 신고,
+the daily-visitor counter and the admin-wide audit safety net. Agency review lives in the agencies
+module (`/admin/agencies`, `POST /:id/decision`), banners/popups in ads, complexes/trade-sync in
+complexes, deal requests in deal-requests — the dashboard links to them.
 
-- Everything under `/api/v1/admin/*` that is not owned by another module (those modules expose their own admin controllers under the same prefix).
-- Reports (허위매물 신고): public create (login required, `@Throttle(THROTTLE.REPORT)`, daily cap), admin workflow RECEIVED → IN_REVIEW → RESOLVED/REJECTED with resolution action (hide listing → `ListingsService`, warn agency → `AgencyWarning`), notifications.
-- Content: notices, FAQ, local videos (YouTube URL → `parseYoutubeVideoId`, thumbnail), terms documents (versioned; publish), site settings (`siteSettingSchemas` per key: 사업자 정보 상호/대표/사업자등록번호/통신판매업 신고번호/주소/개인정보보호책임자/연락처 …).
-- Users: list/search, suspend/unsuspend (destroy sessions), view withdrawn status. Admin accounts management (SUPER_ADMIN only).
-- Audit log viewer (`auditLogQuerySchema`). Every admin mutation uses `@Audit(...)` or `AuditService.record(..., tx)`.
-- Dashboard counters (pending agencies, open reports, active listings).
+## Permissions
 
-## Endpoints to build
+`@RequirePermission(AdminPermission.X)` (this folder) expands to `@Roles(...)` with the admin roles
+holding X (`ADMIN_ROLE_PERMISSIONS` in `@house/shared/admin`):
 
-All paths are under the global prefix `/api/v1`. Default is authenticated; mark public routes with `@Public()`.
+| Permission                                                                      | OPERATOR | ADMIN | SUPER_ADMIN |
+| ------------------------------------------------------------------------------- | -------- | ----- | ----------- |
+| DASHBOARD_READ, REPORTS_MANAGE, LISTINGS_MODERATE, CONTENT_MANAGE, MEMBERS_READ | ✓        | ✓     | ✓           |
+| MEMBERS_SUSPEND, TERMS_MANAGE, SETTINGS_MANAGE, AUDIT_READ                      |          | ✓     | ✓           |
+| ADMINS_MANAGE                                                                   |          |       | ✓           |
 
-| Method    | Path                                                                                            | Auth           |
-| --------- | ----------------------------------------------------------------------------------------------- | -------------- |
-| POST      | `/api/v1/reports`                                                                               | User           |
-| GET       | `/api/v1/notices` · `/:id` · `/api/v1/faqs` · `/api/v1/videos` · `/api/v1/site-settings/public` | Public         |
-| GET/PATCH | `/api/v1/admin/reports[/:id]` · POST `/:id/resolve`                                             | Admin          |
-| CRUD      | `/api/v1/admin/notices` · `/admin/faqs` · `/admin/videos` · `/admin/terms`                      | Admin          |
-| GET/PUT   | `/api/v1/admin/site-settings/:key`                                                              | Admin (ADMIN+) |
-| GET/POST  | `/api/v1/admin/users` · `/:id/suspend` · `/:id/unsuspend`                                       | Admin          |
-| CRUD      | `/api/v1/admin/admins`                                                                          | SUPER_ADMIN    |
-| GET       | `/api/v1/admin/audit-logs` · `/api/v1/admin/dashboard`                                          | Admin          |
+Every admin route also needs an admin session with TOTP verified (global AuthGuard).
 
-Every endpoint needs e2e coverage: happy path + authz failure (401/403/404-for-not-owner) + validation failure (400).
+## Endpoints (prefix `/api/v1`)
 
-## Files you own
+| Method             | Path                                                                         | Auth              |
+| ------------------ | ---------------------------------------------------------------------------- | ----------------- |
+| POST               | `/reports` (THROTTLE.REPORT + daily cap `REPORT_CREATE`)                     | User              |
+| GET                | `/notices` · `/notices/:id` · `/faqs` · `/videos` · `/site-settings/public`  | Public (cached)   |
+| GET                | `/admin/permissions`                                                         | any admin         |
+| GET                | `/admin/dashboard`                                                           | DASHBOARD_READ    |
+| GET                | `/admin/audit-logs` · `/:id`                                                 | AUDIT_READ        |
+| GET · PATCH        | `/admin/reports` · `/:id` · POST `/:id/resolve`                              | REPORTS_MANAGE    |
+| GET · POST         | `/admin/listings` · `/:id` · `/:id/hide` · `/:id/unhide` · `/:id/close`      | LISTINGS_MODERATE |
+| GET                | `/admin/users` · `/:id`                                                      | MEMBERS_READ      |
+| POST               | `/admin/users/:id/suspend` · `/:id/unsuspend`                                | MEMBERS_SUSPEND   |
+| CRUD               | `/admin/notices` · `/admin/faqs` (+ PUT `/order`) · `/admin/videos`          | CONTENT_MANAGE    |
+| CRUD + POST        | `/admin/terms` · `/:id/publish` (drafts editable, published immutable)       | TERMS_MANAGE      |
+| GET · PUT          | `/admin/site-settings` · `/:key`                                             | SETTINGS_MANAGE   |
+| GET · POST · PATCH | `/admin/admins` · `/:id` · `/:id/reset-password` · `/reset-totp` · `/unlock` | ADMINS_MANAGE     |
 
-- `apps/api/src/modules/admin/**`
-- `apps/api/test/e2e/admin/**` (+ your own factories there)
-- Prisma: `admin.prisma` (Report, AuditLog, Notice, Faq, LocalVideo, SiteSetting) — additive edits only, then a new migration (see CONVENTIONS "Schema changes")
-- Shared: `packages/shared/src/schemas/admin.ts`, `packages/shared/src/enums/admin.ts`, `packages/shared/src/errors/admin.ts`
-- Queues: `notifications` (names in `src/queue/queue.constants.ts`)
+## Notes
+
+- **Audit.** Mutations use `@Audit` + `RequestContext.setAuditBefore()`, or `AuditService.record(…, tx)`
+  (report resolution). `AdminMutationAuditInterceptor` (APP_INTERCEPTOR) is the safety net for
+  every module: an undecorated, successful `/admin/**` mutation that wrote no audit row for its
+  request id gets an `auto:<resource>.<handler>` row (secrets stripped). `AdminAuditCoverageService`
+  logs undecorated admin mutations at bootstrap.
+- **Visitors.** `VisitorCounterMiddleware` PFADDs a hashed visitor id (session token, else ip+UA)
+  into `admin:visitors:<KST YYYYMMDD>` for public GETs from non-bots. The SSR frontend must forward
+  the browser's IP / User-Agent.
+- **Terms.** Publishing a required version that becomes current makes users who agreed only to
+  older versions appear in `/auth/me.pendingRequiredTerms` (computed by the auth module).
+- **Listing moderation** goes through `LISTING_MODERATION` (adapter over `ListingsModerationService`).
+- **Reports.** One open report per (user, target); resolution can hide the listing and/or warn the
+  agency (`AgenciesService.recordWarning`) and notifies the reporter and the agency owner.
 
 ## Tests
 
-- e2e env: `apps/api/test/env/admin.env` → database `house_test_admin`, Redis DB index 8.
-- Run: `pnpm --filter @house/api test:e2e admin` (migrates `house_test_admin` first). Unit: `pnpm --filter @house/api test -- src/modules/admin`.
+- e2e: `pnpm --filter @house/api test:e2e admin` (`house_test_admin`, Redis DB 8).
+- Unit: `pnpm --filter @house/api test -- src/modules/admin`, shared: `pnpm --filter @house/shared test -- src/admin`.

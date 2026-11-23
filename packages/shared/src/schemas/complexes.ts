@@ -117,6 +117,8 @@ const complexFields = {
   roadAddress: optionalText(200),
   jibunAddress: optionalText(200),
   emdCode: emdCodeSchema.nullable().optional(),
+  /** 법정동/리 name as 국토교통부 reports it (umdNm); derived from 지번주소 or the 읍면동 when omitted. */
+  emdName: optionalText(50),
   /** 지번 (본번-부번) used to match 국토교통부 trades, e.g. "1234-5". */
   jibun: z
     .string()
@@ -162,6 +164,8 @@ export type ComplexCreateInput = z.infer<typeof complexCreateSchema>;
 export const complexUpdateSchema = z
   .object(complexFields)
   .partial()
+  // `.partial()` keeps defaults; an update must never reset the asset type implicitly.
+  .extend({ assetType: complexAssetTypeSchema.optional() })
   .refine(floorsOrdered, { message: '최저층이 최고층보다 높습니다.', path: ['floorsMin'] })
   .refine((v) => Object.keys(v).length > 0, '변경할 항목이 없습니다.');
 export type ComplexUpdateInput = z.infer<typeof complexUpdateSchema>;

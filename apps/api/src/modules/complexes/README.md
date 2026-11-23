@@ -11,21 +11,34 @@ Registered in `AppModule` already — do not edit `app.module.ts`. Read `docs/CO
 - Popularity ("자주 찾는 단지"): view counters in Redis flushed to `view_count`; ranking endpoint cached.
 - Favorites (FavoriteComplex). Name/address search uses the trigram GIN indexes (`similarity`, `%`/`ILIKE`).
 
-## Endpoints to build
+## Endpoints (implemented)
 
-All paths are under the global prefix `/api/v1`. Default is authenticated; mark public routes with `@Public()`.
+All paths are under `/api/v1`. Admin routes need an admin session with TOTP verified.
 
-| Method            | Path                                                                                  | Auth   |
-| ----------------- | ------------------------------------------------------------------------------------- | ------ |
-| GET               | `/api/v1/complexes?q&emdCode&page` · `/api/v1/complexes/:id`                          | Public |
-| GET               | `/api/v1/complexes/popular?limit`                                                     | Public |
-| GET               | `/api/v1/complexes/:id/trades?dealType&areaTypeId&fromYm&toYm` · `/:id/stats`         | Public |
-| GET               | `/api/v1/complexes/:id/listings` (summary per deal type)                              | Public |
-| PUT/DELETE        | `/api/v1/me/favorites/complexes/:id` · GET `/api/v1/me/favorites/complexes`           | User   |
-| POST/PATCH/DELETE | `/api/v1/admin/complexes[/:id]` (+ area types, photos)                                | Admin  |
-| POST              | `/api/v1/admin/complexes/trade-sync` (manual run, yearMonth) · GET `/trade-sync/runs` | Admin  |
+| Method              | Path                                                                                     | Auth     |
+| ------------------- | ---------------------------------------------------------------------------------------- | -------- |
+| GET                 | `/complexes?q&emdCode&assetType&sort&page&pageSize` (trigram + 초성 search)              | Public   |
+| GET                 | `/complexes/autocomplete?q&limit` (읍면동/리 + 단지)                                     | Public   |
+| GET                 | `/complexes/popular?limit&emdCode` (30-day decayed views + listing counts)               | Public   |
+| GET                 | `/complexes/:id` (detail, 평형, photos, latest trades, listing summary, isFavorite)      | Public   |
+| GET                 | `/complexes/:id/trades?dealType&areaTypeId&fromYm&toYm&includeCancelled&page`            | Public   |
+| GET                 | `/complexes/:id/stats?dealType&areaTypeId&months`                                        | Public   |
+| GET                 | `/complexes/:id/listings`                                                                | Public   |
+| GET                 | `/regions?parentCode&level&includeInactive` · `/regions/:code`                           | Public   |
+| GET · PUT/DELETE    | `/me/favorites/complexes` · `/me/favorites/complexes/:id`                                | User     |
+| GET                 | `/admin/complexes?q&emdCode&includeDeleted&missingExternalCode` · `/admin/complexes/:id` | OPERATOR |
+| POST · PATCH        | `/admin/complexes` · `/admin/complexes/:id`                                              | OPERATOR |
+| DELETE              | `/admin/complexes/:id` (soft delete)                                                     | ADMIN    |
+| POST · PATCH/DELETE | `/admin/complexes/:id/area-types` · `/admin/complexes/:id/area-types/:areaTypeId`        | OPERATOR |
+| PUT                 | `/admin/complexes/:id/photos`                                                            | OPERATOR |
+| POST                | `/admin/complexes/trade-sync` `{ yearMonth, kinds? }` (inline, Redis-locked)             | ADMIN    |
+| GET                 | `/admin/complexes/trade-sync/runs?kind&status&yearMonth&page`                            | OPERATOR |
+| POST                | `/admin/complexes/trade-sync/rematch` `{ fromYm? }`                                      | ADMIN    |
+| POST · PUT          | `/admin/regions/seed-default` · `/admin/regions/:code`                                   | ADMIN    |
 
-Every endpoint needs e2e coverage: happy path + authz failure (401/403/404-for-not-owner) + validation failure (400).
+Jobs (queue `trade-sync`, only when `JOBS_ENABLED`): `trade-sync:monthly` (cron `13 4 2,16 * *`
+Asia/Seoul, current month + 3 lookback months), `trade-sync:month` (one-off), and
+`complexes:flush-views` (every 5 min, Redis view totals → `complexes.view_count`).
 
 ## Files you own
 

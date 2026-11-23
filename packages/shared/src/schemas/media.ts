@@ -2,21 +2,11 @@
 import { z } from 'zod';
 import { MediaPurpose } from '../enums/media';
 
+/** `POST /media?purpose=` and `POST /admin/media?purpose=` (multipart field `file`). */
 export const mediaUploadQuerySchema = z.object({
   purpose: z.enum(MediaPurpose),
 });
+export type MediaUploadQuery = z.infer<typeof mediaUploadQuerySchema>;
 
-export interface MediaVariantDto {
-  url: string;
-  width: number;
-  height: number;
-}
-
-export interface MediaDto {
-  id: string;
-  purpose: MediaPurpose;
-  mimeType: string;
-  width: number | null;
-  height: number | null;
-  variants: Partial<Record<'thumb' | 'medium' | 'large', MediaVariantDto>>;
-}
+// Views and list queries live in src/media (MediaView, OwnMediaView, AdminMediaView, …).
+export type { MediaVariantView as MediaVariantDto, MediaView as MediaDto } from '../media/types';

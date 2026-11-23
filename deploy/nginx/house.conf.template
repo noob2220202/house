@@ -1,0 +1,79 @@
+# Rendered by deploy/install.sh to /etc/nginx/sites-available/house.conf (TLS mode).
+# Edit the template in the repo and re-run:  sudo /srv/house/bin/install.sh --nginx-only
+#
+#   http://*            → https (ACME challenges answered on port 80)
+#   www.{{DOMAIN}}      → https://{{DOMAIN}}
+#   {{DOMAIN}}          → web :{{WEB_PORT}}, /api/ → api :{{API_PORT}}, /media/ → uploads/public
+#   {{ADMIN_DOMAIN}}    → admin :{{ADMIN_PORT}}, /api/ → api, optional IP allow-list
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{DOMAIN}} {{ADMIN_DOMAIN}};
+    server_tokens off;
+    include /etc/nginx/snippets/house-acme.conf;
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name www.{{DOMAIN}};
+    server_tokens off;
+    include /etc/nginx/snippets/house-acme.conf;
+    location / {
+        return 301 https://{{DOMAIN}}$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name www.{{DOMAIN}};
+    server_tokens off;
+    include /etc/nginx/snippets/house-tls.conf;
+    return 301 https://{{DOMAIN}}$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{DOMAIN}};
+    include /etc/nginx/snippets/house-tls.conf;
+    include /etc/nginx/snippets/house-server-common.conf;
+    include /etc/nginx/snippets/house-web-locations.conf;
+    access_log /var/log/nginx/house-web.access.log;
+    error_log /var/log/nginx/house-web.error.log warn;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name {{ADMIN_DOMAIN}};
+    include /etc/nginx/snippets/house-tls.conf;
+    include /etc/nginx/snippets/house-server-common.conf;
+    include /etc/nginx/snippets/house-admin-locations.conf;
+    access_log /var/log/nginx/house-admin.access.log;
+    error_log /var/log/nginx/house-admin.error.log warn;
+}
+
+# Requests for unknown host names (scanners hitting the bare IP) are dropped.
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    include /etc/nginx/snippets/house-acme.conf;
+    location / {
+        return 444;
+    }
+}
+
+server {
+    listen 443 ssl http2 default_server;
+    listen [::]:443 ssl http2 default_server;
+    server_name _;
+    include /etc/nginx/snippets/house-tls.conf;
+    return 444;
+}

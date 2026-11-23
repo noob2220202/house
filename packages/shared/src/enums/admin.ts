@@ -68,5 +68,37 @@ export const SiteSettingKey = {
   CONTACT: 'CONTACT',
   SEO: 'SEO',
   FEATURES: 'FEATURES',
+  FOOTER: 'FOOTER',
 } as const;
 export type SiteSettingKey = EnumValue<typeof SiteSettingKey>;
+
+export const SITE_SETTING_KEY_LABEL: Record<SiteSettingKey, string> = {
+  BUSINESS_INFO: '사업자 정보',
+  CONTACT: '고객센터',
+  SEO: '검색엔진 최적화',
+  FEATURES: '기능 설정',
+  FOOTER: '하단(푸터) 정보',
+};
+
+export const REPORT_STATUS_LABEL: Record<ReportStatus, string> = {
+  RECEIVED: '접수',
+  IN_REVIEW: '검토중',
+  RESOLVED: '처리완료',
+  REJECTED: '반려',
+};
+
+export const REPORT_ACTION_LABEL: Record<ReportAction, string> = {
+  NONE: '조치 없음',
+  LISTING_HIDDEN: '매물 숨김',
+  AGENCY_WARNED: '중개사무소 경고',
+  LISTING_HIDDEN_AGENCY_WARNED: '매물 숨김 + 중개사무소 경고',
+};
+
+export const FAQ_CATEGORY_LABEL: Record<FaqCategory, string> = {
+  GENERAL: '일반',
+  ACCOUNT: '회원',
+  LISTING: '매물',
+  AGENCY: '중개사무소',
+  DEAL_REQUEST: '내놓기·구하기',
+  AD: '광고',
+};

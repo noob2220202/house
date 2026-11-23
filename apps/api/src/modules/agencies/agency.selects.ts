@@ -68,10 +68,10 @@ export const myAgencySelect = {
   suspendedAt: true,
   createdAt: true,
   updatedAt: true,
-  documents: { select: agencyDocumentSelect, orderBy: { createdAt: 'asc' } },
+  documents: { select: agencyDocumentSelect, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
   statusHistory: {
     select: agencyStatusHistorySelect,
-    orderBy: { createdAt: 'desc' },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: STATUS_HISTORY_LIMIT,
   },
   _count: { select: { members: { where: { status: 'ACTIVE' } } } },

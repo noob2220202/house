@@ -1,0 +1,168 @@
+import { AdminPermission, AdminRole, AdminStatus, ErrorCode } from '@house/shared';
+import { Reflector } from '@nestjs/core';
+import type { Request } from 'express';
+import type { AdminPrincipal } from '../../common/auth/principal';
+import { ROLES_KEY } from '../../common/decorators/metadata-keys';
+import { AppException } from '../../common/errors/app.exception';
+import { resourceTypeFromPath, stripSecrets } from './audit/admin-mutation-audit.interceptor';
+import { RequirePermission } from './permissions.decorator';
+import { AdminAccountsService } from './services/admin-accounts.service';
+import { startOfKstDay } from './services/dashboard.service';
+import { countsAsVisit } from './visitors/visitor-counter.middleware';
+import { visitorId } from './visitors/visitor-stats.service';
+
+describe('RequirePermission', () => {
+  class Probe {
+    @RequirePermission(AdminPermission.ADMINS_MANAGE)
+    superOnly(): void {}
+
+    @RequirePermission(AdminPermission.REPORTS_MANAGE)
+    anyAdmin(): void {}
+  }
+
+  it('expands to the admin roles holding the permission', () => {
+    const reflector = new Reflector();
+    expect(reflector.get(ROLES_KEY, Probe.prototype.superOnly)).toEqual([AdminRole.SUPER_ADMIN]);
+    expect(reflector.get(ROLES_KEY, Probe.prototype.anyAdmin)).toEqual([
+      AdminRole.OPERATOR,
+      AdminRole.ADMIN,
+      AdminRole.SUPER_ADMIN,
+    ]);
+  });
+});
+
+describe('admin audit fallback helpers', () => {
+  it('derives the resource type from the controller path', () => {
+    expect(resourceTypeFromPath('admin/agencies')).toBe('agencies');
+    expect(resourceTypeFromPath(['admin/complexes/trade-sync'])).toBe('complexes.trade-sync');
+    expect(resourceTypeFromPath('admin')).toBe('admin');
+    expect(resourceTypeFromPath(undefined)).toBe('admin');
+  });
+
+  it('redacts tokens and TOTP material at any depth', () => {
+    expect(
+      stripSecrets({
+        csrfToken: 'x',
+        nested: { otpauthUrl: 'otpauth://…', recoveryCodes: ['A'], keep: 1 },
+        list: [{ token: 't' }],
+        empty: { secret: null },
+      }),
+    ).toEqual({
+      csrfToken: '[redacted]',
+      nested: { otpauthUrl: '[redacted]', recoveryCodes: '[redacted]', keep: 1 },
+      list: [{ token: '[redacted]' }],
+      empty: { secret: null },
+    });
+  });
+});
+
+describe('visitor counter', () => {
+  const req = (method: string, url: string, ua?: string): Request =>
+    ({ method, originalUrl: url, headers: ua ? { 'user-agent': ua } : {} }) as unknown as Request;
+  const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Safari/605.1.15';
+
+  it('counts only public GETs from browsers', () => {
+    expect(countsAsVisit(req('GET', '/api/v1/listings?page=1', UA))).toBe(true);
+    expect(countsAsVisit(req('POST', '/api/v1/reports', UA))).toBe(false);
+    expect(countsAsVisit(req('GET', '/api/v1/admin/dashboard', UA))).toBe(false);
+    expect(countsAsVisit(req('GET', '/api/v1/health/ready', UA))).toBe(false);
+    expect(countsAsVisit(req('GET', '/api/v1/listings', 'curl/8.5.0'))).toBe(false);
+    expect(countsAsVisit(req('GET', '/api/v1/listings'))).toBe(false);
+  });
+
+  it('hashes visitor identity (no raw ip / token kept)', () => {
+    const a = visitorId({ ip: '203.0.113.7', userAgent: UA });
+    expect(a).toBe(visitorId({ ip: '203.0.113.7', userAgent: UA }));
+    expect(a).not.toBe(visitorId({ ip: '203.0.113.8', userAgent: UA }));
+    expect(a).not.toContain('203');
+    expect(visitorId({ sessionToken: 'tok', ip: '1.1.1.1' })).toBe(
+      visitorId({ sessionToken: 'tok', ip: '2.2.2.2' }),
+    );
+  });
+
+  it('computes KST midnight', () => {
+    expect(startOfKstDay(new Date('2026-03-01T14:59:59Z')).toISOString()).toBe(
+      '2026-02-28T15:00:00.000Z',
+    );
+    expect(startOfKstDay(new Date('2026-03-01T15:00:00Z')).toISOString()).toBe(
+      '2026-03-01T15:00:00.000Z',
+    );
+  });
+});
+
+describe('AdminAccountsService guards', () => {
+  const actor: AdminPrincipal = {
+    kind: 'ADMIN',
+    adminId: 'self',
+    role: AdminRole.SUPER_ADMIN,
+    sessionId: 's',
+    mfaVerified: true,
+  };
+  const row = (over: Record<string, unknown>) => ({
+    id: 'target',
+    role: AdminRole.SUPER_ADMIN,
+    status: AdminStatus.ACTIVE,
+    ipAllowlist: [],
+    totpEnabledAt: null,
+    lockedUntil: null,
+    lastLoginAt: null,
+    passwordChangedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...over,
+  });
+
+  function service(otherSupers: number, current = row({})) {
+    const tx = {
+      $executeRaw: jest.fn().mockResolvedValue(1),
+      adminUser: {
+        findUnique: jest.fn().mockResolvedValue(current),
+        count: jest.fn().mockResolvedValue(otherSupers),
+        update: jest
+          .fn()
+          .mockImplementation(({ data }) => Promise.resolve({ ...current, ...data })),
+      },
+    };
+    const prisma = {
+      ...tx,
+      $transaction: jest.fn((fn: (t: typeof tx) => unknown) => fn(tx)),
+    };
+    const sessions = { destroyAllForSubject: jest.fn().mockResolvedValue(0) };
+    const svc = new AdminAccountsService(prisma as never, {} as never, sessions as never);
+    return { svc, sessions, tx };
+  }
+
+  async function codeOf(p: Promise<unknown>): Promise<string | undefined> {
+    try {
+      await p;
+      return undefined;
+    } catch (err) {
+      return err instanceof AppException ? err.code : 'unexpected';
+    }
+  }
+
+  it('refuses to demote the last active SUPER_ADMIN', async () => {
+    const { svc, tx } = service(0);
+    expect(await codeOf(svc.update(actor, 'target', { role: AdminRole.ADMIN }))).toBe(
+      ErrorCode.ADMIN_LAST_SUPER_ADMIN,
+    );
+    expect(tx.adminUser.update).not.toHaveBeenCalled();
+  });
+
+  it('allows it when another SUPER_ADMIN stays, and ends the target sessions', async () => {
+    const { svc, sessions } = service(1);
+    const view = await svc.update(actor, 'target', { status: AdminStatus.DISABLED });
+    expect(view.status).toBe(AdminStatus.DISABLED);
+    expect(sessions.destroyAllForSubject).toHaveBeenCalledWith('ADMIN', 'target');
+  });
+
+  it('keeps sessions on a rename and refuses self role/status changes', async () => {
+    const { svc, sessions } = service(1, row({ id: 'self' }));
+    await svc.update(actor, 'self', { name: '이름만' });
+    expect(sessions.destroyAllForSubject).not.toHaveBeenCalled();
+    expect(await codeOf(svc.update(actor, 'self', { role: AdminRole.ADMIN }))).toBe(
+      ErrorCode.ADMIN_SELF_MODIFICATION,
+    );
+    expect(await codeOf(svc.resetTotp(actor, 'self'))).toBe(ErrorCode.ADMIN_SELF_MODIFICATION);
+  });
+});

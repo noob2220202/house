@@ -1,0 +1,31 @@
+# Rendered by deploy/install.sh to /etc/nginx/conf.d/house.conf (http context).
+# Edit the template in the repo and re-run:  sudo /srv/house/bin/install.sh --nginx-only
+
+upstream house_api {
+    server 127.0.0.1:{{API_PORT}};
+    keepalive 32;
+}
+
+upstream house_web {
+    server 127.0.0.1:{{WEB_PORT}};
+    keepalive 16;
+}
+
+upstream house_admin {
+    server 127.0.0.1:{{ADMIN_PORT}};
+    keepalive 8;
+}
+
+# WebSocket-ready: "Connection: upgrade" only when the client asks for it; otherwise an empty
+# Connection header so upstream keepalive works.
+map $http_upgrade $house_connection_upgrade {
+    default upgrade;
+    ''      '';
+}
+
+# Per-IP request rate limits. Korean mobile carriers put many users behind one IP (CGNAT),
+# so these are generous; the API enforces finer per-user limits itself (Redis throttler).
+limit_req_zone $binary_remote_addr zone=house_auth:10m rate=30r/m;
+limit_req_zone $binary_remote_addr zone=house_api:20m rate=20r/s;
+limit_req_status 429;
+limit_req_log_level warn;
