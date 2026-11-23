@@ -14,24 +14,33 @@ export interface SessionRecord {
   createdAt: number;
   lastSeenAt: number;
   absoluteExpiresAt: number;
+  /** Overrides the kind's default idle TTL (e.g. short pre-TOTP admin sessions). */
+  idleTtlSeconds?: number;
+  /** Admin sessions: per-account IP allowlist (IPs/CIDRs) re-checked on every request. */
+  ipAllowlist?: string[];
   ip: string | null;
   userAgent: string | null;
 }
 
+interface CommonSessionInput {
+  ip?: string;
+  userAgent?: string;
+  idleTtlSeconds?: number;
+}
+
 export type CreateSessionInput =
-  | {
+  | (CommonSessionInput & {
       kind: 'USER';
       userId: string;
       role: UserRole;
       agencyId?: string | null;
-      ip?: string;
-      userAgent?: string;
-    }
-  | {
+    })
+  | (CommonSessionInput & {
       kind: 'ADMIN';
       adminId: string;
       role: AdminRole;
       mfaVerified: boolean;
-      ip?: string;
-      userAgent?: string;
-    };
+      ipAllowlist?: string[];
+    });
+
+export type SessionPatch = Partial<Pick<SessionRecord, 'mfaVerified' | 'agencyId' | 'role'>>;
