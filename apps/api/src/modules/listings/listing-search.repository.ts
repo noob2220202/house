@@ -19,7 +19,6 @@ import { PrismaService } from '../../prisma/prisma.service';
  * template; the only Prisma.raw() inputs are compile-time constants from this file.
  */
 
-const L = Prisma.raw('l');
 const PUBLIC_STATUS_SQL = Prisma.sql`l.status IN (${Prisma.join(
   PUBLIC_LISTING_STATUSES.map((s) => Prisma.sql`${s}::listing_status`),
 )})`;
@@ -28,8 +27,8 @@ const DEPOSIT_DEALS = Prisma.sql`(${DealType.JEONSE}::deal_type, ${DealType.MONT
 
 /** WHERE conditions for public search filters (status is added by the caller). */
 export function filterConditions(f: ListingFilter, bbox?: Bbox): Prisma.Sql[] {
-  const c: Prisma.Sql[] = [Prisma.sql`${L}.deleted_at IS NULL`];
-  if (bbox) c.push(withinBbox(Prisma.sql`${L}.location`, bbox));
+  const c: Prisma.Sql[] = [Prisma.sql`l.deleted_at IS NULL`];
+  if (bbox) c.push(withinBbox(Prisma.raw('l.location'), bbox));
   if (f.assetTypes?.length) c.push(Prisma.sql`l.asset_type = ANY(${f.assetTypes}::asset_type[])`);
   if (f.dealTypes?.length) c.push(Prisma.sql`l.deal_type = ANY(${f.dealTypes}::deal_type[])`);
   if (f.priceMin !== undefined)

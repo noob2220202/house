@@ -310,10 +310,12 @@ export class AdminAuthService {
     const normalized = normalizeRecoveryCode(code);
     for (const h of admin.recoveryCodeHashes) {
       if (!(await this.passwords.verify(h, normalized))) continue;
-      const { count } = await this.prisma.adminUser.updateMany({
-        where: { id: admin.id, recoveryCodeHashes: { has: h } },
-        data: { recoveryCodeHashes: admin.recoveryCodeHashes.filter((x) => x !== h) },
-      });
+      // Atomic removal: concurrent uses of different codes can't resurrect each other.
+      const count = await this.prisma.$executeRaw`
+        UPDATE admin_users
+           SET recovery_code_hashes = array_remove(recovery_code_hashes, ${h}),
+               updated_at = now()
+         WHERE id = ${admin.id}::uuid AND ${h} = ANY(recovery_code_hashes)`;
       return count === 1;
     }
     return false;
