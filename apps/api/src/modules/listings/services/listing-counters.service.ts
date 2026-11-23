@@ -1,0 +1,52 @@
+import { ListingAgencyStatus, PUBLIC_LISTING_STATUSES } from '@house/shared';
+import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
+import { CacheService } from '../../../common/cache/cache.service';
+import type { PrismaTx } from '../../../prisma/prisma.service';
+import { LISTINGS_SEARCH_CACHE_NS } from '../constants';
+
+const PUBLIC_STATUSES = Prisma.join(
+  PUBLIC_LISTING_STATUSES.map((s) => Prisma.sql`${s}::listing_status`),
+);
+
+/**
+ * Side effects of a change to publicly visible listing data: recompute the denormalized
+ * active_listing_count of the affected complexes/agencies (SET from a COUNT, so idempotent) and
+ * invalidate cached map tiles.
+ */
+@Injectable()
+export class ListingCountersService {
+  constructor(private readonly cache: CacheService) {}
+
+  async refresh(
+    tx: PrismaTx,
+    scope: { complexIds?: (string | null)[]; agencyIds?: string[] },
+  ): Promise<void> {
+    const complexIds = [...new Set((scope.complexIds ?? []).filter((x): x is string => !!x))];
+    const agencyIds = [...new Set(scope.agencyIds ?? [])];
+    if (complexIds.length > 0) {
+      await tx.$executeRaw`
+        UPDATE complexes c SET active_listing_count = (
+          SELECT count(*)::int FROM listings l
+          WHERE l.complex_id = c.id AND l.deleted_at IS NULL AND l.status IN (${PUBLIC_STATUSES})
+        )
+        WHERE c.id = ANY(${complexIds}::uuid[])`;
+    }
+    if (agencyIds.length > 0) {
+      await tx.$executeRaw`
+        UPDATE agencies a SET active_listing_count = (
+          SELECT count(*)::int FROM listing_agencies la
+          JOIN listings l ON l.id = la.listing_id
+          WHERE la.agency_id = a.id
+            AND la.status = ${ListingAgencyStatus.ACTIVE}::listing_agency_status
+            AND l.deleted_at IS NULL AND l.status IN (${PUBLIC_STATUSES})
+        )
+        WHERE a.id = ANY(${agencyIds}::uuid[])`;
+    }
+  }
+
+  /** Call after the transaction commits. */
+  async invalidateSearch(): Promise<void> {
+    await this.cache.bump(LISTINGS_SEARCH_CACHE_NS);
+  }
+}

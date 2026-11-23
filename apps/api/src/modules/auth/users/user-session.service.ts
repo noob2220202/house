@@ -27,14 +27,10 @@ export class UserSessionService {
   ) {}
 
   /**
-   * The agency membership a session acts for: an ACTIVE membership of a live (not rejected/deleted)
-   * agency, preferring an APPROVED one. Exported so the agencies module can refresh sessions after
-   * approval (`SessionService.updateAllForSubject`).
+   * ACTIVE memberships of live (not rejected/deleted) agencies, APPROVED ones first. The first one
+   * is the agency a new session acts for.
    */
-  async activeMembership(
-    userId: string,
-    db: PrismaTx = this.prisma,
-  ): Promise<ActiveMembership | null> {
+  async activeMemberships(userId: string, db: PrismaTx = this.prisma): Promise<ActiveMembership[]> {
     const rows = await db.agencyMember.findMany({
       where: {
         userId,
@@ -45,15 +41,22 @@ export class UserSessionService {
       take: 10,
       select: { role: true, agency: { select: { id: true, name: true, status: true } } },
     });
-    const pick = rows.find((r) => r.agency.status === AgencyStatus.APPROVED) ?? rows[0];
-    return pick
-      ? {
-          agencyId: pick.agency.id,
-          agencyName: pick.agency.name,
-          agencyStatus: pick.agency.status,
-          memberRole: pick.role,
-        }
-      : null;
+    return rows
+      .map((r) => ({
+        agencyId: r.agency.id,
+        agencyName: r.agency.name,
+        agencyStatus: r.agency.status,
+        memberRole: r.role,
+      }))
+      .sort(
+        (a, b) =>
+          Number(b.agencyStatus === AgencyStatus.APPROVED) -
+          Number(a.agencyStatus === AgencyStatus.APPROVED),
+      );
+  }
+
+  async activeMembership(userId: string, db: PrismaTx = this.prisma) {
+    return (await this.activeMemberships(userId, db))[0] ?? null;
   }
 
   /** Issues a fresh session (dropping any session the browser already had: no fixation). */
