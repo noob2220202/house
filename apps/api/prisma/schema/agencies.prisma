@@ -91,6 +91,8 @@ model Agency {
   @@index([location], type: Gist)
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "agencies_name_trgm_idx")
   @@index([roadAddress(ops: raw("gin_trgm_ops"))], type: Gin, map: "agencies_road_address_trgm_idx")
+  @@index([representativeName(ops: raw("gin_trgm_ops"))], type: Gin, map: "agencies_representative_name_trgm_idx")
+  @@index([status, createdAt])
   @@map("agencies")
 }
 
