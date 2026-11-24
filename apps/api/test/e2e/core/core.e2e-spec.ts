@@ -384,7 +384,17 @@ describe('core pipeline (e2e)', () => {
       await expect(ip({ 'x-house-ssr': '1' })).resolves.toMatch(/^(::ffff:)?127\.0\.0\.1$|^::1$/);
     });
 
-    it('SSR calls forwarding different visitors get separate buckets; x-house-ssr grants nothing', async () => {
+    it('cached SSR reads (marker, no visitor) skip the throttle instead of sharing one bucket', async () => {
+      const cached = () => t.http().get('/api/v1/__probe/throttled').set('x-house-ssr', '1');
+      for (let i = 0; i < 6; i++) await cached().expect(200);
+      // Same loopback peer without the marker: an ordinary anonymous caller, throttled.
+      for (let i = 0; i < 3; i++) await hit().expect(200);
+      await hit().expect(429);
+      // Any other marker value is not the SSR contract.
+      await t.http().get('/api/v1/__probe/throttled').set('x-house-ssr', 'true').expect(429);
+    });
+
+    it('SSR calls forwarding different visitors get separate buckets; the marker exempts nothing', async () => {
       const ssr = (xff: string) => hit(xff).set('x-house-ssr', '1');
       for (let i = 0; i < 3; i++) await ssr('203.0.113.7').expect(200);
       await ssr('203.0.113.7').expect(429);

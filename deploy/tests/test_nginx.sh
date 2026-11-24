@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Renders the real nginx templates into a sandbox (high ports, temp paths) and checks:
 # case-insensitive blocking of the admin API on the apex, the strict auth zone covering only
-# login flows, frequent auth reads staying in the API zone, and that both templates pass nginx -t.
+# login flows, frequent auth reads staying in the API zone, that both templates pass nginx -t,
+# /_next/static served from the active release (immutable, gzip, fallback to Next), the page
+# and image rate limits, the client IP headers sent to the Next upstreams, /media caching and
+# the loopback media origin of the image optimizer.
 source "$(dirname "$0")/lib.sh"
 
 if ! have_cmd nginx || ! have_cmd curl || ! have_cmd node; then
@@ -11,11 +14,12 @@ if ! have_cmd nginx || ! have_cmd curl || ! have_cmd node; then
 fi
 N="$T_TMP/nginx"
 mkdir -p "$N"/{snippets,house,log,www,cert,uploads/public,tmp}
-P=$((20000 + RANDOM % 20000)) PS=$((P + 1)) UP=$((P + 2))
+P=$((20000 + RANDOM % 20000)) PS=$((P + 1)) UP=$((P + 2)) MP=$((P + 3))
 TPL="$KIT_DIR/nginx"
 render() {
   sed -e "s|{{DOMAIN}}|web.test|g" -e "s|{{ADMIN_DOMAIN}}|admin.web.test|g" \
     -e "s|{{API_PORT}}|$UP|g" -e "s|{{WEB_PORT}}|$UP|g" -e "s|{{ADMIN_PORT}}|$UP|g" \
+    -e "s|{{MEDIA_PORT}}|$MP|g" -e "s|{{CURRENT}}|$N/current|g" \
     -e "s|{{UPLOAD_PUBLIC}}|$N/uploads/public|g" -e "s|{{CERT_NAME}}|house|g" -e "s|{{HSTS_LINE}}||g" \
     -e "s|/etc/nginx/snippets/|$N/snippets/|g" -e "s|/etc/nginx/house/|$N/house/|g" \
     -e "s|/var/log/nginx/|$N/log/|g" -e "s|/etc/letsencrypt/live/house/|$N/cert/|g" \
@@ -28,6 +32,15 @@ render "$TPL/admin-allowlist.conf.example" >"$N/house/admin-allowlist.conf"
 render "$TPL/house-upstreams.conf.template" >"$N/upstreams.conf"
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj /CN=web.test -keyout "$N/cert/privkey.pem" \
   -out "$N/cert/fullchain.pem" >/dev/null 2>&1
+# Active release with web/admin build assets, and one public upload.
+mkdir -p "$N/current/apps/web/.next/static/chunks" "$N/current/apps/admin/.next/static/chunks" "$N/uploads/public/listings"
+{ printf '/* web chunk */\n'; for _ in $(seq 200); do printf 'console.log("house web chunk");\n'; done; } \
+  >"$N/current/apps/web/.next/static/chunks/app-abc123.js"
+printf '/* admin chunk */\n' >"$N/current/apps/admin/.next/static/chunks/admin-def456.js"
+printf 'RIFFxxxxWEBP' >"$N/uploads/public/listings/a.webp"
+printf '<script>alert(1)</script>' >"$N/uploads/public/listings/x.html"
+chmod -R a+rX "$N/current" "$N/uploads"
+HTTP_EXTRA=""
 main() {
   cat >"$N/nginx.conf" <<CONF
 worker_processes 1;
@@ -38,6 +51,7 @@ http {
   access_log off;
   client_body_temp_path $N/tmp/body; proxy_temp_path $N/tmp/proxy; fastcgi_temp_path $N/tmp/fcgi;
   uwsgi_temp_path $N/tmp/uwsgi; scgi_temp_path $N/tmp/scgi;
+  $HTTP_EXTRA
   include $N/upstreams.conf;
   include $N/site.conf;
 }
@@ -50,8 +64,12 @@ check "TLS template + snippets pass nginx -t" ngx -t -q
 render "$TPL/house-http.conf.template" >"$N/site.conf" && main
 check "HTTP template + snippets pass nginx -t" ngx -t -q
 
-# Upstream that echoes what reached it.
-node -e 'require("http").createServer((q, r) => r.end("upstream " + q.url)).listen(+process.argv[1], "127.0.0.1")' "$UP" &
+# Upstream that echoes what reached it (and the client IP headers nginx set).
+node -e 'require("http").createServer((q, r) => {
+  r.setHeader("x-up-real-ip", q.headers["x-real-ip"] || "-");
+  r.setHeader("x-up-xff", q.headers["x-forwarded-for"] || "-");
+  r.end("upstream " + q.url);
+}).listen(+process.argv[1], "127.0.0.1")' "$UP" &
 up_pid=$!
 t_on_exit "kill $up_pid"
 t_on_exit "ngx -s stop"
@@ -63,6 +81,13 @@ start() {
   return 1
 }
 code() { curl -s --path-as-is -o "$N/body" -w '%{http_code}' -H "Host: $1" "http://127.0.0.1:$P$2"; }
+# hdr <host> <path> <header> [curl args...]: one response header's value (lower-case name).
+hdr() {
+  local host="$1" path="$2" name="$3"
+  shift 3
+  curl -s --path-as-is -o "$N/body" -D "$N/headers" -H "Host: $host" "$@" "http://127.0.0.1:$P$path" >/dev/null
+  tr -d '\r' <"$N/headers" | sed -n "s/^${name}: //Ip" | head -1
+}
 count429() {
   local host="$1" path="$2" n="$3" i c=0
   for ((i = 0; i < n; i++)); do [[ "$(code "$host" "$path")" == 429 ]] && c=$((c + 1)); done
@@ -94,6 +119,67 @@ start >/dev/null
 n="$(count429 admin.web.test /api/v1/ADMIN/AUTH/login 35)"
 ((n > 0)) && pass "admin login is in the strict zone even with odd case ($n×429)" || fail "admin login not rate limited"
 assert_eq "admin host serves the admin API" "$(code admin.web.test /api/v1/admin/members; cat "$N/body")" "200upstream /api/v1/admin/members"
+
+# ─── /_next/static from the active release ───
+check "restart sandbox (fresh zones)" start
+web_chunk=/_next/static/chunks/app-abc123.js
+assert_eq "web /_next/static is served from the release on disk" "$(code web.test $web_chunk)" "200"
+cmp -s "$N/body" "$N/current/apps/web/.next/static/chunks/app-abc123.js" && pass "static body is the release file (not Next)" ||
+  fail "static body is not the release file" "$(head -c 200 "$N/body")"
+assert_eq "static assets are immutable for a year" "$(hdr web.test $web_chunk cache-control)" "public, max-age=31536000, immutable"
+assert_eq "static assets keep nosniff" "$(hdr web.test $web_chunk x-content-type-options)" "nosniff"
+assert_eq "static assets are gzipped by nginx" "$(hdr web.test $web_chunk content-encoding -H 'Accept-Encoding: gzip')" "gzip"
+assert_eq "admin host serves the admin build's static files" "$(code admin.web.test /_next/static/chunks/admin-def456.js; head -1 "$N/body")" "200/* admin chunk */"
+assert_eq "apex never serves the admin build" "$(code web.test /_next/static/chunks/admin-def456.js; cat "$N/body")" "200upstream /_next/static/chunks/admin-def456.js"
+assert_eq "a chunk missing from the release falls back to Next" "$(code web.test /_next/static/chunks/old-999.js; cat "$N/body")" "200upstream /_next/static/chunks/old-999.js"
+assert_eq "admin fallback goes to the admin upstream" "$(code admin.web.test /_next/static/chunks/old-1.js; cat "$N/body")" "200upstream /_next/static/chunks/old-1.js"
+assert_eq "300 rapid static requests from one IP: no 429" "$(count429 web.test $web_chunk 300)" "0"
+
+# ─── page / image rate limits ───
+start >/dev/null
+assert_eq "60 rapid page loads from one IP: no 429 (normal browsing + prefetch)" "$(count429 web.test /listing/abc 60)" "0"
+start >/dev/null
+n="$(count429 web.test '/listing/x?n=1' 250)"
+((n > 0)) && pass "a scraper hammering pages gets 429 ($n of 250)" || fail "pages are not rate limited"
+start >/dev/null
+n="$(count429 admin.web.test /members 250)"
+((n > 0)) && pass "admin pages are rate limited too ($n of 250)" || fail "admin pages are not rate limited"
+start >/dev/null
+assert_eq "150 rapid /_next/image requests: no 429" "$(count429 web.test '/_next/image?url=%2Fmedia%2Flistings%2Fa.webp&w=640&q=75' 150)" "0"
+
+# ─── client IP headers for the Next upstreams ───
+start >/dev/null
+for path in /listing/abc '/_next/image?url=%2Fmedia%2Fa.webp&w=64&q=75' /_next/static/chunks/gone.js; do
+  assert_eq "web upstream gets X-Real-IP ($path)" "$(hdr web.test "$path" x-up-real-ip -H 'X-Real-IP: 6.6.6.6')" "127.0.0.1"
+  assert_eq "web upstream gets X-Forwarded-For = client only ($path)" "$(hdr web.test "$path" x-up-xff -H 'X-Forwarded-For: 6.6.6.6')" "127.0.0.1"
+done
+assert_eq "admin upstream gets X-Real-IP" "$(hdr admin.web.test /members x-up-real-ip)" "127.0.0.1"
+assert_eq "admin upstream gets X-Forwarded-For" "$(hdr admin.web.test /members x-up-xff -H 'X-Forwarded-For: 6.6.6.6')" "127.0.0.1"
+
+# ─── /media ───
+assert_eq "public /media image served" "$(code web.test /media/listings/a.webp)" "200"
+assert_eq "/media stays immutable" "$(hdr web.test /media/listings/a.webp cache-control)" "public, max-age=31536000, immutable"
+assert_eq "/media non-image is 404" "$(code web.test /media/listings/x.html)" "404"
+mcode() { curl -s -o "$N/body" -w '%{http_code}' "http://127.0.0.1:$MP$1"; }
+assert_eq "loopback media origin (MEDIA_ORIGIN) serves /media images" "$(mcode /media/listings/a.webp)" "200"
+cmp -s "$N/body" "$N/uploads/public/listings/a.webp" && pass "loopback media origin returns the upload" || fail "loopback media body differs"
+assert_eq "loopback media origin: non-image 404" "$(mcode /media/listings/x.html)" "404"
+assert_eq "loopback media origin serves nothing else" "$(mcode /api/v1/listings)" "404"
+grep -q "listen 127.0.0.1:{{MEDIA_PORT}};" "$TPL/house-upstreams.conf.template" && ! grep -q 'listen {{MEDIA_PORT}}\|listen \[::\]:{{MEDIA_PORT}}' "$TPL/house-upstreams.conf.template" &&
+  pass "media origin listens on loopback only" || fail "media origin is not loopback-only"
+
+# ─── regexes still hold with merge_slashes off (no reliance on nginx normalizing //) ───
+HTTP_EXTRA="merge_slashes off;"
+render "$TPL/house-http.conf.template" >"$N/site.conf" && main
+check "merge_slashes off: nginx -t" ngx -t -q
+check "merge_slashes off: sandbox starts" start
+for p in //api/v1/admin/auth/me /api//v1//ADMIN/members ///API/v1/admin; do
+  c="$(code web.test "$p")"
+  if [[ "$c" == 404 ]] && ! grep -q upstream "$N/body"; then pass "merge_slashes off: apex blocks $p"; else fail "merge_slashes off: apex blocks $p" "got $c $(cat "$N/body")"; fi
+done
+n="$(count429 admin.web.test //api//v1//admin//auth//login 35)"
+((n > 0)) && pass "merge_slashes off: admin login with // stays in the strict zone ($n×429)" || fail "admin login with // escapes the strict zone"
+HTTP_EXTRA=""
 
 ! grep -q 'nginx-limit-req' "$KIT_DIR/install.sh" || grep -q '^# No nginx-limit-req jail' "$KIT_DIR/install.sh" &&
   ! grep -q '^\[nginx-limit-req\]' "$KIT_DIR/install.sh" && pass "no fail2ban jail bans on nginx 429s" ||

@@ -92,12 +92,19 @@ move the shared read into the owning module's exported service.
     `X-Forwarded-For` (a single address). Without it the call is keyed as `127.0.0.1`, and all SSR
     traffic shares one bucket per route (one client could exhaust it), and the admin console's SSR
     calls fail `ADMIN_IP_ALLOWLIST`.
-  - `x-house-ssr: 1` — marks the call as coming from SSR. The API does not act on it today; it is
-    **not** a credential and must never grant anything (nginx passes it through from anyone).
+  - `x-house-ssr: 1` — marks every server-side call (exactly the value `1`). nginx clears a
+    client-supplied copy (`proxy_set_header X-House-SSR ""` in house-proxy.conf), so on loopback
+    only the Next servers can send it.
   - (optional) `user-agent` of the visitor.
-  Calls with no visitor (ISR revalidation, `next build`) send no `x-forwarded-for` and share the
-  loopback bucket; keep them few (cache) and rate-limit page routes at nginx.
-  Tests: `src/bootstrap/trust-proxy.spec.ts`, core e2e "throttle" (`/__probe/ip`).
+  Cached reads (ISR / fetch cache, shared by every visitor) send the marker **without**
+  `x-forwarded-for`. HouseThrottlerGuard skips exactly those: GET/HEAD + loopback peer +
+  `x-house-ssr: 1` + no `X-Forwarded-For` (`isLocalSsrCachedRead`), because one shared 127.0.0.1
+  bucket would let one client exhaust it for every visitor; the page requests that trigger them are
+  limited per IP at nginx (`house_pages`). Writes, calls that forward a visitor, and loopback calls
+  without the marker (image optimizer, scripts) are throttled as usual. The exemption holds only
+  while nginx keeps overwriting X-Forwarded-For and clearing X-House-SSR on every proxied location.
+  Tests: `src/bootstrap/trust-proxy.spec.ts`, `common/throttle/house-throttler.guard.spec.ts`,
+  core e2e "throttle" (`/__probe/ip`).
 - Swagger is on only when `SWAGGER_ENABLED=true` (`/api/v1/docs`). Decorate with
   `@ApiTags('<module>')`.
 

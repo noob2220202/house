@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { contentSecurityPolicy, parseOrigins } from './csp.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -29,24 +30,13 @@ if (
 }
 
 const API_ORIGIN = (process.env.INTERNAL_API_URL || 'http://127.0.0.1:4000').replace(/\/$/, '');
-// Where /media/* is served from (API in dev, nginx in prod).
+// Where /media/* is served from when no nginx is in front (dev, e2e). In production nginx serves
+// /media from disk before a request reaches Next.
 const MEDIA_ORIGIN = (process.env.MEDIA_ORIGIN || API_ORIGIN).replace(/\/$/, '');
 const isProd = process.env.NODE_ENV === 'production';
 
 /** Extra absolute media hosts, comma separated: "https://cdn.example.kr,https://media.example.kr". */
-const remotePatterns = (process.env.NEXT_PUBLIC_MEDIA_HOSTS || '')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean)
-  .map((origin) => {
-    const u = new URL(origin);
-    return {
-      protocol: u.protocol.replace(':', ''),
-      hostname: u.hostname,
-      port: u.port,
-      pathname: '/**',
-    };
-  });
+const mediaHosts = parseOrigins(process.env.NEXT_PUBLIC_MEDIA_HOSTS);
 
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -55,7 +45,11 @@ const securityHeaders = [
   { key: 'Permissions-Policy', value: 'geolocation=(self), camera=(), microphone=(), payment=()' },
   {
     key: 'Content-Security-Policy',
-    value: "frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'",
+    value: contentSecurityPolicy({
+      dev: !isProd,
+      mediaHosts,
+      postcodeScriptUrl: process.env.NEXT_PUBLIC_POSTCODE_SCRIPT_URL,
+    }),
   },
   ...(isProd
     ? [{ key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' }]
@@ -74,16 +68,27 @@ const nextConfig = {
   typescript: { tsconfigPath: nextTsconfig },
   transpilePackages: ['@house/ui'],
   images: {
-    formats: ['image/avif', 'image/webp'],
-    remotePatterns: [
-      { protocol: 'http', hostname: 'localhost', port: '4000', pathname: '/**' },
-      { protocol: 'http', hostname: '127.0.0.1', port: '4000', pathname: '/**' },
-      ...remotePatterns,
-    ],
+    // No Next image optimizer: every /media image is already a webp variant the API generated
+    // (thumb 320 / medium 960 / large 1920) and nginx serves it from disk with long cache headers.
+    // `/_next/image` answers 404, so it can neither fail on /media (the optimizer would fetch it
+    // from the API, which serves no files) nor be pointed at other loopback paths.
+    unoptimized: true,
+    // Defense in depth should the optimizer ever be switched back on: only /media and the
+    // configured media hosts' /media paths.
+    localPatterns: [{ pathname: '/media/**' }],
+    remotePatterns: mediaHosts.map((origin) => {
+      const u = new URL(origin);
+      return {
+        protocol: /** @type {'http' | 'https'} */ (u.protocol.replace(':', '')),
+        hostname: u.hostname,
+        port: u.port,
+        pathname: '/media/**',
+      };
+    }),
   },
   async rewrites() {
-    // In production nginx proxies /api/v1 and /media before they reach Next; these rewrites cover
-    // local development and the image optimizer's internal fetch of /media/*.
+    // In production nginx proxies /api/v1 and serves /media before a request reaches Next; these
+    // rewrites cover local development and the e2e stack (no nginx).
     return [
       { source: '/api/v1/:path*', destination: `${API_ORIGIN}/api/v1/:path*` },
       { source: '/media/:path*', destination: `${MEDIA_ORIGIN}/media/:path*` },

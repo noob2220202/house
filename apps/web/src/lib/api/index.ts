@@ -10,4 +10,12 @@ export {
 } from './errors';
 export { forgetCsrfToken, getCsrfToken, readCookie, rememberCsrfToken } from './csrf';
 export { getQueryClient, qk } from './query';
-export { fetchActionConsents, type ActionConsent } from './consents';
+export {
+  CONSENT_OUTDATED_MESSAGE,
+  actionConsentsOf,
+  actionTermsKey,
+  fetchActionTerms,
+  isConsentOutdatedError,
+  type ActionConsent,
+  type ActionTermsDocument,
+} from './consents';

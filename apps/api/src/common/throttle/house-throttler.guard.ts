@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { type ExecutionContext, Inject, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import {
   InjectThrottlerOptions,
@@ -15,6 +15,35 @@ import {
   type SessionResolver,
 } from '../auth/session-resolver';
 
+/** Header the Next.js servers add to their own server-side API calls (docs/CONVENTIONS.md §3). */
+export const SSR_HEADER = 'x-house-ssr';
+
+/** 127.0.0.0/8 and ::1, also in IPv4-mapped form (what Express' "loopback" trust covers). */
+export function isLoopbackAddress(address: string | undefined): boolean {
+  if (!address) return false;
+  const v4 = address.startsWith('::ffff:') ? address.slice(7) : address;
+  return address === '::1' || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v4);
+}
+
+/**
+ * A cached (visitor-less) read by a Next.js server on this host: GET/HEAD from a loopback peer
+ * with `x-house-ssr: 1` and no X-Forwarded-For. Next shares the response with every visitor
+ * (ISR / fetch cache), so there is no client to key it by; nginx rate-limits the page requests
+ * that cause these reads per visitor IP instead (zone house_pages).
+ *
+ * Only a process on this host can produce this combination: nginx overwrites X-Forwarded-For
+ * with $remote_addr and clears X-House-SSR on every proxied request (house-proxy.conf), and a
+ * remote peer is never loopback. Writes and calls that forward a visitor stay throttled.
+ */
+export function isLocalSsrCachedRead(req: Request): boolean {
+  return (
+    (req.method === 'GET' || req.method === 'HEAD') &&
+    req.headers[SSR_HEADER] === '1' &&
+    req.headers['x-forwarded-for'] === undefined &&
+    isLoopbackAddress(req.socket?.remoteAddress)
+  );
+}
+
 /** Bucket key for a resolved principal: one bucket per account, not per shared IP. */
 export function principalTracker(principal: Principal): string {
   return principal.kind === 'ADMIN' ? `admin:${principal.adminId}` : `user:${principal.userId}`;
@@ -30,9 +59,10 @@ export function principalTracker(principal: Principal): string {
  * SSR contract (docs/CONVENTIONS.md §3): the Next.js servers call the API on 127.0.0.1 and send
  * `x-forwarded-for: <the visitor's address>` (nginx sets X-Forwarded-For to $remote_addr) plus
  * `x-house-ssr: 1`. With TRUST_PROXY=loopback, req.ip is then the visitor, so each visitor has its
- * own bucket; a remote peer's X-Forwarded-For is ignored. `x-house-ssr` is informational only and
- * grants nothing (anyone can send it through nginx). An SSR call without X-Forwarded-For (ISR
- * revalidation, build) is keyed as the loopback address and shares one bucket.
+ * own bucket; a remote peer's X-Forwarded-For is ignored. Cached SSR reads, which carry the
+ * marker but no visitor, are not throttled here (isLocalSsrCachedRead): one shared 127.0.0.1
+ * bucket would let a single client exhaust it for every visitor of uncached pages. Any other
+ * loopback call without X-Forwarded-For (image optimizer, scripts) is keyed as the loopback address.
  *
  * Runs before AuthGuard; the session lookup is memoized per request so AuthGuard reuses it.
  */
@@ -45,6 +75,12 @@ export class HouseThrottlerGuard extends ThrottlerGuard {
     @Inject(SESSION_RESOLVER) private readonly sessions: SessionResolver,
   ) {
     super(options, storage, reflector);
+  }
+
+  protected override async shouldSkip(context: ExecutionContext): Promise<boolean> {
+    if (await super.shouldSkip(context)) return true;
+    if (context.getType() !== 'http') return false;
+    return isLocalSsrCachedRead(context.switchToHttp().getRequest<Request>());
   }
 
   protected override async getTracker(req: Record<string, unknown>): Promise<string> {

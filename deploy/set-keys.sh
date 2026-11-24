@@ -63,10 +63,10 @@ for f in "${FIELDS[@]}"; do
   printf '\n%s%s%s  %s[%s]%s\n  %s찾는 곳: %s%s\n' "$C_BLU" "$label" "$C_RST" "$C_DIM" "$(mask "$cur")" "$C_RST" "$C_DIM" "$where" "$C_RST"
   while true; do
     if [[ "$secret" == 1 ]]; then
-      read -r -s -p "  붙여넣기: " val
+      read -r -s -p "  붙여넣기: " val || val="" # end of input = keep the current value
       echo
     else
-      read -r -p "  붙여넣기: " val
+      read -r -p "  붙여넣기: " val || val=""
     fi
     val="${val#"${val%%[![:space:]]*}"}"
     val="${val%"${val##*[![:space:]]}"}"
@@ -77,18 +77,23 @@ for f in "${FIELDS[@]}"; do
     fi
     if [[ ! "$val" =~ $re ]]; then
       warn "형식이 예상과 다릅니다 (길이 ${#val}자). 다른 칸의 값을 붙여넣지 않았는지 확인하세요."
-      read -r -p "  그래도 저장할까요? [y/N] " yn
+      read -r -p "  그래도 저장할까요? [y/N] " yn || yn=""
       [[ "$yn" =~ ^[Yy]$ ]] || continue
     fi
     env_set "$key" "$val"
     changed=1
-    if [[ "$key" == NAVER_MAP_CLIENT_ID ]]; then
-      env_set NEXT_PUBLIC_NAVER_MAP_KEY_ID "$val" # the browser map SDK uses the same Client ID
-    fi
     ok "$key 저장"
     break
   done
 done
+
+# The browser map SDK uses the same Client ID; it is inlined into the web build (NEXT_PUBLIC_*).
+map_id="$(env_get NAVER_MAP_CLIENT_ID)"
+if [[ -n "$map_id" && "$(env_get NEXT_PUBLIC_NAVER_MAP_KEY_ID)" != "$map_id" ]]; then
+  env_set NEXT_PUBLIC_NAVER_MAP_KEY_ID "$map_id"
+  changed=1
+  ok "NEXT_PUBLIC_NAVER_MAP_KEY_ID 저장 (브라우저 지도 = NAVER_MAP_CLIENT_ID)"
+fi
 
 step "현재 상태"
 for f in "${FIELDS[@]}"; do
@@ -99,6 +104,7 @@ done
 
 if ((changed)); then
   printf '\n%s바뀐 키를 사이트에 반영하려면:%s  sudo %s/deploy.sh\n' "$C_BLU" "$C_RST" "$HOUSE_ROOT"
+  printf '  (NEXT_PUBLIC_* 값이 바뀌었으면 deploy.sh 가 같은 커밋이어도 웹/관리자를 자동으로 다시 빌드합니다.)\n'
 else
   printf '\n바뀐 값이 없습니다.\n'
 fi
