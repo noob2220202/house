@@ -14,6 +14,7 @@ import { e2eFakeAuthEnabled } from './modules/e2e-auth/e2e-auth.enabled';
 import { HomeModule } from './modules/home/home.module';
 import { ListingsModule } from './modules/listings/listings.module';
 import { MediaModule } from './modules/media/media.module';
+import { SeoModule } from './modules/seo/seo.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { QueueModule } from './queue/queue.module';
 import { RedisModule } from './redis/redis.module';
@@ -42,6 +43,7 @@ import { RedisModule } from './redis/redis.module';
     AdsModule,
     AdminModule,
     HomeModule,
+    SeoModule,
     // TEST-ONLY browser e2e login: registered only with NODE_ENV=test and E2E_FAKE_OAUTH=1.
     ...(e2eFakeAuthEnabled() ? [E2eAuthModule] : []),
   ],

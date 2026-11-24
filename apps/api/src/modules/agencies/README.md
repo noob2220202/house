@@ -30,33 +30,47 @@ and disclosure helpers live in `packages/shared/src/agencies/`.
 
 ## Endpoints (prefix `/api/v1`)
 
-| Method       | Path                                                      | Auth                              | Notes                                                    |
-| ------------ | --------------------------------------------------------- | --------------------------------- | -------------------------------------------------------- |
-| GET          | `/agencies?q&emdCode&bbox&specialties&sort&page&pageSize` | Public                            | APPROVED only; trigram on name / 대표 / address          |
-| GET          | `/agencies/map?bbox&zoom&q&specialties`                   | Public                            | REGION_CLUSTERS / GRID_CLUSTERS / MARKERS by zoom        |
-| GET          | `/agencies/regions`                                       | Public                            | 읍면동 facet `{ total, items[] }`, cached ‡              |
-| GET          | `/agencies/:id`                                           | Public                            | profile, staff, listing counts, 대표 매물, disclosure    |
-| POST         | `/agencies`                                               | User                              | 등록 신청 → PENDING (등록증 + D8 `consents` required)    |
-| GET          | `/agencies/mine`                                          | User (owner or staff)             | owner: full view; staff: reduced view (B2) §             |
-| GET          | `/agencies/mine/dashboard`                                | AGENT / AGENCY_OWNER              | console home; served by the deal-requests module ¶       |
-| PATCH        | `/agencies/mine`                                          | User (owner)                      | profile (PENDING/APPROVED); APPROVED: 소재지 → 400 \*    |
-| POST         | `/agencies/mine/resubmit`                                 | User (owner)                      | REJECTED → PENDING; 409 if active elsewhere; `consents`? |
-| GET/POST     | `/agencies/mine/documents`                                | User (owner)                      | private document refs (media AGENCY_DOCUMENT, PRIVATE)   |
-| DELETE       | `/agencies/mine/documents/:docId`                         | User (owner)                      | only before approval; keeps ≥ 1 등록증                   |
-| GET          | `/agencies/mine/members`                                  | AGENCY_OWNER                      | paginated, `includeRemoved`                              |
-| PATCH/DELETE | `/agencies/mine/members/:memberId`                        | AGENCY_OWNER                      | remove downgrades the agent to USER + updates sessions   |
-| GET/POST     | `/agencies/mine/invites`                                  | AGENCY_OWNER                      | code returned once on creation                           |
-| DELETE       | `/agencies/mine/invites/:inviteId`                        | AGENCY_OWNER                      |                                                          |
-| POST         | `/agencies/join`                                          | User                              | redeem code → AGENT (THROTTLE.AUTH), `consents` D8       |
-| GET          | `/agencies/membership`                                    | User                              | caller's live membership                                 |
-| POST         | `/agencies/membership/leave`                              | User (agent)                      | owners cannot leave                                      |
-| GET          | `/admin/agencies?status&q&sort&page`                      | Admin (OPERATOR+)                 | review queue (status=PENDING, oldest first)              |
-| GET          | `/admin/agencies/:id?includeRemoved`                      | Admin                             | full contacts; each view audited `agency.pii-view` †     |
-| DELETE       | `/admin/agencies/:id` `{ reason }`                        | Admin (OPERATOR+)                 | soft-delete a PENDING / REJECTED application, audited    |
-| POST         | `/admin/agencies/:id/decision`                            | Admin (suspend/reinstate: ADMIN+) | APPROVED / REJECTED / SUSPENDED (+reason), audited       |
-| PATCH        | `/admin/agencies/:id/location`                            | Admin (OPERATOR+)                 | 소재지 change after 이전신고 check (+reason), audited    |
-| GET          | `/admin/agencies/:id/documents/:docId/file`               | Admin                             | streams the private file, `no-store`, view audited       |
-| GET          | `/admin/agencies/:id/registry-check?refresh`              | Admin                             | MATCH / MISMATCH / NOT_FOUND / UNAVAILABLE               |
+| Method       | Path                                                                             | Auth                              | Notes                                                    |
+| ------------ | -------------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------- |
+| GET          | `/agencies?q&emdCode&bbox&specialties&openNow&handlesPresale&sort&page&pageSize` | Public                            | APPROVED only; trigram on name / 대표 / address ◇        |
+| GET          | `/agencies/map?bbox&zoom&q&specialties`                                          | Public                            | REGION_CLUSTERS / GRID_CLUSTERS / MARKERS by zoom        |
+| GET          | `/agencies/regions`                                                              | Public                            | 읍면동 facet `{ total, items[] }`, cached ‡              |
+| GET          | `/agencies/:id`                                                                  | Public                            | profile, staff, listing counts, 대표 매물, disclosure    |
+| POST         | `/agencies`                                                                      | User                              | 등록 신청 → PENDING (등록증 + D8 `consents` required)    |
+| GET          | `/agencies/mine`                                                                 | User (owner or staff)             | owner: full view; staff: reduced view (B2) §             |
+| GET          | `/agencies/mine/dashboard`                                                       | AGENT / AGENCY_OWNER              | console home; served by the deal-requests module ¶       |
+| PATCH        | `/agencies/mine`                                                                 | User (owner)                      | profile (PENDING/APPROVED); APPROVED: 소재지 → 400 \*    |
+| POST         | `/agencies/mine/resubmit`                                                        | User (owner)                      | REJECTED → PENDING; 409 if active elsewhere; `consents`? |
+| GET/POST     | `/agencies/mine/documents`                                                       | User (owner)                      | private document refs (media AGENCY_DOCUMENT, PRIVATE)   |
+| DELETE       | `/agencies/mine/documents/:docId`                                                | User (owner)                      | only before approval; keeps ≥ 1 등록증                   |
+| GET          | `/agencies/mine/members`                                                         | AGENCY_OWNER                      | paginated, `includeRemoved`                              |
+| PATCH/DELETE | `/agencies/mine/members/:memberId`                                               | AGENCY_OWNER                      | remove downgrades the agent to USER + updates sessions   |
+| GET/POST     | `/agencies/mine/invites`                                                         | AGENCY_OWNER                      | code returned once on creation                           |
+| DELETE       | `/agencies/mine/invites/:inviteId`                                               | AGENCY_OWNER                      |                                                          |
+| POST         | `/agencies/join`                                                                 | User                              | redeem code → AGENT (THROTTLE.AUTH), `consents` D8       |
+| GET          | `/agencies/membership`                                                           | User                              | caller's live membership                                 |
+| POST         | `/agencies/membership/leave`                                                     | User (agent)                      | owners cannot leave                                      |
+| GET          | `/admin/agencies?status&q&sort&page`                                             | Admin (OPERATOR+)                 | review queue (status=PENDING, oldest first)              |
+| GET          | `/admin/agencies/:id?includeRemoved`                                             | Admin                             | full contacts; each view audited `agency.pii-view` †     |
+| DELETE       | `/admin/agencies/:id` `{ reason }`                                               | Admin (OPERATOR+)                 | soft-delete a PENDING / REJECTED application, audited    |
+| POST         | `/admin/agencies/:id/decision`                                                   | Admin (suspend/reinstate: ADMIN+) | APPROVED / REJECTED / SUSPENDED (+reason), audited       |
+| PATCH        | `/admin/agencies/:id/location`                                                   | Admin (OPERATOR+)                 | 소재지 change after 이전신고 check (+reason), audited    |
+| GET          | `/admin/agencies/:id/documents/:docId/file`                                      | Admin                             | streams the private file, `no-store`, view audited       |
+| GET          | `/admin/agencies/:id/registry-check?refresh`                                     | Admin                             | MATCH / MISMATCH / NOT_FOUND / UNAVAILABLE               |
+
+◇ `GET /agencies` → `Paginated<AgencySearchItem>` (`AgencySummary` + `businessHours` +
+`handlesPresale`). `openNow=true` keeps offices open at the request time in Asia/Seoul by their
+영업시간 (`open ≤ now < close` on today's KST weekday, `kstClock` = the clock shared `isOpenAt`
+uses; 휴무 days and offices without hours drop out). `handlesPresale=true` keeps offices with an
+ACTIVE `ListingAgency` row (own or co-brokered) on a public 분양권 listing whose primary office is
+disclosable; the same rule fills `handlesPresale` on every row.
+
+**Cover image.** `PATCH /agencies/mine { coverMediaId }` (null removes it) attaches a PUBLIC upload
+of the owner with purpose `AGENCY_COVER` (`AGENCY_LOGO` uploads are accepted too — older consoles
+uploaded covers with it; both get the same public image variants), else `400 AGENCY_COVER_INVALID`.
+`MyAgency` carries `coverMediaId` + `coverUrl`, the public profile `coverUrl` (large variant; null
+when unset or the file was deleted). A replaced / removed cover (like the logo) restarts its orphan
+grace period; the DB guard `agencies_media_live` refuses a new reference to a deleted media row.
 
 ‡ `GET /agencies/regions` → `{ total, items: [{ emdCode, name, count, lat, lng }] }`: APPROVED offices
 grouped by their 8-digit 읍면동 (리 codes roll up to the 읍면), named from `regions` (8-digit row or its

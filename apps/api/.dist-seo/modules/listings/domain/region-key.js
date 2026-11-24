@@ -1,0 +1,22 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.regionKeyOf = regionKeyOf;
+exports.emdCodesOfRegionKey = emdCodesOfRegionKey;
+/**
+ * Grouping key of a listing's 법정동 for region aggregates (home 지역 ranking, 비슷한 매물):
+ * the 8-digit 읍면동 code, or the 10-digit code of a 리. A 10-digit 읍면동 code ("1215011400",
+ * as sent by the Kakao postcode `bcode`) collapses to its 8-digit form so both spellings of the
+ * same 동 land in one group. null for missing / 시군구-level codes.
+ */
+function regionKeyOf(emdCode) {
+    if (!emdCode || !/^\d+$/.test(emdCode) || emdCode.length < 8)
+        return null;
+    if (emdCode.length === 10 && emdCode.endsWith('00'))
+        return emdCode.slice(0, 8);
+    return emdCode.length === 8 || emdCode.length === 10 ? emdCode : null;
+}
+/** Codes a listing of region `key` may carry in `listings.emd_code` (8- and 10-digit spellings). */
+function emdCodesOfRegionKey(key) {
+    return key.length === 8 ? [key, `${key}00`] : [key];
+}
+//# sourceMappingURL=region-key.js.map

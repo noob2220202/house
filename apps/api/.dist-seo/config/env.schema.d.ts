@@ -1,0 +1,100 @@
+import { z } from 'zod';
+/** Every environment variable the API reads. Documented in apps/api/.env.example. */
+export declare const envSchema: z.ZodObject<{
+    NODE_ENV: z.ZodDefault<z.ZodEnum<{
+        development: "development";
+        test: "test";
+        production: "production";
+    }>>;
+    HOST: z.ZodDefault<z.ZodString>;
+    PORT: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
+    TRUST_PROXY: z.ZodDefault<z.ZodString>;
+    LOG_LEVEL: z.ZodDefault<z.ZodEnum<{
+        error: "error";
+        fatal: "fatal";
+        warn: "warn";
+        info: "info";
+        debug: "debug";
+        trace: "trace";
+        silent: "silent";
+    }>>;
+    LOG_PRETTY: z.ZodDefault<z.ZodPipe<z.ZodEnum<{
+        true: "true";
+        0: "0";
+        false: "false";
+        1: "1";
+        yes: "yes";
+        no: "no";
+    }>, z.ZodTransform<boolean, "true" | "0" | "false" | "1" | "yes" | "no">>>;
+    SWAGGER_ENABLED: z.ZodDefault<z.ZodPipe<z.ZodEnum<{
+        true: "true";
+        0: "0";
+        false: "false";
+        1: "1";
+        yes: "yes";
+        no: "no";
+    }>, z.ZodTransform<boolean, "true" | "0" | "false" | "1" | "yes" | "no">>>;
+    PUBLIC_BASE_URL: z.ZodURL;
+    ADMIN_BASE_URL: z.ZodURL;
+    API_BASE_URL: z.ZodURL;
+    CORS_ORIGINS: z.ZodPipe<z.ZodString, z.ZodTransform<string[], string>>;
+    BODY_LIMIT: z.ZodDefault<z.ZodString>;
+    DATABASE_URL: z.ZodString;
+    REDIS_URL: z.ZodString;
+    REDIS_KEY_PREFIX: z.ZodDefault<z.ZodString>;
+    COOKIE_SECRET: z.ZodString;
+    COOKIE_DOMAIN: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    COOKIE_SECURE: z.ZodOptional<z.ZodPipe<z.ZodEnum<{
+        true: "true";
+        0: "0";
+        false: "false";
+        1: "1";
+        yes: "yes";
+        no: "no";
+    }>, z.ZodTransform<boolean, "true" | "0" | "false" | "1" | "yes" | "no">>>;
+    SESSION_IDLE_TTL_SECONDS: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
+    SESSION_ABSOLUTE_TTL_SECONDS: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
+    ADMIN_SESSION_IDLE_TTL_SECONDS: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
+    ADMIN_SESSION_ABSOLUTE_TTL_SECONDS: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
+    ADMIN_IP_ALLOWLIST: z.ZodDefault<z.ZodPipe<z.ZodString, z.ZodTransform<string[], string>>>;
+    TOTP_ENCRYPTION_KEY: z.ZodString;
+    KAKAO_CLIENT_ID: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    KAKAO_CLIENT_SECRET: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    KAKAO_REDIRECT_URI: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    NAVER_CLIENT_ID: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    NAVER_CLIENT_SECRET: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    NAVER_REDIRECT_URI: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    GOOGLE_CLIENT_ID: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    GOOGLE_CLIENT_SECRET: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    GOOGLE_REDIRECT_URI: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    NAVER_MAP_CLIENT_ID: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    NAVER_MAP_CLIENT_SECRET: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    DATA_GO_KR_SERVICE_KEY: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    VWORLD_API_KEY: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    VWORLD_DOMAIN: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    UPLOAD_DIR: z.ZodString;
+    PRIVATE_UPLOAD_DIR: z.ZodString;
+    MEDIA_BASE_URL: z.ZodDefault<z.ZodString>;
+    MAX_UPLOAD_MB: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
+    REGION_SGG_CODE: z.ZodPipe<z.ZodDefault<z.ZodString>, z.ZodTransform<string, string>>;
+    JOBS_ENABLED: z.ZodDefault<z.ZodPipe<z.ZodEnum<{
+        true: "true";
+        0: "0";
+        false: "false";
+        1: "1";
+        yes: "yes";
+        no: "no";
+    }>, z.ZodTransform<boolean, "true" | "0" | "false" | "1" | "yes" | "no">>>;
+    THROTTLE_TTL_MS: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
+    THROTTLE_LIMIT: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
+    E2E_FAKE_OAUTH: z.ZodDefault<z.ZodPipe<z.ZodEnum<{
+        true: "true";
+        0: "0";
+        false: "false";
+        1: "1";
+        yes: "yes";
+        no: "no";
+    }>, z.ZodTransform<boolean, "true" | "0" | "false" | "1" | "yes" | "no">>>;
+}, z.core.$strip>;
+export type Env = z.infer<typeof envSchema>;
+export declare function parseEnv(raw: Record<string, unknown>): Env;

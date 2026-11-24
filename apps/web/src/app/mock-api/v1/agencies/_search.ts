@@ -1,4 +1,7 @@
-import { agencySearchQuerySchema, type AgencySearchItem as WireAgencySearchItem } from '@house/shared';
+import {
+  agencySearchQuerySchema,
+  type AgencySearchItem as WireAgencySearchItem,
+} from '@house/shared';
 import type { NextRequest } from 'next/server';
 import { isOpenAt } from '@/features/w-agencies/lib/hours';
 import type { AgencySummary } from '@/features/w-agencies/api/schemas';

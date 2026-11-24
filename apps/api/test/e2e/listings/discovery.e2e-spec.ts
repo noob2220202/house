@@ -293,7 +293,7 @@ describe('listings: similar, view beacon, broker console (e2e)', () => {
       expect(res.body.items).toEqual([
         {
           id: exact.listing.id,
-          listingNo: null,
+          listingNo: String(exact.listing.listingNo),
           status: 'ACTIVE',
           dealType: 'SALE',
           assetType: 'APT',
@@ -336,6 +336,17 @@ describe('listings: similar, view beacon, broker console (e2e)', () => {
         a.ownerSession,
       ).expect(200);
       expect((byDong.body.items as { id: string }[]).map((i) => i.id)).toEqual([exact.listing.id]);
+      // 매물번호 finds the listing exactly.
+      const byNo = await withSession(
+        t
+          .http()
+          .get('/api/v1/agency/listings/co-broker-candidates')
+          .query({ complexId: complex.id, q: `매물번호 ${classOnly.listing.listingNo}` }),
+        a.ownerSession,
+      ).expect(200);
+      expect((byNo.body.items as { id: string }[]).map((i) => i.id)).toEqual([
+        classOnly.listing.id,
+      ]);
       const byQ = await withSession(
         t
           .http()

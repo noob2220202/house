@@ -26,7 +26,7 @@ All paths are under the global prefix `/api/v1`. Default is authenticated; publi
 | POST   | `/listings/:id/view` → 204 (view beacon, same dedupe)     | Public                                    |
 | GET    | `/agency/listings/summary` (status tabs + reminders)      | AGENT / AGENCY_OWNER (own agency)         |
 | GET    | `/agency/listings/co-broker-candidates?complexId&dong&q`  | AGENT / AGENCY_OWNER (own agency)         |
-| GET    | `/agency/listings?statuses&dealTypes&primaryOnly&page`    | AGENT / AGENCY_OWNER (own agency)         |
+| GET    | `/agency/listings?statuses&dealTypes&assetTypes&q&…&sort` | AGENT / AGENCY_OWNER (own agency)         |
 | POST   | `/agency/listings` (DRAFT)                                | AGENT / AGENCY_OWNER                      |
 | GET    | `/agency/listings/:id` (호/hidden reason: primary only)   | member of a participating agency          |
 | PATCH  | `/agency/listings/:id` (co-brokers: `contact` only)       | member of a participating agency          |
@@ -68,9 +68,32 @@ expiringSoon, coBrokered }` over the listings the agency actively (co-)brokers. 
     = 광고중/계약중 never verified or whose 실매물 확인 (valid `LISTING_AD_TTL_DAYS`) ends within 7 KST
     days; `expiringSoon` = 광고중 with `expiresAt` within 7 days.
   - `GET /agency/listings/co-broker-candidates?complexId&dong&q&page&pageSize` → `Paginated<{ id,
-listingNo: null, status, dealType, assetType, name, dong, prices…, floor (null when 저/중/고),
+listingNo, status, dealType, assetType, name, dong, prices…, floor (null when 저/중/고),
     floorClass, coverPhotoUrl, agencyCount, primaryAgencyName, joined }>`: public listings of other
-    offices in the 단지 (never 호), `joined` = this agency already co-brokers it.
+    offices in the 단지 (never 호), `joined` = this agency already co-brokers it. `q` matches 동 / 제목,
+    or the 매물번호 exactly.
+  - `GET /agency/listings` (`agencyListingListQuerySchema`) → `Paginated<AgencyListingRow>` (shared):
+    the agency's private console view of every listing it actively (co-)brokers — `ListingSummary`
+    - `ho` (primary only), `landArea`, `verificationDueAt`, `expiresAt`, `updatedAt`, `hiddenReason`
+      (primary only) and `missingCount` (DRAFT only: `checkPublishRequirements(...).length`, the same
+      count publish reports). Never served publicly. Query: `statuses`, `dealTypes`, `assetTypes`
+      (csv), `q` (단지·건물명, 도로명·지번 주소, 동, 제목, 매물번호; spaces ignored on both sides; 호 only on
+      the agency's own listings — `ListingSearchRepository.agencyTextMatchIds`), `verificationDue=true`
+      (same rule as the summary chip), `coBrokered=true` (another agency is primary), `primaryOnly`,
+      `sort` = `UPDATED` (default) | `LATEST` | `VERIFY_DUE` (oldest 확인 first, never verified last) |
+      `PRICE_DESC` | `PRICE_ASC` (`priceSort`, nulls last) | `VIEWS`.
+- 매물번호 (`listings.listing_no`, unique sequence from 100001; existing rows were numbered in
+  creation order): `ListingSummary.listingNo` (string, public) on every summary / detail, the
+  console rows, co-broker candidates and the admin topbar search (`parseListingNo` accepts "100412",
+  "매물번호 100412", "#100412").
+- `verificationDueAt` (console rows + agency detail) = KST date of the latest 실매물 확인 +
+  `LISTING_AD_TTL_DAYS` (YYYY-MM-DD; null when never verified) — the same deadline as the dashboard.
+- Search groups (denormalized on `listings`, derived on every write by `propertySearchColumns`):
+  `room_type` = shared `effectiveRoomType` (the stated `properties.room_type` — needed for 1.5룸 —
+  else 1/2/3+ rooms for 원룸·투룸), `land_zone` = `landZoneOf(properties.zoning)` (용도지역 대분류),
+  `land_category` = `landCategoryOf(properties.land_category)` (대·전·답·과수원·임야·잡종지, other
+  지목 → ETC). Filters `roomTypes`, `landZones`, `landCategories` (csv) on `/map/search` and
+  `/listings`; `ListingSummary.roomType/landZone/landCategory` carry the groups.
 - Exported for the home module: `ListingRegionStatsService` (public listing counts / 평당가 per 지역,
   city totals), `ListingRegionNamesService`, `ListingSummariesService`.
 

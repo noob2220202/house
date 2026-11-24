@@ -23,6 +23,34 @@ export const BRAND = {
   /** Browser theme colour (= --brand). */
   themeColor: '#1D4FF2',
   locale: 'ko_KR',
+  /**
+   * Search / AI-answer-engine copy (lib/seo: titles, llms.txt, /about, JSON-LD). Never repeat the
+   * service name here — every page derives it from `name`, so a rename stays one edit.
+   */
+  seo: {
+    /** Short place name used in search titles: "순천 신대지구 아파트 매매·전세 시세". */
+    regionShort: '순천',
+    /** 시도 part of postal addresses (schema.org addressRegion). */
+    addressRegion: '전남광주통합특별시',
+    /** What the service is, in one sentence (llms.txt, /about, Organization JSON-LD). */
+    summary:
+      '순천시 아파트·분양권, 원룸·투룸, 주택, 상가·사무실, 토지 매물과 국토교통부 실거래가를 지도와 지역별 시세로 보여 주는 순천 지역 부동산 정보 서비스',
+    /** Who publishes the listings. */
+    publisher: '순천 지역 공인중개사무소(중개사 회원)',
+    /** Search phrases the site is about (llms.txt, about page keywords). */
+    keywords: [
+      '순천 부동산',
+      '순천 아파트 시세',
+      '순천 아파트 실거래가',
+      '순천 신대지구 아파트',
+      '순천 원룸',
+      '순천 상가 임대',
+      '순천 토지 매매',
+      '순천 공인중개사',
+    ],
+    /** Official profiles of the service (schema.org sameAs). Empty until they exist. */
+    sameAs: [] as readonly string[],
+  },
 } as const;
 
 export type Brand = typeof BRAND;

@@ -1,7 +1,8 @@
-import { BannerSlot } from '@house/shared';
+import { BannerSlot, DEAL_TYPE_LABEL, DealType } from '@house/shared';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { cache } from 'react';
+import { BRAND } from '@/config/brand';
 import { ROUTES } from '@/config/nav';
 import {
   bannerListSchema,
@@ -18,9 +19,24 @@ import { complexDescription } from '@/features/w-complex/lib/complex';
 import { loadComplexListings } from '@/features/w-complex/lib/complex-listings';
 import { defaultAreaType } from '@/features/w-complex/lib/trend';
 import { ComplexPageView } from '@/features/w-complex/page/ComplexPageView';
+import { ComplexFaqSection, complexFaq } from '@/features/w-seo';
 import { ApiError } from '@/lib/api';
 import { serverGet, serverGetOr } from '@/lib/api/server';
-import { JsonLd, breadcrumbJsonLd, buildMetadata, complexJsonLd } from '@/lib/seo';
+import { formatCount } from '@/lib/format';
+import {
+  JsonLd,
+  SEO_ROUTES,
+  aggregateOfferJsonLd,
+  breadcrumbJsonLd,
+  buildMetadata,
+  complexJsonLd,
+  complexNodeId,
+  faqJsonLd,
+  landingDecision,
+  placeLabel,
+  type JsonLdNode,
+} from '@/lib/seo';
+import { getSeoRegionIndex } from '@/lib/seo/api';
 
 /** ISR window of the public complex data (seconds). */
 const REVALIDATE = 300;
@@ -79,6 +95,29 @@ const getListings = cache((id: string) =>
   }),
 );
 
+/**
+ * The 아파트 landing page of the 단지's 읍면동/리 (`/suncheon/<지역>/apt`) when it is indexable —
+ * internal link + containedInPlace. Best effort: null when the seo index is unavailable.
+ */
+const getAptLanding = cache(async (emdCode: string | null) => {
+  if (!emdCode) return null;
+  const key = emdCode.length === 10 && emdCode.endsWith('00') ? emdCode.slice(0, 8) : emdCode;
+  const index = await getSeoRegionIndex().catch((error: unknown) => {
+    if (error instanceof ApiError) return null;
+    throw error;
+  });
+  const region = index?.regions.find((r) => r.code === key);
+  if (!index || !region || landingDecision(index.regions, region, 'apt').kind !== 'index') {
+    return null;
+  }
+  return { region, path: SEO_ROUTES.region(region, 'apt'), label: placeLabel(region) };
+});
+
+/** "{단지명} 실거래가·시세·매물 | 순천 {읍면동}" (the place replaces the brand suffix). */
+function complexTitle(c: { name: string; emdName: string | null }): string {
+  return `${c.name} 실거래가·시세·매물 | ${BRAND.seo.regionShort}${c.emdName ? ` ${c.emdName}` : ''}`;
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const complex = await getComplex(id);
@@ -87,7 +126,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (id !== complex.id) permanentRedirect(ROUTES.complex(complex.id));
   const listings = await getListings(complex.id);
   return buildMetadata({
-    title: `${complex.name} 실거래가·매물`,
+    title: complexTitle(complex),
+    brandSuffix: false,
     description: complexDescription(complex, listings?.summary.total),
     path: ROUTES.complex(complex.id),
     image: complex.photos[0]?.url,
@@ -139,6 +179,29 @@ export default async function ComplexPage({ params }: Props) {
   ]);
 
   const path = ROUTES.complex(complex.id);
+  const regionLanding = await getAptLanding(complex.emdCode);
+  const latest = [...(stats?.latest ?? []), ...complex.latestTrades];
+  const faq = complexFaq({
+    complex,
+    listings: listings?.summary ?? null,
+    latest,
+    asOf: new Date(),
+  });
+  const offers = (listings?.summary.byDealType ?? [])
+    .map((d) =>
+      aggregateOfferJsonLd({
+        itemId: complexNodeId(path),
+        url: path,
+        sale: d.dealType === DealType.SALE || d.dealType === DealType.PRESALE,
+        count: d.count,
+        lowPrice: d.priceMin,
+        highPrice: d.priceMax,
+        description: `${complex.name} ${DEAL_TYPE_LABEL[d.dealType]} 매물 ${formatCount(d.count)}건${
+          d.dealType === DealType.MONTHLY ? ' (가격: 보증금)' : ''
+        }`,
+      }),
+    )
+    .filter((o): o is JsonLdNode => o !== null);
   return (
     <>
       <JsonLd
@@ -149,13 +212,27 @@ export default async function ComplexPage({ params }: Props) {
             description: complexDescription(complex, listings?.summary.total),
             image: complex.photos[0]?.url,
             address: complex.roadAddress ?? complex.jibunAddress ?? undefined,
+            emdName: complex.emdName,
             geo: { lat: complex.lat, lng: complex.lng },
             households: complex.households,
             builtYear: complex.builtYear,
+            floorPlans: complex.areaTypes.map((a) => ({
+              name: a.typeName || a.pyeongLabel || `${a.exclusiveArea}㎡`,
+              exclusiveAreaSqm: a.exclusiveArea,
+              rooms: a.rooms,
+              baths: a.baths,
+              households: a.households,
+            })),
+            regionPath: regionLanding?.path ?? null,
           }),
+          ...offers,
+          ...(faq.length > 0 ? [faqJsonLd(faq)] : []),
           breadcrumbJsonLd([
             { name: '홈', path: ROUTES.home },
             { name: '아파트·분양권', path: ROUTES.map('apt') },
+            ...(regionLanding
+              ? [{ name: `${regionLanding.label} 아파트`, path: regionLanding.path }]
+              : []),
             { name: complex.name, path },
           ]),
         ]}
@@ -170,6 +247,18 @@ export default async function ComplexPage({ params }: Props) {
           agencies: agencies?.items ?? [],
           featured,
         }}
+      />
+      <ComplexFaqSection
+        name={complex.name}
+        items={faq}
+        regionLink={
+          regionLanding
+            ? {
+                href: regionLanding.path,
+                label: `${BRAND.seo.regionShort} ${regionLanding.label} 아파트 시세 보기`,
+              }
+            : null
+        }
       />
     </>
   );

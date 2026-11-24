@@ -330,7 +330,7 @@ describe('admin dashboard queues, search, notifications, stats, social login (e2
         items: [
           {
             id: listing.id,
-            listingNo: null,
+            listingNo: String(listing.listingNo),
             title: '연향 센트럴 · 26평',
             dealType: DealType.SALE,
             price: 31000,
@@ -342,6 +342,10 @@ describe('admin dashboard queues, search, notifications, stats, social login (e2
           },
         ],
       });
+      // 매물번호 (as typed in the topbar) finds the listing exactly.
+      const byNo = await as(t, session, 'get', `/admin/search?q=${listing.listingNo}`).expect(200);
+      const found = (byNo.body as { listings: { items: { id: string }[] } }).listings.items;
+      expect(found.map((l) => l.id)).toEqual([listing.id]);
       // "연향 센트럴" also finds the office "연향센트럴 …" (spaces do not matter).
       expect(res.body.agencies).toEqual({
         total: 1,

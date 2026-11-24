@@ -17,7 +17,12 @@ interface Row {
   updatedAt: string;
 }
 
-const ids = (body: { items: { id: string }[] }) => body.items.map((i) => i.id);
+interface Page {
+  items: { id: string }[];
+  total: number;
+}
+
+const ids = (body: unknown) => (body as Page).items.map((i) => i.id);
 
 describe('console listing list + search groups (e2e)', () => {
   let t: TestApp;
@@ -103,8 +108,9 @@ describe('console listing list + search groups (e2e)', () => {
       });
       const theirs = await createPublished(t, b.ownerSession, { property: { ho: '1505호' } });
       await addCoBroker(t, theirs, b, a);
-      const get = async (query: string) =>
-        (await withSession(t.http().get(`${BASE}?${query}`), a.ownerSession).expect(200)).body;
+      const get = async (query: string): Promise<Page> =>
+        (await withSession(t.http().get(`${BASE}?${query}`), a.ownerSession).expect(200))
+          .body as Page;
 
       expect(ids(await get(`q=${encodeURIComponent('레이크 파크')}`))).toEqual([apt]);
       expect(ids(await get(`q=${encodeURIComponent('연향스테이')}`))).toEqual([officetel]);

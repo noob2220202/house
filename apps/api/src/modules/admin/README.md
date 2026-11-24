@@ -51,6 +51,8 @@ modules that the admin app calls: `/admin/agencies/:id/documents/:docId/file` an
 
 ## Notes
 
+- **Topbar search** (`GET /admin/search`): listings match title, 단지, 건물, 주소, 대표 사무소, 읍면동 —
+  and the 매물번호 exactly (`parseListingNo`: "100412", "매물번호 100412"); rows carry `listingNo`.
 - **Site settings** (`siteSettingSchemas[key]`, all keys in `GET /site-settings/public`): BUSINESS_INFO,
   CONTACT, SEO, FEATURES, FOOTER, plus (D9) `HOME_LAYOUT` `{ sections: [{ key, visible }] }` — the home
   sections in display order (`HomeSectionKey`: HERO_SEARCH, CATEGORY_TILES, MAIN_BANNER,

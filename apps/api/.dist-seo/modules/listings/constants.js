@@ -1,0 +1,40 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.EMD_MAX_DISTANCE_M = exports.SERVICE_REGION_RADIUS_M = exports.EXPIRE_LISTING_ADS_BATCH = exports.EXPIRE_LISTING_ADS_EVERY_MS = exports.EXPIRE_LISTING_ADS_JOB = exports.LISTING_AD_TTL_DAYS = exports.FLUSH_VIEW_COUNTS_EVERY_MS = exports.FLUSH_VIEW_COUNTS_JOB = exports.REGION_VIEWS_DAILY_TTL_SECONDS = exports.LISTINGS_REDIS_KEYS = exports.RECENT_VIEWS_CAP = exports.VIEW_DEDUPE_TTL_SECONDS = exports.MAP_TILE_CACHE_TTL_SECONDS = exports.LISTINGS_SEARCH_CACHE_NS = void 0;
+/** Cache namespace bumped whenever publicly visible listing data changes (map tiles). */
+exports.LISTINGS_SEARCH_CACHE_NS = 'listings:search';
+/** Hot map tiles are cached briefly: invalidation is by version bump, TTL bounds staleness. */
+exports.MAP_TILE_CACHE_TTL_SECONDS = 30;
+/** One counted view per viewer per listing within this window. */
+exports.VIEW_DEDUPE_TTL_SECONDS = 6 * 60 * 60;
+/** Recent views kept per user and target type. */
+exports.RECENT_VIEWS_CAP = 100;
+exports.LISTINGS_REDIS_KEYS = {
+    /** hash listingId → absolute view total (flushed to listings.view_count). */
+    viewTotals: 'listings:views:totals',
+    viewSeen: (listingId, viewer) => `listings:views:seen:${listingId}:${viewer}`,
+    /** ZSET `${assetType}|${regionKey}` → counted listing views on that KST day (지역 ranking). */
+    regionViewsDaily: (day) => `listings:views:region-daily:${day}`,
+};
+/** Daily region-view ZSETs cover this week and the previous one (rank change), plus slack. */
+exports.REGION_VIEWS_DAILY_TTL_SECONDS = 16 * 24 * 60 * 60;
+/** BullMQ job (queue counters-flush) that writes Redis view totals to the DB. */
+exports.FLUSH_VIEW_COUNTS_JOB = 'listings.flush-view-counts';
+exports.FLUSH_VIEW_COUNTS_EVERY_MS = 5 * 60_000;
+/**
+ * 광고 기간: an ACTIVE/RESERVED listing reverts to DRAFT this many days after publication or its
+ * latest 실매물 확인, so ads for already-traded properties don't stay up (제18조의2④).
+ */
+exports.LISTING_AD_TTL_DAYS = 30;
+/** BullMQ job (queue cleanup) that expires overdue ads. */
+exports.EXPIRE_LISTING_ADS_JOB = 'listings.expire-ads';
+exports.EXPIRE_LISTING_ADS_EVERY_MS = 60 * 60_000;
+exports.EXPIRE_LISTING_ADS_BATCH = 500;
+/**
+ * Coarse service-region guard (no 시군구 boundary polygons yet): a property must lie within this
+ * distance of the 시군구 centroid (regions table, REGION_SGG_CODE) and, when its 법정동 has a
+ * centroid, within EMD_MAX_DISTANCE_M of it.
+ */
+exports.SERVICE_REGION_RADIUS_M = 30_000;
+exports.EMD_MAX_DISTANCE_M = 15_000;
+//# sourceMappingURL=constants.js.map

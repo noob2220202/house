@@ -1,6 +1,6 @@
-import { BannerSlot, DealType, REGION_CODE_PATTERN } from '@house/shared';
+import { AssetType, BannerSlot, DealType, ListingStatus, REGION_CODE_PATTERN } from '@house/shared';
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { cache } from 'react';
 import { ROUTES } from '@/config/nav';
 import {
@@ -23,7 +23,16 @@ import {
 } from '@/features/w-listing/lib/view';
 import { ApiError } from '@/lib/api';
 import { serverGet, serverGetOr } from '@/lib/api/server';
-import { JsonLd, breadcrumbJsonLd, buildMetadata, listingJsonLd } from '@/lib/seo';
+import {
+  JsonLd,
+  SEO_ROUTES,
+  assetSlugOf,
+  breadcrumbJsonLd,
+  buildMetadata,
+  landingDecision,
+  listingJsonLd,
+} from '@/lib/seo';
+import { getListingStatus, getSeoRegionIndex } from '@/lib/seo/api';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -61,11 +70,56 @@ const getListing = cache(async (id: string): Promise<ListingDetail | null> => {
   }
 });
 
+/**
+ * Where the URL of a listing that is no longer public (거래완료 · 비공개 · 삭제 · 만료) leads: its
+ * 단지 page, else the 지역 landing of its 매물 종류, else nothing (→ 404). 308 for closed / deleted
+ * listings; 307 while 비공개 (HIDDEN by moderation may be restored).
+ */
+const getGoneTarget = cache(async (id: string) => {
+  const status = await getListingStatus(id);
+  if (!status || status.state !== 'GONE') return null;
+  const permanent = status.status !== ListingStatus.HIDDEN;
+  if (status.complexId) return { path: ROUTES.complex(status.complexId), permanent };
+  if (!status.regionCode) return null;
+  const index = await getSeoRegionIndex().catch((error: unknown) => {
+    if (error instanceof ApiError) return null;
+    throw error;
+  });
+  const asset = assetSlugOf(status.assetType);
+  const candidates = [status.regionCode, status.regionCode.slice(0, 8)];
+  for (const code of candidates) {
+    const region = index?.regions.find((r) => r.code === code);
+    if (index && region && landingDecision(index.regions, region, asset).kind !== 'empty') {
+      return { path: SEO_ROUTES.region(region, asset), permanent };
+    }
+  }
+  return null;
+});
+
+/** 404 for unknown listings; redirect for listings that were public before. */
+async function missingListing(id: string): Promise<never> {
+  const gone = await getGoneTarget(id);
+  if (gone) {
+    if (gone.permanent) permanentRedirect(gone.path);
+    redirect(gone.path);
+  }
+  notFound();
+}
+
+const ITEM_TYPE: Record<AssetType, 'Apartment' | 'House' | 'Place'> = {
+  APT: 'Apartment',
+  OFFICETEL: 'Apartment',
+  ONEROOM: 'Apartment',
+  HOUSE: 'House',
+  COMMERCIAL: 'Place',
+  LAND: 'Place',
+};
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const listing = await getListing(id);
-  // Thrown here (not only in the page) so crawlers get a real 404 status before streaming starts.
-  if (!listing) notFound();
+  // Thrown here (not only in the page) so crawlers get a real 404 / redirect before streaming starts.
+  if (!listing) return missingListing(id);
   return buildMetadata({
     title: listingFullTitle(listing),
     description: metaDescription(listing),
@@ -78,7 +132,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ListingDetailPage({ params }: Props) {
   const { id } = await params;
   const listing = await getListing(id);
-  if (!listing) notFound();
+  if (!listing) return missingListing(id);
 
   const emdCode = listing.property.emdCode;
   const [similar, banners] = await Promise.all([
@@ -129,6 +183,9 @@ export default async function ListingDetailPage({ params }: Props) {
               listing.dealType === DealType.SALE || listing.dealType === DealType.PRESALE
                 ? 'sale'
                 : 'rent',
+            availability: listing.status === ListingStatus.RESERVED ? 'reserved' : 'available',
+            itemType: ITEM_TYPE[listing.assetType],
+            complexPath: listing.complex ? ROUTES.complex(listing.complex.id) : null,
           }),
           breadcrumbJsonLd(
             crumbs.map((c, i) => ({

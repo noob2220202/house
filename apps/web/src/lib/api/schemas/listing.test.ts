@@ -94,11 +94,22 @@ describe('listingSummarySchema (backend ListingSummary → card)', () => {
       ...wire,
       assetType: 'ONEROOM',
       rooms: 2,
+      // A payload without the field (the API sends the effective 방 구성 since BE-gaps).
+      roomType: undefined,
       complex: null,
       coverPhoto: null,
       floorLabel: '3/4',
     });
     expect(room).toMatchObject({ roomType: 'TWO_ROOM', floor: 3, totalFloors: 4 });
+    // The served value (e.g. a stated 1.5룸) wins over the room count.
+    expect(
+      listingSummarySchema.parse({
+        ...wire,
+        assetType: 'ONEROOM',
+        rooms: 1,
+        roomType: 'ONE_HALF_ROOM',
+      }).roomType,
+    ).toBe('ONE_HALF_ROOM');
     expect(room.complexId ?? null).toBeNull();
     const flat = listingSummarySchema.parse({
       id: 'x',

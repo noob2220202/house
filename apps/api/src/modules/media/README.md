@@ -55,7 +55,7 @@ Registered in `AppModule` already — do not edit `app.module.ts`. Read `docs/CO
      referenced is never purged and is logged as a warning.
 - **Reference guard (DB trigger `media_assert_live_reference`)**: every table that references media
   (`listing_photos`, `complex_photos`, `deal_request_photos`, `agency_documents`, `popups`,
-  `agencies.logo_media_id`, `banners.pc/mobile_media_id`) refuses a new or changed reference to a
+  `agencies.logo_media_id` / `cover_media_id`, `banners.pc/mobile_media_id`) refuses a new or changed reference to a
   soft-deleted media row (`foreign_key_violation`, Prisma `P2003`), taking `FOR SHARE` on the row. This
   closes the attach-vs-delete race even for callers that do not use `assertUsable` in their transaction.
 - **Indexes**: `media(deleted_at, updated_at)` serves cleanup phase 2 and the purge. The referencing
@@ -68,6 +68,7 @@ Registered in `AppModule` already — do not edit `app.module.ts`. Read `docs/CO
 | LISTING_PHOTO      | image    | PUBLIC     | AGENT / AGENCY_OWNER         | 15 MB |
 | DEAL_REQUEST_PHOTO | image    | PUBLIC     | any user                     | 15 MB |
 | AGENCY_LOGO        | image    | PUBLIC     | any user (agency applicants) | 5 MB  |
+| AGENCY_COVER       | image    | PUBLIC     | any user (agency owners)     | 10 MB |
 | PROFILE            | image    | PUBLIC     | nobody (until an FK exists)  | 5 MB  |
 | AGENCY_DOCUMENT    | document | PRIVATE    | any user (agency applicants) | 10 MB |
 | COMPLEX_PHOTO      | image    | PUBLIC     | admin                        | 15 MB |

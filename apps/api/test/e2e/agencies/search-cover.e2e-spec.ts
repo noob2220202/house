@@ -25,17 +25,17 @@ import {
 } from '../../utils';
 import { pluck } from './helpers';
 
-const WEEKDAY_HOURS: BusinessHours = {
+const WEEKDAY_HOURS = {
   mon: { open: '09:00', close: '18:00' },
   tue: { open: '09:00', close: '18:00' },
   wed: { open: '09:00', close: '18:00' },
   thu: { open: '09:00', close: '18:00' },
   fri: { open: '09:00', close: '18:00' },
   sat: { open: '10:00', close: '15:00' },
-};
-const ALWAYS: BusinessHours = Object.fromEntries(
+} satisfies BusinessHours;
+const ALWAYS = Object.fromEntries(
   WEEKDAYS.map((d) => [d, { open: '00:00', close: '24:00' }]),
-);
+) satisfies BusinessHours;
 
 describe('agencies: openNow / handlesPresale search and the cover image (e2e)', () => {
   let t: TestApp;

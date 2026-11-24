@@ -418,6 +418,21 @@ Verified in the code at the gate — the corresponding passages in the group not
 - `NaverMapView` observes container resizes (`ResizeObserver` → `autoResize`).
 - Map tool / zoom buttons now show a visible keyboard focus ring (fixed at the gate in
   `apps/web/src/components/map/markers.module.css`; the local `/agencies` patch is now redundant).
+- **BE-gaps (stage 3)** — now served by the API (module READMEs have the details):
+  `GET /agency/listings` takes `q`, `assetTypes`, `verificationDue`, `coBrokered`, `sort`
+  (`UPDATED|LATEST|VERIFY_DUE|PRICE_DESC|PRICE_ASC|VIEWS`) and answers `AgencyListingRow` (`ho` for the
+  primary only, `missingCount` for drafts, `verificationDueAt`, `expiresAt`, `updatedAt`, `hiddenReason`);
+  `listingNo` (sequential 매물번호 from 100001, string) on every listing summary / detail, co-broker
+  candidates and the admin search; `roomTypes` / `landZones` / `landCategories` filters on `/map/search`
+  and `/listings` with `roomType` / `landZone` / `landCategory` on summaries (enums + `effectiveRoomType`,
+  `landZoneOf`, `landCategoryOf` in shared; `property.roomType` states 1.5룸); `GET /agencies` takes
+  `openNow` / `handlesPresale` and returns `businessHours` + `handlesPresale`; `coverMediaId` in
+  `agencyUpdateSchema` (media purpose `AGENCY_COVER`; `AGENCY_LOGO` uploads accepted too), `coverMediaId`
+  - `coverUrl` on `MyAgency`, `coverUrl` on the public profile. Frontend follow-ups: flip
+    `AGENCY_API_EXTRAS`; upload covers with `AGENCY_COVER` (`a-agency/profile/ProfileView.tsx`); use the
+    shared `RoomType` / `LandZone` / `LandCategory` instead of the copies in `lib/api/schemas/listing.ts`;
+    send `property.roomType` from the wizard for 1.5룸; drop the "API ignores" note in
+    `a-listings/lib/list-params.ts`.
 
 ## 12. Per-group notes
 
