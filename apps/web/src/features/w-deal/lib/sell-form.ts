@@ -11,6 +11,8 @@ import type { AreaUnit } from '@/lib/format';
 import { floorClassOf, toKstDateString } from '@/lib/format';
 import type { DealRequestCreatePayload } from '../api/client';
 import {
+  AREA_LIMIT_SQM,
+  areaLimitMessage,
   CONTACT_SCOPE_DEFAULTS,
   CONTACT_SCOPE_FIELDS,
   formSchemaOf,
@@ -170,6 +172,24 @@ export function sellFloor(v: SellFormValues): number | undefined {
   return floor >= 1 ? floor : undefined;
 }
 
+/**
+ * 동 / 호 of a complex unit: numbers up to 4 digits ("103", "1502", optional 동·호 suffix), or a
+ * short name ("A", "가", "B1"). null = valid.
+ */
+const UNIT_PART_TEXT = {
+  동: { empty: '동을 입력해 주세요.', range: '동은 1~9999 사이 숫자로 입력해 주세요. (예: 103)', name: '동은 6자 이내의 숫자·한글·영문으로 입력해 주세요.' },
+  호: { empty: '호수를 입력해 주세요.', range: '호수는 1~9999 사이 숫자로 입력해 주세요. (예: 1502)', name: '호수는 6자 이내의 숫자·한글·영문으로 입력해 주세요.' },
+} as const;
+
+export function unitPartIssue(input: string, part: '동' | '호'): string | null {
+  const text = UNIT_PART_TEXT[part];
+  const raw = input.trim();
+  if (!raw) return text.empty;
+  const value = raw.endsWith(part) ? raw.slice(0, -1).trim() : raw;
+  if (/^\d+$/.test(value)) return value.length > 4 || Number(value) < 1 ? text.range : null;
+  return /^[0-9A-Za-z가-힣-]{1,6}$/.test(value) ? null : text.name;
+}
+
 export function validateSell(v: SellFormValues, today = toKstDateString()): FieldIssue[] {
   const issues: FieldIssue[] = [];
 
@@ -178,12 +198,10 @@ export function validateSell(v: SellFormValues, today = toKstDateString()): Fiel
   if (!v.roadAddress.trim())
     issues.push({ path: 'roadAddress', message: '주소를 검색해서 선택해 주세요.' });
   if (isComplexAsset(v.assetType)) {
-    if (!v.dong.trim()) issues.push({ path: 'dong', message: '동을 입력해 주세요.' });
-    else if (v.dong.trim().length > 10)
-      issues.push({ path: 'dong', message: '동은 10자 이내로 입력해 주세요.' });
-    if (!v.ho.trim()) issues.push({ path: 'ho', message: '호수를 입력해 주세요.' });
-    else if (v.ho.trim().length > 10)
-      issues.push({ path: 'ho', message: '호수는 10자 이내로 입력해 주세요.' });
+    const dongIssue = unitPartIssue(v.dong, '동');
+    if (dongIssue) issues.push({ path: 'dong', message: dongIssue });
+    const hoIssue = unitPartIssue(v.ho, '호');
+    if (hoIssue) issues.push({ path: 'ho', message: hoIssue });
   } else if (v.addressDetail.trim().length > 100) {
     issues.push({ path: 'addressDetail', message: '상세 주소는 100자 이내로 입력해 주세요.' });
   }
@@ -194,13 +212,22 @@ export function validateSell(v: SellFormValues, today = toKstDateString()): Fiel
     issues.push({ path: 'dealType', message: '이 매물 유형에서 선택할 수 없는 거래 유형이에요.' });
   const need = priceFieldsFor(v.dealType);
   if (need.sale)
-    validateMoney(issues, 'salePrice', v.salePrice, { required: true, label: '희망 가격을' });
+    validateMoney(issues, 'salePrice', v.salePrice, {
+      required: true,
+      label: '희망 가격을',
+      kind: 'price',
+    });
   if (need.deposit)
-    validateMoney(issues, 'deposit', v.deposit, { required: true, label: '보증금을' });
+    validateMoney(issues, 'deposit', v.deposit, {
+      required: true,
+      label: '보증금을',
+      kind: 'deposit',
+    });
   if (need.rent) {
     const rent = validateMoney(issues, 'monthlyRent', v.monthlyRent, {
       required: true,
       label: '월세를',
+      kind: 'rent',
     });
     if (rent === 0) issues.push({ path: 'monthlyRent', message: '월세는 1만원 이상이어야 해요.' });
   }
@@ -208,6 +235,8 @@ export function validateSell(v: SellFormValues, today = toKstDateString()): Fiel
   if (area === undefined) issues.push({ path: 'area', message: '면적을 입력해 주세요.' });
   else if (area === null || area > 1_000_000)
     issues.push({ path: 'area', message: '면적을 숫자로 입력해 주세요. (예: 34)' });
+  else if (v.assetType && area > AREA_LIMIT_SQM[v.assetType])
+    issues.push({ path: 'area', message: areaLimitMessage(v.assetType) });
   if (v.floor.trim() !== '') {
     const floor = Number(v.floor);
     if (!Number.isInteger(floor) || floor < -10 || floor > 200 || floor === 0)

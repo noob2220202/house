@@ -1,4 +1,4 @@
-import { DealRequestVisibility, phoneSchema } from '@house/shared';
+import { DealRequestVisibility, phoneSchema, sqmToPyeong, type AssetType } from '@house/shared';
 import { z } from 'zod';
 import { parsePriceInput, pyeongToSqm, type AreaUnit } from '@/lib/format';
 import { MAX_TARGET_AGENCIES } from './labels';
@@ -74,11 +74,47 @@ export function parseAreaToSqm(input: string, unit: AreaUnit): number | undefine
   return unit === 'pyeong' ? pyeongToSqm(n) : Math.round(n * 100) / 100;
 }
 
+/**
+ * Sane upper bounds of the request forms (만원). Far below the API's technical limit (1조) so a
+ * typo like 월세 3억 is caught with a clear message instead of reaching the agencies.
+ */
+export const MONEY_LIMITS = {
+  /** 매매가 · 분양권 매매가: 500억. */
+  price: 5_000_000,
+  /** 전세 · 월세 보증금: 100억. */
+  deposit: 1_000_000,
+  /** 월세: 1억 / 월. */
+  rent: 10_000,
+} as const;
+export type MoneyKind = keyof typeof MONEY_LIMITS;
+
+/** "500억" / "1억" / "9,000만" — the limit as the user reads it. */
+export function moneyLimitText(manwon: number): string {
+  if (manwon >= 10_000 && manwon % 10_000 === 0) return `${(manwon / 10_000).toLocaleString('ko-KR')}억`;
+  return `${manwon.toLocaleString('ko-KR')}만`;
+}
+
+/** 전용면적 upper bound (㎡) per asset type — 아파트 600㎡ ≈ 181평, 토지 = the API limit. */
+export const AREA_LIMIT_SQM: Record<AssetType, number> = {
+  APT: 600,
+  OFFICETEL: 600,
+  ONEROOM: 300,
+  HOUSE: 3_000,
+  COMMERCIAL: 30_000,
+  LAND: 1_000_000,
+};
+
+/** Issue text when an area exceeds `AREA_LIMIT_SQM` ("600㎡(181평) 이하로 입력해 주세요."). */
+export function areaLimitMessage(assetType: AssetType): string {
+  const max = AREA_LIMIT_SQM[assetType];
+  return `면적이 너무 커요. ${max.toLocaleString('ko-KR')}㎡(${Math.floor(sqmToPyeong(max, 0)).toLocaleString('ko-KR')}평) 이하로 입력해 주세요.`;
+}
+
 export function validateMoney(
   issues: FieldIssue[],
   path: string,
   input: string,
-  opts: { required?: boolean; label: string },
+  opts: { required?: boolean; label: string; kind?: MoneyKind },
 ): number | undefined {
   const value = parseMoney(input);
   if (value === undefined) {
@@ -87,6 +123,14 @@ export function validateMoney(
   }
   if (value === null || value > 100_000_000) {
     issues.push({ path, message: '금액을 만원 단위 숫자로 입력해 주세요. (예: 44,500)' });
+    return undefined;
+  }
+  const limit = opts.kind ? MONEY_LIMITS[opts.kind] : undefined;
+  if (limit !== undefined && value > limit) {
+    issues.push({
+      path,
+      message: `금액이 너무 커요. ${moneyLimitText(limit)}원 이하로 입력해 주세요. (만원 단위)`,
+    });
     return undefined;
   }
   return value;

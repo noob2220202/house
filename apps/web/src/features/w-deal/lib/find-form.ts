@@ -20,6 +20,9 @@ import {
   parseAreaToSqm,
   validateContactScope,
   validateMoney,
+  AREA_LIMIT_SQM,
+  areaLimitMessage,
+  type MoneyKind,
   validateMoveInDate,
   type ContactScopeValues,
   type FieldIssue,
@@ -204,12 +207,13 @@ function validateRange(
   maxPath: string,
   minInput: string,
   maxInput: string,
-  opts: { requireMax: boolean; label: string },
+  opts: { requireMax: boolean; label: string; kind: MoneyKind },
 ): void {
-  const min = validateMoney(issues, minPath, minInput, { label: opts.label });
+  const min = validateMoney(issues, minPath, minInput, { label: opts.label, kind: opts.kind });
   const max = validateMoney(issues, maxPath, maxInput, {
     required: opts.requireMax,
     label: `${opts.label} 최대 금액을`,
+    kind: opts.kind,
   });
   if (min !== undefined && max !== undefined && min > max)
     issues.push({ path: maxPath, message: '최대 금액이 최소 금액보다 작아요.' });
@@ -241,11 +245,13 @@ export function validateFind(v: FindFormValues, today = toKstDateString()): Fiel
     validateRange(issues, 'priceMin', 'priceMax', v.priceMin, v.priceMax, {
       requireMax: true,
       label: '매매 예산',
+      kind: 'price',
     });
   if (need.deposit)
     validateRange(issues, 'depositMin', 'depositMax', v.depositMin, v.depositMax, {
       requireMax: true,
       label: need.depositLabel,
+      kind: 'deposit',
     });
   if (need.monthlyDeposit)
     validateRange(
@@ -254,12 +260,13 @@ export function validateFind(v: FindFormValues, today = toKstDateString()): Fiel
       'monthlyDepositMax',
       v.monthlyDepositMin,
       v.monthlyDepositMax,
-      { requireMax: true, label: '월세 보증금' },
+      { requireMax: true, label: '월세 보증금', kind: 'deposit' },
     );
   if (need.rent)
     validateRange(issues, 'rentMin', 'rentMax', v.rentMin, v.rentMax, {
       requireMax: true,
       label: '월세',
+      kind: 'rent',
     });
   if (findAreaMode(v) !== 'bands') {
     const unit = findAreaUnit(v);
@@ -269,6 +276,13 @@ export function validateFind(v: FindFormValues, today = toKstDateString()): Fiel
     if (areaMax === null) issues.push({ path: 'areaMax', message: '면적을 숫자로 입력해 주세요.' });
     if (areaMin && areaMax && areaMin > areaMax)
       issues.push({ path: 'areaMax', message: '최대 면적이 최소 면적보다 작아요.' });
+    const limit = v.assetType ? AREA_LIMIT_SQM[v.assetType] : undefined;
+    if (limit !== undefined && v.assetType) {
+      if (areaMin && areaMin > limit)
+        issues.push({ path: 'areaMin', message: areaLimitMessage(v.assetType) });
+      if (areaMax && areaMax > limit)
+        issues.push({ path: 'areaMax', message: areaLimitMessage(v.assetType) });
+    }
   }
   validateMoveInDate(issues, v.moveInDate, today, false);
   if (v.description.length > 2800)
