@@ -88,19 +88,21 @@ web과 admin 병렬). 루트 `package.json` 스크립트는 건드리지 않았�
 
 ## 테스트 목록 · Flows (`e2e/tests`)
 
-| 파일 · File                | 흐름 · Flow                                                                                                                                              |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `web/smoke.spec.ts`        | `@smoke` 비로그인 홈이 실제 API로 렌더, `/mock-api` 호출 없음                                                                                            |
-| `web/browse.spec.ts`       | 홈 → 지도 → 단지 → 매물 상세 (표시·광고 명시사항 블록, 공개 API·화면에 호수 없음) · 히어로 검색 자동완성 → 단지                                          |
-| `web/member.spec.ts`       | 관심 매물 → `/me/favorites` · 내놓기(원룸, 가짜 우편번호 위젯, 동의 2종 포함 제출) → `/me/requests`                                                      |
-| `web/broker.spec.ts`       | 대표 `/agent` 대시보드(D5: 문의 메뉴 없음) · 등록 마법사로 아파트·원룸 게시(공용 게시 규칙, emdCode·buildingUse) → 공개 목록·상세 · 공동중개 요청        |
-| `admin/admin.setup.ts`     | 관리자 이메일·비밀번호·TOTP 로그인                                                                                                                       |
-| `admin/content.spec.ts`    | MAIN_HERO 배너(2480×440 / 1074×480 업로드) → 홈 캐러셀 · 팝업 → 홈 노출                                                                                  |
-| `admin/moderation.spec.ts` | 중개사무소 신청(API: 서류 업로드 + PRIVACY_AGENCY_APPLICATION 동의) → 관리자 승인 → AGENCY_OWNER · 허위매물 신고 → 매물 숨김 조치 → 공개 매물에서 사라짐 |
+| 파일 · File                | 흐름 · Flow                                                                                                                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `web/smoke.spec.ts`        | `@smoke` 비로그인 홈이 실제 API로 렌더, `/mock-api` 호출 없음                                                                                                                         |
+| `web/browse.spec.ts`       | 홈 → 지도 → 단지 → 매물 상세 (표시·광고 명시사항 블록, 공개 API·화면에 호수 없음) · 히어로 검색 자동완성 → 단지                                                                       |
+| `web/member.spec.ts`       | 관심 매물 → `/me/favorites` · 내놓기(원룸, 가짜 우편번호 위젯, 동의 2종 포함 제출) → `/me/requests`                                                                                   |
+| `web/seo.spec.ts`          | SEO 페이지 서버 렌더(view-source): 홈·지역 색인·지역×종류 랜딩·실거래 리포트·소개·단지·매물에 H1 1개·canonical·JSON-LD, 매물 HTML에 명시사항 있고 호수 없음 · sitemap/robots/llms.txt |
+| `web/broker.spec.ts`       | 대표 `/agent` 대시보드(D5: 문의 메뉴 없음) · 등록 마법사로 아파트·원룸 게시(공용 게시 규칙, emdCode·buildingUse) → 공개 목록·상세 · 공동중개 요청                                     |
+| `admin/admin.setup.ts`     | 관리자 이메일·비밀번호·TOTP 로그인                                                                                                                                                    |
+| `admin/content.spec.ts`    | MAIN_HERO 배너(2480×440 / 1074×480 업로드) → 홈 캐러셀("광고: 제목" 링크, 클릭 집계 주소) · 팝업 → 홈 노출(앞선 팝업은 닫고 차례로)                                                   |
+| `admin/moderation.spec.ts` | 중개사무소 신청(API: 서류 업로드 + PRIVACY_AGENCY_APPLICATION 동의) → 관리자 승인 → AGENCY_OWNER · 허위매물 신고 → 매물 숨김 조치 → 공개 매물에서 사라짐                              |
 
 원칙 · Rules: 테스트마다 자기 데이터를 만듭니다(고유 이메일·이름, 서로 다른 시드 사무소). 고정 sleep 없이
 응답 대기(`waitForResponse`)와 조건 폴링(`expect.poll`)만 씁니다 — 예: 홈 배너는 Next ISR
-(`revalidate 60`) 때문에 새 배너가 보일 때까지 다시 불러오며 최대 120초 폴링.
+(`revalidate 60`, 배너 조회 캐시 60초) 때문에 새 배너가 보일 때까지 다시 불러오며 최대 150초 폴링,
+팝업은 하이드레이션 뒤 클라이언트가 `GET /popups?page=MAIN`으로 불러오므로 그 응답을 기다린 뒤 확인합니다.
 
 외부 의존 대체 · External boundaries replaced in the browser only:
 카카오 우편번호 스크립트(`e2e/lib/postcode.ts`: 버튼 하나를 그리는 가짜 `daum.Postcode`),
@@ -118,10 +120,13 @@ API입니다. 브이월드 키가 없어서 사무소 등록번호 대조는 MAT
 ./node_modules/.bin/tsc -p e2e/tsconfig.json
 ```
 
-## 상태 · Status (2026-11-24)
+## 상태 · Status (2026-11-24, stage 3 round 1)
 
-- 하네스 준비 완료. 실행 확인: 스택 부팅(api health 200, web `/` 200, admin `/login` 200),
-  `@smoke` 1건 통과. 나머지 13건은 프런트엔드 실제 API 연동(stage 2)이 끝난 뒤 stage 3에서 돌리며,
-  화면 문구·라벨이 바뀌면 `e2e/lib/listing-wizard.ts` 등 셀렉터를 맞춥니다.
-- Harness ready; verified: stack boot + the `@smoke` test. The other 13 flows run in stage 3 once
-  the frontends finish their real-API adaptation; selectors (labels, roles) may need calibration then.
+- 새 스택(`up`: 빌드·DB 초기화·시드)에서 전체 **17건 통과**(web 11 · admin-setup 1 · admin 5),
+  1.1–4.5분(홈 배너 ISR 대기에 따라 다름).
+- round 1에서 고친 것: 마법사 단계 이동 대기·평형 칩 선택(`e2e/lib/listing-wizard.ts`), 신고 조치의
+  매물 숨김 체크박스, 배너 확인 셀렉터(클릭 가능한 배너는 `img`가 아니라 "광고: 제목" 링크), 팝업 확인 경쟁
+  조건(하이드레이션 전에 DOM을 보던 문제), 스택 `API_BASE_URL`을 운영과 같이 사이트 주소로. 모두 테스트·하네스
+  쪽 문제였고 앱 코드 결함은 이번 라운드에서 나오지 않았습니다.
+- Full run on a fresh stack: **17/17 passed**. Round-1 fixes were all in the tests/harness (selectors,
+  waits, stack env); no app defect surfaced in this round.

@@ -5,8 +5,9 @@ import { FIXTURES_DIR, uniq, WEB_URL } from '../../lib/env';
 
 /** 광고: MAIN_HERO banner and a popup created in the admin, then visible on the user site. */
 test.describe('admin ads → user site', () => {
-  // The home page is ISR (revalidate 60 s): allow the 120 s polls below plus the admin steps.
-  test.describe.configure({ timeout: 180_000 });
+  // The home page is ISR (revalidate 60 s, and the banner read is cached 60 s too): allow the
+  // 150 s poll below plus the admin steps.
+  test.describe.configure({ timeout: 210_000 });
   test('MAIN_HERO banner with uploaded images shows on the home carousel', async ({
     page,
     browser,
@@ -33,18 +34,31 @@ test.describe('admin ads → user site', () => {
     await page.getByRole('button', { name: '저장', exact: true }).click();
     const res = await saved;
     expect(res.status(), await bodyOf(res)).toBe(201);
+    const { id } = (await res.json()) as { id: string };
 
     // The home page caches banners (ISR, revalidate 60 s): reload until the new one is served.
+    // A slide is the AdFrame "광고: <title>" — a link to the click redirect when the banner has
+    // a link (set above), a role="img" frame otherwise.
     const visitor = await browser.newPage();
+    const name = `광고: ${title}`;
+    const slide = visitor
+      .getByRole('link', { name, exact: true })
+      .or(visitor.getByRole('img', { name, exact: true }));
     await expect
       .poll(
         async () => {
           await visitor.goto(`${WEB_URL}/`);
-          return visitor.getByRole('img', { name: new RegExp(title) }).count();
+          return slide.count();
         },
-        { timeout: 120_000, intervals: [2_000, 5_000, 10_000] },
+        { timeout: 150_000, intervals: [2_000, 5_000, 10_000] },
       )
       .toBeGreaterThan(0);
+    if (await link.isVisible()) {
+      // Clicks are counted by the API redirect, never a direct link to the target.
+      await expect(slide.first()).toHaveAttribute('href', new RegExp(`/banners/${id}/click$`));
+    }
+    // The uploaded creative (processed webp), not a placeholder.
+    await expect(slide.first().locator('img')).toHaveAttribute('src', /\.webp|_next\/image/);
     await visitor.close();
   });
 
@@ -67,16 +81,24 @@ test.describe('admin ads → user site', () => {
     await expect
       .poll(
         async () => {
+          // The popup layer renders after hydration from GET /popups?page=MAIN (client fetch):
+          // wait for that answer instead of checking the DOM right after the navigation.
+          const served = visitor.waitForResponse(
+            (r) => /\/api\/v1\/popups\?/.test(r.url()) && r.request().method() === 'GET',
+          );
           await visitor.goto(`${WEB_URL}/`);
-          // Popups may be shown one after another (the seeded 환영 popup first): close the
-          // others until ours is on screen or none is left.
-          for (let i = 0; i < 6; i++) {
-            const ours = visitor.getByRole('dialog', { name: `공지: ${title}` });
-            if (await ours.isVisible()) return 1;
-            const other = visitor.getByRole('dialog', { name: /^공지:/ }).first();
-            if (!(await other.isVisible())) return 0;
-            await other.getByRole('button', { name: '닫기', exact: true }).click();
-            await expect(other).toBeHidden();
+          const popups = (await (await served).json()) as { items: { title: string }[] };
+          const queue = popups.items.map((p) => p.title);
+          if (!queue.includes(title)) return 0;
+          // Popups are shown one at a time in back-office order (the seeded 환영 popup first;
+          // 닫기 hides one for this tab session): close the ones in front of ours.
+          const card = visitor.getByRole('dialog', { name: /^공지: / });
+          for (let i = 0; i < queue.length; i++) {
+            await expect(card).toBeVisible();
+            const shown = ((await card.getByRole('heading').textContent()) ?? '').trim();
+            if (shown === `공지: ${title}`) return 1;
+            await card.getByRole('button', { name: '닫기', exact: true }).click();
+            await expect(visitor.getByRole('dialog', { name: shown, exact: true })).toBeHidden();
           }
           return 0;
         },
