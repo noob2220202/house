@@ -16,7 +16,7 @@ import {
   withSession,
   type TestApp,
 } from '../../utils';
-import { ADMIN_ORIGIN, createAuthTestApp, setCookies } from './helpers';
+import { ADMIN_ORIGIN, createAuthTestApp, setCookies, WEB_ORIGIN } from './helpers';
 
 const PASSWORD = 'correct-horse-42-battery';
 
@@ -458,6 +458,33 @@ describe('auth: admin login + TOTP (e2e)', () => {
       expect(JSON.stringify(res.body)).not.toMatch(/passwordHash|totpSecret|recoveryCodeHashes/);
       const csrf = await withSession(t.http().get('/api/v1/admin/auth/csrf'), s).expect(200);
       expect(csrf.body.csrfToken).toBe(s.csrfToken);
+    });
+
+    it('the public site cannot read the admin CSRF token or log in cross-origin', async () => {
+      const { admin: a } = await admin({ enrolled: true });
+      const s = await loginAdmin(t.app, a);
+      // A script on the user site sending the (same-site) admin cookie gets no CORS grant…
+      const csrf = await t
+        .http()
+        .get('/api/v1/admin/auth/csrf')
+        .set('Cookie', s.cookie)
+        .set('Origin', WEB_ORIGIN);
+      expect(csrf.headers['access-control-allow-origin']).toBeUndefined();
+      expect(csrf.headers['access-control-allow-credentials']).toBeUndefined();
+      // …and even holding the token, its admin writes fail the Origin check.
+      const logout = await withSession(t.http().post('/api/v1/admin/auth/logout'), s)
+        .set('Origin', WEB_ORIGIN)
+        .expect(403);
+      expect(logout.body.code).toBe(ErrorCode.CSRF_FAILED);
+      const login = await t
+        .http()
+        .post('/api/v1/admin/auth/login')
+        .set('Origin', WEB_ORIGIN)
+        .send({ email: a.email, password: PASSWORD })
+        .expect(403);
+      expect(login.body.code).toBe(ErrorCode.CSRF_FAILED);
+      // The session still works from the admin site.
+      await withSession(t.http().get('/api/v1/admin/auth/me'), s).expect(200);
     });
 
     it('401 for anonymous, pre-TOTP and user sessions', async () => {

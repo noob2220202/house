@@ -4,12 +4,14 @@ import {
   Avatar,
   Checkbox,
   Combobox,
+  ErrorState,
   FieldError,
   FormRow,
   HelpLine,
   Icon,
   IconButton,
   Input,
+  SkeletonText,
   cx,
   type ComboboxOption,
   useDebouncedValue,
@@ -18,6 +20,8 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useId, useState, useSyncExternalStore } from 'react';
 import { ROUTES } from '@/config/nav';
+import { errorMessage, type ActionTermsDocument } from '@/lib/api';
+import { formatDate } from '@/lib/format';
 import { dealApi, dealKeys } from '../../api/client';
 import type { ContactScopeValues, PickedAgency } from '../../lib/form-common';
 import { MAX_TARGET_AGENCIES } from '../../lib/labels';
@@ -286,59 +290,44 @@ export function recipientsText(opts: {
   } (이 서비스에 가입한 공인중개사사무소)`;
 }
 
-/** Statutory notice rows (개인정보 보호법 제15조·제17조): what, why, how long, refusal. */
-type NoticeRows = readonly (readonly [string, string])[];
+/** The consent documents of a deal request as `useActionTerms('DEAL_REQUEST')` loads them. */
+export interface DealConsentTerms {
+  data?: readonly ActionTermsDocument<'DEAL_REQUEST'>[];
+  isError: boolean;
+  error?: unknown;
+  refetch: () => unknown;
+}
 
 export interface ConsentFieldsProps extends CommonProps {
-  kind: 'sell' | 'find';
   /** Who receives the request ("매물 근처 중개사무소 12곳", "선택한 중개사무소: A, B"). */
   recipients: string;
+  /**
+   * The published DEAL_REQUEST_PRIVACY / DEAL_REQUEST_PROVIDE documents (GET /terms/:type). Their
+   * text is what the user reads here, and their versions are what the submission records.
+   */
+  terms: DealConsentTerms;
 }
 
-function privacyRows(kind: 'sell' | 'find'): NoticeRows {
-  return [
-    [
-      '수집 항목',
-      kind === 'sell'
-        ? '이름, 휴대폰 번호, 매물 주소(동·호수 포함), 매물 정보와 사진'
-        : '이름, 휴대폰 번호, 희망 지역·예산 등 찾는 조건',
-    ],
-    ['수집·이용 목적', '내놓기·구하기 요청 등록, 중개사무소 제안 전달, 요청 관리와 알림'],
-    ['보유·이용 기간', '요청 종료 후 30일까지 (관계 법령에 보존 의무가 있으면 그 기간까지)'],
-    ['거부 시 불이익', '동의하지 않을 수 있어요. 다만 동의하지 않으면 요청을 등록할 수 없어요.'],
-  ];
-}
+const CONSENT_LABEL: Record<ActionTermsDocument<'DEAL_REQUEST'>['type'], string> = {
+  DEAL_REQUEST_PRIVACY: '개인정보 수집·이용 동의',
+  DEAL_REQUEST_PROVIDE: '중개사무소 정보 제공 동의',
+};
 
-function provideRows(kind: 'sell' | 'find', recipients: string): NoticeRows {
-  return [
-    ['제공받는 자', recipients],
-    ['제공 목적', '중개 제안과 상담 연락'],
-    [
-      '제공 항목',
-      kind === 'sell'
-        ? '매물 유형·거래 조건·단지와 대략적인 위치. 이름·휴대폰 번호·동·호수는 내가 연락처 공개에 동의한 중개사무소에만 제공돼요.'
-        : '찾는 조건. 이름·휴대폰 번호는 내가 연락처 공개에 동의한 중개사무소에만 제공돼요.',
-    ],
-    ['보유·이용 기간', '요청 종료 후 30일까지'],
-    ['거부 시 불이익', '동의하지 않을 수 있어요. 다만 동의하지 않으면 요청을 등록할 수 없어요.'],
-  ];
-}
-
-/** One required consent: checkbox + "보기" disclosure with the statutory notice inline. */
+/** One required consent: checkbox + "보기" disclosure with the published document inline. */
 function ConsentItem({
   checked,
   invalid,
   onChange,
-  label,
   title,
-  rows,
+  doc,
+  extra,
 }: {
   checked: boolean;
   invalid: boolean;
   onChange: (checked: boolean) => void;
-  label: string;
   title: string;
-  rows: NoticeRows;
+  doc: ActionTermsDocument<'DEAL_REQUEST'>;
+  extra?: { label: string; value: string };
 }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
@@ -349,7 +338,7 @@ function ConsentItem({
         aria-invalid={invalid ? true : undefined}
         onChange={(e) => onChange(e.target.checked)}
       >
-        {label}
+        [필수] {title}
       </Checkbox>
       <button
         type="button"
@@ -362,14 +351,25 @@ function ConsentItem({
         {open ? '접기' : '보기'}
       </button>
       <div id={panelId} className={styles.agreeNotice} hidden={!open}>
-        <dl>
-          {rows.map(([dt, dd]) => (
-            <div key={dt}>
-              <dt>{dt}</dt>
-              <dd>{dd}</dd>
+        <p className={styles.agreeMeta}>
+          <b>{doc.title || title}</b>
+          <span className="num">
+            버전 {doc.version}
+            {doc.effectiveAt ? ` · 시행일 ${formatDate(doc.effectiveAt)}` : ''}
+          </span>
+        </p>
+        {/* Plain text from the admin, line breaks preserved; rendered as text (never as HTML). */}
+        <div className={styles.agreeText} tabIndex={0} role="document" aria-label={`${title} 전문`}>
+          {doc.content}
+        </div>
+        {extra && (
+          <dl>
+            <div>
+              <dt>{extra.label}</dt>
+              <dd>{extra.value}</dd>
             </div>
-          ))}
-        </dl>
+          </dl>
+        )}
         <Link className="link" href={ROUTES.terms('privacy')} target="_blank" rel="noopener">
           개인정보처리방침 전문 보기 (새 창)
         </Link>
@@ -380,60 +380,69 @@ function ConsentItem({
 
 /**
  * 약관 동의: 전체 동의 + 개인정보 수집·이용 + 중개사무소(제3자) 제공 — both required, separate and
- * unchecked by default, each with its statutory notice (항목·목적·보유기간·거부 시 불이익) inline.
+ * unchecked by default, each with its published document (항목·목적·보유기간·거부 시 불이익) inline.
+ * The boxes stay disabled until the documents are loaded: nobody agrees to a text they could not
+ * read.
  */
-export function ConsentFields({
-  idPrefix,
-  values,
-  errors,
-  set,
-  kind,
-  recipients,
-}: ConsentFieldsProps) {
+export function ConsentFields({ idPrefix, values, errors, set, recipients, terms }: ConsentFieldsProps) {
   const labelId = `${idPrefix}-agree-label`;
   const all = values.agreePrivacy && values.agreeProvide;
   const error = errors.agreePrivacy ?? errors.agreeProvide;
+  const privacy = terms.data?.find((d) => d.type === 'DEAL_REQUEST_PRIVACY');
+  const provide = terms.data?.find((d) => d.type === 'DEAL_REQUEST_PROVIDE');
   return (
     <FormRow label="약관 동의" labelId={labelId} required>
-      <div
-        className={cx(styles.agree, !!error && styles.agreeErr)}
-        role="group"
-        aria-labelledby={labelId}
-      >
-        <div className={styles.agreeAll}>
-          <Checkbox
-            checked={all}
-            onChange={(e) => {
-              set('agreePrivacy', e.target.checked);
-              set('agreeProvide', e.target.checked);
-            }}
-          >
-            <b>필수 항목에 모두 동의합니다</b>
-          </Checkbox>
+      {!privacy || !provide ? (
+        terms.isError ? (
+          <ErrorState
+            compact
+            title="동의 내용을 불러오지 못했어요"
+            description={errorMessage(terms.error)}
+            onRetry={() => void terms.refetch()}
+          />
+        ) : (
+          <div className={styles.agree} aria-busy="true" aria-label="동의 내용을 불러오는 중">
+            <div className={styles.agreeAll}>
+              <SkeletonText lines={3} />
+            </div>
+          </div>
+        )
+      ) : (
+        <div
+          className={cx(styles.agree, !!error && styles.agreeErr)}
+          role="group"
+          aria-labelledby={labelId}
+        >
+          <div className={styles.agreeAll}>
+            <Checkbox
+              checked={all}
+              onChange={(e) => {
+                set('agreePrivacy', e.target.checked);
+                set('agreeProvide', e.target.checked);
+              }}
+            >
+              <b>필수 항목에 모두 동의합니다</b>
+            </Checkbox>
+          </div>
+          <ul>
+            <ConsentItem
+              checked={values.agreePrivacy}
+              invalid={!!errors.agreePrivacy}
+              onChange={(on) => set('agreePrivacy', on)}
+              title={CONSENT_LABEL.DEAL_REQUEST_PRIVACY}
+              doc={privacy}
+            />
+            <ConsentItem
+              checked={values.agreeProvide}
+              invalid={!!errors.agreeProvide}
+              onChange={(on) => set('agreeProvide', on)}
+              title={CONSENT_LABEL.DEAL_REQUEST_PROVIDE}
+              doc={provide}
+              extra={{ label: '이번 요청을 받는 곳', value: recipients }}
+            />
+          </ul>
         </div>
-        <ul>
-          <ConsentItem
-            checked={values.agreePrivacy}
-            invalid={!!errors.agreePrivacy}
-            onChange={(on) => set('agreePrivacy', on)}
-            label={
-              kind === 'sell'
-                ? '[필수] 개인정보 수집·이용 동의 (이름, 휴대폰 번호, 매물 주소)'
-                : '[필수] 개인정보 수집·이용 동의 (이름, 휴대폰 번호, 찾는 조건)'
-            }
-            title="개인정보 수집·이용 동의"
-            rows={privacyRows(kind)}
-          />
-          <ConsentItem
-            checked={values.agreeProvide}
-            invalid={!!errors.agreeProvide}
-            onChange={(on) => set('agreeProvide', on)}
-            label="[필수] 중개사무소 정보 제공 동의 (요청 종료 후 30일 보관)"
-            title="중개사무소 정보 제공 동의"
-            rows={provideRows(kind, recipients)}
-          />
-        </ul>
-      </div>
+      )}
       {error && <FieldError>{error}</FieldError>}
     </FormRow>
   );

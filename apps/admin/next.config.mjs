@@ -29,24 +29,17 @@ if (
 }
 
 const API_ORIGIN = (process.env.INTERNAL_API_URL || 'http://127.0.0.1:4000').replace(/\/$/, '');
-// Where /media/* is served from (API in dev, nginx in prod).
+// Where /media/* is served from when no nginx is in front (dev, e2e). In production nginx serves
+// /media from disk before a request reaches Next.
 const MEDIA_ORIGIN = (process.env.MEDIA_ORIGIN || API_ORIGIN).replace(/\/$/, '');
 const isProd = process.env.NODE_ENV === 'production';
 
 /** Extra absolute media hosts, comma separated: "https://cdn.example.kr,https://media.example.kr". */
-const remotePatterns = (process.env.NEXT_PUBLIC_MEDIA_HOSTS || '')
+const mediaHosts = (process.env.NEXT_PUBLIC_MEDIA_HOSTS || '')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean)
-  .map((origin) => {
-    const u = new URL(origin);
-    return {
-      protocol: u.protocol.replace(':', ''),
-      hostname: u.hostname,
-      port: u.port,
-      pathname: '/**',
-    };
-  });
+  .map((origin) => new URL(origin));
 
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -55,14 +48,12 @@ const securityHeaders = [
   { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'Permissions-Policy', value: 'geolocation=(self), camera=(), microphone=(), payment=()' },
-  {
-    key: 'Content-Security-Policy',
-    value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
-  },
   ...(isProd
     ? [{ key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' }]
     : []),
 ];
+
+// Content-Security-Policy: set per request by src/middleware.ts (script nonce), not here.
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -76,16 +67,22 @@ const nextConfig = {
   typescript: { tsconfigPath: nextTsconfig },
   transpilePackages: ['@house/ui'],
   images: {
-    formats: ['image/avif', 'image/webp'],
-    remotePatterns: [
-      { protocol: 'http', hostname: 'localhost', port: '4000', pathname: '/**' },
-      { protocol: 'http', hostname: '127.0.0.1', port: '4000', pathname: '/**' },
-      ...remotePatterns,
-    ],
+    // No Next image optimizer: /media images are webp variants the API already generated, served by
+    // nginx from disk. `/_next/image` answers 404, so it cannot fail on /media (the optimizer would
+    // fetch it from the API, which serves no files) nor be pointed at other loopback paths.
+    unoptimized: true,
+    // Defense in depth should the optimizer ever be switched back on.
+    localPatterns: [{ pathname: '/media/**' }],
+    remotePatterns: mediaHosts.map((u) => ({
+      protocol: /** @type {'http' | 'https'} */ (u.protocol.replace(':', '')),
+      hostname: u.hostname,
+      port: u.port,
+      pathname: '/media/**',
+    })),
   },
   async rewrites() {
-    // In production nginx proxies /api/v1 and /media before they reach Next; these rewrites cover
-    // local development and the image optimizer's internal fetch of /media/*.
+    // In production nginx proxies /api/v1 and serves /media before a request reaches Next; these
+    // rewrites cover local development and the e2e stack (no nginx).
     return [
       { source: '/api/v1/:path*', destination: `${API_ORIGIN}/api/v1/:path*` },
       { source: '/media/:path*', destination: `${MEDIA_ORIGIN}/media/:path*` },
