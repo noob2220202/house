@@ -25,9 +25,8 @@ export interface AgencyMediaPort {
    */
   assertLogoUsable(mediaId: string, userId: string, tx: PrismaTx): Promise<void>;
   /**
-   * Same for the cover: a READY, PUBLIC upload of `userId` with purpose AGENCY_COVER (or
-   * AGENCY_LOGO, which the console used for covers before AGENCY_COVER existed — same public
-   * image presets), else AGENCY_COVER_INVALID.
+   * Same for the cover: a READY, PUBLIC upload of `userId` with purpose AGENCY_COVER, else
+   * AGENCY_COVER_INVALID (a logo upload is not a cover).
    */
   assertCoverUsable(mediaId: string, userId: string, tx: PrismaTx): Promise<void>;
   /** After a document row / logo reference was removed: restarts the orphan grace period. */
@@ -84,7 +83,7 @@ export class MediaServiceAgencyMedia implements AgencyMediaPort {
     await this.media.assertUsable(
       [mediaId],
       {
-        purpose: [MediaPurpose.AGENCY_COVER, MediaPurpose.AGENCY_LOGO],
+        purpose: MediaPurpose.AGENCY_COVER,
         ownerUserId: userId,
         errorCode: ErrorCode.AGENCY_COVER_INVALID,
       },

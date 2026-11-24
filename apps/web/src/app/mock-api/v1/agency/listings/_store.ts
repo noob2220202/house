@@ -2,6 +2,7 @@ import {
   DealType,
   FloorDisplay,
   ListingStatus,
+  formatListingNo,
   listingDraftSchema,
   listingUpdateSchema,
   type ListingDraftInput,
@@ -44,13 +45,14 @@ import {
  */
 interface ListingsMockState {
   listings: StoredListing[];
+  /** Last 매물번호 handed out (the API's `listings_listing_no_seq`, which starts at 100001). */
   seq: number;
 }
-const KEY = '__houseMockAgencyListings_v1';
+const KEY = '__houseMockAgencyListings_v2';
 
 export function listingsState(): ListingsMockState {
   const g = globalThis as typeof globalThis & { [KEY]?: ListingsMockState };
-  g[KEY] ??= { listings: seedListings(), seq: 430 };
+  g[KEY] ??= { listings: seedListings(), seq: 100430 };
   return g[KEY];
 }
 
@@ -351,11 +353,14 @@ export function applyDraft(l: StoredListing, d: ListingDraftInput): void {
     supplyArea: n(p.supplyArea),
     landArea: n(p.landArea),
     rooms: n(p.rooms),
+    roomType: n(p.roomType),
     baths: n(p.baths),
     direction: n(p.direction),
     directionBasis: n(p.directionBasis),
     approvalDate: n(p.approvalDate),
     parkingSpaces: n(p.parkingSpaces),
+    zoning: n(p.zoning),
+    landCategory: n(p.landCategory),
     buildingUse: n(p.buildingUse),
   };
   l.version = (l.version ?? 0) + 1;
@@ -394,7 +399,11 @@ export function publishRequirementsError(l: StoredListing): NextResponse | null 
   );
 }
 
+/**
+ * Next 매물번호 in the API's format (shared `formatListingNo`: the plain sequential number as text).
+ * The API numbers a listing when it is created, so drafts carry one too.
+ */
 export function nextListingNo(state: ListingsMockState): string {
   state.seq += 1;
-  return `26-${String(state.seq).padStart(4, '0')}`;
+  return formatListingNo(state.seq) as string;
 }

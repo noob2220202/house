@@ -102,18 +102,18 @@ describe('listing helpers', () => {
     ).toBe('3억 3,800');
     expect(listingPriceText(listing({}))).toBe('가격 협의');
   });
-  it('builds 평 · 층 · 향 meta', () => {
+  it('builds 면적(㎡, 평 alongside) · 층 · 향 meta', () => {
     expect(
       listingMeta(
         listing({ supplyArea: 105.79, totalFloors: 18, floorClass: 'HIGH', direction: 'SOUTH' }),
       ),
-    ).toEqual(['32평', '고/18층', '남향']);
+    ).toEqual(['공급 106㎡(32평)', '고/18층', '남향']);
     expect(
       listingMeta(
         listing({ assetType: 'ONEROOM', exclusiveArea: 33.06, floor: 3, totalFloors: 4 }),
       ),
-    ).toEqual(['10평', '3/4층']);
-    expect(listingMeta(listing({ assetType: 'LAND', landArea: 502.48 }))).toEqual(['152평']);
+    ).toEqual(['전용 33㎡(10평)', '3/4층']);
+    expect(listingMeta(listing({ assetType: 'LAND', landArea: 502.48 }))).toEqual(['502㎡(152평)']);
   });
   it('maps a listing to ListingCard props', () => {
     const card = toListingCard(

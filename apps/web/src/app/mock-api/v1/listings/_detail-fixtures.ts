@@ -466,7 +466,7 @@ const SINDAE = { nearby: NEARBY_SINDAE } as const;
 const SEEDS: readonly Seed[] = [
   apt(
     'L01',
-    '26-0412',
+    '100412',
     'C01',
     1,
     '103동',
@@ -510,7 +510,7 @@ const SEEDS: readonly Seed[] = [
   ),
   apt(
     'L02',
-    '26-0409',
+    '100409',
     'C03',
     1,
     '205동',
@@ -527,7 +527,7 @@ const SEEDS: readonly Seed[] = [
   ),
   apt(
     'L03',
-    '26-0401',
+    '100401',
     'C02',
     1,
     '108동',
@@ -540,7 +540,7 @@ const SEEDS: readonly Seed[] = [
   ),
   apt(
     'L04',
-    '26-0398',
+    '100398',
     'C04',
     0,
     '102동',
@@ -554,13 +554,13 @@ const SEEDS: readonly Seed[] = [
       status: ListingStatus.RESERVED,
     },
   ),
-  apt('L05', '26-0391', 'C05', 0, '107동', 17, D.SOUTH, SALE, { price: 25200 }, '2026-11-20', [
+  apt('L05', '100391', 'C05', 0, '107동', 17, D.SOUTH, SALE, { price: 25200 }, '2026-11-20', [
     'B04',
     'B02',
   ]),
   apt(
     'L06',
-    '26-0388',
+    '100388',
     'C06',
     1,
     '301동',
@@ -574,7 +574,7 @@ const SEEDS: readonly Seed[] = [
   ),
   apt(
     'L07',
-    '26-0377',
+    '100377',
     'C03',
     0,
     '210동',
@@ -590,7 +590,7 @@ const SEEDS: readonly Seed[] = [
   ),
   apt(
     'L08',
-    '26-0370',
+    '100370',
     'C08',
     0,
     '104동',
@@ -604,7 +604,7 @@ const SEEDS: readonly Seed[] = [
   // Extra asks so "비슷한 매물" has depth.
   apt(
     'L11',
-    '26-0405',
+    '100405',
     'C01',
     1,
     '108동',
@@ -618,7 +618,7 @@ const SEEDS: readonly Seed[] = [
   ),
   apt(
     'L12',
-    '26-0399',
+    '100399',
     'C01',
     2,
     '101동',
@@ -632,7 +632,7 @@ const SEEDS: readonly Seed[] = [
   ),
   apt(
     'L13',
-    '26-0384',
+    '100384',
     'C01',
     1,
     '105동',
@@ -646,7 +646,7 @@ const SEEDS: readonly Seed[] = [
   ),
   apt(
     'L14',
-    '26-0380',
+    '100380',
     'C01',
     0,
     '110동',
@@ -660,7 +660,7 @@ const SEEDS: readonly Seed[] = [
   ),
   apt(
     'L15',
-    '26-0376',
+    '100376',
     'C06',
     0,
     '305동',
@@ -674,7 +674,7 @@ const SEEDS: readonly Seed[] = [
   ),
   apt(
     'L16',
-    '26-0362',
+    '100362',
     'C01',
     1,
     '107동',
@@ -686,16 +686,16 @@ const SEEDS: readonly Seed[] = [
     ['B01', 'B02'],
     SINDAE,
   ),
-  apt('L17', '26-0358', 'C02', 1, '103동', 12, D.SOUTH_EAST, SALE, { price: 37500 }, '2026-11-17', [
+  apt('L17', '100358', 'C02', 1, '103동', 12, D.SOUTH_EAST, SALE, { price: 37500 }, '2026-11-17', [
     'B03',
     'B07',
   ]),
-  apt('L18', '26-0351', 'C05', 1, '102동', 9, D.SOUTH, SALE, { price: 28800 }, '2026-11-16', [
+  apt('L18', '100351', 'C05', 1, '102동', 9, D.SOUTH, SALE, { price: 28800 }, '2026-11-16', [
     'B04',
   ]),
   apt(
     'L19',
-    '26-0349',
+    '100349',
     'C02',
     0,
     '110동',
@@ -706,13 +706,13 @@ const SEEDS: readonly Seed[] = [
     '2026-11-16',
     ['B03', 'B02'],
   ),
-  apt('L20', '26-0344', 'C07', 1, '203동', 10, D.SOUTH, SALE, { price: 27500 }, '2026-11-15', [
+  apt('L20', '100344', 'C07', 1, '203동', 10, D.SOUTH, SALE, { price: 27500 }, '2026-11-15', [
     'B07',
     'B03',
   ]),
   room(
     'R01',
-    '26-0407',
+    '100407',
     '석현동 해오름빌',
     '석현동',
     '1215010900',
@@ -729,7 +729,7 @@ const SEEDS: readonly Seed[] = [
   ),
   room(
     'R02',
-    '26-0403',
+    '100403',
     '덕월동 청암하우스',
     '덕월동',
     '1215011500',
@@ -746,7 +746,7 @@ const SEEDS: readonly Seed[] = [
   ),
   room(
     'R03',
-    '26-0395',
+    '100395',
     '석현동 그린캠퍼스',
     '석현동',
     '1215010900',
@@ -763,7 +763,7 @@ const SEEDS: readonly Seed[] = [
   ),
   room(
     'R04',
-    '26-0390',
+    '100390',
     '조례동 호수뷰 오피스텔',
     '조례동',
     '1215011100',
@@ -780,7 +780,7 @@ const SEEDS: readonly Seed[] = [
   ),
   room(
     'R05',
-    '26-0379',
+    '100379',
     '연향동 센트로빌',
     '연향동',
     '1215011200',
@@ -797,7 +797,7 @@ const SEEDS: readonly Seed[] = [
   ),
   room(
     'R06',
-    '26-0366',
+    '100366',
     '장천동 역세권 스테이',
     '장천동',
     '1215010500',
@@ -814,7 +814,7 @@ const SEEDS: readonly Seed[] = [
   ),
   {
     code: 'H01',
-    no: '26-0355',
+    no: '100355',
     asset: AssetType.HOUSE,
     deal: SALE,
     name: '왕지동 2층 단독주택',
@@ -854,7 +854,7 @@ const SEEDS: readonly Seed[] = [
   },
   {
     code: 'M01',
-    no: '26-0347',
+    no: '100347',
     asset: AssetType.COMMERCIAL,
     deal: DealType.MONTHLY,
     name: '연향동 1층 코너 상가',
@@ -894,7 +894,7 @@ const SEEDS: readonly Seed[] = [
   },
   {
     code: 'T01',
-    no: '26-0339',
+    no: '100339',
     asset: AssetType.LAND,
     deal: SALE,
     name: '해룡면 신대리 대지',

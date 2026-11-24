@@ -1,6 +1,7 @@
 import { DEAL_TYPE_LABEL, DIRECTION_LABEL, DealType, sqmToPyeong } from '@house/shared';
 import { dealKindOf, type DealKind } from '@house/ui';
 import {
+  formatAreaPair,
   formatDealPrice,
   formatFloor,
   formatManwon,
@@ -82,8 +83,9 @@ export function shortEmd(emdName: string | null | undefined): string {
   return emdName?.trim().split(/\s+/).pop() ?? '';
 }
 
+/** Card label: "85㎡(26평)", or "26평(85㎡)" with the 평 toggle — never 평 alone (계량법). */
 export function areaText(sqm: number, unit: AreaUnit): string {
-  return unit === 'pyeong' ? `${Math.round(sqmToPyeong(sqm, 2))}평` : `${Math.round(sqm)}㎡`;
+  return formatAreaPair(sqm, unit);
 }
 
 export function floorText(l: ListingSummary): string {
@@ -123,12 +125,8 @@ export function listingMeta(
 ): string[] {
   const exclusive = l.exclusiveArea ? `전용 ${areaText(l.exclusiveArea, unit)}` : null;
   if (l.complexId) {
-    const area =
-      unit === 'pyeong' && l.pyeongLabel
-        ? `${l.pyeongLabel}평`
-        : l.supplyArea
-          ? areaText(l.supplyArea, unit)
-          : exclusive;
+    // 전용면적 first (what the 명시사항 state); the 공급면적 only when no 전용 is known.
+    const area = exclusive ?? (l.supplyArea ? `공급 ${areaText(l.supplyArea, unit)}` : null);
     return clean([l.dong, floorText(l), area, l.direction && DIRECTION_LABEL[l.direction]]);
   }
   if (l.landArea && !l.exclusiveArea) {
@@ -163,6 +161,6 @@ export function listingSub(l: ListingSummary): string {
   return clean([
     shortEmd(l.emdName),
     l.builtYear ? `${l.builtYear}년 준공` : null,
-    name ?? (l.landArea && l.exclusiveArea ? `대지 ${areaText(l.landArea, 'pyeong')}` : null),
+    name ?? (l.landArea && l.exclusiveArea ? `대지 ${areaText(l.landArea, 'sqm')}` : null),
   ]).join(' · ');
 }

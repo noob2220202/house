@@ -22,6 +22,8 @@ import {
   formatFloor,
   formatMaintenanceFee,
   formatManwon,
+  formatAreaBoth,
+  formatAreaPair,
   formatPhone,
   formatSqm,
   formatYearMonth,
@@ -139,12 +141,16 @@ export function pricePerPyeong(l: ListingDetail): number | null {
   return Math.round(amount / sqmToPyeong(area, 4));
 }
 
-/** "34평" — from the complex 평형 when linked, else from the supply (or exclusive) area. */
-export function pyeongLabel(l: ListingDetail): string | null {
+/**
+ * "전용 84.98㎡ (25.7평)": the 전용면적 the 명시사항 state, in the legal unit (계량법: ㎡) with 평
+ * alongside; the 공급면적 only when no 전용 is known (then labelled so).
+ */
+export function areaLabel(l: ListingDetail): string | null {
   const type = l.complex?.areaTypes.find((t) => t.id === l.property.areaTypeId);
-  if (type?.pyeongLabel) return type.pyeongLabel;
-  const area = l.property.supplyArea ?? l.property.exclusiveArea;
-  return area ? `${Math.round(sqmToPyeong(area, 2))}평` : null;
+  const exclusive = l.property.exclusiveArea ?? type?.exclusiveArea;
+  if (exclusive) return `전용 ${formatAreaBoth(exclusive)}`;
+  const supply = l.property.supplyArea ?? type?.supplyArea;
+  return supply ? `공급 ${formatAreaBoth(supply)}` : null;
 }
 
 export function floorText(
@@ -394,7 +400,9 @@ function dedupeWords(parts: readonly (string | null | undefined)[]): string {
  */
 export function disclosureLocation(l: ListingDetail): string {
   const p = l.property;
-  const address = (p.jibunAddress ?? p.roadAddress)?.replace(/^전라남도\s*/, '').trim();
+  const address = (p.jibunAddress ?? p.roadAddress)
+    ?.replace(/^(전남광주통합특별시|전라남도)\s*/, '')
+    .trim();
   const name = l.complex?.name ?? (l.assetType === AssetType.LAND ? null : p.buildingName);
   return dedupeWords([address || regionLine(l), name, p.dong]);
 }
@@ -570,7 +578,7 @@ export function metaDescription(l: ListingDetail): string {
   const bits = [
     regionLine(l),
     `${ASSET_TYPE_LABEL[l.assetType]} ${priceLabel(l)}`,
-    pyeongLabel(l),
+    areaLabel(l),
     floorText(l),
     l.property.direction ? DIRECTION_LABEL[l.property.direction] : null,
     l.verifiedAt ? `실매물 확인 ${formatDateShort(l.verifiedAt)}` : null,
@@ -580,24 +588,26 @@ export function metaDescription(l: ListingDetail): string {
   return `${bits.join(' · ')}.${lead ? ` ${lead}` : ''}`.slice(0, 160);
 }
 
-/** "34평 · 고/25층 · 남향" for cards / recent views. */
+/** "전용 85㎡(26평) · 고/25층 · 남향" for cards / recent views (공급 only without 전용). */
 export function summaryMeta(
   s: Pick<
     ListingSummary,
     'supplyArea' | 'exclusiveArea' | 'floor' | 'totalFloors' | 'floorClass' | 'direction'
   >,
 ): string[] {
-  const area = s.supplyArea ?? s.exclusiveArea;
+  const area = s.exclusiveArea
+    ? `전용 ${formatAreaPair(s.exclusiveArea)}`
+    : s.supplyArea
+      ? `공급 ${formatAreaPair(s.supplyArea)}`
+      : null;
   const floor = formatFloor(
     s.floor !== null && s.floor !== undefined
       ? { floor: s.floor, totalFloors: s.totalFloors }
       : { floorClass: s.floorClass ?? null, totalFloors: s.totalFloors, showExact: false },
   );
-  return [
-    area ? `${Math.round(sqmToPyeong(area, 2))}평` : null,
-    floor || null,
-    s.direction ? DIRECTION_LABEL[s.direction] : null,
-  ].filter((v): v is string => !!v);
+  return [area, floor || null, s.direction ? DIRECTION_LABEL[s.direction] : null].filter(
+    (v): v is string => !!v,
+  );
 }
 
 export function statusNotice(l: Pick<ListingDetail, 'status'>): string | null {

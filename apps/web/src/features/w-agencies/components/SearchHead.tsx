@@ -2,7 +2,6 @@
 import { Button, Chip, Icon, Popover, cx } from '@house/ui';
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import { BRAND } from '@/config/brand';
-import { AGENCY_API_EXTRAS } from '../api/capabilities';
 import type { AgencyRegion } from '../api/schemas';
 import { SPECIALTY_OPTIONS, type AgencyFilters } from '../lib/filters';
 import styles from './AgencySearch.module.css';
@@ -112,28 +111,23 @@ export function SearchHead({
             onApply={(emdCode) => onRegionApply(regions.find((r) => r.emdCode === emdCode) ?? null)}
           />
         )}
-        {/* Hidden until the backend applies these params (see api/capabilities.ts). */}
-        {AGENCY_API_EXTRAS && (
-          <>
-            <button
-              type="button"
-              className={cx(styles.fchip, styles.toggle)}
-              aria-pressed={filters.open}
-              onClick={() => onChange({ open: !filters.open })}
-            >
-              <span className={styles.openDot} aria-hidden="true" />
-              <span className={styles.v}>지금 영업 중</span>
-            </button>
-            <button
-              type="button"
-              className={cx(styles.fchip, styles.toggle)}
-              aria-pressed={filters.presale}
-              onClick={() => onChange({ presale: !filters.presale })}
-            >
-              <span className={styles.v}>분양권 취급</span>
-            </button>
-          </>
-        )}
+        <button
+          type="button"
+          className={cx(styles.fchip, styles.toggle)}
+          aria-pressed={filters.open}
+          onClick={() => onChange({ open: !filters.open })}
+        >
+          <span className={styles.openDot} aria-hidden="true" />
+          <span className={styles.v}>지금 영업 중</span>
+        </button>
+        <button
+          type="button"
+          className={cx(styles.fchip, styles.toggle)}
+          aria-pressed={filters.presale}
+          onClick={() => onChange({ presale: !filters.presale })}
+        >
+          <span className={styles.v}>분양권 취급</span>
+        </button>
         {filters.area && (
           <button
             type="button"

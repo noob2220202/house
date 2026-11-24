@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { coarsenPosition } from '@/lib/map';
 import { resetGuestLocationConsent, useMyLocation, type DevicePosition } from './useMyLocation';
 
-const session = vi.hoisted(() => ({ status: 'unauthenticated' as string }));
+const session = vi.hoisted(() => ({ status: 'unauthenticated' }));
 vi.mock('@/lib/auth', () => ({ useSession: () => session }));
 
 const calls = vi.hoisted(() => ({
@@ -73,7 +73,6 @@ function renderProbe() {
   );
   return { onLocated, user: userEvent.setup() };
 }
-
 
 describe('useMyLocation (위치기반서비스 consent before the device position)', () => {
   beforeEach(() => {

@@ -4,8 +4,12 @@ import {
   DealType,
   Direction,
   FloorClass,
+  LandCategory,
+  LandZone,
   ListingOption,
   ListingStatus,
+  RoomType,
+  effectiveRoomType,
 } from '@house/shared';
 import { z } from 'zod';
 
@@ -24,8 +28,8 @@ import { z } from 'zod';
 
 const nullish = <T extends z.ZodType>(schema: T) => schema.nullish();
 /**
- * For fields whose values are ASSUMED (enums that are not in @house/shared yet): an unexpected
- * value reads as "unknown" instead of failing the whole response.
+ * For the search-group enums (방 구성 / 용도지역 / 지목): a value this build does not know yet (an
+ * enum value added later in @house/shared) reads as "unknown" instead of failing the whole response.
  */
 const lenient = <T extends z.ZodType>(schema: T) => schema.nullish().catch(null);
 /** Prisma `Decimal` columns may arrive as strings ("84.98") — accept both. */
@@ -42,64 +46,17 @@ export function pageSchema<T extends z.ZodType>(item: T) {
   });
 }
 
-// ---- assumed enums (not in @house/shared yet) ---------------------------------------------------
+// ---- search-group enums ------------------------------------------------------------------------
 
-/** 원룸·투룸 방 종류 — the backend filter schema has no such field yet (see integration doc). */
-export const RoomType = {
-  ONE_ROOM: 'ONE_ROOM',
-  ONE_HALF_ROOM: 'ONE_HALF_ROOM',
-  TWO_ROOM: 'TWO_ROOM',
-  THREE_ROOM_PLUS: 'THREE_ROOM_PLUS',
-} as const;
-export type RoomType = (typeof RoomType)[keyof typeof RoomType];
-export const ROOM_TYPE_LABEL: Record<RoomType, string> = {
-  ONE_ROOM: '원룸',
-  ONE_HALF_ROOM: '1.5룸',
-  TWO_ROOM: '투룸',
-  THREE_ROOM_PLUS: '쓰리룸+',
-};
-
-/** 용도지역 (국토계획법 대분류). */
-export const LandZone = {
-  RESIDENTIAL: 'RESIDENTIAL',
-  COMMERCIAL: 'COMMERCIAL',
-  INDUSTRIAL: 'INDUSTRIAL',
-  GREEN: 'GREEN',
-  MANAGEMENT: 'MANAGEMENT',
-  AGRICULTURAL: 'AGRICULTURAL',
-  CONSERVATION: 'CONSERVATION',
-} as const;
-export type LandZone = (typeof LandZone)[keyof typeof LandZone];
-export const LAND_ZONE_LABEL: Record<LandZone, string> = {
-  RESIDENTIAL: '주거지역',
-  COMMERCIAL: '상업지역',
-  INDUSTRIAL: '공업지역',
-  GREEN: '녹지지역',
-  MANAGEMENT: '관리지역',
-  AGRICULTURAL: '농림지역',
-  CONSERVATION: '자연환경보전지역',
-};
-
-/** 지목 (most traded categories). */
-export const LandCategory = {
-  DAE: 'DAE',
-  JEON: 'JEON',
-  DAP: 'DAP',
-  GWASUWON: 'GWASUWON',
-  IMYA: 'IMYA',
-  JAPJONGJI: 'JAPJONGJI',
-  ETC: 'ETC',
-} as const;
-export type LandCategory = (typeof LandCategory)[keyof typeof LandCategory];
-export const LAND_CATEGORY_LABEL: Record<LandCategory, string> = {
-  DAE: '대',
-  JEON: '전',
-  DAP: '답',
-  GWASUWON: '과수원',
-  IMYA: '임야',
-  JAPJONGJI: '잡종지',
-  ETC: '기타',
-};
+/** 방 구성 · 용도지역 · 지목 search groups — the shared enums the backend sends (`ListingSummary`). */
+export {
+  LAND_CATEGORY_LABEL,
+  LAND_ZONE_LABEL,
+  LandCategory,
+  LandZone,
+  ROOM_TYPE_LABEL,
+  RoomType,
+} from '@house/shared';
 
 // ---- listing summary ----------------------------------------------------------------------------
 
@@ -214,14 +171,6 @@ export function parseFloorLabel(label: string): {
   };
 }
 
-/** 원룸·투룸 방 종류 from the room count (the backend summary has no room-type field). */
-function roomTypeOfRooms(rooms: unknown): RoomType | null {
-  if (typeof rooms !== 'number' || rooms < 1) return null;
-  if (rooms === 1) return RoomType.ONE_ROOM;
-  if (rooms === 2) return RoomType.TWO_ROOM;
-  return RoomType.THREE_ROOM_PLUS;
-}
-
 type Raw = Record<string, unknown>;
 const isObject = (v: unknown): v is Raw => typeof v === 'object' && v !== null;
 
@@ -229,7 +178,8 @@ const isObject = (v: unknown): v is Raw => typeof v === 'object' && v !== null;
  * Wire → card keys. Only fills a card key the payload does not carry itself, so the flat shape
  * passes through unchanged:
  * `complex{id,name}` → `complexId`/`complexName`, `coverPhoto.mediumUrl` → `coverPhotoUrl`,
- * `floorLabel` → `floor`/`totalFloors`/`floorClass`, `rooms` → `roomType` (원룸·투룸 only).
+ * `floorLabel` → `floor`/`totalFloors`/`floorClass`; `rooms` → `roomType` only for an older payload
+ * without `roomType` (원룸·투룸).
  */
 export function listingWireToCard(value: unknown): unknown {
   if (!isObject(value)) return value;
@@ -254,8 +204,14 @@ export function listingWireToCard(value: unknown): unknown {
       out.floorClass = f.floorClass ?? out.floorClass ?? null;
     }
   }
-  if (out.roomType === undefined && value.assetType === AssetType.ONEROOM) {
-    out.roomType = roomTypeOfRooms(value.rooms);
+  // The backend sends `roomType` (stated or derived, shared `effectiveRoomType`); only an older
+  // payload without the key gets it derived here from the room count (원룸·투룸 only).
+  if (value.roomType === undefined && value.assetType === AssetType.ONEROOM) {
+    out.roomType = effectiveRoomType(
+      AssetType.ONEROOM,
+      null,
+      typeof value.rooms === 'number' ? value.rooms : null,
+    );
   }
   return out;
 }

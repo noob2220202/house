@@ -1,7 +1,7 @@
 import { agencyUpdateSchema } from '@house/shared';
 import { describe, expect, it } from 'vitest';
 import type { Media } from '../api/schemas';
-import { buildProfilePatch, unpersistedProfileFields } from './profile';
+import { buildProfilePatch, PROFILE_IMAGE_PURPOSE, unpersistedProfileFields } from './profile';
 
 const media = (id: string): Media => ({
   id,
@@ -92,5 +92,11 @@ describe('unpersistedProfileFields', () => {
         logo: media('logo-2'),
       }),
     ).toEqual([]);
+  });
+});
+
+describe('PROFILE_IMAGE_PURPOSE', () => {
+  it('uploads the cover as AGENCY_COVER and the logo as AGENCY_LOGO (the API rejects a logo as cover)', () => {
+    expect(PROFILE_IMAGE_PURPOSE).toEqual({ logo: 'AGENCY_LOGO', cover: 'AGENCY_COVER' });
   });
 });

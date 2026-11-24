@@ -74,7 +74,7 @@ describe('buildPreviewDetail', () => {
     const detail = buildPreviewDetail(draftOfListing(draft), context(draft));
     expect(detail.status).toBe(ListingStatus.ACTIVE);
     expect(detail.publishedAt).toBe('2026-11-24');
-    expect(detail.listingNo).toBe('게시 후 부여');
+    expect(detail.listingNo).toBe('저장 후 부여');
   });
 
   it('keeps 계약중 for reserved listings', () => {

@@ -182,14 +182,14 @@ describe('agencies: openNow / handlesPresale search and the cover image (e2e)', 
       const mine = await withSession(t.http().get('/api/v1/agencies/mine'), s).expect(200);
       expect(mine.body.coverUrl).toBe('/media/covers/a.large.webp');
 
-      // A cover uploaded with the logo purpose (older consoles) is accepted too.
-      const logoPurpose = await createMedia(t.prisma, {
+      // A replacement cover (AGENCY_COVER again) swaps it.
+      const next = await createMedia(t.prisma, {
         ownerUserId: owner.id,
-        purpose: MediaPurpose.AGENCY_LOGO,
-        storageKey: 'logos/as-cover.webp',
+        purpose: MediaPurpose.AGENCY_COVER,
+        storageKey: 'covers/next.webp',
       });
       await withSession(t.http().patch('/api/v1/agencies/mine'), s)
-        .send({ coverMediaId: logoPurpose.id })
+        .send({ coverMediaId: next.id })
         .expect(200);
       // The replaced cover restarts its orphan grace period.
       const replaced = await t.prisma.media.findUniqueOrThrow({ where: { id: cover.id } });
@@ -201,7 +201,13 @@ describe('agencies: openNow / handlesPresale search and the cover image (e2e)', 
         purpose: MediaPurpose.AGENCY_DOCUMENT,
         visibility: MediaVisibility.PRIVATE,
       });
-      for (const id of [foreign.id, document.id]) {
+      // An own logo upload is not a cover (the console uploads covers with AGENCY_COVER).
+      const logoPurpose = await createMedia(t.prisma, {
+        ownerUserId: owner.id,
+        purpose: MediaPurpose.AGENCY_LOGO,
+        storageKey: 'logos/as-cover.webp',
+      });
+      for (const id of [foreign.id, document.id, logoPurpose.id]) {
         const bad = await withSession(t.http().patch('/api/v1/agencies/mine'), s)
           .send({ coverMediaId: id })
           .expect(400);

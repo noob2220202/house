@@ -1,7 +1,6 @@
 import { AssetType } from '@house/shared';
 import type { QueryParams } from '@/lib/api';
 import { defineFilters, type FilterValues } from '@/lib/map/url-state';
-import { AGENCY_API_EXTRAS } from '../api/capabilities';
 import { AGENCY_SORTS, type AgencySort } from '../api/schemas';
 import { SPECIALTY_LABEL } from './agency';
 
@@ -60,15 +59,14 @@ const BBOX = /^-?\d+(\.\d+)?(,-?\d+(\.\d+)?){3}$/;
 
 /**
  * Query of `GET /agencies` for the current filters (`agencySearchQuerySchema`: `q`, `emdCode`,
- * `bbox`, `specialties`, `sort`, `page`, `pageSize`). `sort` is always sent — the backend default
- * is RELEVANCE, the list's default is 보유 매물순. `openNow` / `handlesPresale` are not backend
- * params and are only sent while `extras` (default `AGENCY_API_EXTRAS`) is on.
+ * `bbox`, `specialties`, `openNow`, `handlesPresale`, `sort`, `page`, `pageSize`). `sort` is always
+ * sent — the backend default is RELEVANCE, the list's default is 보유 매물순. `openNow` (영업 중 at
+ * request time, Asia/Seoul) and `handlesPresale` (has a public 분양권 listing) are applied by the API.
  */
 export function toAgencyQuery(
   filters: AgencyFilters,
-  extra: { bbox?: string; page?: number; pageSize?: number; extras?: boolean } = {},
+  extra: { bbox?: string; page?: number; pageSize?: number } = {},
 ): QueryParams {
-  const extras = extra.extras ?? AGENCY_API_EXTRAS;
   const q = filters.q?.trim().slice(0, 50);
   const area = filters.area && BBOX.test(filters.area) ? filters.area : undefined;
   const sort = agencySortOf(filters.sort);
@@ -76,8 +74,8 @@ export function toAgencyQuery(
     q: q || undefined,
     specialties: specialtyOption(filters.spec).assetTypes,
     emdCode: filters.emd || undefined,
-    openNow: extras && filters.open ? true : undefined,
-    handlesPresale: extras && filters.presale ? true : undefined,
+    openNow: filters.open ? true : undefined,
+    handlesPresale: filters.presale ? true : undefined,
     sort,
     bbox: extra.bbox ?? area,
     page: extra.page,
@@ -86,13 +84,14 @@ export function toAgencyQuery(
 }
 
 /** Result caption: "아파트 전문 52곳" / "검색 결과 3곳" / "전체 86곳". */
-export function resultCaption(filters: AgencyFilters, extras = AGENCY_API_EXTRAS): string {
+export function resultCaption(filters: AgencyFilters): string {
   const spec = specialtyOption(filters.spec);
   if (spec.value) return `${spec.label} 전문`;
   const narrowed = !!(
     filters.q?.trim() ||
     filters.emd ||
-    (extras && (filters.open || filters.presale)) ||
+    filters.open ||
+    filters.presale ||
     filters.area
   );
   return narrowed ? '검색 결과' : '전체';

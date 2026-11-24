@@ -21,7 +21,7 @@ export interface ListingCardProps {
   title: string;
   /** Lighter text after the title: 동 or location hint. */
   subtitle?: string;
-  /** Short facts joined with "·": ["34평", "고/25층", "남향"]. */
+  /** Short facts joined with "·": ["전용 85㎡(26평)", "고/25층", "남향"] (area in ㎡, 평 alongside). */
   meta?: readonly string[];
   /** 실매물 확인 date, e.g. "26.11.22". */
   verifiedDate?: string;

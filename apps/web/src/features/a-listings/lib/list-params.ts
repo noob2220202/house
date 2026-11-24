@@ -85,9 +85,8 @@ export function activeFilterCount(p: ListParams): number {
 }
 
 /**
- * Query of GET /agency/listings (`agencyListingListQuerySchema`: `statuses`, `dealTypes` csv). The
- * console's other filters (q, assetTypes, verificationDue, coBrokered, sort) are sent as well; the
- * API ignores the ones it does not know yet.
+ * Query of GET /agency/listings (shared `agencyListingListQuerySchema`): `statuses` / `dealTypes` /
+ * `assetTypes` csv, `q` (also matches the 매물번호), `verificationDue`, `coBrokered`, `sort`, paging.
  */
 export function toApiQuery(p: ListParams) {
   return {

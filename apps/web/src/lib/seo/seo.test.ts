@@ -195,6 +195,48 @@ describe('JSON-LD builders', () => {
     expect(JSON.stringify(node)).not.toMatch(/호/);
   });
 
+  it('월세: 보증금 and 월세 as separate price specs, never the rent alone as the price', () => {
+    const node = listingJsonLd({
+      path: '/listing/l2',
+      name: '조례동 원룸',
+      offerType: 'rent',
+      priceWon: 5_000_000,
+      monthlyRentWon: 500_000,
+      itemType: 'Apartment',
+    });
+    const offer = node.offers as Record<string, unknown>;
+    expect(offer.price).toBeUndefined();
+    expect(offer).toMatchObject({
+      availability: 'https://schema.org/InStock',
+      businessFunction: 'http://purl.org/goodrelations/v1#LeaseOut',
+      priceSpecification: [
+        { '@type': 'PriceSpecification', name: '보증금', price: 5_000_000, priceCurrency: 'KRW' },
+        { '@type': 'UnitPriceSpecification', name: '월세', price: 500_000, unitCode: 'MON' },
+      ],
+    });
+    // 전세: one price (the 보증금); undisclosed price: no offer at all.
+    expect(
+      listingJsonLd({ path: '/listing/l3', name: 'n', offerType: 'rent', priceWon: 150_000_000 })
+        .offers,
+    ).toMatchObject({ price: 150_000_000 });
+    expect(
+      listingJsonLd({ path: '/listing/l4', name: 'n', offerType: 'sale', priceWon: null }).offers,
+    ).toBeUndefined();
+  });
+
+  it('postal addresses name the current 시도 (D1), not 전라남도', () => {
+    const node = listingJsonLd({
+      path: '/listing/l5',
+      name: 'n',
+      offerType: 'sale',
+      address: { street: '해룡면 신대리' },
+    });
+    expect(node.about).toMatchObject({
+      address: { addressRegion: '전남광주통합특별시', addressLocality: '순천시' },
+    });
+    expect(JSON.stringify(node)).not.toMatch(/전라남도/);
+  });
+
   it('FAQPage and Dataset', () => {
     expect(faqJsonLd([{ question: 'Q?', answer: 'A.' }])).toMatchObject({
       '@type': 'FAQPage',

@@ -162,7 +162,8 @@ const APT_OPTIONS: ListingOption[] = [
 
 interface AptSeed {
   code: string;
-  no?: string;
+  /** 매물번호 as the API sends it: the sequential number from 100001, as text ("100412"). */
+  no: string;
   complex: string;
   /** Index into the complex's 평형. */
   type: number;
@@ -207,7 +208,7 @@ function aptListing(s: AptSeed): StoredListing {
     id: mockUuid(s.code),
     code: s.code,
     offices: s.offices,
-    listingNo: s.no ?? null,
+    listingNo: s.no,
     status: s.status,
     dealType: s.deal,
     title: s.title ?? null,
@@ -308,7 +309,7 @@ const ME = MY_OFFICE_CODE;
 const APT_SEEDS: AptSeed[] = [
   {
     code: 'L01',
-    no: '26-0412',
+    no: '100412',
     complex: 'C01',
     type: 1,
     dong: '103동',
@@ -330,7 +331,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'L06',
-    no: '26-0398',
+    no: '100398',
     complex: 'C06',
     type: 1,
     dong: '301동',
@@ -351,7 +352,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'L11',
-    no: '26-0391',
+    no: '100391',
     complex: 'C01',
     type: 0,
     dong: '108동',
@@ -373,7 +374,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'L12',
-    no: '26-0377',
+    no: '100377',
     complex: 'C01',
     type: 2,
     dong: '111동',
@@ -394,7 +395,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'L13',
-    no: '26-0371',
+    no: '100371',
     complex: 'C06',
     type: 0,
     dong: '305동',
@@ -415,7 +416,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'L02',
-    no: '26-0405',
+    no: '100405',
     complex: 'C03',
     type: 1,
     dong: '205동',
@@ -437,7 +438,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'L14',
-    no: '26-0366',
+    no: '100366',
     complex: 'C01',
     type: 1,
     dong: '104동',
@@ -458,7 +459,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'L16',
-    no: '26-0312',
+    no: '100312',
     complex: 'C06',
     type: 1,
     dong: '303동',
@@ -479,7 +480,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'L15',
-    no: '26-0358',
+    no: '100358',
     complex: 'C01',
     type: 1,
     dong: '106동',
@@ -500,7 +501,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'L17',
-    no: '26-0290',
+    no: '100290',
     complex: 'C01',
     type: 0,
     dong: '110동',
@@ -521,7 +522,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'L18',
-    no: '26-0333',
+    no: '100333',
     complex: 'C06',
     type: 0,
     dong: '302동',
@@ -543,7 +544,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'L19',
-    no: '26-0301',
+    no: '100301',
     complex: 'C01',
     type: 2,
     dong: '102동',
@@ -565,6 +566,8 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'D01',
+    // Like the API, a draft has its 매물번호 from creation on.
+    no: '100423',
     complex: 'C01',
     type: 1,
     dong: '105동',
@@ -581,7 +584,7 @@ const APT_SEEDS: AptSeed[] = [
   // ---- other offices' listings (공동중개 후보) ----
   {
     code: 'X01',
-    no: '26-0420',
+    no: '100420',
     complex: 'C01',
     type: 1,
     dong: '107동',
@@ -601,7 +604,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'X02',
-    no: '26-0418',
+    no: '100418',
     complex: 'C01',
     type: 0,
     dong: '103동',
@@ -621,7 +624,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'X03',
-    no: '26-0409',
+    no: '100409',
     complex: 'C01',
     type: 2,
     dong: '112동',
@@ -641,7 +644,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'X04',
-    no: '26-0402',
+    no: '100402',
     complex: 'C01',
     type: 1,
     dong: '109동',
@@ -662,7 +665,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'X05',
-    no: '26-0415',
+    no: '100415',
     complex: 'C06',
     type: 1,
     dong: '304동',
@@ -682,7 +685,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'X06',
-    no: '26-0407',
+    no: '100407',
     complex: 'C03',
     type: 0,
     dong: '210동',
@@ -703,7 +706,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'X07',
-    no: '26-0399',
+    no: '100399',
     complex: 'C02',
     type: 1,
     dong: '108동',
@@ -723,7 +726,7 @@ const APT_SEEDS: AptSeed[] = [
   },
   {
     code: 'X08',
-    no: '26-0393',
+    no: '100393',
     complex: 'C02',
     type: 0,
     dong: '103동',
@@ -747,7 +750,7 @@ const APT_SEEDS: AptSeed[] = [
 function extraListings(): StoredListing[] {
   const base = aptListing({
     code: 'T01',
-    no: '26-0339',
+    no: '100339',
     complex: 'C01',
     type: 0,
     dong: '',
@@ -800,6 +803,8 @@ function extraListings(): StoredListing[] {
       directionBasis: null,
       approvalDate: null,
       parkingSpaces: null,
+      zoning: '제2종일반주거지역',
+      landCategory: '대',
       buildingUse: null,
     },
     complex: null,
@@ -808,6 +813,7 @@ function extraListings(): StoredListing[] {
 
   const draft = aptListing({
     code: 'D02',
+    no: '100427',
     complex: 'C01',
     type: 0,
     dong: '',

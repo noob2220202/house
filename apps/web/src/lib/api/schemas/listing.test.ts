@@ -1,5 +1,7 @@
+import * as shared from '@house/shared';
 import type { ListingSummary as WireListingSummary } from '@house/shared';
 import { describe, expect, it } from 'vitest';
+import * as listing from './listing';
 import {
   listingDisplayName,
   listingPageSchema,
@@ -60,6 +62,27 @@ const wire: WireListingSummary = {
   favoriteCount: 3,
 };
 
+describe('search-group enums', () => {
+  it('are the shared enums and labels (no local copies)', () => {
+    expect(listing.RoomType).toBe(shared.RoomType);
+    expect(listing.ROOM_TYPE_LABEL).toBe(shared.ROOM_TYPE_LABEL);
+    expect(listing.LandZone).toBe(shared.LandZone);
+    expect(listing.LAND_ZONE_LABEL).toBe(shared.LAND_ZONE_LABEL);
+    expect(listing.LandCategory).toBe(shared.LandCategory);
+    expect(listing.LAND_CATEGORY_LABEL).toBe(shared.LAND_CATEGORY_LABEL);
+  });
+
+  it('read the backend search groups of a land row', () => {
+    const land = listingSummarySchema.parse({
+      ...wire,
+      assetType: 'LAND',
+      landZone: 'MANAGEMENT',
+      landCategory: 'IMYA',
+    });
+    expect(land).toMatchObject({ landZone: 'MANAGEMENT', landCategory: 'IMYA' });
+  });
+});
+
 describe('parseFloorLabel (shared floorLabel output)', () => {
   it('reads exact, class, basement and total-only labels', () => {
     expect(parseFloorLabel('12/25')).toEqual({ floor: 12, totalFloors: 25, floorClass: null });
@@ -110,6 +133,11 @@ describe('listingSummarySchema (backend ListingSummary → card)', () => {
         roomType: 'ONE_HALF_ROOM',
       }).roomType,
     ).toBe('ONE_HALF_ROOM');
+    // A current payload says "unknown" with null — never re-derived on the client.
+    expect(
+      listingSummarySchema.parse({ ...wire, assetType: 'ONEROOM', rooms: 2, roomType: null })
+        .roomType,
+    ).toBeNull();
     expect(room.complexId ?? null).toBeNull();
     const flat = listingSummarySchema.parse({
       id: 'x',

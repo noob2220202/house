@@ -114,7 +114,7 @@ describe('listing items', () => {
     const link = screen.getByRole('link', { name: /월세 500\/42/ });
     expect(link).toHaveAttribute('href', '/listing/r1');
     expect(screen.getByText('투룸')).toBeInTheDocument();
-    expect(screen.getByText('전용 36㎡')).toBeInTheDocument();
+    expect(screen.getByText('전용 36㎡(11평)')).toBeInTheDocument();
     expect(screen.getByText('관리비 7만')).toBeInTheDocument();
     expect(screen.getByText('석현동 · 2019년 준공 · 해오름빌')).toBeInTheDocument();
     expect(screen.getByText('순천대 정문 도보 6분')).toBeInTheDocument();
@@ -133,7 +133,7 @@ describe('listing items', () => {
       'aria-pressed',
       'true',
     );
-    expect(screen.getByText('전용 11평')).toBeInTheDocument();
+    expect(screen.getByText('전용 11평(36㎡)')).toBeInTheDocument();
   });
 });
 

@@ -30,7 +30,7 @@ describe('listingPriceText', () => {
 });
 
 describe('listingMeta', () => {
-  it('apartment: 공급 평형 · 저/중/고 층 · 향', () => {
+  it('apartment: 전용면적 in ㎡ (평 alongside) · 저/중/고 층 · 향', () => {
     expect(
       listingMeta(
         item({
@@ -41,7 +41,7 @@ describe('listingMeta', () => {
           direction: Direction.SOUTH,
         }),
       ),
-    ).toEqual(['34평', '고/25층', '남향']);
+    ).toEqual(['전용 85㎡(26평)', '고/25층', '남향']);
   });
 
   it('oneroom: room type · exact floor · 준공 연도', () => {
@@ -60,10 +60,9 @@ describe('listingMeta', () => {
     expect(listingMeta(item({ assetType: AssetType.ONEROOM, rooms: 1 }))).toEqual(['원룸']);
   });
 
-  it('land: 평 and ㎡ from the land area; skips unknown facts', () => {
+  it('land: ㎡ with 평 alongside from the land area; skips unknown facts', () => {
     expect(listingMeta(item({ assetType: AssetType.LAND, landArea: 512 }))).toEqual([
-      '155평',
-      '512㎡',
+      '512㎡(155평)',
     ]);
     expect(listingMeta(item({ assetType: AssetType.LAND }))).toEqual([]);
   });
@@ -75,7 +74,7 @@ describe('listingMeta', () => {
       dealType: DealType.SALE,
       supplyArea: '112.40',
     });
-    expect(listingMeta(parsed)).toEqual(['34평']);
+    expect(listingMeta(parsed)).toEqual(['공급 112㎡(34평)']);
   });
 });
 

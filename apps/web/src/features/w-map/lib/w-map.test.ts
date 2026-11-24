@@ -175,7 +175,8 @@ describe('view options', () => {
     expect(normalizeUi(raw, ASSETS.land)).toEqual({
       sort: ListingSort.VERIFIED,
       tab: 'popular',
-      unit: 'pyeong',
+      // 계량법: ㎡ is the default everywhere (평 is the visitor's choice).
+      unit: 'sqm',
       view: 'card',
       tradeLayer: false,
       listOpen: false,
@@ -324,8 +325,9 @@ describe('listing display', () => {
       floorClass: 'HIGH',
       direction: 'SOUTH',
     });
-    expect(listingMeta(apt, 'pyeong')).toEqual(['103동', '고/25층', '34평', '남향']);
-    expect(listingMeta(apt, 'sqm')).toEqual(['103동', '고/25층', '112㎡', '남향']);
+    // 전용면적 in ㎡ with 평 alongside; 평 leads only with the 평 toggle — never 평 alone.
+    expect(listingMeta(apt, 'pyeong')).toEqual(['103동', '고/25층', '전용 26평(85㎡)', '남향']);
+    expect(listingMeta(apt, 'sqm')).toEqual(['103동', '고/25층', '전용 85㎡(26평)', '남향']);
     expect(listingName(apt)).toBe('신대 레이크파크 1단지');
 
     const room = listing({
@@ -340,8 +342,8 @@ describe('listing display', () => {
       emdName: '석현동',
       builtYear: 2019,
     });
-    expect(listingMeta(room, 'sqm')).toEqual(['투룸', '전용 36㎡', '3/4층', '관리비 7만']);
-    expect(listingMeta(room, 'sqm', { fee: false })).toEqual(['투룸', '전용 36㎡', '3/4층']);
+    expect(listingMeta(room, 'sqm')).toEqual(['투룸', '전용 36㎡(11평)', '3/4층', '관리비 7만']);
+    expect(listingMeta(room, 'sqm', { fee: false })).toEqual(['투룸', '전용 36㎡(11평)', '3/4층']);
     expect(listingSub(room)).toBe('석현동 · 2019년 준공 · 해오름빌');
 
     const land = listing({
@@ -352,7 +354,12 @@ describe('listing display', () => {
       landZone: 'RESIDENTIAL',
       salePrice: 100000,
     });
-    expect(listingMeta(land, 'pyeong')).toEqual(['지목 대', '200평', '주거지역', '500만/평']);
+    expect(listingMeta(land, 'pyeong')).toEqual([
+      '지목 대',
+      '200평(661㎡)',
+      '주거지역',
+      '500만/평',
+    ]);
   });
 });
 
@@ -402,7 +409,7 @@ describe('map markers', () => {
       kind: 'complex',
       name: '레이크파크 1단지',
       count: 38,
-      areaLabel: '34평',
+      areaLabel: '34평(112㎡)',
       priceLabel: '4.4억',
       presale: false,
     });
@@ -411,7 +418,7 @@ describe('map markers', () => {
   });
 
   it('supports ㎡, the 실거래가 layer and compact mobile markers', () => {
-    expect(toMapMarkers(response, { unit: 'sqm' })[0]).toMatchObject({ areaLabel: '112㎡' });
+    expect(toMapMarkers(response, { unit: 'sqm' })[0]).toMatchObject({ areaLabel: '112㎡(34평)' });
     expect(toMapMarkers(response, { unit: 'pyeong', tradeLayer: true })[0]).toMatchObject({
       dealNote: '실거래',
       priceLabel: '4.2억',

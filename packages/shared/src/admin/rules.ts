@@ -15,6 +15,12 @@ export const PUBLIC_SITE_SETTING_KEYS: readonly SiteSettingKey[] = [
   SiteSettingKey.APP_LINKS,
 ];
 
+/**
+ * 신고자 연락처·IP 보유기간: erased this many days after the report is closed (admin-maintenance
+ * job). The report dialog's collection notice states the same number.
+ */
+export const REPORT_CONTACT_RETENTION_DAYS = 180;
+
 /** Reports in these states still wait for a decision. */
 export const OPEN_REPORT_STATUSES: readonly ReportStatus[] = [
   ReportStatus.RECEIVED,

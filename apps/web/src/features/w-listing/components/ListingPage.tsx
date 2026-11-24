@@ -34,6 +34,7 @@ import type { ListingDetail, ServedBanner, SimilarListings } from '../api/schema
 import { calcPreviews } from '../lib/calcPreview';
 import {
   addressLine,
+  areaLabel,
   buildBreadcrumb,
   descriptionParagraphs,
   floorText,
@@ -47,7 +48,6 @@ import {
   moveInText,
   priceLabel,
   pricePerPyeong,
-  pyeongLabel,
   statusNotice,
 } from '../lib/view';
 import { BackToMapLink } from './BackToMapLink';
@@ -149,11 +149,11 @@ export function ListingPage({ listing, similar, ad, renderedAt }: ListingPagePro
   const primary = l.agencies.find((a) => a.isPrimary) ?? l.agencies[0];
   const siteVisit = l.verifications.find((v) => v.method === VerificationMethod.SITE_VISIT);
   const notice = statusNotice(l);
-  const pyeong = pyeongLabel(l);
+  const area = areaLabel(l);
   const mobileSub = [
     l.property.dong,
     floorText(l),
-    pyeong,
+    area,
     l.property.direction ? DIRECTION_LABEL[l.property.direction] : null,
   ].filter((v): v is string => !!v);
   const paragraphs = descriptionParagraphs(l.description);
@@ -402,7 +402,7 @@ export function ListingPage({ listing, similar, ad, renderedAt }: ListingPagePro
           title: listingFullTitle(l).replace(` ${priceLabel(l)}`, ''),
           priceLabel: priceLabel(l),
           meta: [
-            pyeong,
+            area,
             floorText(l),
             l.property.direction ? DIRECTION_LABEL[l.property.direction] : null,
           ]

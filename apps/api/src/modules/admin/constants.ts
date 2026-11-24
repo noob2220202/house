@@ -25,9 +25,10 @@ export const STATS_CACHE_TTL_SECONDS = 120;
 
 /**
  * 신고자 연락처·IP 보유기간: kept this long after the report is closed (for objections and repeat
- * reports), then erased by the admin-maintenance job.
+ * reports), then erased by the admin-maintenance job. Shared, so the report dialog's notice
+ * (apps/web ReportDialog) states the same period.
  */
-export const REPORT_CONTACT_RETENTION_DAYS = 180;
+export { REPORT_CONTACT_RETENTION_DAYS } from '@house/shared';
 
 /** Module-local BullMQ queue for admin housekeeping (not the shared cleanup queue). */
 export const ADMIN_QUEUE = 'admin-maintenance';

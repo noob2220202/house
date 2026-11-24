@@ -32,7 +32,7 @@ describe('toAgencyQuery', () => {
   it('maps URL filters to the API params', () => {
     const query = toAgencyQuery(
       parse('q=%20호수%20&spec=ONEROOM&emd=12150127&open=1&presale=1&sort=NAME'),
-      { page: 2, pageSize: 20, extras: true },
+      { page: 2, pageSize: 20 },
     );
     expect(query).toMatchObject({
       q: '호수',
@@ -45,24 +45,30 @@ describe('toAgencyQuery', () => {
     });
   });
 
-  it('never sends the unconfirmed params while the API extras are off', () => {
-    const query = toAgencyQuery(parse('q=호수&open=1&presale=1&sort=NAME'), { extras: false });
+  it('sends openNow / handlesPresale only when those toggles are on', () => {
+    const query = toAgencyQuery(parse('q=호수&sort=NAME'));
     expect(query.q).toBe('호수');
     expect(query.openNow).toBeUndefined();
     expect(query.handlesPresale).toBeUndefined();
-    expect(query.sort).toBe('NAME');
-    expect(resultCaption(parse('open=1&presale=1'), false)).toBe('전체');
+    expect(toQueryString(toAgencyQuery(parse('open=1&presale=1')))).toBe(
+      '?openNow=true&handlesPresale=true&sort=LISTINGS',
+    );
   });
 
   it('produces a query the backend schema accepts', () => {
     const bbox = boundsToQueryBbox({ swLat: 34.9, swLng: 127.46, neLat: 34.99, neLng: 127.6 });
-    const query = toAgencyQuery(parse('q=호수&spec=APT&emd=12150127'), { bbox, pageSize: 100 });
+    const query = toAgencyQuery(parse('q=호수&spec=APT&emd=12150127&open=1&presale=1'), {
+      bbox,
+      pageSize: 100,
+    });
     const sp = Object.fromEntries(new URLSearchParams(toQueryString(query).slice(1)));
     const parsed = agencySearchQuerySchema.safeParse(sp);
     expect(parsed.success).toBe(true);
     expect(parsed.data).toMatchObject({
       q: '호수',
       specialties: ['APT'],
+      openNow: true,
+      handlesPresale: true,
       pageSize: 100,
       sort: 'LISTINGS',
     });
@@ -96,7 +102,8 @@ describe('resultCaption', () => {
     expect(resultCaption(parse(''))).toBe('전체');
     expect(resultCaption(parse('spec=APT'))).toBe('아파트 전문');
     expect(resultCaption(parse('q=호수'))).toBe('검색 결과');
-    expect(resultCaption(parse('open=1'), true)).toBe('검색 결과');
+    expect(resultCaption(parse('open=1'))).toBe('검색 결과');
+    expect(resultCaption(parse('presale=1'))).toBe('검색 결과');
     expect(resultCaption(parse('sort=NAME'))).toBe('전체');
   });
 });

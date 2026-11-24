@@ -4,7 +4,7 @@ import {
   formatDateShort,
   formatDealPrice,
   formatFloor,
-  formatPyeong,
+  formatAreaPair,
   type DealPrice,
 } from '@/lib/format';
 import { listingDisplayName } from '@/lib/api/schemas/listing';
@@ -121,13 +121,18 @@ export function listingPriceText(l: AgencyListing): string {
   return formatDealPrice(listingDealPrice(l));
 }
 
-/** Area label per asset type: 토지 = 대지면적, otherwise 공급(없으면 전용) 평. */
+/**
+ * Area label per asset type, in ㎡ with 평 alongside (계량법): 토지 = 대지면적, otherwise the 전용면적
+ * ("전용 85㎡(26평)"), the 공급면적 only without it.
+ */
 export function listingAreaText(l: AgencyListing): string | null {
-  const sqm =
-    l.assetType === AssetType.LAND
-      ? (l.landArea ?? l.supplyArea ?? l.exclusiveArea)
-      : (l.supplyArea ?? l.exclusiveArea ?? l.landArea);
-  return sqm ? formatPyeong(sqm) : null;
+  if (l.assetType === AssetType.LAND) {
+    const land = l.landArea ?? l.exclusiveArea ?? l.supplyArea;
+    return land ? formatAreaPair(land) : null;
+  }
+  if (l.exclusiveArea) return `전용 ${formatAreaPair(l.exclusiveArea)}`;
+  if (l.supplyArea) return `공급 ${formatAreaPair(l.supplyArea)}`;
+  return l.landArea ? formatAreaPair(l.landArea) : null;
 }
 
 /** ["32평", "고/18층", "남향"] */

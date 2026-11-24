@@ -39,7 +39,11 @@ export function resetGuestLocationConsent(): void {
   guestAgreed = false;
 }
 
-const GEO_OPTIONS: PositionOptions = { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 };
+const GEO_OPTIONS: PositionOptions = {
+  enableHighAccuracy: false,
+  timeout: 8000,
+  maximumAge: 60_000,
+};
 
 /**
  * "내 위치" behind the 위치기반서비스 이용약관 (LOCATION, optional): the device position is read

@@ -5,26 +5,26 @@ profile, and the 표시·광고 disclosure data listings need. Read `docs/CONVEN
 
 ## Layout
 
-| Path                                       | What                                                                                   |
-| ------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `controllers/my-agency.controller.ts`      | `/agencies` (register), `/agencies/mine/**`, `/agencies/join`, `/agencies/membership`  |
-| `controllers/agencies.controller.ts`       | public `/agencies`, `/agencies/map`, `/agencies/:id` (registered after the one above)  |
-| `controllers/admin-agencies.controller.ts` | `/admin/agencies/**` review endpoints                                                  |
-| `services/agencies.service.ts`             | **exported** `AgenciesService` for other modules                                       |
-| `services/agency-registration.service.ts`  | register, resubmit, own profile, private documents                                     |
-| `services/agency-members.service.ts`       | staff list/update/remove, invites, join, leave                                         |
-| `services/agency-invite.store.ts`          | invite codes in Redis (sha256 only, single-use via GETDEL, TTL)                        |
-| `services/agency-public.service.ts`        | search, map clusters/markers (cached tiles), profile (cached)                          |
-| `services/agency-review.service.ts`        | admin queue/detail/decision (+history, notification, audit), document stream, registry |
-| `services/agency-dashboard.service.ts`     | **exported** console-home numbers (listings, daily views, expiring / 실매물 확인 due)  |
-| `domain/dashboard.ts`                      | pure helpers: KST days, views from daily snapshots, dashboard listing rows             |
-| `jobs/agencies.processor.ts`               | queue `agencies`: hourly `agencies.daily-stats` snapshot, daily `agencies.purge-rejected` (only when `JOBS_ENABLED`) |
+| Path                                       | What                                                                                                                                                                                                                                            |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `controllers/my-agency.controller.ts`      | `/agencies` (register), `/agencies/mine/**`, `/agencies/join`, `/agencies/membership`                                                                                                                                                           |
+| `controllers/agencies.controller.ts`       | public `/agencies`, `/agencies/map`, `/agencies/:id` (registered after the one above)                                                                                                                                                           |
+| `controllers/admin-agencies.controller.ts` | `/admin/agencies/**` review endpoints                                                                                                                                                                                                           |
+| `services/agencies.service.ts`             | **exported** `AgenciesService` for other modules                                                                                                                                                                                                |
+| `services/agency-registration.service.ts`  | register, resubmit, own profile, private documents                                                                                                                                                                                              |
+| `services/agency-members.service.ts`       | staff list/update/remove, invites, join, leave                                                                                                                                                                                                  |
+| `services/agency-invite.store.ts`          | invite codes in Redis (sha256 only, single-use via GETDEL, TTL)                                                                                                                                                                                 |
+| `services/agency-public.service.ts`        | search, map clusters/markers (cached tiles), profile (cached)                                                                                                                                                                                   |
+| `services/agency-review.service.ts`        | admin queue/detail/decision (+history, notification, audit), document stream, registry                                                                                                                                                          |
+| `services/agency-dashboard.service.ts`     | **exported** console-home numbers (listings, daily views, expiring / 실매물 확인 due)                                                                                                                                                           |
+| `domain/dashboard.ts`                      | pure helpers: KST days, views from daily snapshots, dashboard listing rows                                                                                                                                                                      |
+| `jobs/agencies.processor.ts`               | queue `agencies`: hourly `agencies.daily-stats` snapshot, daily `agencies.purge-rejected` (only when `JOBS_ENABLED`)                                                                                                                            |
 | `services/agency-retention.service.ts`     | 개인정보 파기: rejected (not resubmitted) applications 1 year after the latest rejection — agency row hard-deleted (staff, documents, history cascade), document uploads soft-deleted + files removed, audited `agency.purge-rejected` (SYSTEM) |
-| `agency-search.repository.ts`              | raw PostGIS / pg_trgm SQL (bound parameters only)                                      |
-| `clients/broker-registry.client.ts`        | registry lookup interface + data.go.kr implementation (`BROKER_REGISTRY` token)        |
-| `ports/agency-media.port.ts`               | media checks / URLs via MediaService (`AGENCY_MEDIA`, same-tx `assertUsable`)          |
-| `ports/agency-listings.reader.ts`          | listing counts + 대표 매물 until ListingsModule exposes a reader                       |
-| `ports/agency-listings.sync.ts`            | listing side effects: counters on suspend/reinstate, contacts of departed staff        |
+| `agency-search.repository.ts`              | raw PostGIS / pg_trgm SQL (bound parameters only)                                                                                                                                                                                               |
+| `clients/broker-registry.client.ts`        | registry lookup interface + data.go.kr implementation (`BROKER_REGISTRY` token)                                                                                                                                                                 |
+| `ports/agency-media.port.ts`               | media checks / URLs via MediaService (`AGENCY_MEDIA`, same-tx `assertUsable`)                                                                                                                                                                   |
+| `ports/agency-listings.reader.ts`          | listing counts + 대표 매물 until ListingsModule exposes a reader                                                                                                                                                                                |
+| `ports/agency-listings.sync.ts`            | listing side effects: counters on suspend/reinstate, contacts of departed staff                                                                                                                                                                 |
 
 Shared schemas, types, rules (status transitions, 등록번호/사업자번호 normalization), business-hours
 and disclosure helpers live in `packages/shared/src/agencies/`.
@@ -67,8 +67,7 @@ ACTIVE `ListingAgency` row (own or co-brokered) on a public 분양권 listing wh
 disclosable; the same rule fills `handlesPresale` on every row.
 
 **Cover image.** `PATCH /agencies/mine { coverMediaId }` (null removes it) attaches a PUBLIC upload
-of the owner with purpose `AGENCY_COVER` (`AGENCY_LOGO` uploads are accepted too — older consoles
-uploaded covers with it; both get the same public image variants), else `400 AGENCY_COVER_INVALID`.
+of the owner with purpose `AGENCY_COVER` (a logo upload is rejected), else `400 AGENCY_COVER_INVALID`.
 `MyAgency` carries `coverMediaId` + `coverUrl`, the public profile `coverUrl` (large variant; null
 when unset or the file was deleted). A replaced / removed cover (like the logo) restarts its orphan
 grace period; the DB guard `agencies_media_live` refuses a new reference to a deleted media row.

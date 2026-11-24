@@ -3,6 +3,7 @@ import { listingDetailSchema, type ListingDetail } from '../api/schemas';
 import { calcPreviews } from './calcPreview';
 import {
   addressLine,
+  areaLabel,
   buildBreadcrumb,
   buildDisclosure,
   disclosureLocation,
@@ -19,7 +20,6 @@ import {
   metaDescription,
   priceLabel,
   pricePerPyeong,
-  pyeongLabel,
   summaryMeta,
 } from './view';
 
@@ -177,7 +177,8 @@ describe('title and address', () => {
     expect(listingFullTitle(l)).toBe('신대 레이크파크 1단지 103동 매매 4억 4,500');
     expect(addressLine(l)).toBe('순천시 해룡면 신대리 · 1,412세대 · 2019년 6월 준공');
     expect(addressLine(l, true)).toBe('해룡면 신대리 · 1,412세대 · 2019년 준공');
-    expect(pyeongLabel(l)).toBe('34평');
+    // 계량법: the legal unit (㎡) of the 전용면적, 평 alongside.
+    expect(areaLabel(l)).toBe('전용 84.98㎡ (25.7평)');
     expect(listingNo(l)).toBe('26-0412');
     expect(listingNo({ id: 'abcdef12-3456', listingNo: null })).toBe('ABCDEF12');
   });
@@ -189,9 +190,9 @@ describe('title and address', () => {
     expect(floorText(make({}, { floor: 22 }))).toBe('고/25층');
   });
 
-  it('derives the 평 label from the area without a complex', () => {
-    const l = make({ complex: null }, { areaTypeId: null, supplyArea: 52.3 });
-    expect(pyeongLabel(l)).toBe('16평');
+  it('falls back to the labelled 공급면적 without a 전용면적', () => {
+    const l = make({ complex: null }, { areaTypeId: null, supplyArea: 52.3, exclusiveArea: null });
+    expect(areaLabel(l)).toBe('공급 52.3㎡ (15.8평)');
   });
 });
 
@@ -348,6 +349,7 @@ describe('navigation, SEO and misc', () => {
     const d = metaDescription(make());
     expect(d).toContain('순천시 해룡면 신대리');
     expect(d).toContain('아파트 매매 4억 4,500');
+    expect(d).toContain('전용 84.98㎡ (25.7평)');
     expect(d).toContain('실매물 확인 26.11.22');
     expect(d).toContain('중개사무소 2곳 공동중개');
     expect(d.length).toBeLessThanOrEqual(160);
@@ -372,10 +374,14 @@ describe('navigation, SEO and misc', () => {
         floorClass: 'MID',
         direction: 'SOUTH_EAST',
       }),
-    ).toEqual(['34평', '중/25층', '남동향']);
+    ).toEqual(['전용 85㎡(26평)', '중/25층', '남동향']);
     expect(summaryMeta({ exclusiveArea: 39.6, floor: 3, totalFloors: 4 })).toEqual([
-      '12평',
+      '전용 40㎡(12평)',
       '3/4층',
+    ]);
+    expect(summaryMeta({ supplyArea: 52.3, floor: 1, totalFloors: 2 })).toEqual([
+      '공급 52㎡(16평)',
+      '1/2층',
     ]);
   });
 

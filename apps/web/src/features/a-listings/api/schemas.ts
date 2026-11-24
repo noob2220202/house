@@ -11,6 +11,7 @@ import {
   MaintenanceFeeBillingType,
   MaintenanceFeeKind,
   MoveInType,
+  RoomType,
   VerificationMethod,
 } from '@house/shared';
 import { z } from 'zod';
@@ -116,11 +117,16 @@ export const agencyListingPropertySchema = z.object({
   landArea: decimal.nullish(),
   totalFloorArea: decimal.nullish(),
   rooms: z.number().nullish(),
+  /** 방 구성 as stated by the broker (null = derived from `rooms`). Unknown values read as null. */
+  roomType: z.enum(RoomType).nullish().catch(null),
   baths: z.number().nullish(),
   direction: z.enum(Direction).nullish(),
   directionBasis: z.enum(DirectionBasis).nullish(),
   approvalDate: z.string().nullish(),
   parkingSpaces: z.number().nullish(),
+  /** 용도지역 / 지목 as written (free text; the search groups are derived by the API). */
+  zoning: z.string().nullish(),
+  landCategory: z.string().nullish(),
   /** 건축물 용도 (건축물대장) — the 「중개대상물 종류」 of the ad; implied for 아파트·오피스텔. */
   buildingUse: z.enum(BuildingUse).nullish(),
 });
@@ -171,7 +177,7 @@ export const agencyListingSchema = z.preprocess(
   listingInput,
   z.object({
     id: z.string(),
-    /** Human-friendly number ("26-0412"). */
+    /** 매물번호: the sequential number as text ("100412"), set when the listing is created. */
     listingNo: z.string().nullish(),
     status: z.enum(ListingStatus),
     dealType: z.enum(DealType),

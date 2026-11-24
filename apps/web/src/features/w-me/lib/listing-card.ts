@@ -13,7 +13,7 @@ import {
   formatDealPrice,
   formatFloor,
   formatPriceRange,
-  formatPyeong,
+  formatAreaPair,
 } from '@/lib/format';
 import { ROOM_TYPE_LABEL, listingDisplayName } from '@/lib/api/schemas/listing';
 import type { FavoriteComplex, ListingSummary } from '../schemas';
@@ -54,7 +54,7 @@ export function listingPriceText(listing: ListingSummary): string {
   });
 }
 
-/** Short facts under the title: 아파트 → 평 · 층 · 향, 그 외 → 위치 · 층 · 준공년. */
+/** Short facts under the title: 아파트 → 면적 · 층 · 향, 그 외 → 위치 · 층 · 준공년. */
 export function listingMeta(listing: ListingSummary): string[] {
   const floor = formatFloor({
     floor: listing.floor,
@@ -62,13 +62,14 @@ export function listingMeta(listing: ListingSummary): string[] {
     floorClass: listing.floorClass ?? undefined,
   });
   const inComplex = COMPLEX_ASSET_TYPES.includes(listing.assetType) && !!listing.complexId;
-  const area = listing.supplyArea ?? listing.exclusiveArea;
+  // 전용면적 in ㎡ with 평 alongside (계량법); the 공급면적 only without a 전용.
+  const area = listing.exclusiveArea
+    ? `전용 ${formatAreaPair(listing.exclusiveArea)}`
+    : listing.supplyArea
+      ? `공급 ${formatAreaPair(listing.supplyArea)}`
+      : null;
   const parts: (string | null | undefined)[] = inComplex
-    ? [
-        area ? formatPyeong(area) : null,
-        floor,
-        listing.direction && DIRECTION_LABEL[listing.direction],
-      ]
+    ? [area, floor, listing.direction && DIRECTION_LABEL[listing.direction]]
     : [
         listing.locationNote ?? listing.emdName,
         floor,

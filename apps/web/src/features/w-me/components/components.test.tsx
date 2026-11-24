@@ -139,7 +139,7 @@ describe('<MeListingCard>', () => {
       '/listing/l1',
     );
     expect(screen.getByText('2억 5,200')).toBeInTheDocument();
-    expect(screen.getByText('24평')).toBeInTheDocument();
+    expect(screen.getByText('공급 79㎡(24평)')).toBeInTheDocument();
     expect(screen.getByText(/중개사 2곳/)).toBeInTheDocument();
     const heart = screen.getByRole('button', { name: '오천 그린빌 107동 관심 매물에서 빼기' });
     expect(heart).toHaveAttribute('aria-pressed', 'true');
@@ -175,7 +175,7 @@ describe('<ListingMiniRow>', () => {
     expect(link).toHaveAttribute('href', '/listing/l1');
     expect(link).toHaveTextContent('매매');
     expect(link).toHaveTextContent('2억 5,200');
-    expect(link).toHaveTextContent('24평 · 고/20층 · 남향');
+    expect(link).toHaveTextContent('공급 79㎡(24평) · 고/20층 · 남향');
     expect(link).toHaveTextContent('12분 전');
   });
 });

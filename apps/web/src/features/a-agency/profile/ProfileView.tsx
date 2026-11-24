@@ -1,6 +1,6 @@
 'use client';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AgencyMemberRole, AgencyStatus, MediaPurpose } from '@house/shared';
+import { AgencyMemberRole, AgencyStatus } from '@house/shared';
 import {
   Button,
   Callout,
@@ -38,7 +38,12 @@ import {
   normalizeBusinessHours,
   sameBusinessHours,
 } from '../lib/business-hours';
-import { buildProfilePatch, unpersistedProfileFields } from '../lib/profile';
+import {
+  buildProfilePatch,
+  PROFILE_IMAGE_PURPOSE,
+  type ProfileImageSlot,
+  unpersistedProfileFields,
+} from '../lib/profile';
 import { useUnsavedChangesGuard } from '../lib/useUnsavedChangesGuard';
 import { AGENT_ROUTES } from '../nav';
 import { ConsolePage, ConsolePageHeader } from '../shell';
@@ -78,7 +83,7 @@ interface ImageSlotState {
   error?: string;
 }
 
-type ImageSlot = 'logo' | 'cover';
+type ImageSlot = ProfileImageSlot;
 
 /**
  * Object URLs of freshly picked images, shown until the uploaded media has variants (processing is
@@ -151,8 +156,7 @@ function ProfileEditor({ agency }: { agency: MyAgency }) {
     }
     setSlots((s) => ({ ...s, [slot]: { uploading: true } }));
     try {
-      // The schema has no dedicated cover purpose yet → both use AGENCY_LOGO (see integration doc).
-      const media = await uploadMedia(file, MediaPurpose.AGENCY_LOGO);
+      const media = await uploadMedia(file, PROFILE_IMAGE_PURPOSE[slot]);
       setPreview(slot, file);
       if (slot === 'logo') setLogo(media);
       else setCover(media);

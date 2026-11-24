@@ -74,7 +74,10 @@ export interface AssetConfig {
   areaLabel: string;
   sorts: readonly SortTab[];
   defaultSort: ListingSort;
-  /** 평/㎡ toggle default — rooms are advertised in ㎡. */
+  /**
+   * 평/㎡ toggle default: ㎡ everywhere (계량법 법정단위; labels always carry 평 alongside, and 평 leads
+   * only when the visitor picks it).
+   */
   defaultUnit: 'pyeong' | 'sqm';
   searchPlaceholder: string;
   searchLabel: string;
@@ -114,7 +117,7 @@ export const ASSETS: Record<MapAssetSlug, AssetConfig> = {
     areaLabel: '면적',
     sorts: [SORT.verified, SORT.latest, SORT.price, SORT.area],
     defaultSort: ListingSort.VERIFIED,
-    defaultUnit: 'pyeong',
+    defaultUnit: 'sqm',
     searchPlaceholder: '지역 또는 단지명 (예: 신대지구, 오천 그린빌)',
     searchLabel: '지역 또는 단지명 검색',
     placeholder: 'tower',
@@ -168,7 +171,7 @@ export const ASSETS: Record<MapAssetSlug, AssetConfig> = {
     areaLabel: '전용면적',
     sorts: [SORT.verified, SORT.latest, SORT.price, SORT.area, SORT.built, SORT.photo],
     defaultSort: ListingSort.VERIFIED,
-    defaultUnit: 'pyeong',
+    defaultUnit: 'sqm',
     searchPlaceholder: '지역 또는 동네 이름 (예: 매곡동, 왕지동)',
     searchLabel: '지역 검색',
     placeholder: 'villa',
@@ -194,7 +197,7 @@ export const ASSETS: Record<MapAssetSlug, AssetConfig> = {
     areaLabel: '전용면적',
     sorts: [SORT.verified, SORT.latest, SORT.price, SORT.area, SORT.photo],
     defaultSort: ListingSort.VERIFIED,
-    defaultUnit: 'pyeong',
+    defaultUnit: 'sqm',
     searchPlaceholder: '동네 이름 (예: 연향동, 조례동)',
     searchLabel: '동네 이름 검색',
     placeholder: 'shop',
@@ -220,7 +223,7 @@ export const ASSETS: Record<MapAssetSlug, AssetConfig> = {
     areaLabel: '토지면적',
     sorts: [SORT.verified, SORT.latest, SORT.price, SORT.area],
     defaultSort: ListingSort.VERIFIED,
-    defaultUnit: 'pyeong',
+    defaultUnit: 'sqm',
     searchPlaceholder: '지역 이름 (예: 해룡면, 서면, 왕지동)',
     searchLabel: '지역 검색',
     placeholder: 'land',

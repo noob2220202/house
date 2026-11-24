@@ -1,6 +1,11 @@
 'use client';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { REPORT_REASON_LABEL, ReportReason, phoneSchema } from '@house/shared';
+import {
+  REPORT_CONTACT_RETENTION_DAYS,
+  REPORT_REASON_LABEL,
+  ReportReason,
+  phoneSchema,
+} from '@house/shared';
 import { Button, Callout, Input, Modal, Radio, Textarea, useToast } from '@house/ui';
 import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
@@ -156,6 +161,16 @@ export function ReportDialog({
           error={errors.reporterPhone?.message}
           {...register('reporterPhone')}
         />
+        {/* 개인정보보호법 제15조② notice: 항목 · 목적 · 보유기간 · 거부권 (what reports.service stores). */}
+        <p className={styles.privacyNote}>
+          신고할 때 접속 IP가 함께 기록되고, 연락처는 적은 경우에만 저장돼요. 연락처와 IP는 신고
+          확인 연락과 반복·허위 신고 확인에만 쓰고, 신고 처리가 끝나고{' '}
+          {REPORT_CONTACT_RETENTION_DAYS}일이 지나면 지워요. 연락처는 적지 않아도 신고에 영향이
+          없어요.{' '}
+          <Link className="link" href={ROUTES.terms('privacy')}>
+            개인정보처리방침
+          </Link>
+        </p>
         {failed && (
           <p role="alert" className={styles.formError}>
             {errorMessage(mutation.error)}

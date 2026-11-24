@@ -1,4 +1,4 @@
-import { normalizePhone } from '@house/shared';
+import { MediaPurpose, normalizePhone } from '@house/shared';
 import type { AgencyProfilePatch } from '../api/queries';
 import type { Media, MyAgency, ProfileFormValues } from '../api/schemas';
 import { sameBusinessHours, type BusinessHours } from './business-hours';
@@ -15,6 +15,17 @@ type SavedProfile = Pick<
   MyAgency,
   'intro' | 'phone' | 'mobile' | 'specialties' | 'businessHours' | 'logo' | 'cover'
 >;
+
+export type ProfileImageSlot = 'logo' | 'cover';
+
+/**
+ * Upload purpose per image slot. The API only attaches an AGENCY_LOGO upload as the logo and an
+ * AGENCY_COVER upload as the cover (else AGENCY_LOGO_INVALID / AGENCY_COVER_INVALID).
+ */
+export const PROFILE_IMAGE_PURPOSE = {
+  logo: MediaPurpose.AGENCY_LOGO,
+  cover: MediaPurpose.AGENCY_COVER,
+} as const satisfies Record<ProfileImageSlot, MediaPurpose>;
 
 const digits = (v: string | null | undefined) => normalizePhone(v ?? '');
 

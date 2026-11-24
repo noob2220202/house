@@ -260,7 +260,14 @@ function listingOffer(l: ListingJsonLdInput): JsonLdNode | undefined {
       ...deal,
       priceSpecification: [
         ...(has(l.priceWon)
-          ? [{ '@type': 'PriceSpecification', name: '보증금', price: l.priceWon, priceCurrency: 'KRW' }]
+          ? [
+              {
+                '@type': 'PriceSpecification',
+                name: '보증금',
+                price: l.priceWon,
+                priceCurrency: 'KRW',
+              },
+            ]
           : []),
         {
           '@type': 'UnitPriceSpecification',

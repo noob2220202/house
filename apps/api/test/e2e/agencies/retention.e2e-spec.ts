@@ -120,7 +120,9 @@ describe('agencies: retention purge of rejected applications (e2e, real DB)', ()
     // A year after the second rejection it is due.
     expect(await svc.purgeRejectedApplications(new Date(now.getTime() + 340 * DAY))).toBe(1);
     expect(await t.prisma.agency.findUnique({ where: { id: reRejected.agency.id } })).toBeNull();
-    expect(await t.prisma.agency.findUnique({ where: { id: resubmitted.agency.id } })).not.toBeNull();
+    expect(
+      await t.prisma.agency.findUnique({ where: { id: resubmitted.agency.id } }),
+    ).not.toBeNull();
   });
 
   it('never touches approved or suspended offices', async () => {

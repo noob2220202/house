@@ -1,6 +1,7 @@
-import { AssetType, DEAL_TYPE_LABEL, DIRECTION_LABEL, DealType, sqmToPyeong } from '@house/shared';
+import { AssetType, DEAL_TYPE_LABEL, DIRECTION_LABEL, DealType } from '@house/shared';
 import { dealKindOf, photoKindForAsset, type DealKind, type PhotoKind } from '@house/ui';
 import { ROUTES } from '@/config/nav';
+import { formatAreaPair } from '@/lib/format/area';
 import { formatDateShort } from '@/lib/format/date';
 import { formatFloor } from '@/lib/format/floor';
 import { formatDealPrice } from '@/lib/format/price';
@@ -29,7 +30,8 @@ export interface ListingCardModel {
   label: string;
 }
 
-const pyeong = (sqm: number) => `${Math.round(sqmToPyeong(sqm, 2))}평`;
+/** "85㎡(26평)": the legal unit first, 평 alongside (계량법). */
+const area = (sqm: number) => formatAreaPair(sqm);
 
 /** 분양권 headline = 분양가 + 프리미엄; everything else comes from `formatDealPrice`. */
 export function listingPriceText(l: ListingItem): string {
@@ -62,7 +64,10 @@ function floorText(l: ListingItem): string {
   });
 }
 
-/** Short facts under the title, per asset type (design: "34평 · 고/25층 · 남향", "투룸 · 3/4층 · 2019년 준공"). */
+/**
+ * Short facts under the title, per asset type ("전용 85㎡(26평) · 고/25층 · 남향", "투룸 · 3/4층 ·
+ * 2019년 준공"). Areas are the 전용면적 (토지: 대지면적) in ㎡ with 평 alongside.
+ */
 export function listingMeta(l: ListingItem): string[] {
   const out: (string | undefined | false)[] = [];
   const direction = l.direction ? DIRECTION_LABEL[l.direction] : undefined;
@@ -71,22 +76,26 @@ export function listingMeta(l: ListingItem): string[] {
       out.push(roomTypeOf(l), floorText(l), !!l.builtYear && `${l.builtYear}년 준공`);
       break;
     case AssetType.LAND:
-      out.push(!!l.landArea && pyeong(l.landArea), !!l.landArea && `${Math.round(l.landArea)}㎡`);
+      out.push(!!l.landArea && area(l.landArea));
       break;
     case AssetType.HOUSE:
       out.push(
-        !!l.exclusiveArea && pyeong(l.exclusiveArea),
+        !!l.exclusiveArea && `전용 ${area(l.exclusiveArea)}`,
         l.rooms ? `방 ${l.rooms}` : undefined,
         direction,
       );
       break;
     case AssetType.COMMERCIAL:
-      out.push(!!l.exclusiveArea && `전용 ${pyeong(l.exclusiveArea)}`, floorText(l), direction);
+      out.push(!!l.exclusiveArea && `전용 ${area(l.exclusiveArea)}`, floorText(l), direction);
       break;
     default: {
-      // 아파트·오피스텔: 평형 is the 공급면적 평 ("34평").
-      const area = l.supplyArea ?? l.exclusiveArea;
-      out.push(!!area && pyeong(area), floorText(l), direction);
+      // 아파트·오피스텔: the 전용면적 (the 명시사항 figure); the 공급면적 only without it.
+      const size = l.exclusiveArea
+        ? `전용 ${area(l.exclusiveArea)}`
+        : l.supplyArea
+          ? `공급 ${area(l.supplyArea)}`
+          : undefined;
+      out.push(size, floorText(l), direction);
     }
   }
   return out.filter((v): v is string => typeof v === 'string' && v !== '');

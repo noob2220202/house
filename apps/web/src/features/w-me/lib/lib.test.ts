@@ -87,12 +87,12 @@ describe('listing card mapping', () => {
     expect(toListingCardModel(listing({ salePrice: 1, premium: 100 })).premium).toBeUndefined();
   });
 
-  it('builds 평 · 층 · 향 for complex listings and 위치 · 층 · 준공년 for the rest', () => {
+  it('builds 면적 · 층 · 향 for complex listings and 위치 · 층 · 준공년 for the rest', () => {
     expect(
       listingMeta(
         listing({ supplyArea: 112.4, floorClass: 'HIGH', totalFloors: 25, direction: 'SOUTH' }),
       ),
-    ).toEqual(['34평', '고/25층', '남향']);
+    ).toEqual(['공급 112㎡(34평)', '고/25층', '남향']);
     expect(
       listingMeta(
         listing({
@@ -147,7 +147,7 @@ describe('listing card mapping', () => {
       listingOneLiner(
         listing({ salePrice: 44500, supplyArea: 112.4, floorClass: 'HIGH', totalFloors: 25 }),
       ),
-    ).toBe('매매 4억 4,500 · 34평 · 고/25층');
+    ).toBe('매매 4억 4,500 · 공급 112㎡(34평) · 고/25층');
   });
 });
 

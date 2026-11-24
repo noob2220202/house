@@ -1,5 +1,5 @@
 import { DealType } from '@house/shared';
-import type { AreaUnit } from '@/lib/format';
+import { formatAreaPair, type AreaUnit } from '@/lib/format';
 import type { LatLng, MapBounds, MapMarker } from '@/lib/map';
 import type { MapComplexMarker, MapListingMarker, MapSearchResponse } from '../api/schemas';
 import {
@@ -40,12 +40,9 @@ function complexMarker(m: MapComplexMarker, o: MarkerOptions): MapMarker {
   const rep = m.representative;
   const trade = o.tradeLayer ? m.latestTrade : null;
   const pyeong = trade?.pyeongLabel ?? rep?.pyeongLabel;
-  const areaLabel =
-    o.unit === 'sqm' && !trade && rep?.supplyArea
-      ? `${Math.round(rep.supplyArea)}㎡`
-      : pyeong
-        ? `${pyeong}평`
-        : undefined;
+  // ㎡ with 평 alongside (계량법); a 실거래 carries only its 평형 name, so it keeps that label.
+  const supply = !trade ? rep?.supplyArea : null;
+  const areaLabel = supply ? formatAreaPair(supply, o.unit) : pyeong ? `${pyeong}평` : undefined;
   const price = trade?.price ?? rep?.price;
   const priceLabel = price === null || price === undefined ? undefined : formatMarkerPrice(price);
   const dealNote = trade ? '실거래' : rep ? DEAL_NOTE[rep.dealType] : undefined;

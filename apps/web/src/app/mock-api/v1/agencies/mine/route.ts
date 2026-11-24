@@ -1,4 +1,4 @@
-import { agencyUpdateSchema } from '@house/shared';
+import { agencyUpdateSchema, ERROR_MESSAGES, ErrorCode, MediaPurpose } from '@house/shared';
 import type { NextRequest } from 'next/server';
 import type { Media } from '@/features/a-agency/api/schemas';
 import { mockDelay, mockError, mockForbidden, mockJson } from '@/lib/mock';
@@ -27,6 +27,11 @@ export async function GET(req: NextRequest) {
  * `businessHours`, `logoMediaId` (AGENCY_LOGO) and `coverMediaId` (AGENCY_COVER) are all part of it.
  */
 const patchSchema = agencyUpdateSchema;
+
+const IMAGE_PURPOSE = {
+  logo: { purpose: MediaPurpose.AGENCY_LOGO, code: ErrorCode.AGENCY_LOGO_INVALID },
+  cover: { purpose: MediaPurpose.AGENCY_COVER, code: ErrorCode.AGENCY_COVER_INVALID },
+} as const;
 
 // PATCH /api/v1/agencies/mine — AGENCY_OWNER only.
 export async function PATCH(req: NextRequest) {
@@ -57,6 +62,11 @@ export async function PATCH(req: NextRequest) {
       return mockError(400, 'VALIDATION_FAILED', '업로드한 이미지를 찾을 수 없습니다.', [
         { path: `${key}MediaId`, message: '업로드한 이미지를 찾을 수 없습니다.' },
       ]);
+    }
+    // Like the API: the logo must be an AGENCY_LOGO upload, the cover an AGENCY_COVER upload.
+    if (media.purpose !== IMAGE_PURPOSE[key].purpose) {
+      const { code } = IMAGE_PURPOSE[key];
+      return mockError(400, code, ERROR_MESSAGES[code]);
     }
     next[key] = media as Media;
   }

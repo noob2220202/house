@@ -19,6 +19,16 @@ export function formatArea(sqm: number, unit: AreaUnit): string {
   return unit === 'pyeong' ? formatPyeong(sqm) : formatSqm(sqm);
 }
 
+/**
+ * Compact label for cards and map markers, always in the legal unit (계량법: ㎡) with 평 alongside:
+ * "85㎡(26평)". With the 평 toggle the visitor chose, 평 leads: "26평(85㎡)".
+ */
+export function formatAreaPair(sqm: number, unit: AreaUnit = 'sqm'): string {
+  const m = `${Math.round(sqm).toLocaleString('ko-KR')}㎡`;
+  const p = `${Math.round(sqmToPyeong(sqm, 2)).toLocaleString('ko-KR')}평`;
+  return unit === 'pyeong' ? `${p}(${m})` : `${m}(${p})`;
+}
+
 /** Both units: "84.98㎡ (25.7평)". */
 export function formatAreaBoth(sqm: number): string {
   return `${formatSqm(sqm)} (${sqmToPyeong(sqm, 1)}평)`;

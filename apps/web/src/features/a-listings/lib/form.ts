@@ -12,6 +12,7 @@ import {
   type Direction,
   type DirectionBasis,
   type ListingOption,
+  type RoomType,
 } from '@house/shared';
 import { parsePriceInput } from '@/lib/format';
 import type { AgencyListing, MaintenanceFeeView } from '../api/schemas';
@@ -91,11 +92,17 @@ export interface ListingFormValues {
   supplyArea: string;
   landArea: string;
   rooms: string;
+  /** 방 구성 (원룸·투룸 only); '' = derive from the room count (1.5룸 must be stated). */
+  roomType: RoomType | '';
   baths: string;
   direction: Direction | '';
   directionBasis: DirectionBasis | '';
   approvalDate: string;
   parkingSpaces: string;
+  /** 용도지역 (토지이용계획확인서, free text: "계획관리지역"); land only. */
+  zoning: string;
+  /** 지목 (토지대장, free text: "대", "임야"); land only. */
+  landCategory: string;
   title: string;
   description: string;
   options: ListingOption[];
@@ -136,11 +143,14 @@ export const FORM_DEFAULTS: ListingFormValues = {
   supplyArea: '',
   landArea: '',
   rooms: '',
+  roomType: '',
   baths: '',
   direction: '',
   directionBasis: '',
   approvalDate: '',
   parkingSpaces: '',
+  zoning: '',
+  landCategory: '',
   title: '',
   description: '',
   options: [],
@@ -181,11 +191,14 @@ export const FIELD_STEP: Record<FormField, number> = {
   supplyArea: 2,
   landArea: 2,
   rooms: 2,
+  roomType: 2,
   baths: 2,
   direction: 2,
   directionBasis: 2,
   approvalDate: 2,
   parkingSpaces: 2,
+  zoning: 2,
+  landCategory: 2,
   title: 4,
   description: 4,
   options: 4,
@@ -196,6 +209,8 @@ export const FIELD_STEP: Record<FormField, number> = {
 export const isComplexAsset = (t: AssetType | '' | undefined): boolean =>
   !!t && COMPLEX_ASSET_TYPES.includes(t);
 export const isLand = (t: AssetType | '' | undefined): boolean => t === AssetType.LAND;
+/** 방 구성 (원룸·1.5룸·투룸…) is asked for 원룸·투룸 listings — the map's 방 종류 filter reads it. */
+export const hasRoomType = (t: AssetType | '' | undefined): boolean => t === AssetType.ONEROOM;
 /** 주거용 (방·욕실 wording; 상업·업무 asks for 방(룸)·화장실). */
 export const isResidential = (t: AssetType | '' | undefined): boolean =>
   t === AssetType.APT ||
@@ -331,11 +346,17 @@ export interface DraftPayload {
     supplyArea?: number;
     landArea?: number;
     rooms?: number;
+    /** 방 구성 as stated (원룸·투룸 only); omitted = derived from `rooms` by the API. */
+    roomType?: RoomType;
     baths?: number;
     direction?: Direction;
     directionBasis?: DirectionBasis;
     approvalDate?: string;
     parkingSpaces?: number;
+    /** 용도지역 (free text, ≤ 50) — land only. */
+    zoning?: string;
+    /** 지목 (free text, ≤ 20) — land only. */
+    landCategory?: string;
   };
 }
 
@@ -346,6 +367,15 @@ export interface FieldIssue {
 }
 
 const text = (s: string) => (s.trim() === '' ? undefined : s.trim());
+
+/** Lengths of the shared property schema (`zoning` text(50), `landCategory` text(20)). */
+export const ZONING_MAX = 50;
+export const LAND_CATEGORY_MAX = 20;
+/** Trimmed text: '' → undefined, longer than `max` → null (invalid). */
+const maxText = (s: string, max: number) => {
+  const t = text(s);
+  return t !== undefined && t.length > max ? null : t;
+};
 
 /** "103" → "103동", "1502" → "1502호" (the public page prints the stored text as is). */
 export function withUnit(input: string, unit: '동' | '호'): string | undefined {
@@ -432,6 +462,7 @@ export function toDraftPayload(v: ListingFormValues): {
     }
     // 방·욕실 수는 건축물 전부의 명시사항 (상업·업무는 0도 가능).
     property.rooms = take('rooms', parseCount(v.rooms), '방 수를 숫자로 입력해 주세요.');
+    if (hasRoomType(asset)) property.roomType = v.roomType || undefined;
     property.baths = take('baths', parseCount(v.baths), '욕실 수를 숫자로 입력해 주세요.');
     property.direction = v.direction || undefined;
     property.directionBasis = v.directionBasis || undefined;
@@ -443,6 +474,18 @@ export function toDraftPayload(v: ListingFormValues): {
       'parkingSpaces',
       parseCount(v.parkingSpaces),
       '주차대수를 숫자로 입력해 주세요.',
+    );
+  }
+  if (land) {
+    property.zoning = take(
+      'zoning',
+      maxText(v.zoning, ZONING_MAX),
+      `용도지역은 ${ZONING_MAX}자까지 적을 수 있어요.`,
+    );
+    property.landCategory = take(
+      'landCategory',
+      maxText(v.landCategory, LAND_CATEGORY_MAX),
+      `지목은 ${LAND_CATEGORY_MAX}자까지 적을 수 있어요.`,
     );
   }
   if (hasLandArea(asset)) {
@@ -569,7 +612,7 @@ const NULLABLE_LISTING_KEYS: readonly (keyof NullableListingFields)[] = [
   'moveInType',
   'moveInDate',
 ];
-/** Property fields the wizard edits (others — 연면적, 용도지역 … — are left untouched). */
+/** Property fields the wizard edits (others — 연면적, 난방 … — are left untouched). */
 const NULLABLE_PROPERTY_KEYS: readonly (keyof DraftPayload['property'])[] = [
   'complexId',
   'areaTypeId',
@@ -585,12 +628,18 @@ const NULLABLE_PROPERTY_KEYS: readonly (keyof DraftPayload['property'])[] = [
   'supplyArea',
   'landArea',
   'rooms',
+  'roomType',
   'baths',
   'direction',
   'directionBasis',
   'approvalDate',
   'parkingSpaces',
 ];
+/**
+ * 용도지역·지목 are edited only for 토지: a land listing clears them when left empty; for any other
+ * type they are left as stored (the wizard does not show them there).
+ */
+const LAND_PROPERTY_KEYS: readonly (keyof DraftPayload['property'])[] = ['zoning', 'landCategory'];
 
 /**
  * `listingUpdateSchema` treats an omitted field as unchanged, so a value the broker deleted must
@@ -602,6 +651,9 @@ export function toUpdatePayload(draft: DraftPayload, version?: number | null): U
   for (const key of NULLABLE_LISTING_KEYS) if (listing[key] === undefined) listing[key] = null;
   const property = out.property as Record<string, unknown>;
   for (const key of NULLABLE_PROPERTY_KEYS) if (property[key] === undefined) property[key] = null;
+  if (isLand(draft.property.assetType)) {
+    for (const key of LAND_PROPERTY_KEYS) if (property[key] === undefined) property[key] = null;
+  }
   if (typeof version === 'number') out.version = version;
   return out;
 }
@@ -735,11 +787,14 @@ export function fromListing(l: AgencyListing): ListingFormValues {
     supplyArea: str(p.supplyArea),
     landArea: str(p.landArea),
     rooms: str(p.rooms),
+    roomType: p.roomType ?? '',
     baths: str(p.baths),
     direction: p.direction ?? '',
     directionBasis: p.directionBasis ?? '',
     approvalDate: p.approvalDate?.slice(0, 10) ?? '',
     parkingSpaces: str(p.parkingSpaces),
+    zoning: p.zoning ?? '',
+    landCategory: p.landCategory ?? '',
     title: l.title ?? '',
     description: l.description ?? '',
     options: l.options,
@@ -797,11 +852,14 @@ export function draftOfListing(l: AgencyListing): DraftPayload {
       supplyArea: opt(p.supplyArea),
       landArea: opt(p.landArea),
       rooms: opt(p.rooms),
+      roomType: opt(p.roomType),
       baths: opt(p.baths),
       direction: opt(p.direction),
       directionBasis: opt(p.directionBasis),
       approvalDate: opt(p.approvalDate),
       parkingSpaces: opt(p.parkingSpaces),
+      zoning: opt(p.zoning),
+      landCategory: opt(p.landCategory),
     },
   };
 }

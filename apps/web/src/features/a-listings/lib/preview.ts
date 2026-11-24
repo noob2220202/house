@@ -58,7 +58,7 @@ export function buildPreviewDetail(draft: DraftPayload, ctx: PreviewContext): Li
 
   return {
     id: ctx.listing?.id ?? 'preview',
-    listingNo: ctx.listing?.listingNo ?? '게시 후 부여',
+    listingNo: ctx.listing?.listingNo ?? '저장 후 부여',
     // The public page never shows a draft — preview it the way it will look once live.
     status: status === ListingStatus.RESERVED ? ListingStatus.RESERVED : ListingStatus.ACTIVE,
     dealType: draft.dealType,

@@ -5,7 +5,11 @@ import { AuditService } from '../../../common/audit/audit.service';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
 import { REJECTED_APPLICATION_RETENTION_YEARS, RETENTION_PURGE_BATCH_SIZE } from '../constants';
 import { lockAgency, lockUserMembership } from '../domain/locks';
-import { AGENCY_MEDIA, type AgencyMediaPort, type DiscardedMedia } from '../ports/agency-media.port';
+import {
+  AGENCY_MEDIA,
+  type AgencyMediaPort,
+  type DiscardedMedia,
+} from '../ports/agency-media.port';
 
 /** Start of the retention period that has ended: `now` minus the period, in calendar years. */
 export function rejectedRetentionCutoff(now: Date): Date {

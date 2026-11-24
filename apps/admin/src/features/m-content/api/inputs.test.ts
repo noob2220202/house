@@ -115,6 +115,14 @@ describe('site settings forms', () => {
 
   it('accepts a complete 사업자 정보', () => {
     expect(businessInfoFormSchema.safeParse(business).success).toBe(true);
+    // 호스팅서비스 제공자 (전자상거래법 시행령 제7조): optional, at most 100 characters.
+    expect(
+      businessInfoFormSchema.safeParse({ ...business, hostingProvider: '예시클라우드(주)' })
+        .success,
+    ).toBe(true);
+    expect(
+      messages(businessInfoFormSchema.safeParse({ ...business, hostingProvider: 'x'.repeat(101) })),
+    ).toEqual({ hostingProvider: '100자까지 입력할 수 있어요.' });
   });
 
   it('explains what is wrong field by field', () => {
