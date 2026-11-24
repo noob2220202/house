@@ -1,0 +1,70 @@
+{
+  "key": "region-code",
+  "score": 75,
+  "summary": "B1은 사실이다. 2026-07-01 '전남광주통합특별시 설치를 위한 특별법'으로 전라남도·광주광역시가 폐지되고 통합특별시(시도코드 12)가 출범했다. 행안부 공지에 따르면 법정동·행정동 코드는 폐지 후 신설되었고, 순천시는 46150에서 12150으로 바뀌었다(Kakao 실응답과 공공데이터포털 StanReginCd 2026-09 스냅샷이 일치). 읍면동 하위 5자리는 그대로 유지되는 것으로 보인다(왕지동 46150132→1215013200, 신대리 4615031022→1215031022). 공식 확인은 아니지만 두 개발자의 독립 실측에서 국토부 실거래가 API는 옛 코드(29xxx/46xxx)로 조회하면 과거 달까지 모두 0건이었고, 새 코드로는 통합 이전 달까지 재분류된 데이터가 나왔다. 따라서 현재 백엔드(46150)의 실거래 동기화는 결과가 조용히 비게 된다. 브이월드 getEBOfficeInfo의 ldCode 처리 방식은 공지와 실측 모두 찾지 못했다. 권고: 저장·조회 코드는 12150 하나로 통일한다(REGION_SGG_CODE, DEFAULT_SGG_CODE, 시도 12 '전남광주통합특별시', 읍면동 시드는 접두어 46150→12150 치환 후 행안부 jscode20260701로 대조). 46150→12150, 46→12 레거시 별칭은 packages/shared의 canonicalRegionCode() 하나에만 두고 입력 경계(옛 URL·옛 주소·외부 응답)에서 정규화하며 DB에는 저장하지 않는다. 실거래가는 계약월과 상관없이 LAWD_CD=12150으로만 조회하고, 0건이면 46150으로 한 번 재시도하는 안전장치를 둔 뒤 2026-07 이후 46150으로 동기화한 달은 다시 백필한다. 브이월드는 12150으로 먼저 조회하고, 결과가 없으면 46150으로 재시도한다.",
+  "pagesChecked": [
+    "/home/user/house-fe/docs/frontend-integration/INDEX.md (B1)",
+    "/home/user/house-fe/docs/frontend-integration/w-deal.md (Region codes)",
+    "/home/user/house/apps/api (src, prisma/seed, test, .env.example)",
+    "/home/user/house/packages/shared/src",
+    "/home/user/house/docs (ARCHITECTURE.md, DEPLOY.md)",
+    "/home/user/house/deploy (해당 코드 없음)",
+    "web: mois.go.kr 공지 nttId=127039, code.go.kr 코드변경안내 1256, data.go.kr 15126469/15063424, 남도일보·뉴시스·파이낸셜뉴스, GitHub 실측 PR 4건"
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "area": "region-code / shared constants",
+      "title": "서비스 지역 코드 46150은 2026-07-01부로 폐지된 코드",
+      "detail": "2026-07-01 전남광주통합특별시가 출범하면서 시도 46·29가 폐지되고 12가 신설되었다. 순천시는 12150이다. 그런데 백엔드 기본값과 공용 상수는 아직 46150과 '전라남도 순천시'를 쓴다. Kakao 우편번호 응답(sigunguCode 12150, bcode 1215…)과도 맞지 않아 주소→지역 검증, 매물 지역 가드, 구하기 지역, 광고 타게팅이 모두 어긋난다.",
+      "evidence": "apps/api/src/config/env.schema.ts:90-94 (default '46150'); apps/api/.env.example:76; apps/api/test/env/common.env:21; packages/shared/src/constants/region.ts:5,7; apps/api/src/modules/complexes/regions/suncheon-regions.data.ts:8-14 (SUNCHEON_SGG_CODE, SIDO {46,'전라남도'}); apps/api/prisma/seed/base.ts:26-27. 출처: https://www.mois.go.kr/frt/bbs/type001/commonSelectBoardArticle.do?bbsId=BBSMSTR_000000000052&nttId=127039 (2026.7.1 시행, 법정동(리) 코드 (폐지) 전라남도·광주광역시 (신설) 전남광주통합특별시, 첨부 jscode20260701.zip 및 별첨1 변경 상세내역 xlsx); https://www.code.go.kr/bbsmng/dataBbsL.do (공지 1256 '2026.7.1 전남광주통합특별시 법정동 변경안내'); https://github.com/sokldjs554/procurement-forecast/pull/34 (StanReginCd 2026-09-27 스냅샷: 순천 46150→12150, 광양 46230→12190, 광주 동구 29110→12210, 시도 12); https://www.namdonews.com/news/articleView.html?idxno=908900 (코드 배열 '시·구·군' 확정); https://www.newsis.com/view/NISX20260301_0003531085",
+      "fixHint": "REGION_SGG_CODE 기본값을 12150으로 바꾼다. DEFAULT_SGG_CODE='12150', DEFAULT_REGION_NAME='전남광주통합특별시 순천시', 시도는 {code:'12', name:'전남광주통합특별시'}로 고친다. packages/shared에 LEGACY_REGION_ALIASES {46150→12150, 46→12}와 canonicalRegionCode()를 두어 입력 경계에서만 정규화하고, DB와 API에는 12150만 쓴다.",
+      "owner": "backend"
+    },
+    {
+      "severity": "high",
+      "area": "trade-sync (국토부 실거래가)",
+      "title": "LAWD_CD=46150 조회는 모든 계약월에서 0건일 가능성이 높고, 응답 sggCd가 12150이면 법정동 매칭도 깨진다",
+      "detail": "두 개발자의 독립 실측(2026-10)에 따르면 옛 코드(29xxx/46xxx)는 개편 이전 달을 포함해 어느 달이든 0건이었다. 새 코드(12xxx)로는 202509 같은 개편 이전 달까지 재분류된 데이터가 나왔다. 백엔드는 REGION_SGG_CODE(46150)로 조회하므로 동기화가 에러 없이 빈 결과를 낸다. 또 normalizer는 응답의 sggCd를 우선 사용해 emdCode를 만든다. 응답 sggCd가 12150이면 12150xxx가 만들어져 4615… 지역 테이블과 맞지 않는다. data.go.kr API 페이지의 LAWD_CD 설명은 'code.go.kr 법정동코드 앞 5자리'뿐이고 별도 공지는 없다(수정일 2026-07-22). 이 동작은 공식 문서로 확인한 것이 아니라 실측이다.",
+      "evidence": "apps/api/src/modules/complexes/trade-sync/trade-sync.service.ts:121,157,183; trade-sync.jobs.ts:52,60; trade-normalizer.ts:144-146 (sggCode = 응답 sggCd ?? requested). 출처: https://github.com/skylove-96/skylove-96.github.io/pull/21 (2026-10-26 실측: 옛 29xxx는 202609~202509 모두 0건, 새 12xxx는 202606 1,957건·202509 2,177건, '개편 이전 달까지 새 코드로 재분류'); https://github.com/Sejin-Koo/agent-relay-mcp/pull/76 ('옛 코드(29·46…)는 과거 달도 0건'); https://github.com/Sejin-Koo/market-macro-mcp/pull/1 ('lawd_cd 29170, 2024-05 → 12300으로 바꿔 499건'); https://www.data.go.kr/data/15126469/openapi.do",
+      "fixHint": "계약월과 상관없이 LAWD_CD=12150으로만 조회한다. 응답 sggCd/umdCd는 canonicalRegionCode()로 정규화한다. 0건이면 46150으로 한 번 재시도하고 경고 로그를 남긴다. 운영 첫 배포 때 12150으로 백필을 돌리고, 2026-07 이후 46150으로 0건 동기화된 run이 있으면 다시 실행한다. 출시 전에 실제 키로 12150/46150 × 202605/202610을 한 번씩 확인한다.",
+      "owner": "backend"
+    },
+    {
+      "severity": "high",
+      "area": "regions seed",
+      "title": "REGION_SGG_CODE만 12150으로 바꾸면 읍면동 시드가 통째로 빠진다 (DEPLOY.md의 '여기만 수정' 안내가 틀림)",
+      "detail": "seedRegions는 sggCode가 DEFAULT_SGG_CODE(46150)와 다르면 시도·시군구 2건만 넣고 반환한다. 읍면동·리 목록(SUNCHEON_REGIONS)은 46150… 코드에 고정되어 있다. 그래서 환경변수만 바꾸면 지역 테이블이 비고, 구하기 지역·지도·매물 지역 가드가 동작하지 않는다.",
+      "evidence": "apps/api/prisma/seed/base.ts:44-46; apps/api/prisma/seed.ts:32-45; apps/api/src/modules/complexes/regions/suncheon-regions.data.ts (212곳, 예: 50행 ['46150132','왕지동'], 69행 ['4615031022','신대리']); docs/DEPLOY.md:256",
+      "fixHint": "suncheon-regions.data.ts의 접두어를 46150에서 12150으로 바꾼다(Kakao bcode 기준으로 하위 자리는 유지됨: 왕지동 1215013200, 신대리 1215031022). 바꾼 뒤 행안부 jscode20260701 KiKcd_B로 전 건을 대조한다. fullName 접두어도 '전남광주통합특별시 순천시'로 바꾸고 DEPLOY.md 문구를 고친다.",
+      "owner": "backend"
+    },
+    {
+      "severity": "medium",
+      "area": "agencies / 브이월드",
+      "title": "브이월드 getEBOfficeInfo의 ldCode가 신·구 코드 중 무엇을 받는지 확인되지 않음",
+      "detail": "브이월드 공지나 실측 자료를 찾지 못했다(행안부·국토부 원천 데이터는 12xxx로 갱신됨). 현재 코드는 매물 emdCode의 앞 5자리나 REGION_SGG_CODE를 그대로 ldCode로 보낸다. 코드가 맞지 않으면 등록번호 대조가 '불일치'로 나와 정상 중개사무소가 반려될 수 있다. 기존 등록번호(예: 46150-2020-00012)는 발급 당시의 식별자이므로 고치면 안 되고, 7월 이후 신규 번호는 12150-…일 가능성이 있다. 접두어 검증 로직은 없어서 문제는 없다.",
+      "evidence": "apps/api/src/modules/agencies/clients/broker-registry.client.ts:30,115; agency-registration.service.ts:409-411; agency-review.service.ts:585-586; packages/shared/src/agencies/rules.ts:62-75. 관련 갱신: https://www.data.go.kr/data/15063424/fileData.do ('전남광주통합특별시 출범에 따라 데이터 갱신 및 현행화', 수정일 2026-07-29)",
+      "fixHint": "ldCode는 12150으로 먼저 조회한다. 결과가 없으면 레거시 별칭 46150으로 한 번 재시도하고 어느 쪽이 맞았는지 로그로 남긴다. 실제 키로 한 번 확인한 뒤 재시도를 유지할지 결정한다.",
+      "owner": "backend"
+    },
+    {
+      "severity": "medium",
+      "area": "frontend / 저장 데이터",
+      "title": "프론트의 이중 코드 허용과 4615… 정적 목록은 임시방편이라 정규화 기준이 필요함",
+      "detail": "웹은 NEXT_PUBLIC_REGION_SGG_CODES(기본값 46150,12150)로 두 코드를 모두 허용하고, Kakao bcode(1215…)를 그대로 전송한다. 백엔드가 46150이면 구하기 지역, reach 조회, 매물 emdCode가 거부된다(agency-listings.service.ts:588, regions.service.ts:117 startsWith 가드). 정적 fallback 목록과 목업은 4615… 코드다. 주소 문자열 '전라남도 순천시 …'(데모 시드)도 새 명칭과 섞인다.",
+      "evidence": "/home/user/house-fe/docs/frontend-integration/w-deal.md:116-136; /home/user/house-fe/docs/frontend-integration/INDEX.md:44; /home/user/house-fe/apps/web/src/features/w-deal/lib/service-area.ts; /home/user/house-fe/apps/web/src/features/w-deal/lib/regions.ts (15곳); apps/api/src/modules/listings/services/agency-listings.service.ts:585-600; apps/api/src/modules/complexes/services/regions.service.ts:76,105,117; apps/api/prisma/seed/demo.ts:134,490,574-575",
+      "fixHint": "백엔드 코드를 12150으로 통일한 뒤 프론트 기본값은 '12150' 하나로 둔다. 46150 입력은 공용 canonicalRegionCode()로 12150으로 바꿔 전송한다. 정적 fallback 목록은 GET /regions로 대체하거나 12150 기준으로 다시 생성한다. 운영 DB에 4615… 값이 이미 있으면 regions, agency 서비스 지역, banners.regionCodes, deal_requests regionCodes, listings emdCode, complexes sgg/emd에 접두어 치환 마이그레이션을 1회 실행한다.",
+      "owner": "both"
+    },
+    {
+      "severity": "low",
+      "area": "docs / tests",
+      "title": "문서·주석·테스트 픽스처에 46150이 넓게 퍼져 있음",
+      "detail": "주석·README·문서와 약 40개 spec/e2e/fixture 파일이 46150을 쓴다. 기능에는 영향이 없지만 코드를 바꿀 때 함께 갱신하지 않으면 테스트가 실패하거나 혼동을 준다. 등록번호 예시 '46150-2020-00012'는 과거 형식이므로 그대로 둬도 된다. deploy/에는 해당 코드가 없다.",
+      "evidence": "docs/ARCHITECTURE.md:114; docs/DEPLOY.md:256; apps/api/src/modules/{complexes,deal-requests,listings,agencies}/README.md; packages/shared/src/deal-requests/rules.ts:243, schemas/complexes.ts:80,218; apps/api/src/modules/ads/domain/targeting.ts:5; apps/api/test/e2e/complexes/*.e2e-spec.ts, fixtures/apt-*-202410*.xml, test/e2e/*/helpers.ts, test/utils/factories.ts; packages/shared/src/*/*.spec.ts; apps/api/prisma/seed/demo-data.ts(26곳), demo.ts:1193",
+      "fixHint": "테스트는 DEFAULT_SGG_CODE 상수를 참조하게 바꾸고, 픽스처 XML의 sggCd는 12150으로 바꾼다. 레거시 별칭을 확인하는 테스트(46150 입력 → 12150)를 1개 추가한다.",
+      "owner": "backend"
+    }
+  ]
+}

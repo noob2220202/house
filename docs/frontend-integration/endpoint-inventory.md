@@ -1,0 +1,215 @@
+| App | Method | Path | Status | Note | Backend |
+|---|---|---|---|---|---|
+| web | GET | /api/v1/agencies/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/agencies/controllers/agencies.controller.ts:25] |
+| web | POST | /api/v1/agencies/join | DIFFERS | BE returns MyAgencyMembership; no consents field (B8) | [modules/agencies/controllers/my-agency.controller.ts:163] |
+| web | GET | /api/v1/agencies/mine/dashboard | MISSING |  | - |
+| web | POST | /api/v1/agencies/mine/documents | MATCHES | path+method match (shape not verified field-by-field) | [modules/agencies/controllers/my-agency.controller.ts:85] |
+| web | DELETE | /api/v1/agencies/mine/members/{memberId} | MATCHES | path+method match (shape not verified field-by-field) | [modules/agencies/controllers/my-agency.controller.ts:124] |
+| web | GET | /api/v1/agencies/mine/members | DIFFERS | BE Paginated<AgencyMemberView>, no INVITED rows (invites are /agencies/mine/invites) | [modules/agencies/controllers/my-agency.controller.ts:105] |
+| web | POST | /api/v1/agencies/mine/members | MISSING | BE POST /agencies/mine/invites (B3, FE switch) | - |
+| web | POST | /api/v1/agencies/mine/resubmit | DIFFERS | no consents (B8) | [modules/agencies/controllers/my-agency.controller.ts:73] |
+| web | GET | /api/v1/agencies/mine | DIFFERS-BREAKING | BE: owner only, 404 for staff (AGENT) -> console treats staff as no agency; staff need GET /agencies/membership (B2) | [modules/agencies/controllers/my-agency.controller.ts:62] |
+| web | PATCH | /api/v1/agencies/mine | MATCHES | path+method match (shape not verified field-by-field) | [modules/agencies/controllers/my-agency.controller.ts:67] |
+| web | GET | /api/v1/agencies/regions | MISSING | BE has GET /agencies/map (clusters) - FE could use it | - |
+| web | GET | /api/v1/agencies | MATCHES | path+method match (shape not verified field-by-field) | [modules/agencies/controllers/agencies.controller.ts:15] |
+| web | POST | /api/v1/agencies | DIFFERS | no consents (B8); stripped | [modules/agencies/controllers/my-agency.controller.ts:56] |
+| web | GET | /api/v1/agency/deal-requests/{id}/listing-candidates | MISSING |  | - |
+| web | POST | /api/v1/agency/deal-requests/{id}/proposals | MATCHES | path+method match (shape not verified field-by-field) | [modules/deal-requests/controllers/agency-deal-requests.controller.ts:48] |
+| web | GET | /api/v1/agency/deal-requests/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/deal-requests/controllers/agency-deal-requests.controller.ts:43] |
+| web | GET | /api/v1/agency/deal-requests | MATCHES | path+method match (shape not verified field-by-field) | [modules/deal-requests/controllers/agency-deal-requests.controller.ts:35] |
+| web | POST | /api/v1/agency/inquiries/{id}/replies | MISSING |  | - |
+| web | GET | /api/v1/agency/inquiries/{id} | MISSING |  | - |
+| web | PATCH | /api/v1/agency/inquiries/{id} | MISSING |  | - |
+| web | POST | /api/v1/agency/inquiries/read | MISSING |  | - |
+| web | GET | /api/v1/agency/inquiries | MISSING |  | - |
+| web | POST | /api/v1/agency/listings/{id}/co-brokers | MATCHES | path+method match (shape not verified field-by-field) | [modules/listings/controllers/agency-listings.controller.ts:128] |
+| web | DELETE | /api/v1/agency/listings/{id}/co-brokers | MATCHES | path+method match (shape not verified field-by-field) | [modules/listings/controllers/agency-listings.controller.ts:161] |
+| web | PUT | /api/v1/agency/listings/{id}/photos | MATCHES | path+method match (shape not verified field-by-field) | [modules/listings/controllers/agency-listings.controller.ts:118] |
+| web | POST | /api/v1/agency/listings/{id}/publish | MATCHES | path+method match (shape not verified field-by-field) | [modules/listings/controllers/agency-listings.controller.ts:88] |
+| web | GET | /api/v1/agency/listings/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/listings/controllers/agency-listings.controller.ts:68] |
+| web | PATCH | /api/v1/agency/listings/{id} | DIFFERS-BREAKING | same maintenanceFee shape | [modules/listings/controllers/agency-listings.controller.ts:73] |
+| web | DELETE | /api/v1/agency/listings/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/listings/controllers/agency-listings.controller.ts:82] |
+| web | POST | /api/v1/agency/listings/{id}/status | MATCHES | path+method match (shape not verified field-by-field) | [modules/listings/controllers/agency-listings.controller.ts:98] |
+| web | POST | /api/v1/agency/listings/{id}/verifications | MATCHES | path+method match (shape not verified field-by-field) | [modules/listings/controllers/agency-listings.controller.ts:109] |
+| web | GET | /api/v1/agency/listings/co-broker-candidates | MISSING |  | - |
+| web | GET | /api/v1/agency/listings | MATCHES | path+method match (shape not verified field-by-field) | [modules/listings/controllers/agency-listings.controller.ts:51] |
+| web | POST | /api/v1/agency/listings | DIFFERS-BREAKING | draft shape: FE maintenanceFeeWon + maintenanceFeeItems:string[], BE maintenanceFee{billingType,items[{kind,included,amountWon}],unavailableReason} | [modules/listings/controllers/agency-listings.controller.ts:59] |
+| web | GET | /api/v1/agency/listings/summary | MISSING |  | - |
+| web | POST | /api/v1/agency/proposals/{id}/withdraw | MATCHES | path+method match (shape not verified field-by-field) | [modules/deal-requests/controllers/agency-deal-requests.controller.ts:66] |
+| web | GET | /api/v1/auth/csrf | MATCHES | BE README: prefer body csrfToken; cookie shared with admin | [modules/auth/auth.controller.ts:68] |
+| web | POST | /api/v1/auth/logout-all | MATCHES | path+method match (shape not verified field-by-field) | [modules/auth/auth.controller.ts:93] |
+| web | POST | /api/v1/auth/logout | MATCHES | path+method match (shape not verified field-by-field) | [modules/auth/auth.controller.ts:81] |
+| web | GET | /api/v1/auth/me | DIFFERS | BE MeResponse: nickname nullable (FE requires string -> 502 on null), agencyId -> agency.agencyId, no signupCompleted (BE pendingRequiredTerms[]), extra identities/createdAt | [modules/auth/auth.controller.ts:76] |
+| web | GET | /api/v1/auth/oauth/{provider}/start | DIFFERS-BREAKING | link mode: FE sends link=1, BE expects intent=link; new users -> BE /signup?provider= with pending cookie (no session), FE expects session+signupCompleted=false; errors -> BE /login?error= (FE expects /auth/callback?error=); linked -> BE /my/account (FE /me/account) | [modules/auth/oauth/oauth.controller.ts:22] |
+| web | GET | /api/v1/banners/{id}/click | MATCHES | path+method match (shape not verified field-by-field) | [modules/ads/controllers/public-ads.controller.ts:84] |
+| web | POST | /api/v1/banners/{id}/impression | MATCHES | path+method match (shape not verified field-by-field) | [modules/ads/controllers/public-ads.controller.ts:77] |
+| web | GET | /api/v1/banners | DIFFERS | BE PublicBannerView clickUrl (no linkUrl); FE builds click URL from id -> OK | [modules/ads/controllers/public-ads.controller.ts:58] |
+| web | GET | /api/v1/complexes/{id}/agencies | MISSING |  | - |
+| web | GET | /api/v1/complexes/{id}/listings | DIFFERS | listing summary shape; summary/dong param to verify | [modules/complexes/controllers/public-complexes.controller.ts:84] |
+| web | GET | /api/v1/complexes/{id}/nearby | MISSING |  | - |
+| web | GET | /api/v1/complexes/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/public-complexes.controller.ts:60] |
+| web | GET | /api/v1/complexes/{id}/stats | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/public-complexes.controller.ts:78] |
+| web | GET | /api/v1/complexes/{id}/trades | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/public-complexes.controller.ts:69] |
+| web | GET | /api/v1/complexes/popular | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/public-complexes.controller.ts:54] |
+| web | GET | /api/v1/complexes | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/public-complexes.controller.ts:40] |
+| web | GET | /api/v1/deal-requests/address-match | MISSING |  | - |
+| web | POST | /api/v1/deal-requests | MATCHES | path+method match (shape not verified field-by-field) | [modules/deal-requests/controllers/deal-requests.controller.ts:41] |
+| web | GET | /api/v1/deal-requests/target-agencies | MISSING |  | - |
+| web | GET | /api/v1/faqs | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/public-content.controller.ts:46] |
+| web | GET | /api/v1/geo/geocode | MISSING |  | - |
+| web | GET | /api/v1/home/popular-regions | MISSING |  | - |
+| web | GET | /api/v1/home/summary | MISSING |  | - |
+| web | GET | /api/v1/listings/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/listings/controllers/public-listings.controller.ts:35] |
+| web | GET | /api/v1/listings/{id}/similar | MISSING |  | - |
+| web | POST | /api/v1/listings/{id}/view | MISSING |  | - |
+| web | GET | /api/v1/listings | DIFFERS | ListingSummary: BE complex{id,name}/coverPhoto{thumbUrl..}/floorLabel/emdCode vs FE complexName/coverPhotoUrl/floor/emdName -> cards lose photo + complex name (parse passes) | [modules/listings/controllers/public-listings.controller.ts:29] |
+| web | GET | /api/v1/map/search | MATCHES | path+method match (shape not verified field-by-field) | [modules/listings/controllers/public-listings.controller.ts:17] |
+| web | GET | /api/v1/me/consents | DIFFERS | used by FE as signup step; BE signup is POST /auth/signup (pending cookie); re-consent via pendingRequiredTerms + 403 AUTH_TERMS_REQUIRED | [modules/auth/users/me.controller.ts:58] |
+| web | POST | /api/v1/me/consents | DIFFERS | see above | [modules/auth/users/me.controller.ts:63] |
+| web | POST | /api/v1/me/deal-requests/{id}/cancel | MATCHES | path+method match (shape not verified field-by-field) | [modules/deal-requests/controllers/deal-requests.controller.ts:70] |
+| web | POST | /api/v1/me/deal-requests/{id}/close | MATCHES | path+method match (shape not verified field-by-field) | [modules/deal-requests/controllers/deal-requests.controller.ts:85] |
+| web | DELETE | /api/v1/me/deal-requests/{id}/contact-grants/{agencyId} | MATCHES | path+method match (shape not verified field-by-field) | [modules/deal-requests/controllers/deal-requests.controller.ts:106] |
+| web | POST | /api/v1/me/deal-requests/{id}/contact-grants | MATCHES | path+method match (shape not verified field-by-field) | [modules/deal-requests/controllers/deal-requests.controller.ts:96] |
+| web | GET | /api/v1/me/deal-requests/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/deal-requests/controllers/deal-requests.controller.ts:65] |
+| web | GET | /api/v1/me/deal-requests | MATCHES | path+method match (shape not verified field-by-field) | [modules/deal-requests/controllers/deal-requests.controller.ts:57] |
+| web | PUT | /api/v1/me/favorites/agencies/{id} | MISSING |  | - |
+| web | DELETE | /api/v1/me/favorites/agencies/{id} | MISSING |  | - |
+| web | GET | /api/v1/me/favorites/agencies | MISSING |  | - |
+| web | PUT | /api/v1/me/favorites/complexes/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/favorite-complexes.controller.ts:24] |
+| web | DELETE | /api/v1/me/favorites/complexes/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/favorite-complexes.controller.ts:33] |
+| web | GET | /api/v1/me/favorites/complexes | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/favorite-complexes.controller.ts:16] |
+| web | PUT | /api/v1/me/favorites/listings/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/listings/controllers/me-listings.controller.ts:30] |
+| web | DELETE | /api/v1/me/favorites/listings/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/listings/controllers/me-listings.controller.ts:39] |
+| web | GET | /api/v1/me/favorites/listings | DIFFERS | listing summary shape (see /listings) | [modules/listings/controllers/me-listings.controller.ts:22] |
+| web | DELETE | /api/v1/me/identities/{provider} | MATCHES | path+method match (shape not verified field-by-field) | [modules/auth/users/me.controller.ts:49] |
+| web | GET | /api/v1/me/identities | MATCHES | path+method match (shape not verified field-by-field) | [modules/auth/users/me.controller.ts:44] |
+| web | GET | /api/v1/me/interest-regions | MISSING |  | - |
+| web | PUT | /api/v1/me/interest-regions | MISSING |  | - |
+| web | POST | /api/v1/me/notifications/read | DIFFERS | BE returns {updated, unread} not unreadCount | [modules/deal-requests/notifications/notifications.controller.ts:30] |
+| web | GET | /api/v1/me/notifications | DIFFERS | BE CursorPage has no unreadCount (separate GET /me/notifications/unread-count -> {unread}); no data.agencyId (B5) | [modules/deal-requests/notifications/notifications.controller.ts:17] |
+| web | GET | /api/v1/me/profile | MISSING | GET missing; use GET /auth/me (PATCH exists) | - |
+| web | PATCH | /api/v1/me/profile | MATCHES | path+method match (shape not verified field-by-field) | [modules/auth/users/me.controller.ts:35] |
+| web | POST | /api/v1/me/proposals/{id}/accept | MATCHES | path+method match (shape not verified field-by-field) | [modules/deal-requests/controllers/me-proposals.controller.ts:17] |
+| web | POST | /api/v1/me/proposals/{id}/decline | MATCHES | path+method match (shape not verified field-by-field) | [modules/deal-requests/controllers/me-proposals.controller.ts:28] |
+| web | GET | /api/v1/me/recent-views | DIFFERS | listing summary shape | [modules/listings/controllers/me-listings.controller.ts:52] |
+| web | POST | /api/v1/me/withdraw | DIFFERS-BREAKING | BE withdrawSchema requires confirm:true; FE sends {reason} -> 400 (tsc error WithdrawForm.tsx:83) | [modules/auth/users/me.controller.ts:73] |
+| web | GET | /api/v1/media/{id}/private | MATCHES | path+method match (shape not verified field-by-field) | [modules/media/media.controller.ts:67] |
+| web | GET | /api/v1/media/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/media/media.controller.ts:60] |
+| web | DELETE | /api/v1/media/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/media/media.controller.ts:80] |
+| web | POST | /api/v1/media | MATCHES | path+method match (shape not verified field-by-field) | [modules/media/media.controller.ts:38] |
+| web | GET | /api/v1/notices/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/public-content.controller.ts:37] |
+| web | GET | /api/v1/notices | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/public-content.controller.ts:31] |
+| web | GET | /api/v1/policies/{slug} | MISSING |  | - |
+| web | GET | /api/v1/popups | MATCHES | path+method match (shape not verified field-by-field) | [modules/ads/controllers/public-ads.controller.ts:64] |
+| web | GET | /api/v1/regions | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/regions.controller.ts:26] |
+| web | POST | /api/v1/reports | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/public-reports.controller.ts:17] |
+| web | GET | /api/v1/search/suggest | MISSING | BE has GET /complexes/autocomplete (complex-only) | - |
+| web | GET | /api/v1/site-settings/public | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/public-content.controller.ts:58] |
+| web | GET | /api/v1/terms/{type} | MATCHES |  | [modules/auth/terms/terms.controller.ts:21] |
+| web | GET | /api/v1/terms/{type}/versions/{version} | MISSING | BE GET /terms/:type?version= (FE switch) | - |
+| web | GET | /api/v1/terms/{type}/versions | MISSING | BE missing list of versions | - |
+| web | GET | /api/v1/terms | MATCHES | path+method match (shape not verified field-by-field) | [modules/auth/terms/terms.controller.ts:15] |
+| web | GET | /api/v1/videos | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/public-content.controller.ts:52] |
+| admin | POST | /api/v1/admin/admins/{id}/reset-password | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-accounts.controller.ts:60] |
+| admin | POST | /api/v1/admin/admins/{id}/reset-totp | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-accounts.controller.ts:71] |
+| admin | PATCH | /api/v1/admin/admins/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-accounts.controller.ts:50] |
+| admin | DELETE | /api/v1/admin/admins/{id} | MISSING |  | - |
+| admin | GET | /api/v1/admin/admins | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-accounts.controller.ts:34] |
+| admin | POST | /api/v1/admin/admins | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-accounts.controller.ts:44] |
+| admin | POST | /api/v1/admin/agencies/{id}/decision | MATCHES | path+method match (shape not verified field-by-field) | [modules/agencies/controllers/admin-agencies.controller.ts:75] |
+| admin | GET | /api/v1/admin/agencies/{id}/documents/{docId} | MISSING | BE path is .../documents/:docId/file (FE rename) | - |
+| admin | POST | /api/v1/admin/agencies/{id}/registry-check | MISSING | BE is GET ...?refresh (FE switch POST->GET) | - |
+| admin | GET | /api/v1/admin/agencies/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/agencies/controllers/admin-agencies.controller.ts:53] |
+| admin | GET | /api/v1/admin/agencies | MATCHES | path+method match (shape not verified field-by-field) | [modules/agencies/controllers/admin-agencies.controller.ts:47] |
+| admin | GET | /api/v1/admin/audit-logs | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-overview.controllers.ts:52] |
+| admin | POST | /api/v1/admin/auth/login | DIFFERS | BE {mfaRequired,totpEnrolled,csrfToken}; FE defaults parse OK | [modules/auth/admin/admin-auth.controller.ts:42] |
+| admin | POST | /api/v1/admin/auth/logout | MATCHES | path+method match (shape not verified field-by-field) | [modules/auth/admin/admin-auth.controller.ts:110] |
+| admin | GET | /api/v1/admin/auth/me | DIFFERS | BE no mfaVerified/totpEnrolledAt/passwordChangedAt (optional in FE); has recoveryCodesRemaining | [modules/auth/admin/admin-auth.controller.ts:105] |
+| admin | POST | /api/v1/admin/auth/password | DIFFERS | BE min 12 chars (FE 10); returns rotated session + csrfToken | [modules/auth/admin/admin-auth.controller.ts:120] |
+| admin | POST | /api/v1/admin/auth/totp/setup | DIFFERS-BREAKING | first enrolment OK (empty body); re-enrolment needs {currentPassword, code\|recoveryCode} -> FE sends none -> 403 AUTH_REAUTH_REQUIRED | [modules/auth/admin/admin-auth.controller.ts:68] |
+| admin | POST | /api/v1/admin/auth/totp/verify | DIFFERS-BREAKING | FE uses verify to confirm enrolment; BE needs POST /admin/auth/totp/activate (verify -> 400 AUTH_TOTP_NOT_ENROLLED). Login verify OK; BE also accepts recoveryCode (no FE UI) | [modules/auth/admin/admin-auth.controller.ts:93] |
+| admin | GET | /api/v1/admin/banner-slots/{slot} | MATCHES | path+method match (shape not verified field-by-field) | [modules/ads/controllers/admin-banners.controller.ts:109] |
+| admin | PATCH | /api/v1/admin/banner-slots/{slot} | MATCHES | path+method match (shape not verified field-by-field) | [modules/ads/controllers/admin-banners.controller.ts:114] |
+| admin | GET | /api/v1/admin/banner-slots | MATCHES | path+method match (shape not verified field-by-field) | [modules/ads/controllers/admin-banners.controller.ts:104] |
+| admin | GET | /api/v1/admin/banners/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/ads/controllers/admin-banners.controller.ts:64] |
+| admin | PATCH | /api/v1/admin/banners/{id} | DIFFERS-BREAKING | same (bannerUpdateSchema) | [modules/ads/controllers/admin-banners.controller.ts:83] |
+| admin | DELETE | /api/v1/admin/banners/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/ads/controllers/admin-banners.controller.ts:89] |
+| admin | GET | /api/v1/admin/banners/{id}/stats | MATCHES | path+method match (shape not verified field-by-field) | [modules/ads/controllers/admin-banners.controller.ts:69] |
+| admin | PUT | /api/v1/admin/banners/reorder | MATCHES | path+method match (shape not verified field-by-field) | [modules/ads/controllers/admin-banners.controller.ts:59] |
+| admin | GET | /api/v1/admin/banners | MATCHES | path+method match (shape not verified field-by-field) | [modules/ads/controllers/admin-banners.controller.ts:53] |
+| admin | POST | /api/v1/admin/banners | DIFFERS-BREAKING | FE imports bannerInputSchema/BannerInput (removed; now bannerCreateSchema/bannerUpdateSchema) -> admin tsc/build fails | [modules/ads/controllers/admin-banners.controller.ts:74] |
+| admin | PATCH | /api/v1/admin/complexes/{id}/area-types/{areaTypeId} | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/admin-complexes.controller.ts:81] |
+| admin | DELETE | /api/v1/admin/complexes/{id}/area-types/{areaTypeId} | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/admin-complexes.controller.ts:94] |
+| admin | POST | /api/v1/admin/complexes/{id}/area-types | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/admin-complexes.controller.ts:72] |
+| admin | PATCH | /api/v1/admin/complexes/{id}/photos/{photoId} | MISSING | BE whole-list PUT only | - |
+| admin | DELETE | /api/v1/admin/complexes/{id}/photos/{photoId} | MISSING | BE whole-list PUT only | - |
+| admin | PUT | /api/v1/admin/complexes/{id}/photos/order | MISSING | BE whole-list PUT only | - |
+| admin | POST | /api/v1/admin/complexes/{id}/photos | MISSING | BE has PUT /admin/complexes/:id/photos (whole list) -> FE switch | - |
+| admin | GET | /api/v1/admin/complexes/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/admin-complexes.controller.ts:47] |
+| admin | PATCH | /api/v1/admin/complexes/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/admin-complexes.controller.ts:58] |
+| admin | DELETE | /api/v1/admin/complexes/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/admin-complexes.controller.ts:64] |
+| admin | GET | /api/v1/admin/complexes | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/admin-complexes.controller.ts:42] |
+| admin | POST | /api/v1/admin/complexes | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/admin-complexes.controller.ts:52] |
+| admin | POST | /api/v1/admin/complexes/trade-sync | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/admin-trade-sync.controller.ts:36] |
+| admin | GET | /api/v1/admin/complexes/trade-sync/runs | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/admin-trade-sync.controller.ts:50] |
+| admin | GET | /api/v1/admin/dashboard/queues | MISSING |  | - |
+| admin | GET | /api/v1/admin/dashboard | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-overview.controllers.ts:39] |
+| admin | POST | /api/v1/admin/deal-requests/{id}/close | MATCHES | path+method match (shape not verified field-by-field) | [modules/deal-requests/controllers/admin-deal-requests.controller.ts:25] |
+| admin | GET | /api/v1/admin/deal-requests/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/deal-requests/controllers/admin-deal-requests.controller.ts:20] |
+| admin | POST | /api/v1/admin/deal-requests/{id}/spam-flag | MISSING |  | - |
+| admin | GET | /api/v1/admin/deal-requests | MATCHES | path+method match (shape not verified field-by-field) | [modules/deal-requests/controllers/admin-deal-requests.controller.ts:15] |
+| admin | PATCH | /api/v1/admin/faqs/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-content.controllers.ts:105] |
+| admin | DELETE | /api/v1/admin/faqs/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-content.controllers.ts:111] |
+| admin | PUT | /api/v1/admin/faqs/order | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-content.controllers.ts:88] |
+| admin | GET | /api/v1/admin/faqs | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-content.controllers.ts:82] |
+| admin | POST | /api/v1/admin/faqs | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-content.controllers.ts:99] |
+| admin | POST | /api/v1/admin/listings/{id}/close | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-listings.controller.ts:44] |
+| admin | POST | /api/v1/admin/listings/{id}/hide | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-listings.controller.ts:27] |
+| admin | GET | /api/v1/admin/listings/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-listings.controller.ts:22] |
+| admin | POST | /api/v1/admin/listings/{id}/unhide | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-listings.controller.ts:37] |
+| admin | GET | /api/v1/admin/listings | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-listings.controller.ts:17] |
+| admin | POST | /api/v1/admin/media | MATCHES | path+method match (shape not verified field-by-field) | [modules/media/admin-media.controller.ts:48] |
+| admin | GET | /api/v1/admin/notices/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-content.controllers.ts:48] |
+| admin | PATCH | /api/v1/admin/notices/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-content.controllers.ts:62] |
+| admin | DELETE | /api/v1/admin/notices/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-content.controllers.ts:68] |
+| admin | GET | /api/v1/admin/notices | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-content.controllers.ts:43] |
+| admin | POST | /api/v1/admin/notices | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-content.controllers.ts:53] |
+| admin | POST | /api/v1/admin/notifications/{id}/read | MISSING |  | - |
+| admin | POST | /api/v1/admin/notifications/read-all | MISSING |  | - |
+| admin | GET | /api/v1/admin/notifications | MISSING |  | - |
+| admin | GET | /api/v1/admin/popups/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/ads/controllers/admin-banners.controller.ts:141] |
+| admin | PATCH | /api/v1/admin/popups/{id} | DIFFERS | popupUpdateSchema | [modules/ads/controllers/admin-banners.controller.ts:155] |
+| admin | DELETE | /api/v1/admin/popups/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/ads/controllers/admin-banners.controller.ts:161] |
+| admin | PUT | /api/v1/admin/popups/reorder | MATCHES | path+method match (shape not verified field-by-field) | [modules/ads/controllers/admin-banners.controller.ts:136] |
+| admin | GET | /api/v1/admin/popups | MATCHES | path+method match (shape not verified field-by-field) | [modules/ads/controllers/admin-banners.controller.ts:131] |
+| admin | POST | /api/v1/admin/popups | DIFFERS | popupInputSchema renamed popupCreateSchema (test + mock only) | [modules/ads/controllers/admin-banners.controller.ts:146] |
+| admin | GET | /api/v1/admin/reports/{id}/attachments/{attId} | MISSING |  | - |
+| admin | POST | /api/v1/admin/reports/{id}/resolve | DIFFERS | resolve status no longer allows IN_REVIEW (mock tsc) | [modules/admin/controllers/admin-reports.controller.ts:48] |
+| admin | GET | /api/v1/admin/reports/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-reports.controller.ts:33] |
+| admin | PATCH | /api/v1/admin/reports/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-reports.controller.ts:38] |
+| admin | GET | /api/v1/admin/reports | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-reports.controller.ts:28] |
+| admin | GET | /api/v1/admin/search | MISSING |  | - |
+| admin | GET | /api/v1/admin/site-settings/{key} | DIFFERS-BREAKING | HOME_LAYOUT (and APP_LINKS) not in SiteSettingKey -> 400 for that key | [modules/admin/controllers/admin-site-settings.controller.ts:23] |
+| admin | PUT | /api/v1/admin/site-settings/{key} | DIFFERS-BREAKING | same | [modules/admin/controllers/admin-site-settings.controller.ts:28] |
+| admin | GET | /api/v1/admin/social-login | MISSING |  | - |
+| admin | GET | /api/v1/admin/stats/{section} | MISSING | 4 endpoints (traffic/listings/deal-requests/ads) missing | - |
+| admin | POST | /api/v1/admin/terms/{id}/publish | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-terms.controller.ts:57] |
+| admin | GET | /api/v1/admin/terms/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-terms.controller.ts:39] |
+| admin | PATCH | /api/v1/admin/terms/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-terms.controller.ts:50] |
+| admin | DELETE | /api/v1/admin/terms/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-terms.controller.ts:63] |
+| admin | GET | /api/v1/admin/terms | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-terms.controller.ts:34] |
+| admin | POST | /api/v1/admin/terms | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-terms.controller.ts:44] |
+| admin | GET | /api/v1/admin/users/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-members.controller.ts:24] |
+| admin | POST | /api/v1/admin/users/{id}/suspend | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-members.controller.ts:29] |
+| admin | POST | /api/v1/admin/users/{id}/unsuspend | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-members.controller.ts:36] |
+| admin | GET | /api/v1/admin/users | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-members.controller.ts:19] |
+| admin | PATCH | /api/v1/admin/videos/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-content.controllers.ts:141] |
+| admin | DELETE | /api/v1/admin/videos/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-content.controllers.ts:147] |
+| admin | PUT | /api/v1/admin/videos/order | MISSING |  | - |
+| admin | GET | /api/v1/admin/videos | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-content.controllers.ts:125] |
+| admin | POST | /api/v1/admin/videos | MATCHES | path+method match (shape not verified field-by-field) | [modules/admin/controllers/admin-content.controllers.ts:135] |
+| admin | GET | /api/v1/agencies | MATCHES | path+method match (shape not verified field-by-field) | [modules/agencies/controllers/agencies.controller.ts:15] |
+| admin | GET | /api/v1/auth/csrf | DIFFERS-BREAKING | admin must call GET /admin/auth/csrf; /auth/csrf issues an unbound token for a non-admin path -> CSRF_FAILED loop once cookie missing | [modules/auth/auth.controller.ts:68] |
+| admin | GET | /api/v1/complexes | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/public-complexes.controller.ts:40] |
+| admin | GET | /api/v1/media/{id} | MATCHES | path+method match (shape not verified field-by-field) | [modules/media/media.controller.ts:60] |
+| admin | GET | /api/v1/regions | MATCHES | path+method match (shape not verified field-by-field) | [modules/complexes/controllers/regions.controller.ts:26] |

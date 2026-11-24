@@ -1,0 +1,41 @@
+# Integration decisions (owner-approved 2026-11-24)
+
+Binding for every integration work item. `INTEGRATION_PLAN.md` (same folder) is the detailed mismatch list;
+where it disagrees with this file, **this file wins**.
+
+## Source of truth
+
+1. **Endpoints that already exist in `apps/api`**: the backend contract wins. The frontend adapts (paths, bodies,
+   response shapes, error codes) — unless a row below says otherwise.
+2. **Endpoints the frontend calls that are missing in `apps/api`** (INTEGRATION_PLAN WI-8/9/10, `endpoint-inventory.md`
+   MISSING rows): the backend implements them **exactly to the path, query, body and response shape of the frontend's
+   mock handler** (`apps/{web,admin}/src/app/mock-api/v1/**`) and the frontend zod schema that parses it. Frontend
+   work items must not change the path or shape of these calls. Exceptions are listed below.
+3. Mock handlers stay (mock mode is still used for UI work) but must be updated to the real contract wherever the
+   frontend adapts.
+
+## Owner decisions
+
+| # | Topic | Decision |
+|---|---|---|
+| D1 | Region code (B1) | 순천시 is **12150** (전남광주통합특별시, since 2026-07-01). One code space: `DEFAULT_SGG_CODE='12150'`, sido `12`, `DEFAULT_REGION_NAME='전남광주통합특별시 순천시'`. 읍면동 codes = old codes with prefix `46150`→`12150` (e.g. `46150132`→`12150132`, 리 `4615031022`→`1215031022`). `packages/shared` exports `canonicalRegionCode(code)` mapping any legacy `46150…`/`46…` code to the new one; apply it at every input boundary (Kakao postcode bcode, external API responses, old URLs). Never store legacy codes. Existing rows are migrated by a data migration. 중개사무소 등록번호 (e.g. `46150-2020-00012`) is an issued identifier — never rewritten. |
+| D2 | 실거래가 sync | Query `LAWD_CD=12150` for every deal month; if a month returns 0 rows, retry once with `46150` and log a warning. Normalize response `sggCd`/codes with `canonicalRegionCode`. |
+| D3 | 브이월드 getEBOfficeInfo | `ldCode=12150` first; when no office matches, retry once with `46150`. |
+| D4 | Main banner size (B6) | Follow the approved design: `MAIN_HERO` desktop frame 1240×220, **upload 2480×440**; mobile frame 358×160, **upload 1074×480**. Update `BANNER_SLOT_SPECS` in shared; admin validation and the home carousel follow it. |
+| D5 | Inquiries (B7) | **No inquiry backend for launch.** Public "문의하기" stays the contact dialog (전화 / 문자 / 번호 복사). Hide `/agent/inquiries` (nav item, route → redirect to `/agent`) and the dashboard inquiry widgets. Backend builds nothing for inquiries. |
+| D6 | Map extra layers | Hide the 지적편집도, 학군, 통학 도보권, 편의시설, CCTV toggles and the walk-radius overlay for launch (no "준비 중" toasts). The 동·호 배치도 overlay is also out of scope for launch. |
+| D7 | Brand | Keep "순천부동산" (config `apps/{web,admin}/src/config/brand.ts`); the owner may rename later. |
+| D8 | Consents (B8) | Add `TermsType` values `PRIVACY_AGENCY_APPLICATION`, `PRIVACY_AGENCY_JOIN`, `DEAL_REQUEST_PRIVACY`, `DEAL_REQUEST_PROVIDE` (Prisma enum + shared enum + seed sample documents). Create bodies of `POST /agencies` (application), `POST /agencies/join`, `POST /deal-requests` take `consents: { type: TermsType; version: string }[]`; the server requires the current published version of each type that applies and records `Consent` rows. The frontend reads current versions from `GET /terms/:type`. |
+| D9 | Site settings | Add `SiteSettingKey` `HOME_LAYOUT` (`{ sections: { key: string; visible: boolean }[] }`) and `APP_LINKS` (`{ iosUrl?: string; androidUrl?: string }`), both included in `GET /site-settings/public`. The admin "메인 화면 편집" writes `HOME_LAYOUT`; the home page honours it. |
+| D10 | Listing registration | The broker wizard must send `property.emdCode` (from the Kakao postcode `bcode`, canonicalized; or from the selected complex) and must collect `property.buildingUse` (shared `BuildingUse`, 건축물대장 용도) for every asset type the shared publish rules require. The frontend must use shared `checkPublishRequirements` instead of its own copy of the rules (`features/a-listings/lib/requirements.ts`). |
+| D11 | Auth redirect | Backend `ACCOUNT` redirect becomes `/me/account` (frontend path). |
+
+## Process rules for agents
+
+- Never commit or push; the lead commits checkpoints.
+- Frontend items never edit `apps/api/**` or `packages/shared/**`; backend items never edit `apps/web/**`, `apps/admin/**`, `packages/ui/**`.
+- Do not add or upgrade dependencies (only work item FE-0 may touch `package.json`/`pnpm-lock.yaml`).
+- Prisma schema changes: only in your own module's `.prisma` file; create migrations while holding the lock:
+  `flock /tmp/house-prisma.lock pnpm --filter @house/api exec prisma migrate dev --name <module>_<what>`.
+- Next.js builds: set a unique `NEXT_DIST_DIR=.next-<your-item>` so parallel builds don't collide; delete it when done.
+- e2e tests: only your module's suite (`pnpm --filter @house/api test:e2e <module>`), each module has its own DB/Redis index.
