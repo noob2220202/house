@@ -1,0 +1,526 @@
+/* Login.dc.html §1 — split login */
+.auth {
+  display: grid;
+  grid-template-columns: minmax(0, 1.04fr) minmax(0, 1fr);
+  flex: 1;
+  min-height: max(100dvh, 820px);
+  background: var(--ground);
+}
+
+/* ---- brand panel ---- */
+.brand {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  padding: 36px 56px 0;
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+  overflow: hidden;
+  isolation: isolate;
+}
+.brandTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.copy {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 560px;
+  padding-top: 28px;
+}
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+.eyebrow::before {
+  content: '';
+  width: 22px;
+  height: 1.5px;
+  background: var(--accent);
+}
+.display {
+  font-size: clamp(28px, 2.9vw, 42px);
+  font-weight: 800;
+  line-height: 1.22;
+  letter-spacing: -0.045em;
+  color: var(--text-on-ink);
+  text-wrap: pretty;
+}
+.perks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+.perks li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  color: var(--text-on-ink-2);
+}
+.perks svg {
+  color: var(--accent);
+  flex: none;
+}
+.illu {
+  position: relative;
+  flex: 1;
+  min-height: 420px;
+  margin: 0 -56px;
+}
+.illuArt {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center bottom;
+  display: block;
+  user-select: none;
+  pointer-events: none;
+}
+/* Moon + halo rings: drawn in CSS so they stay in the sky at any panel height (the skyline art is bottom-anchored). */
+.moon {
+  position: absolute;
+  right: calc(18% - 51px);
+  top: 34px;
+  width: 102px;
+  height: 102px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.moon::before,
+.moon::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+}
+.moon::before {
+  inset: -37px;
+  opacity: 0.14;
+}
+.moon::after {
+  inset: -72px;
+  opacity: 0.07;
+}
+.float {
+  position: absolute;
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--r-lg);
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.38),
+    0 2px 6px rgba(0, 0, 0, 0.2);
+}
+.fcAlert {
+  left: 56px;
+  top: 28px;
+  display: flex;
+  gap: 14px;
+  padding: 18px 20px;
+  width: min(340px, calc(100% - 32px));
+}
+.fcIc {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  background: var(--brand-soft);
+  color: var(--brand);
+  flex: none;
+}
+.fcBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.fcK {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand);
+}
+.fcT {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.4;
+}
+.fcT span {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: -0.01em;
+}
+.fcP {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.fcM {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.fcVerified {
+  font-size: 12px;
+}
+.fcSent {
+  right: 48px;
+  top: 248px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px 12px 12px;
+  border-radius: var(--r-pill);
+}
+.fcOk {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--success);
+  color: var(--brand-contrast);
+  flex: none;
+}
+.fcSent p {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+.fcSent b {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.fcSent p span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ---- login panel ---- */
+.main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 28px 48px 48px;
+}
+.mainTop {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  padding: 0 12px 0 6px;
+  margin-left: -6px;
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.back:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.topLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-left: 4px;
+  padding: 0;
+  font-size: inherit;
+}
+.center {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding-bottom: 24px;
+}
+.card {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 32px 36px 30px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-2);
+}
+.segFull.segFull {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+}
+.segFull.segFull > button {
+  height: 40px;
+  font-size: 15px;
+}
+.roleNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 39px;
+  margin-top: -10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.roleNote svg {
+  margin-top: 2px;
+  color: var(--accent-text);
+  flex: none;
+}
+.roleNote b {
+  color: var(--text-2);
+  font-weight: 700;
+}
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+.sns {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 6px;
+}
+.recent {
+  position: absolute;
+  right: 14px;
+  top: -11px;
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: var(--r-pill);
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.recent::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -3px;
+  width: 7px;
+  height: 7px;
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 1px;
+}
+.safe {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.safe li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.safe svg {
+  margin-top: 2px;
+  color: var(--brand);
+  flex: none;
+}
+.join {
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-3);
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.join a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  margin-left: 4px;
+}
+.footNote {
+  max-width: 460px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ---- mock-mode helper (never rendered against the real API) ---- */
+.mock {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  padding: 8px 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.mock b {
+  margin-right: 4px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+}
+.mock a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 6px;
+  border-radius: var(--r-xs);
+  font-weight: 600;
+  color: var(--text-3);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.mock a:hover {
+  color: var(--brand);
+}
+
+/*
+ * Narrow desktop / tablet landscape: the split stays (so the login card is above the fold on a
+ * 1024px screen) with tighter gutters. Below 960px the panels stack and the brand panel becomes the
+ * compact band of the mobile design.
+ */
+@media (max-width: 1100px) {
+  .brand {
+    padding: 36px 40px 0;
+  }
+  .illu {
+    margin: 0 -40px;
+  }
+  /* A smaller moon further right keeps clear of the alert card in the narrower panel. */
+  .moon {
+    right: calc(13% - 42px);
+    top: 44px;
+    width: 84px;
+    height: 84px;
+  }
+  .fcAlert {
+    left: 40px;
+  }
+  .fcSent {
+    right: 28px;
+  }
+  .main {
+    padding: 28px 28px 48px;
+  }
+}
+@media (max-width: 960px) {
+  .auth {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+  .brand {
+    gap: 24px;
+  }
+  .copy {
+    padding-top: 8px;
+    max-width: none;
+  }
+  .perks {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+  }
+  .perks li {
+    font-size: 14px;
+  }
+  .illu {
+    min-height: 260px;
+  }
+  .fcAlert,
+  .moon {
+    display: none;
+  }
+  .fcSent {
+    left: 40px;
+    right: auto;
+    top: 12px;
+  }
+  .center {
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 720px) {
+  .brand {
+    padding: 20px 16px 0;
+    gap: 20px;
+  }
+  .copy {
+    padding-top: 4px;
+    gap: 14px;
+  }
+  .display {
+    font-size: 24px;
+  }
+  .perks {
+    display: none;
+  }
+  .illu {
+    min-height: 220px;
+    margin: 0 -16px;
+  }
+  .fcAlert,
+  .moon {
+    display: none;
+  }
+  .fcSent {
+    left: 16px;
+    right: auto;
+    top: 8px;
+  }
+  .main {
+    padding: 12px 16px 32px;
+    gap: 16px;
+  }
+  .center {
+    gap: 16px;
+    padding-bottom: 0;
+  }
+  .card {
+    padding: 24px 20px;
+    border-radius: var(--r-lg);
+    box-shadow: none;
+  }
+}

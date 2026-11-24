@@ -1,0 +1,32 @@
+.acts {
+  display: flex;
+  gap: 6px;
+}
+.act {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+  white-space: nowrap;
+  transition: background var(--dur-1);
+}
+.act:hover {
+  background: var(--surface-2);
+}
+.act[aria-pressed='true'] {
+  border-color: var(--danger-line);
+  color: var(--danger);
+}
+@media (max-width: 720px) {
+  .act {
+    height: 44px;
+    padding: 0 14px;
+  }
+}

@@ -1,0 +1,130 @@
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  width: 100%;
+  padding: 18px var(--s-5);
+  text-align: left;
+  background: var(--surface);
+  transition: background var(--dur-1);
+}
+a.row:hover,
+button.row:hover {
+  background: var(--grey-50);
+}
+.row:focus-visible {
+  box-shadow: inset var(--focus);
+}
+.unread {
+  background: var(--brand-soft);
+}
+a.unread:hover,
+button.unread:hover {
+  background: var(--brand-soft-2);
+}
+.icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+.unread .icon {
+  background: var(--surface);
+}
+.brand {
+  color: var(--brand);
+}
+.success {
+  color: var(--success);
+}
+.warn {
+  color: var(--warn);
+}
+.danger {
+  color: var(--danger);
+}
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.cat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.catLabel {
+  font-weight: 700;
+  color: var(--text-3);
+}
+.cat time::before {
+  content: '·';
+  margin-right: 8px;
+  color: var(--grey-300);
+}
+.title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.body {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-3);
+}
+.dot {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: start;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+.chev {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: center;
+  color: var(--icon-muted);
+}
+.compact {
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 14px var(--s-5);
+  align-items: center;
+}
+.compact .icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-sm);
+}
+.compact .title {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.compact .dot {
+  align-self: center;
+  margin-top: 0;
+}
+@media (max-width: 720px) {
+  .row {
+    padding: 16px var(--s-4);
+    gap: 12px;
+  }
+  .compact {
+    padding: 12px var(--s-4);
+  }
+}

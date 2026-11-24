@@ -1,0 +1,325 @@
+/* Desktop filter bar (system.css .filterbar + MapApt / OneRoom page CSS). */
+.bar {
+  position: relative;
+  z-index: 5;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px var(--gutter);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+/* The chips scroll on their own when they do not fit; 초기화 and the bar end never move. */
+.barStrip {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.barScroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Room for the chips' focus rings inside the scroll box. */
+  margin: -4px -4px;
+  padding: 4px 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.barScroll::-webkit-scrollbar {
+  display: none;
+}
+.barStrip[data-more-end] .barScroll {
+  mask-image: linear-gradient(to right, #000 calc(100% - 72px), transparent);
+}
+.barStrip[data-more-start] .barScroll {
+  mask-image: linear-gradient(to left, #000 calc(100% - 72px), transparent);
+}
+.barStrip[data-more-start][data-more-end] .barScroll {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 72px,
+    #000 calc(100% - 72px),
+    transparent
+  );
+}
+.barArrow {
+  position: absolute;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-top: -16px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-2);
+  box-shadow:
+    var(--sh-2),
+    0 0 0 1px var(--line);
+}
+.barArrow:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.barArrowStart {
+  left: -4px;
+}
+.barArrowEnd {
+  right: -4px;
+}
+.barItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+  flex: none;
+}
+.reset:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.reset:disabled {
+  color: var(--text-muted);
+  cursor: default;
+}
+.reset:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+/* Right end of the bar (시세 기준일, 평/㎡) — outside the scrolling strip, so it never covers a chip. */
+.barEnd {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  padding-left: 8px;
+  flex: none;
+}
+.barNote {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.sep {
+  width: 1px;
+  height: 24px;
+  margin: 0 4px;
+  background: var(--line);
+  flex: none;
+}
+.sepSm {
+  width: 1px;
+  height: 20px;
+  background: var(--line);
+  flex: none;
+}
+
+/* Inline multi-select group: label + toggles on a soft track (.fg) */
+.fg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 40px;
+  padding: 0 4px 0 14px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  flex: none;
+}
+.fgKey {
+  margin-right: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.fgBtn {
+  height: 32px;
+  padding: 0 13px;
+  border-radius: var(--r-pill);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+  transition:
+    background var(--dur-1),
+    color var(--dur-1);
+}
+.fgBtn:hover {
+  color: var(--text);
+}
+.fgBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.fgOn {
+  background: var(--surface);
+  color: var(--brand);
+  font-weight: 800;
+  box-shadow: var(--sh-1);
+}
+
+/* Option toggle chip (.ochip) */
+.ochip {
+  height: 40px;
+  padding: 0 14px 0 11px;
+  gap: 5px;
+}
+.ochip svg {
+  color: var(--icon-muted);
+}
+.ochipOn svg {
+  color: var(--brand);
+}
+
+/* ---- popover / sheet bodies ---- */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pillGrid {
+  display: grid;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+  transition:
+    border-color var(--dur-1),
+    background var(--dur-1);
+}
+.pill:hover {
+  border-color: var(--grey-400);
+}
+.pill:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.pillOn,
+.pillOn:hover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-weight: 800;
+}
+.range {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ticks {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-num);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.note {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* 매물종류 */
+.catList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: -4px -8px;
+}
+.cat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--r-sm);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.cat:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.cat:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus);
+}
+.catOn {
+  color: var(--brand);
+  font-weight: 800;
+}
+.sub {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.subTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+@media (max-width: 720px) {
+  .pill {
+    min-height: 44px;
+  }
+  .ochip {
+    height: 38px;
+  }
+}
+.unitSeg {
+  align-self: flex-start;
+}
+/* The bar carries one more chip than the design ("추가 필터"), so the date note yields first. */
+@media (max-width: 1560px) {
+  .barNote,
+  .sepSm {
+    display: none;
+  }
+}

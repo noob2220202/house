@@ -1,0 +1,233 @@
+/* "동네 소식 · 영상" — Main.dc.html `.vids` (desktop), MobileHome `.hscroll--v` / `.vcard` (mobile). */
+.section {
+  padding-block: 72px;
+}
+.videos {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  /* three list rows + a flexible spacer row that absorbs the featured card's extra height */
+  grid-template-rows: repeat(3, min-content) 1fr;
+  gap: 20px 32px;
+}
+.featured {
+  grid-column: 1;
+  grid-row: 1 / span 4;
+  min-width: 0;
+}
+.item {
+  grid-column: 2;
+  min-width: 0;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.row {
+  flex-direction: row;
+  align-items: flex-start;
+}
+.row .thumb {
+  flex: none;
+  width: 44%;
+}
+.thumb {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  background: var(--surface-ink);
+}
+.thumb img {
+  object-fit: cover;
+  transition: transform var(--dur-2);
+}
+.card:hover .thumb img {
+  transform: scale(1.03);
+}
+.noThumb {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+.play {
+  position: absolute;
+  left: 7%;
+  bottom: 12%;
+  display: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink-900);
+  box-shadow: var(--sh-2);
+}
+.play svg {
+  margin-left: 2px;
+}
+.big .play {
+  display: grid;
+  width: 60px;
+  height: 60px;
+}
+.duration {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: rgba(10, 18, 34, 0.86);
+  color: var(--text-on-ink);
+  font-family: var(--font-num);
+  font-size: 12px;
+  font-weight: 700;
+}
+.big .duration {
+  right: 14px;
+  bottom: 14px;
+  height: 26px;
+  padding: 0 8px;
+  font-size: 13px;
+}
+.meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.channel {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface-ink);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.title {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: -0.025em;
+  color: var(--text);
+}
+.titleLg {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+.card:hover .title {
+  color: var(--brand);
+}
+.caption {
+  font-size: var(--fs-cap);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* tablet: featured video on top, the rest as a row of three cards */
+@media (max-width: 900px) {
+  .videos {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: none;
+    gap: 28px 16px;
+  }
+  .featured {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+  .item {
+    grid-column: auto;
+  }
+  .row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .row .thumb {
+    width: 100%;
+  }
+  .title {
+    font-size: 15px;
+  }
+}
+
+/* mobile: every video is the same swipe card with a play button */
+@media (max-width: 720px) {
+  .section {
+    padding-block: 22px 26px;
+  }
+  .videos {
+    display: flex;
+    gap: 12px;
+    margin: 0 calc(var(--gutter) * -1);
+    padding: 2px var(--gutter) 6px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--gutter);
+    scrollbar-width: none;
+  }
+  .videos::-webkit-scrollbar {
+    display: none;
+  }
+  .featured,
+  .item {
+    flex: none;
+    width: 256px;
+    scroll-snap-align: start;
+  }
+  .card,
+  .row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .row .thumb {
+    width: 100%;
+  }
+  .play,
+  .big .play {
+    left: 16px;
+    bottom: 12px;
+    display: grid;
+    width: 32px;
+    height: 32px;
+  }
+  .play svg {
+    width: 18px;
+    height: 18px;
+  }
+  .big .duration {
+    right: 8px;
+    bottom: 8px;
+    height: 22px;
+    padding: 0 6px;
+    font-size: 12px;
+  }
+  .channel {
+    display: none;
+  }
+  .text {
+    gap: 4px;
+  }
+  .title,
+  .titleLg {
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.45;
+  }
+}

@@ -1,0 +1,471 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 20px;
+  align-items: start;
+}
+.formCol {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.label {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.help {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.error {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+/* ---- Logo / cover ------------------------------------------------------------------------- */
+.images {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.coverBox,
+.logoBox {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.logoBox {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px 16px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line-soft);
+}
+.logoBox > .error {
+  grid-column: 1 / -1;
+}
+.cover {
+  position: relative;
+  aspect-ratio: 16 / 5;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.logo {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: var(--surface-ink);
+  color: var(--accent);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+.coverEmpty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--brand-soft);
+  color: var(--text-3);
+  font-size: 13px;
+  font-weight: 600;
+}
+.coverEmpty > svg {
+  color: var(--brand);
+}
+.imgBusy {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--brand);
+}
+.imgMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.imgTitle {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.imgHint {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.imgActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---- Business hours ----------------------------------------------------------------------- */
+.hours {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.hoursList {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+.hoursRow {
+  display: grid;
+  grid-template-columns: 28px 108px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 12px;
+  min-height: 64px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.hoursRow:last-child {
+  border-bottom: 0;
+}
+.dayName {
+  font-size: 15px;
+  font-weight: 800;
+  text-align: center;
+}
+.dayState {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.times {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+.times > * {
+  flex: 1;
+  min-width: 0;
+  max-width: 160px;
+}
+.times > span {
+  flex: none;
+}
+.closed {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.hoursError {
+  grid-column: 3;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.locked {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  background: var(--ground);
+  border: 1px solid var(--line);
+}
+.locked dt {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.locked dd {
+  margin-top: 2px;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* ---- Preview ------------------------------------------------------------------------------ */
+.aside {
+  position: sticky;
+  top: 84px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.asideTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.asideTitle > svg {
+  color: var(--icon-muted);
+}
+.asideHint {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.preview {
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: var(--sh-2);
+}
+.pvCover {
+  position: relative;
+  height: 112px;
+  background: var(--brand-soft-2);
+}
+.pvCoverEmpty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--brand-line);
+}
+.pvBody {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 44px 20px 20px;
+}
+.pvLogo {
+  position: absolute;
+  top: -32px;
+  left: 20px;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: var(--surface-ink);
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  box-shadow: 0 0 0 3px var(--surface);
+}
+.pvName {
+  font-size: 20px;
+  line-height: 1.35;
+  letter-spacing: -0.04em;
+}
+.pvMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.pvMeta b {
+  color: var(--text);
+  font-weight: 700;
+}
+.pvPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.pvPill i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.pvOk {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.pvOff {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.pvIntro {
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-2);
+  white-space: pre-line;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pvEmpty {
+  color: var(--text-muted) !important;
+  font-weight: 500 !important;
+}
+.pvRows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.pvRows > div {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 8px;
+  font-size: 13.5px;
+}
+.pvRows dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: start;
+  min-height: 21px;
+  color: var(--text-muted);
+}
+.pvRows dt svg {
+  color: var(--icon-muted);
+}
+.pvRows dd {
+  color: var(--text);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+/* ---- Save bar ----------------------------------------------------------------------------- */
+.saveBar {
+  position: static;
+  bottom: 16px;
+  z-index: var(--z-sticky);
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 12px 12px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--sh-3);
+}
+.saveBar[data-dirty] {
+  position: sticky;
+  border-color: var(--brand-line);
+}
+.saveBar:not([data-dirty]) {
+  box-shadow: none;
+}
+.saveText {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.saveBar[data-dirty] .saveText {
+  color: var(--text);
+}
+.saveActions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 1180px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .aside {
+    position: static;
+    max-width: 420px;
+  }
+}
+@media (max-width: 720px) {
+  .grid2,
+  .locked {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cover {
+    aspect-ratio: 16 / 7;
+  }
+  .aside {
+    max-width: none;
+  }
+  .hoursRow {
+    grid-template-columns: 22px 52px minmax(0, 1fr);
+    gap: 4px 8px;
+  }
+  .dayState {
+    display: none;
+  }
+  .times {
+    gap: 6px;
+  }
+  .times > * {
+    max-width: none;
+  }
+  .times select {
+    min-width: 0;
+    padding-left: 10px;
+  }
+  .saveBar {
+    bottom: calc(var(--tabbar-h) + 12px + env(safe-area-inset-bottom));
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
+    gap: 10px;
+  }
+  .saveText {
+    text-align: center;
+    font-size: 13px;
+  }
+  .saveActions > * {
+    flex: 1;
+  }
+}
+
+/* A logo image sits on white (contain-fitted, never cropped) instead of the ink monogram tile. */
+.logo.logoFilled {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.pvLogo.logoFilled {
+  background: var(--surface);
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 4px var(--line);
+}

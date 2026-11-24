@@ -1,0 +1,12 @@
+/* App-level globals. Tokens + base come from @house/ui (imported in layout.tsx before this file). */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 16px;
+}
+body {
+  min-height: 100dvh;
+}
+/* next/font exposes the families as CSS variables on <html>; tokens.css reads --font-latin / --font-kr. */
+::selection {
+  background: var(--brand-soft-2);
+}

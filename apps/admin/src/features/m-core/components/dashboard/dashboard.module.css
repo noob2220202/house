@@ -1,0 +1,992 @@
+/* Dashboard — ported from design/drafts/project/AdminDashboard.dc.html ("AdminDashboard page styles"). */
+.dash {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  /* the shell body pads 24px … 40px; the dashboard draft is denser (16px … 20px) */
+  margin-top: -8px;
+  margin-bottom: -20px;
+  min-width: 0;
+}
+.denied {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.denied button {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-xs);
+}
+
+/* ---------- KPI ---------- */
+.kpis {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+}
+/* Each tile is the shared @house/ui StatTile wrapped in a link (as on the broker console). */
+.kpiLink {
+  display: block;
+  min-width: 0;
+  border-radius: var(--r-lg);
+  transition: box-shadow var(--dur-1);
+}
+.kpiLink:hover {
+  box-shadow: var(--sh-2);
+}
+.kpiLink:hover .kpiTile {
+  border-color: var(--brand-line);
+}
+.kpiTile {
+  height: 100%;
+  transition: border-color var(--dur-1);
+}
+/* Keep the label clear of the corner icon tile. */
+.kpiTile > :first-child {
+  padding-right: 40px;
+}
+.warnNote {
+  font-weight: 700;
+  color: var(--warn);
+}
+.split {
+  display: inline-flex;
+  gap: 6px;
+}
+
+/* request-type chips */
+.rq {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--r-xs);
+  font-size: 12px;
+  font-weight: 800;
+  flex: none;
+  white-space: nowrap;
+}
+.rq.sell {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.rq.find {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.rp {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: var(--r-xs);
+  font-size: 12px;
+  font-weight: 800;
+  background: var(--danger-soft);
+  color: var(--danger);
+  flex: none;
+  white-space: nowrap;
+}
+
+/* ---------- grid + panels ---------- */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 372px;
+  gap: 14px;
+  align-items: stretch;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.grow {
+  flex: 1;
+}
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  min-width: 0;
+  scroll-margin-top: 80px;
+}
+.panelHd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 18px;
+  min-height: 52px;
+  border-bottom: 1px solid var(--line);
+}
+.hdL {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: 10px;
+  row-gap: 0;
+  min-width: 0;
+}
+.panelT {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.cnt {
+  font-family: var(--font-brand);
+  font-weight: 800;
+  color: var(--brand);
+  margin-left: 4px;
+}
+.cap {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+.hdR {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.more {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 32px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.more:hover {
+  color: var(--text);
+}
+.more svg {
+  color: var(--icon-muted);
+}
+.panelState {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  padding: 8px 16px;
+}
+.note {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--text-3);
+}
+.note svg {
+  color: var(--success);
+  flex: none;
+}
+.note b {
+  color: var(--text);
+  font-weight: 800;
+}
+
+/* ---------- traffic chart ---------- */
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend i {
+  display: block;
+  width: 16px;
+  height: 0;
+  border-top: 2px solid var(--brand);
+  border-radius: 2px;
+}
+.legend i.prev {
+  border-top: 2px dashed var(--grey-400);
+}
+.chartBody {
+  display: grid;
+  grid-template-columns: 184px minmax(0, 1fr);
+  gap: 8px;
+  min-height: 186px;
+}
+.stats {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4px 0 8px 18px;
+}
+.cstat {
+  display: flex;
+  flex-direction: column;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--grey-100);
+}
+.cstat:last-child {
+  border-bottom: 0;
+}
+.cstat dt {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.cstatV {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-num);
+  font-size: 19px;
+  line-height: 1.3;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-feature-settings: 'tnum' 1;
+}
+.cstatV small {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.cstatV .cstatDelta {
+  font-size: 12px;
+}
+.cstatS {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.plot {
+  position: relative;
+  padding: 16px 20px 0 48px;
+  min-width: 0;
+}
+.plotArea {
+  position: relative;
+  height: 128px;
+  outline: none;
+}
+.plotArea:focus-visible {
+  box-shadow: var(--focus);
+  border-radius: var(--r-xs);
+}
+.plotArea svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+.gridLine {
+  stroke: var(--grey-150);
+  stroke-width: 1;
+}
+.baseLine {
+  stroke: var(--grey-200);
+  stroke-width: 1;
+}
+.prevLine {
+  fill: none;
+  stroke: var(--grey-400);
+  stroke-width: 2;
+  stroke-dasharray: 5 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.area {
+  fill: color-mix(in srgb, var(--brand) 7%, transparent);
+}
+.line {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--grey-300);
+  transform: translateX(-0.5px);
+  pointer-events: none;
+}
+.ylab {
+  position: absolute;
+  left: -44px;
+  width: 36px;
+  text-align: right;
+  transform: translateY(-50%);
+  font-family: var(--font-brand);
+  font-size: 12px;
+  color: var(--text-muted);
+  font-feature-settings: 'tnum' 1;
+}
+.pt {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--brand);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.pt.sm {
+  width: 7px;
+  height: 7px;
+  border-width: 1.5px;
+}
+.pt.today,
+.pt.active {
+  width: 12px;
+  height: 12px;
+  background: var(--brand);
+  border: 0;
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 6px color-mix(in srgb, var(--brand) 16%, transparent);
+}
+.plab {
+  --ax: 50%;
+  position: absolute;
+  z-index: 1;
+  transform: translate(calc(-1 * var(--ax)), calc(-100% - 12px));
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: var(--r-xs);
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.plab b {
+  font-family: var(--font-brand);
+  font-weight: 800;
+  font-feature-settings: 'tnum' 1;
+}
+.plab em {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--text-on-ink-2);
+}
+.plab::after {
+  content: '';
+  position: absolute;
+  left: var(--ax);
+  bottom: -4px;
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 1px;
+}
+.plab.light {
+  background: var(--surface);
+  color: var(--text-3);
+  box-shadow: var(--sh-2);
+}
+.plab.light b {
+  color: var(--text);
+}
+.xlabs {
+  /* the weekday hides itself when the bands get narrow (see the container query below) */
+  container-type: inline-size;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  height: 34px;
+  align-items: center;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-feature-settings: 'tnum' 1;
+}
+.xlabs > span {
+  white-space: nowrap;
+  /* labels may be wider than a 30-day band: let them overflow, centred */
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+}
+/* 7-day view in a narrow chart (1181–1366px laptops, tablets): "11.18 수" no longer fits a band. */
+@container (max-width: 459px) {
+  .xlabs .dw {
+    display: none;
+  }
+}
+.xlabs .we {
+  color: var(--text-3);
+  font-weight: 600;
+}
+.xlabs .now {
+  color: var(--text);
+  font-weight: 800;
+}
+
+/*
+ * ---------- approvals table ----------
+ * @house/ui <Table bare density="compact"> (36px header, 48px rows) — only the panel gutters and the
+ * stacked-card layout below are local. `table` in the selectors outranks the Table's own `.table td`.
+ */
+.tableScroll {
+  overflow: hidden;
+  border-radius: 0 0 var(--r-lg) var(--r-lg);
+}
+.tableScroll table th:first-child,
+.tableScroll table td:first-child {
+  padding-left: 18px;
+}
+.tableScroll table th:last-child,
+.tableScroll table td:last-child {
+  padding-right: 18px;
+}
+.office {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.officeAv {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--text-3);
+  flex: none;
+}
+.office b {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.office a:hover b {
+  text-decoration: underline;
+}
+.office span > span,
+.officeSub {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.when {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+  font-feature-settings: 'tnum' 1;
+}
+.when span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.when span.old {
+  color: var(--warn);
+  font-weight: 700;
+}
+.rep {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+.mono {
+  font-family: var(--font-brand);
+  letter-spacing: 0;
+}
+.docs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+.docs svg {
+  flex: none;
+}
+/*
+ * The 서류 column is the only one allowed to wrap: a long missing-document label
+ * ("사업자등록증 누락") would otherwise push the table past the panel and give it a scrollbar.
+ */
+.tableScroll table td:nth-child(3) {
+  white-space: normal;
+}
+.docs.ok {
+  color: var(--success);
+}
+.docs.miss {
+  color: var(--warn);
+}
+.docsCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* Registry lookup that is not MATCHED — why the row offers 심사하기 instead of 승인. */
+.registry {
+  padding-left: 22px;
+  font-size: var(--fs-cap);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.registry.warn {
+  color: var(--warn);
+}
+.registry.danger {
+  color: var(--danger);
+}
+.acts {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+/* Buttons and the 심사하기 link button. */
+.acts > :is(a, button) {
+  height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+.acts > :is(a, button) + :is(a, button) {
+  min-width: 80px;
+}
+
+/* ---------- expiring ads ---------- */
+.ads {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 8px 8px;
+}
+.ads li + li .adr {
+  box-shadow: 0 -1px 0 var(--grey-100);
+}
+.adr {
+  display: grid;
+  grid-template-columns: 44px 56px minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 44px;
+  padding: 4px 10px;
+  border-radius: var(--r-md);
+}
+.adr:hover {
+  background: var(--grey-50);
+}
+.thumb {
+  position: relative;
+  display: block;
+  width: 56px;
+  height: 32px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--ad-ground);
+  flex: none;
+}
+.thumb svg,
+.thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.adrN {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.adrN b {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.adrN span {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 10 auto;
+}
+.adrC {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.adrC b {
+  color: var(--text-2);
+  font-weight: 700;
+  font-feature-settings: 'tnum' 1;
+}
+.dday {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: var(--r-xs);
+  font-family: var(--font-brand);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.dday.danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.dday.warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.dday.neutral {
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+.ext {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--brand);
+  white-space: nowrap;
+}
+
+/* ---------- right lists ---------- */
+.list {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 8px;
+}
+.li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border-radius: var(--r-md);
+}
+.li:hover {
+  background: var(--grey-50);
+}
+.list li + li .li {
+  box-shadow: 0 -1px 0 var(--grey-100);
+}
+.liTop {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.liT {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.liM {
+  grid-column: 1 / 2;
+  font-size: 13px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.liM b {
+  font-family: var(--font-num);
+  font-weight: 700;
+  color: var(--text-2);
+  font-feature-settings: 'tnum' 1;
+}
+.liR {
+  justify-self: end;
+}
+/* denser status pill of the draft (.dash .status); two classes so it wins over the @house/ui rule */
+.liR .pill {
+  height: 24px;
+  font-size: 12px;
+  padding: 0 9px;
+}
+
+/* ---------- skeletons ---------- */
+.skRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--grey-100);
+}
+.skRow:last-child {
+  border-bottom: 0;
+}
+.skCol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- dialogs ---------- */
+.reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0;
+}
+.dialogMeta {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 16px;
+  padding: 14px 16px;
+  margin-bottom: 4px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-size: 13px;
+}
+.dialogMeta dt {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.dialogMeta dd {
+  color: var(--text);
+  font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- responsive ---------- */
+/*
+ * The sidebar stays until 720px, so the content column is already narrow on tablets:
+ * content width = viewport − 296px above 720px, viewport − 32px below.
+ */
+@media (max-width: 1207px) {
+  .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1180px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .officeAv {
+    display: none;
+  }
+}
+/* Content column ≤ 744px: panels switch to the MobileHome-style stacked layouts. */
+@media (max-width: 1040px) {
+  .hdL {
+    flex: 1 1 0;
+  }
+  .panelHd {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+  }
+  .panelHd .more {
+    flex: none;
+    min-height: 44px;
+    margin-top: -6px;
+  }
+  .hdR {
+    flex: none;
+  }
+  .legend {
+    display: none;
+  }
+  .chartBody {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .stats {
+    flex-direction: row;
+    padding: 4px 16px 0;
+  }
+  .cstat {
+    flex: 1;
+    border-bottom: 0;
+    padding: 10px 0;
+    min-width: 0;
+  }
+  .cstatV {
+    flex-wrap: wrap;
+    column-gap: 6px;
+    row-gap: 0;
+    font-size: 17px;
+  }
+  .cstatS {
+    display: none;
+  }
+  .plot {
+    padding: 16px 12px 0 46px;
+  }
+  .ylab {
+    left: -46px;
+    width: 38px;
+  }
+  .plotArea {
+    height: 150px;
+  }
+  .xlabs .dw {
+    display: none;
+  }
+
+  .adr {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 8px 6px;
+  }
+  .thumb,
+  .adrC {
+    display: none;
+  }
+  .adrN {
+    flex-direction: column;
+    gap: 0;
+  }
+  .adrN span {
+    max-width: 100%;
+  }
+}
+/*
+ * 승인 대기 table → stacked cards whenever the panel is narrower than the table needs — not only on
+ * tablets / phones (≤ 1040px, content column ≤ 744px) but also in the two-column layout on
+ * 1280–1366px laptops, where the left column is ~600–690px and the table (≈ 750px) would scroll
+ * sideways with the 승인 / 반려 buttons out of view. A container query follows the panel width.
+ */
+.tableScroll {
+  container-type: inline-size;
+}
+@container (max-width: 749px) {
+  /* table → cards */
+  .tableScroll table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+  .tableScroll table,
+  .tableScroll table tbody {
+    display: block;
+  }
+  .tableScroll table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px 12px;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--grey-100);
+  }
+  .tableScroll table tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .tableScroll table tbody tr:hover {
+    background: var(--grey-50);
+  }
+  .tableScroll table tbody tr:hover td {
+    background: none;
+  }
+  .tableScroll table td,
+  .tableScroll table td:first-child,
+  .tableScroll table td:last-child {
+    display: block;
+    height: auto;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+  }
+  .tableScroll table td:nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .tableScroll table td:nth-child(4) {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+  }
+  .tableScroll table td:nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .tableScroll table td:nth-child(2) .when {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .tableScroll table td:nth-child(2) .rep {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-2);
+  }
+  .tableScroll table td:nth-child(3) {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .tableScroll table td:nth-child(5) {
+    grid-column: 2;
+    grid-row: 3;
+  }
+  /* the stacked card has no icon column (rows 2–3 start at the left edge) */
+  .officeAv {
+    display: none;
+  }
+  /* bigger touch targets for the row actions */
+  .acts > :is(a, button) {
+    height: 44px;
+    padding: 0 14px;
+  }
+}
+/* Phone: the shell switches to the drawer layout (16px gutters). */
+@media (max-width: 720px) {
+  .dash {
+    margin-top: 0;
+    margin-bottom: -16px;
+  }
+  .kpis {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+}

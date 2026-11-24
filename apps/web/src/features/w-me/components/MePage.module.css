@@ -1,0 +1,65 @@
+.body {
+  min-width: 0;
+}
+.narrow {
+  max-width: 720px;
+}
+.head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--s-6);
+}
+.headText {
+  min-width: 0;
+}
+.desc {
+  margin-top: 6px;
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+@media (max-width: 720px) {
+  .body {
+    padding: var(--s-5) var(--gutter) var(--s-10);
+  }
+  .narrow {
+    max-width: none;
+  }
+  /* The mobile top bar carries the title; keep only the description and actions. */
+  .head {
+    align-items: center;
+    margin-bottom: var(--s-4);
+  }
+  .title {
+    display: none;
+  }
+  .headText:empty {
+    display: none;
+  }
+}
+
+/* Icon buttons for the mobile top bar (same footprint as the default header actions). */
+.topBtn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--hit);
+  height: var(--hit);
+  border-radius: var(--r-md);
+  color: var(--text);
+}
+.topDot {
+  position: absolute;
+  top: 10px;
+  right: 11px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px var(--surface);
+}

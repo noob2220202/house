@@ -1,0 +1,19 @@
+.v,
+.h {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-3);
+}
+.v {
+  flex-direction: column;
+}
+.v button {
+  height: 26px;
+}
+.h {
+  gap: 2px;
+}
+.v button:disabled,
+.h button:disabled {
+  opacity: 0.3;
+}

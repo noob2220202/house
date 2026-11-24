@@ -1,0 +1,102 @@
+.stepper {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  counter-reset: step;
+}
+.step {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.step:not(:last-child)::after {
+  content: '';
+  flex: 1;
+  height: 2px;
+  min-width: 12px;
+  margin-inline: 2px 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+.step.done:not(:last-child)::after {
+  background: var(--brand);
+}
+.dot {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-family: var(--font-brand);
+  font-size: 13px;
+  font-weight: 800;
+  flex: none;
+}
+.current .dot {
+  background: var(--brand);
+  color: #fff;
+}
+.done .dot {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.current .label {
+  color: var(--text);
+  font-weight: 800;
+}
+.done .label {
+  color: var(--text-2);
+}
+.desc {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.vertical {
+  flex-direction: column;
+  gap: 20px;
+}
+.vertical .step {
+  align-items: flex-start;
+  gap: 14px;
+  flex: none;
+}
+.vertical .step::after {
+  display: none;
+}
+.vertical .label {
+  font-size: 15px;
+  white-space: normal;
+  color: var(--text);
+  font-weight: 800;
+}
+.vertical .dot {
+  background: var(--brand);
+  color: #fff;
+}
+@media (max-width: 720px) {
+  .stepper:not(.vertical) .step:not(.current) .text {
+    display: none;
+  }
+  .stepper:not(.vertical) .step {
+    flex: 0 1 auto;
+  }
+  .stepper:not(.vertical) .step.current {
+    flex: 1;
+  }
+}

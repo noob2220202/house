@@ -1,0 +1,19 @@
+/* Drawer footer per AdminBanners: destructive action left, 취소 / 저장 right. */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.spacer {
+  flex: 1;
+}
+@media (max-width: 720px) {
+  .footer > button:not(:first-child),
+  .footer > a {
+    flex: 1;
+  }
+  .spacer {
+    display: none;
+  }
+}

@@ -1,0 +1,226 @@
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  min-width: 0;
+}
+.card {
+  padding: var(--s-6);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  min-width: 0;
+}
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-4);
+  margin-bottom: var(--s-5);
+}
+.cardTitle {
+  font-size: var(--fs-title);
+  font-weight: 800;
+  line-height: 1.45;
+  letter-spacing: -0.03em;
+}
+.cardDesc {
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+/* ---- linked accounts ---- */
+.providers {
+  display: flex;
+  flex-direction: column;
+}
+.provider {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 16px 0;
+}
+.provider + .provider {
+  border-top: 1px solid var(--line-soft);
+}
+.provider:first-child {
+  padding-top: 0;
+}
+.provider:last-child {
+  padding-bottom: 0;
+}
+.providerText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.providerName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.providerMeta {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Each fact (e-mail · linked date · last login) stays in one piece; the dot trails the previous one. */
+.providerMeta > span:not(:last-child)::after {
+  content: ' · ';
+  white-space: pre;
+}
+.providerAction {
+  min-width: 88px;
+  display: flex;
+  justify-content: flex-end;
+}
+.hint {
+  margin-top: var(--s-5);
+}
+
+/* ---- consent history ---- */
+.consents {
+  display: flex;
+  flex-direction: column;
+}
+.consent {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 4px 14px;
+  align-items: center;
+  padding: 12px 0;
+}
+.consent + .consent {
+  border-top: 1px solid var(--line-soft);
+}
+.consent:first-child {
+  padding-top: 0;
+}
+.consent:last-child {
+  padding-bottom: 0;
+}
+.consentText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.consentText b {
+  font-size: 15px;
+  font-weight: 700;
+}
+.consentText b small {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-family: var(--font-num);
+}
+.consentText span {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.viewBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: 0 4px 0 8px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.viewBtn:hover {
+  color: var(--text);
+}
+
+/* ---- sessions / withdrawal ---- */
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  flex-wrap: wrap;
+  padding: 14px 0;
+}
+.row + .row {
+  border-top: 1px solid var(--line-soft);
+}
+.row:first-child {
+  padding-top: 0;
+}
+.row:last-child {
+  padding-bottom: 0;
+}
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 220px;
+}
+.rowText b,
+.rowText h2 {
+  font-size: 15px;
+  font-weight: 700;
+}
+.rowText span {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.danger {
+  border-color: var(--danger-line);
+}
+.dangerTitle {
+  color: var(--danger);
+}
+
+@media (max-width: 720px) {
+  .card {
+    padding: var(--s-5);
+    border-radius: var(--r-lg);
+  }
+  .providerMeta {
+    display: flex;
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+  .providerMeta > span {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .provider {
+    align-items: start;
+  }
+  .providerAction {
+    min-width: 0;
+    padding-top: 4px;
+  }
+  .consent {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .consent .viewBtn {
+    grid-column: 1 / -1;
+    justify-self: start;
+    min-height: 32px;
+    padding-left: 0;
+  }
+  .row > :last-child:not(.rowText) {
+    width: 100%;
+  }
+}

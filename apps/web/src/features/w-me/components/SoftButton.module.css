@@ -1,0 +1,10 @@
+/* Same look as Button's native :disabled, without removing the button from the tab order.
+   The class is doubled so it wins over the variant (:hover) rules regardless of CSS order. */
+.soft.soft[aria-disabled='true'],
+.soft.soft[aria-disabled='true']:hover,
+.soft.soft[aria-disabled='true']:active {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border-color: transparent;
+  cursor: not-allowed;
+}

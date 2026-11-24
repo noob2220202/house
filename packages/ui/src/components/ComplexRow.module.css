@@ -1,0 +1,85 @@
+.row {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 14px;
+  padding: 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid transparent;
+  background: var(--surface);
+  min-width: 0;
+  transition:
+    background var(--dur-1),
+    border-color var(--dur-1);
+}
+.row:hover {
+  background: var(--grey-50);
+}
+.on,
+.on:hover {
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
+}
+.thumb {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.thumb img {
+  object-fit: cover;
+}
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+}
+.name {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  min-width: 0;
+}
+.dong {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.meta {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  flex-wrap: wrap;
+}
+.price em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+}
+.sale {
+  color: var(--deal-sale);
+}
+.jeonse {
+  color: var(--deal-jeonse);
+}
+.monthly {
+  color: var(--deal-monthly);
+}
+.presale {
+  color: var(--deal-presale);
+}

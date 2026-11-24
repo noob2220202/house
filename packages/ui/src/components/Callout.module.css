@@ -1,0 +1,105 @@
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  background: var(--brand-soft);
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.6;
+  min-width: 0;
+}
+.icon {
+  flex: none;
+  /* centre the 18px icon on the first 14px/1.6 line */
+  margin-top: 2px;
+  color: var(--brand);
+}
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.title {
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.text {
+  min-width: 0;
+}
+.text :where(b, strong) {
+  font-weight: 700;
+  color: var(--text);
+}
+.text :where(a) {
+  color: var(--brand);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.text :where(ul, ol) {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+.text :where(ul) > li {
+  position: relative;
+  padding-left: 12px;
+}
+.text :where(ul) > li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.75em;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+/* tones */
+.info,
+.brand {
+  background: var(--brand-soft);
+}
+.warn {
+  background: var(--warn-soft);
+}
+.warn .icon {
+  color: var(--warn);
+}
+.danger {
+  background: var(--danger-soft);
+}
+.danger .icon {
+  color: var(--danger);
+}
+.success {
+  background: var(--success-soft);
+}
+.success .icon {
+  color: var(--success);
+}
+.muted {
+  background: var(--surface-2);
+}
+.muted .icon {
+  color: var(--text-3);
+}
+
+/* size */
+.sm {
+  gap: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.sm .icon {
+  margin-top: 2px;
+}

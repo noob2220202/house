@@ -1,0 +1,127 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+.profile {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: var(--s-5);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+}
+.who {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.name span {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+.sub {
+  display: flex;
+}
+.edit {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 40px;
+  margin-top: 2px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+  transition: background var(--dur-1);
+}
+.edit:hover {
+  background: var(--grey-150);
+}
+.edit svg {
+  color: var(--icon-muted);
+}
+.nav,
+.foot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.foot {
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--line);
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  border-radius: var(--r-md);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-align: left;
+  transition:
+    background var(--dur-1),
+    color var(--dur-1);
+}
+.item svg {
+  flex: none;
+  color: var(--icon-muted);
+}
+.item:hover {
+  background: var(--grey-50);
+  color: var(--text);
+}
+.on,
+.on:hover {
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-weight: 800;
+}
+.on svg {
+  color: var(--brand);
+}
+.label {
+  flex: 1;
+  min-width: 0;
+}
+.count {
+  flex: none;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--r-pill);
+  background: var(--danger);
+  color: var(--brand-contrast);
+  font-family: var(--font-num);
+  font-size: 12px;
+  font-weight: 800;
+}
+.foot .item {
+  font-weight: 500;
+  color: var(--text-3);
+}
+.chev {
+  margin-left: auto;
+}

@@ -4,8 +4,8 @@ export const meta = {
   description: 'Production frontends (user site, broker console, admin) built from the approved design drafts: UI foundation, 16 page groups with build/visual-review/fix, cross-app consistency critic',
   phases: [
     { title: 'Foundation', detail: 'packages/ui, web + admin app shells, api client, mock API, map abstraction' },
-    { title: 'Pages', detail: '16 page groups: build -> visual/UX review -> fix' },
-    { title: 'Consistency', detail: 'cross-app critic + targeted fixes + green build' },
+    { title: 'Pages', detail: '16 page groups: build -> independent review + fix (as many agents at once as the machine allows by default)' },
+    { title: 'Consistency', detail: 'code-first cross-app critic, ui -> web/admin fixes, green build' },
   ],
 }
 
@@ -14,6 +14,14 @@ const DESIGN = 'design/drafts'
 const SHOTS = 'design/shots'
 const FE_SHOTS = '.tmp/fe-shots'
 const SHOT_TOOL = 'node tools/design-shot.mjs'
+
+// Concurrency cap: at most this many agents run at the same time.
+// Change the default here, or pass { maxConcurrent: N } as the workflow args.
+// The Workflow runtime itself never runs more than min(16, CPUs - 2) agents at once,
+// so 16 means "as many as this machine allows" (10 on a 12-thread PC). 10 at once
+// uses all CPU and memory of a 16 GB PC (each agent runs its own Next dev server);
+// pass a lower number if the machine has to stay usable.
+const MAX_CONCURRENT = Math.max(1, Math.floor(Number(args && args.maxConcurrent) || 16))
 
 const CONTEXT = `
 # PRODUCT
@@ -90,15 +98,7 @@ const ITEMS = [
   { key: 'm-content', app: 'admin', port: 3204, design: 'none — extrapolate', spec: 'Admin content & config: 공지/FAQ/동네TV CRUD (rich text with safe subset, preview), 메인 화면 편집 (section order/visibility for the home page if backend supports, else stub), 단지 관리 (list/detail/edit facts, area types, photos; 실거래가 sync status + manual trigger), 사이트 설정 (business info 상호/대표/사업자등록번호/통신판매업 신고번호/주소/개인정보보호책임자/연락처 used by the footer), 약관 관리 (versions, publish new version → re-consent), 관리자 계정·권한 (SUPER_ADMIN), 작업 기록 (audit log viewer with filters, before/after diff), 통계 (traffic, listings, requests, ads over time).' },
 ]
 
-const REVIEW_SCHEMA = {
-  type: 'object',
-  properties: { issues: { type: 'array', items: { type: 'object', properties: { severity: { type: 'string', enum: ['high', 'medium', 'low'] }, where: { type: 'string' }, problem: { type: 'string' }, fix: { type: 'string' } }, required: ['severity', 'where', 'problem', 'fix'] } }, verdict: { type: 'string' } },
-  required: ['issues', 'verdict'],
-}
-
-const results = await pipeline(
-  ITEMS,
-  it => agent(`${CONTEXT}
+const buildItem = it => agent(`${CONTEXT}
 Foundation conventions (read docs/FRONTEND.md too): ${feConv}
 
 # YOUR TASK: implement page group '${it.key}' in apps/${it.app}.
@@ -106,48 +106,139 @@ Design reference: ${it.design}
 Scope: ${it.spec}
 You own: the routes of this group under apps/${it.app}/src/app/**, their page-specific components under apps/${it.app}/src/features/${it.key}/**, your mock resources under apps/${it.app}/src/app/mock-api/v1/<resources you need>/** (check first whether another group already created a resource folder; if so, extend only by adding new sub-route files, never rewrite theirs), and docs/frontend-integration/${it.key}.md. Use @house/ui components; do not edit packages/ui (if a generic component is missing, build it in your features folder and list it in openIssues for promotion). Use your dev server port ${it.port} and NEXT_DIST_DIR=.next-${it.key}.
 Definition of done: every route works in mock mode with realistic Suncheon fixtures, loading/empty/error states, responsive at 390 and 1440 (screenshots compared with the design, iterate until faithful and polished), accessible, SEO metadata where public, typecheck + lint clean for the app, unit tests for non-trivial logic. Return summary, routes, files, screenshots, checks, assumedEndpoints, openIssues.`,
-    { label: `build:${it.key}`, phase: 'Pages', schema: ITEM_SCHEMA }),
-  (b, it) => agent(`${CONTEXT}
+    { label: `build:${it.key}`, phase: 'Pages', schema: ITEM_SCHEMA })
 
-# YOUR TASK: demanding review of page group '${it.key}' (apps/${it.app}) as a senior product designer + senior frontend engineer.
+// Shared by the prompts below (not by buildItem/CONTEXT: changing those would throw away
+// the cached build results on resume).
+const ECONOMY = `Token economy (quality first, but no waste): look at existing screenshots in ${FE_SHOTS}/ before taking new ones; screenshot only what you need to judge and re-shoot only routes you changed; locate code with grep instead of reading whole folders; check non-visual things (links, status codes, headings, aria, console errors, hydration warnings) with a small Playwright/DOM or HTTP script rather than screenshots. Kill every dev server you start before you return.`
+
+const REVIEW_FIX_SCHEMA = {
+  type: 'object',
+  properties: {
+    ...ITEM_SCHEMA.properties,
+    issues: { type: 'array', items: { type: 'object', properties: { severity: { type: 'string', enum: ['high', 'medium', 'low'] }, where: { type: 'string' }, problem: { type: 'string' }, status: { type: 'string', enum: ['fixed', 'not-fixed'] }, note: { type: 'string' } }, required: ['severity', 'where', 'problem', 'status'] } },
+  },
+  required: [...ITEM_SCHEMA.required, 'issues'],
+}
+
+// One agent reviews AND fixes (instead of a review agent + a fix agent that has to
+// re-learn the same code, restart the same server and re-shoot the same pages).
+// It is still a different agent from the builder, so the review stays independent.
+const reviewFixItem = (b, it) => agent(`${CONTEXT}
+
+# YOUR TASK: demanding review of page group '${it.key}' (apps/${it.app}) as a senior product designer + senior frontend engineer, then fix what you find.
+Another agent built this group; you are its independent reviewer. Judge it as if you had to sign off on it for production, not as its author.
 Design reference: ${it.design}. Scope it was built to: ${it.spec}
 Builder report: ${JSON.stringify(b || {}).slice(0, 3000)}
-Run its dev server yourself (port ${it.port + 50}, NEXT_DIST_DIR=.next-${it.key}-review, mock mode), screenshot at 1440 and 390, and compare with the design screenshots in ${SHOTS}. Read the code. Find: visual deviations from the design/system, broken/clipped layouts, missing states, missing spec items, UX problems in Korean real-estate context, accessibility (labels, focus, contrast, keyboard), performance (client bundles, unnecessary client components, images), SEO gaps, security (XSS via dangerouslySetInnerHTML, open redirects in redirect params, leaking private fields like 호수 or phone before consent), API contract mismatches vs apps/api code. Do not edit. Return concrete issues with exact fixes.`,
-    { label: `review:${it.key}`, phase: 'Pages', schema: REVIEW_SCHEMA }),
-  (r, it) => {
-    const issues = ((r && r.issues) || []).filter(i => i.severity !== 'low')
-    if (!issues.length) return { key: it.key, fixed: 0 }
-    return agent(`${CONTEXT}
+1. Review. The builder's screenshots are ${FE_SHOTS}/${it.key}-*.png: look at them first and compare with the design screenshots in ${SHOTS}. Run the dev server (port ${it.port + 50}, NEXT_DIST_DIR=.next-${it.key}-review, mock mode) for whatever they do not settle (interactions, states, 390 layout, anything that looks stale). Read the code. Find: visual deviations from the design/system, broken/clipped layouts, missing states, missing spec items, UX problems in Korean real-estate context, accessibility (labels, focus, contrast, keyboard), performance (client bundles, unnecessary client components, images), SEO gaps, security (XSS via dangerouslySetInnerHTML, open redirects in redirect params, leaking private fields like 호수 or phone before consent), API contract mismatches vs apps/api code.
+2. Fix every high and medium issue (or justify precisely why not), plus low ones that are quick. Same ownership rules as the builder: the group's routes under apps/${it.app}/src/app/**, apps/${it.app}/src/features/${it.key}/**, its mock resources, docs/frontend-integration/${it.key}.md; no packages/ui edits (list promotion candidates in openIssues), no pnpm add/install.
+3. Verify: re-screenshot every route you changed at 1440 and 390 into ${FE_SHOTS}/${it.key}-fix-*.png and LOOK; typecheck + lint + tests for the app green.
+${ECONOMY}
+Return summary, routes, files, screenshots, checks, assumedEndpoints, openIssues, and issues: every finding with severity and whether you fixed it.`,
+  { label: `review-fix:${it.key}`, phase: 'Pages', schema: REVIEW_FIX_SCHEMA })
 
-# YOUR TASK: fix review findings for page group '${it.key}' (same ownership rules as its builder; dev port ${it.port}, NEXT_DIST_DIR=.next-${it.key}).
-Findings: ${JSON.stringify(issues)}
-Fix each (or justify precisely), re-screenshot and LOOK, keep typecheck/lint/tests green. Return summary, routes, files, screenshots, checks, openIssues.`,
-      { label: `fix:${it.key}`, phase: 'Pages', schema: ITEM_SCHEMA }).then(x => ({ key: it.key, fixed: issues.length, result: x }))
+// Groups reviewed by an earlier run (separate review agent): their high/medium findings were
+// saved to .tmp/reviews/<key>.json, and args.reviewed = { <key>: <number of findings> }.
+// They only get a fix agent.
+const REVIEWED = (args && args.reviewed) || {}
+const fixItem = it => agent(`${CONTEXT}
+
+# YOUR TASK: fix the findings of an independent review of page group '${it.key}' (apps/${it.app}).
+Design reference: ${it.design}. Scope: ${it.spec}
+Findings: read .tmp/reviews/${it.key}.json (${REVIEWED[it.key]} high/medium issues, each with where / problem / suggested fix). The review was done before any fixes; check each against the current code first.
+Fix each (or justify precisely why not). Same ownership rules as the builder: the group's routes under apps/${it.app}/src/app/**, apps/${it.app}/src/features/${it.key}/**, its mock resources, docs/frontend-integration/${it.key}.md; no packages/ui edits, no pnpm add/install. Dev server port ${it.port}, NEXT_DIST_DIR=.next-${it.key}, mock mode.
+Verify: re-screenshot every route you changed at 1440 and 390 into ${FE_SHOTS}/${it.key}-fix-*.png and LOOK; typecheck + lint + tests for the app green.
+${ECONOMY}
+Return summary, routes, files, screenshots, checks, assumedEndpoints, openIssues.`,
+  { label: `fix:${it.key}`, phase: 'Pages', schema: ITEM_SCHEMA })
+
+// FIFO gate instead of pipeline(): every Pages agent() call waits here for a free
+// slot, so no more than MAX_CONCURRENT agents are ever running.
+// Resume note: cached results are only reused until the first agent() call that has none,
+// so every call that may be cached (the builds) is issued before any new one — hence the
+// barrier between builds and review/fix. Builds are 80-95 min each, so on a fresh run the
+// barrier costs little against keeping finished work across resumes.
+// A group whose stage throws stays null.
+let active = 0
+const waiting = []
+const gated = async fn => {
+  if (active >= MAX_CONCURRENT) await new Promise(res => waiting.push(res))
+  else active++
+  try {
+    return await fn()
+  } finally {
+    const next = waiting.shift()
+    if (next) next()
+    else active--
   }
-)
+}
+const results = ITEMS.map(() => null)
+log(`Pages: ${ITEMS.length} groups, at most ${MAX_CONCURRENT} agents at once`)
+const built = await parallel(ITEMS.map(it => () => gated(() => buildItem(it))))
+built.forEach((b, idx) => { if (!b) log(`Page group ${ITEMS[idx].key}: build failed`) })
+await parallel(ITEMS.map((it, idx) => async () => {
+  if (!built[idx]) return
+  try {
+    if (REVIEWED[it.key] !== undefined) {
+      const x = REVIEWED[it.key] ? await gated(() => fixItem(it)) : null
+      results[idx] = { key: it.key, fixed: REVIEWED[it.key], result: x }
+    } else {
+      const x = await gated(() => reviewFixItem(built[idx], it))
+      results[idx] = { key: it.key, fixed: ((x && x.issues) || []).filter(i => i.status === 'fixed').length, result: x }
+    }
+  } catch (e) {
+    log(`Page group ${it.key} failed: ${(e && e.message) || e}`)
+  }
+}))
 log('Pages done: ' + results.filter(Boolean).length + '/' + ITEMS.length)
 
 // ---------------- Consistency ----------------
 phase('Consistency')
+const AREAS = ['packages/ui', 'apps/web', 'apps/admin']
 const CONS_SCHEMA = {
   type: 'object',
-  properties: { perArea: { type: 'array', items: { type: 'object', properties: { area: { type: 'string' }, fixes: { type: 'array', items: { type: 'string' } } }, required: ['area', 'fixes'] } }, promote: { type: 'array', items: { type: 'string' } }, overall: { type: 'string' } },
+  properties: { perArea: { type: 'array', items: { type: 'object', properties: { area: { type: 'string', enum: AREAS }, fixes: { type: 'array', items: { type: 'string' } } }, required: ['area', 'fixes'] } }, promote: { type: 'array', items: { type: 'string' } }, overall: { type: 'string' } },
   required: ['perArea', 'overall'],
 }
+const pageSummary = results.filter(Boolean).map(x => ({ key: x.key, open: x.result && x.result.openIssues })).filter(x => x.open && x.open.length)
 const cons = await agent(`${CONTEXT}
 
-# YOUR TASK: cross-app consistency & completeness critic for apps/web (user site + /agent console) and apps/admin.
-Run both apps in mock mode (web port 3190 NEXT_DIST_DIR=.next-cons, admin port 3290 NEXT_DIST_DIR=.next-cons), crawl every route, screenshot at 1440 and 390 into ${FE_SHOTS}/cons-*.png, LOOK. Find: inconsistent components/spacing/typography between groups, duplicated components that should be promoted to @house/ui, navigation dead ends and broken links, inconsistent formatting of prices/areas/dates, mismatched mock contracts for the same resource between groups, missing global states (auth gating, toasts), console errors, hydration warnings. Return fixes grouped by area (area = an exact path prefix such as apps/web/src/features/w-map or packages/ui) and a list of components to promote.`,
+# YOUR TASK: cross-app consistency & completeness critic for apps/web (user site + /agent console) and apps/admin. 16 page groups were built and reviewed separately; your job is what no single group could see: the seams between them.
+Work code-first, then confirm live:
+1. Code sweep across apps/web, apps/admin, packages/ui: components duplicated across features/* that should be promoted to @house/ui; prices/areas/dates formatted by hand instead of the shared format utils; hard-coded colors/sizes instead of tokens; the same mock-api resource shaped differently by different groups (compare the mock route handlers and the zod types the features use); every link target (href, router.push, redirects) checked against the real route tree; pages missing loading/empty/error states; auth gating and toasts wired differently between groups.
+2. Live: run both apps in mock mode (web port 3190 NEXT_DIST_DIR=.next-cons, admin port 3290 NEXT_DIST_DIR=.next-cons). With an HTTP/Playwright script, request every route and record status codes, console errors and hydration warnings (no screenshots needed for that). Then screenshot ONE representative page per page group at 1440 and 390 into ${FE_SHOTS}/cons-*.png and LOOK at them side by side for visual seams (header, spacing rhythm, type scale, buttons, chips, cards, empty states). The groups' own screenshots for other states are already in ${FE_SHOTS}/.
+Open issues the page groups left (promotion candidates etc.): ${JSON.stringify(pageSummary).slice(0, 6000)}
+${ECONOMY}
+Return fixes grouped into exactly these areas: packages/ui (new/changed shared components only), apps/web (user site and /agent console, incl. replacing local copies with promoted components), apps/admin (same for admin). Each fix must name the exact files and the exact change. Also return the list of components to promote.`,
   { label: 'consistency-critic', phase: 'Consistency', schema: CONS_SCHEMA })
-const consFix = []
-for (const p of ((cons && cons.perArea) || []).filter(p => p.fixes && p.fixes.length)) {
-  consFix.push(await agent(`${CONTEXT}
 
-# YOUR TASK: apply consistency fixes in area ${p.area} (stay within it, except promoting components into packages/ui when listed): ${JSON.stringify(p.fixes)}
-Components to promote (only if your area is packages/ui): ${JSON.stringify((cons && cons.promote) || [])}
-Keep typecheck/lint/tests green. Return summary, routes, files, checks, openIssues.`,
-    { label: `cons-fix:${p.area.split('/').slice(-1)[0]}`, phase: 'Consistency', schema: ITEM_SCHEMA }))
+// Three fix agents instead of one per path prefix: packages/ui first (new shared
+// components), then apps/web and apps/admin in parallel (disjoint folders).
+const fixesFor = a => ((cons && cons.perArea) || []).filter(p => p.area === a).flatMap(p => p.fixes || [])
+const promote = (cons && cons.promote) || []
+const consFix = []
+let uiReport = null
+if (fixesFor('packages/ui').length || promote.length) {
+  uiReport = await agent(`${CONTEXT}
+
+# YOUR TASK: consistency fixes in packages/ui only. Promote these components into @house/ui (generalize the best of the duplicated copies, accessible, typed, CSS Modules + tokens, exported from the package index, with a /dev/ui gallery entry and tests where logic exists): ${JSON.stringify(promote)}
+Other packages/ui fixes: ${JSON.stringify(fixesFor('packages/ui'))}
+Do NOT edit apps/** feature code: the app agents that run after you replace their local copies with your components, using your report. Keep @house/ui typecheck/lint/tests green and do not change existing component APIs in breaking ways.
+${ECONOMY}
+Return summary (with the exact import names and props of every promoted component), files, checks, openIssues.`,
+    { label: 'cons-fix:ui', phase: 'Consistency', schema: ITEM_SCHEMA })
+  consFix.push(uiReport)
 }
+const appFixes = await parallel(['apps/web', 'apps/admin'].filter(a => fixesFor(a).length || (uiReport && promote.length)).map(a => () => agent(`${CONTEXT}
+
+# YOUR TASK: consistency fixes in ${a} only (other agents edit packages/ui and the other app; do not touch them). Fixes: ${JSON.stringify(fixesFor(a))}
+Promoted @house/ui components to adopt in place of local copies (report of the packages/ui agent): ${JSON.stringify(uiReport ? uiReport.summary : 'none').slice(0, 4000)}
+Verify each fixed page live (dev server port ${a === 'apps/web' ? 3191 : 3291}, NEXT_DIST_DIR=.next-cons-fix, mock mode) at 1440 and 390; keep typecheck/lint/tests for the app green.
+${ECONOMY}
+Return summary, routes, files, screenshots, checks, openIssues.`,
+  { label: `cons-fix:${a.split('/')[1]}`, phase: 'Consistency', schema: ITEM_SCHEMA })))
+consFix.push(...appFixes)
+
 const gate = await agent(`${CONTEXT}
 
 # YOUR TASK: frontend final gate. Run pnpm install; then for @house/ui, web, admin: typecheck, lint, unit tests, production build (NEXT_DIST_DIR=.next default is fine now). Fix remaining failures minimally. Merge all docs/frontend-integration/*.md into docs/frontend-integration/INDEX.md listing every assumed endpoint / contract mismatch the backend integrator must reconcile. Return summary, checks (exact counts), openIssues.`,
@@ -157,5 +248,6 @@ return {
   foundation: foundation && { checks: foundation.checks, open: foundation.openIssues },
   pages: results.filter(Boolean).map(x => ({ key: x.key, fixed: x.fixed, checks: x.result && x.result.checks, open: x.result && x.result.openIssues })),
   consistency: cons && cons.overall,
+  consistencyFixes: consFix.filter(Boolean).map(x => ({ summary: x.summary, checks: x.checks, open: x.openIssues })),
   gate,
 }

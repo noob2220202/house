@@ -1,0 +1,206 @@
+/* Completion page (/deal/{sell|find}/complete) — extrapolated from the DealRequest form section. */
+.sec {
+  flex: 1;
+  padding-block: 56px 80px;
+  background: var(--ground);
+}
+.wrap {
+  max-width: 760px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.card {
+  padding: 40px 40px 36px;
+  border-radius: var(--r-2xl);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--sh-1);
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.badge {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--r-lg);
+  background: var(--brand);
+  color: var(--brand-contrast);
+  box-shadow: 0 0 0 6px var(--brand-soft);
+  margin-bottom: 8px;
+}
+.title b {
+  color: var(--brand);
+}
+.box {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 18px 20px;
+  border-radius: var(--r-lg);
+  background: var(--grey-50);
+}
+.boxPh {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.boxPh img {
+  object-fit: cover;
+}
+.boxText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.boxTags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.boxName {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+}
+.boxPrice {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.boxPrice .v {
+  color: var(--brand);
+}
+.next {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.nextI {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+.nextTop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+.nextIc {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-md);
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.nextN {
+  font-family: var(--font-brand);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--brand);
+}
+.nextT {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.actions > :first-child {
+  min-width: 220px;
+}
+.other {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 20px 24px;
+  border-radius: var(--r-xl);
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+}
+.otherT {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.otherT b {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.otherT span {
+  font-size: 14px;
+  color: var(--text-on-ink-2);
+}
+@media (max-width: 720px) {
+  .sec {
+    padding-block: 20px 40px;
+  }
+  .card {
+    padding: 24px 20px;
+    border-radius: var(--r-xl);
+    gap: 20px;
+  }
+  .box {
+    grid-template-columns: 56px minmax(0, 1fr);
+    padding: 14px;
+  }
+  .boxPh {
+    width: 56px;
+    height: 56px;
+  }
+  .boxPrice {
+    grid-column: 1 / -1;
+    text-align: left;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .next {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .nextI {
+    padding: 14px 16px;
+  }
+  .actions > * {
+    flex: 1 1 100%;
+  }
+  .other {
+    border-radius: var(--r-lg);
+    padding: 16px;
+  }
+  .other > a {
+    width: 100%;
+  }
+}

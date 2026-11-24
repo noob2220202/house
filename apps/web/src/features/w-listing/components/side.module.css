@@ -1,0 +1,549 @@
+/* ---------- Aside cards (Listing.dc.html .scard / .cb / .acts / .calc) + mobile bars ---------- */
+.scard {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: var(--sh-1);
+}
+.scardHd {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 22px 22px 14px;
+}
+.scardHdRow {
+  flex-direction: row;
+  align-items: center;
+  padding-bottom: 6px;
+}
+.scardT {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.35;
+}
+.scardT svg {
+  color: var(--brand);
+}
+.scardDesc {
+  font-size: var(--fs-cap);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.brand {
+  color: var(--brand);
+}
+.brokersTSm {
+  display: none;
+}
+.brokersEmpty {
+  padding: 8px 22px 20px;
+  font-size: 14px;
+  color: var(--text-3);
+}
+.cbs {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cb {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-areas:
+    'ph info'
+    'legal legal'
+    'act act';
+  gap: 14px;
+  align-items: start;
+  padding: 18px 22px;
+  border-top: 1px solid var(--line);
+}
+.cbFirst {
+  background: var(--accent-soft);
+  border-top-color: #efe3c6;
+}
+.cbPh {
+  grid-area: ph;
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.cbPh > * {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cbInfo {
+  grid-area: info;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.cbTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-text);
+}
+.cbName {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.4;
+}
+.cbName a:hover {
+  text-decoration: underline;
+}
+.cbMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.cbMeta .cbRep {
+  flex-basis: 100%;
+  color: var(--text-3);
+}
+.cbMeta b {
+  color: var(--text-2);
+  font-weight: 700;
+}
+.cbLegal {
+  grid-area: legal;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: -4px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line-strong);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.cbFirst .cbLegal {
+  border-top-color: #e2d3ad;
+}
+.cbLegal > div {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 8px;
+}
+.cbLegal dt {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.cbLegal dd {
+  margin: 0;
+}
+.cbAct {
+  grid-area: act;
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 8px;
+}
+.cbBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--hit);
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  transition:
+    background var(--dur-1),
+    border-color var(--dur-1);
+}
+.cbCall {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+.cbCall:hover {
+  background: var(--surface-2);
+}
+.cbAskPrimary {
+  background: var(--brand);
+  color: var(--brand-contrast);
+}
+.cbAskPrimary:hover {
+  background: var(--brand-hover);
+}
+.cbAsk {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.cbAsk:hover {
+  background: var(--brand-soft-2);
+}
+.scardFt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--line);
+  background: var(--ground);
+  font-size: 13px;
+  color: var(--text-3);
+}
+.scardFt svg {
+  color: var(--icon-muted);
+}
+
+/* 관심 · 공유 · 신고 */
+.acts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.act {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 76px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+  text-align: center;
+  transition: background var(--dur-1);
+}
+.act:hover {
+  background: var(--surface-2);
+}
+.actOn {
+  border-color: #f4c5ca;
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.actOn:hover {
+  background: var(--danger-soft);
+}
+.actWarn {
+  color: var(--danger);
+}
+
+/* 계산해 보기 */
+.calc {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0 10px 10px;
+  list-style: none;
+}
+.calc button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--r-md);
+  text-align: left;
+}
+.calc button:hover {
+  background: var(--surface-2);
+}
+.calc button > svg {
+  color: var(--icon-muted);
+}
+.calc li + li button {
+  border-top: 1px solid var(--grey-100);
+  border-radius: 0;
+}
+.calcBody {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 2px 12px;
+  flex: 1;
+  min-width: 0;
+}
+.calcK {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.calcBody b {
+  justify-self: end;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--brand);
+}
+.calcS {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* LISTING_SIDE ad */
+.ad {
+  position: relative;
+}
+.ad img {
+  object-fit: cover;
+}
+.adProbe {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+/* Mobile-only pieces */
+.mFoot,
+.cta {
+  display: none;
+}
+
+@media (max-width: 1080px) {
+  .ad {
+    max-width: 384px;
+  }
+}
+
+@media (max-width: 720px) {
+  .brokers {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+    gap: 16px;
+    padding: 24px 16px 26px;
+  }
+  .brokers .scardHd {
+    gap: 2px;
+    padding: 0;
+  }
+  .brokers .scardT {
+    font-size: 20px;
+  }
+  .brokersTLg {
+    display: none;
+  }
+  .brokersTSm {
+    display: inline;
+  }
+  .brokers .scardDesc {
+    font-size: var(--fs-sm);
+    color: var(--text-3);
+  }
+  .cbs {
+    border: 1px solid var(--line);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+  }
+  .cb {
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    grid-template-areas:
+      'ph tag tag'
+      'ph name name'
+      'ph meta act'
+      'legal legal legal';
+    column-gap: 12px;
+    row-gap: 0;
+    align-items: center;
+    padding: 14px 14px 14px 16px;
+  }
+  .cbInfo {
+    display: contents;
+  }
+  .cbTag {
+    grid-area: tag;
+    margin-bottom: 2px;
+  }
+  .cbName {
+    grid-area: name;
+    margin-bottom: 4px;
+  }
+  .cbMeta {
+    grid-area: meta;
+  }
+  .cb:first-child {
+    border-top: 0;
+  }
+  .cbPh {
+    grid-row: 1 / 4;
+    width: 52px;
+    height: 52px;
+    align-self: start;
+  }
+  .cbName {
+    letter-spacing: -0.035em;
+    line-height: 1.35;
+  }
+  .cbMeta {
+    gap: 0 10px;
+    line-height: 1.55;
+  }
+  .cbMeta .cbRep {
+    flex-basis: auto;
+    color: var(--text-muted);
+  }
+  .cbRepLg,
+  .cbStatLg {
+    display: none;
+  }
+  .cbLegal {
+    margin: 10px 0 0;
+    padding-top: 8px;
+  }
+  .cbAct {
+    display: flex;
+    gap: 6px;
+    align-self: center;
+  }
+  .cbBtn {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 50%;
+  }
+  .cbBtn span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+  .cbAsk {
+    background: var(--brand);
+    color: var(--brand-contrast);
+  }
+  .scardFt {
+    gap: 6px;
+    margin-top: -4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .acts,
+  .ad {
+    display: none;
+  }
+  .calcCard {
+    border-radius: var(--r-lg);
+  }
+  .mFoot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 16px 12px;
+    border-top: 1px solid var(--line);
+  }
+  .mId {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .mId b {
+    font-weight: 700;
+    color: var(--text-3);
+  }
+  .mReport {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 44px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--danger);
+    white-space: nowrap;
+  }
+  .cta {
+    position: sticky;
+    bottom: 0;
+    z-index: var(--z-sticky);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 16px calc(16px + env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, 0.97);
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -6px 20px rgba(10, 18, 34, 0.06);
+  }
+  .ctaWho {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ctaWho b {
+    font-weight: 700;
+    color: var(--text-2);
+  }
+  .ctaDot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 0 3px var(--success-soft);
+    vertical-align: 1px;
+  }
+  .ctaBtns {
+    display: grid;
+    grid-template-columns: 1fr 1.35fr;
+    gap: 8px;
+  }
+  .ctaBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 52px;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+  .ctaCall {
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--line-strong);
+  }
+  .ctaAsk {
+    background: var(--brand);
+    color: var(--brand-contrast);
+  }
+}

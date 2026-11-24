@@ -1,0 +1,147 @@
+.wrap {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  overflow: hidden;
+  min-width: 0;
+}
+.bare {
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.scroll {
+  position: relative;
+  overflow-x: auto;
+}
+.table {
+  width: 100%;
+  font-size: 14px;
+  border-collapse: collapse;
+}
+.table th {
+  height: 44px;
+  padding: 0 14px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--grey-50);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.table td {
+  height: 60px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--grey-100);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.table tbody tr:hover td {
+  background: var(--grey-50);
+}
+.compact td {
+  height: 48px;
+  padding: 0 12px;
+}
+.compact th {
+  height: 36px;
+  padding: 0 12px;
+}
+.sticky thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.table .right {
+  text-align: right;
+}
+.table .center {
+  text-align: center;
+}
+.table th.sale {
+  color: var(--deal-sale);
+}
+.table th.jeonse {
+  color: var(--deal-jeonse);
+}
+.table th.monthly {
+  color: var(--deal-monthly);
+}
+.table th.presale {
+  color: var(--deal-presale);
+}
+.sortBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  margin: 0 -6px;
+  padding: 0 6px;
+  border-radius: var(--r-xs);
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+}
+.sortBtn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.sortOn {
+  color: var(--text);
+}
+.checkCol {
+  width: 44px;
+  padding-right: 0 !important;
+}
+.checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--surface) center / 14px no-repeat;
+  cursor: pointer;
+}
+.checkbox:checked {
+  background-color: var(--brand);
+  border-color: var(--brand);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+}
+.checkbox:indeterminate {
+  background-color: var(--brand);
+  border-color: var(--brand);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
+}
+.selected td,
+.table tbody tr.selected:hover td {
+  background: var(--brand-soft);
+}
+.clickable {
+  cursor: pointer;
+}
+.emptyRow td {
+  height: auto;
+  padding: 0;
+  white-space: normal;
+  text-align: center;
+}
+.table tbody tr.emptyRow:hover td {
+  background: none;
+}
+.emptyText {
+  display: block;
+  padding: 40px 16px;
+  color: var(--text-muted);
+}
+.foot {
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+}

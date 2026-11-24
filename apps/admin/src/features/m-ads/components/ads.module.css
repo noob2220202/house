@@ -1,0 +1,958 @@
+/* Banners & popups list screens — ported from design/drafts/project/AdminBanners.dc.html */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+/*
+ * Everything of the list lives in a size container: the compact (card) layout depends on the width
+ * the list really has — a phone, or the narrow column that is left next to the docked editor — not
+ * on the viewport. The editor itself is rendered outside (a size container would capture its
+ * position: fixed).
+ */
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  container: ads / inline-size;
+}
+
+/* tab bar + actions */
+.bar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: -6px;
+  border-bottom: 1px solid var(--line);
+}
+.bar .tabs.tabs {
+  border-bottom: 0;
+}
+.bar .tabs a,
+.bar .tabs button {
+  height: 46px;
+  font-size: 16px;
+}
+.barActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 8px;
+}
+
+/* slot overview */
+.slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.slot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: 14px 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  min-width: 0;
+  transition:
+    border-color var(--dur-1),
+    box-shadow var(--dur-1);
+}
+.slot:hover {
+  border-color: var(--brand-line);
+  box-shadow: var(--sh-1);
+}
+.slot.slotOn {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px var(--brand);
+}
+.slotTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+.slotGlyph {
+  display: block;
+  flex: none;
+}
+.slotN {
+  font-family: var(--font-num);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--text);
+  white-space: nowrap;
+}
+.slotN small {
+  margin-left: 2px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0;
+}
+.slotName {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.3;
+  min-height: 36px;
+  color: var(--text);
+}
+.meter {
+  display: block;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand);
+  transition: width var(--dur-2, 0.25s);
+}
+.meterWarn i {
+  background: var(--warn);
+}
+.slotCap {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.slotCapWarn {
+  font-weight: 700;
+  color: var(--warn);
+}
+
+/* list panel */
+.panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  min-width: 0;
+}
+.panelHd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 12px;
+  flex-wrap: wrap;
+  min-height: 58px;
+  padding: 12px 16px 12px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.panelHdText {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.panelT {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.cap {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.filters > button {
+  height: 34px;
+  font-size: 13px;
+  padding: 0 8px 0 12px;
+}
+.reset {
+  height: 34px;
+  padding: 0 8px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.reset:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.optList {
+  display: flex;
+  flex-direction: column;
+}
+.optList label {
+  min-height: 40px;
+  font-size: 14px;
+}
+
+/* banner table */
+.tableWrap {
+  position: relative;
+  min-width: 0;
+}
+.bt {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.bt th {
+  height: 38px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: left;
+  white-space: nowrap;
+  background: var(--grey-50);
+  border-bottom: 1px solid var(--line);
+}
+.bt th:first-child {
+  padding-left: 16px;
+  padding-right: 0;
+}
+.bt td {
+  height: 70px;
+  padding: 0 10px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--grey-100);
+  background: var(--surface);
+  transition: background var(--dur-1);
+}
+.bt tbody tr:last-child td {
+  border-bottom: 0;
+}
+.bt td:first-child {
+  padding-left: 8px;
+  padding-right: 0;
+}
+.bt td:last-child,
+.bt th:last-child {
+  padding-right: 16px;
+}
+.bt tbody tr:hover td {
+  background: var(--grey-50);
+}
+.bt tbody tr.editing td,
+.bt tbody tr.editing:hover td {
+  background: var(--brand-soft);
+}
+.bt tbody tr.dragging {
+  position: relative;
+  z-index: 2;
+}
+.bt tbody tr.dragging td {
+  background: var(--surface);
+  box-shadow:
+    0 -1px 0 var(--brand-line) inset,
+    0 1px 0 var(--brand-line) inset;
+}
+.bt tbody tr.dragging td:first-child {
+  box-shadow:
+    0 -1px 0 var(--brand-line) inset,
+    0 1px 0 var(--brand-line) inset,
+    3px 0 0 var(--brand) inset;
+}
+/* Ended rows recede; the title keeps AA contrast (muted colour instead of opacity). */
+.bt tbody tr.ended .thumb {
+  opacity: 0.6;
+}
+.bt tbody tr.ended .bnTitle b {
+  color: var(--text-muted);
+}
+.r {
+  text-align: right !important;
+}
+
+.ord {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 34px;
+  height: 32px;
+  padding: 0 4px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-num);
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-2);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.ord:hover {
+  background: var(--surface-2);
+}
+.ord:active {
+  cursor: grabbing;
+}
+.ord svg {
+  color: var(--icon-muted);
+}
+.ord:disabled {
+  cursor: default;
+  background: none;
+}
+.ord:disabled svg {
+  visibility: hidden;
+}
+
+.bn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.thumb {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 84px;
+  height: 38px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--ad-ground);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface-ink) 6%, transparent);
+}
+.thumbPopup {
+  width: 58px;
+  height: 46px;
+}
+.bnT {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+.bnTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.bnTitle b {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.editingTag {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--brand);
+  color: var(--brand-contrast);
+  font-size: 12px;
+  font-weight: 700;
+}
+.bnSub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.slotTag {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.editing .slotTag {
+  background: var(--surface);
+}
+.bnAdv {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.bnMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 0;
+}
+.bnMeta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.bnMeta > span:first-child {
+  flex: none;
+}
+.bnMeta > span:last-child {
+  overflow: hidden;
+}
+.bnMeta > span:last-child > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bnMeta svg {
+  flex: none;
+  color: var(--icon-muted);
+}
+
+.st {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.st label {
+  min-height: 30px;
+  gap: 8px;
+}
+.st label > span {
+  font-size: 13px;
+  font-weight: 800;
+}
+.stLive label > span {
+  color: var(--success);
+}
+.stScheduled label > span {
+  color: var(--brand);
+}
+.stPaused label > span,
+.stEnded label > span {
+  color: var(--text-muted);
+}
+.st .cap {
+  padding-left: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.perfLink,
+.perfBox {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 4px 6px;
+  margin-right: -6px;
+  border-radius: var(--r-sm);
+}
+.perfLink:hover {
+  background: var(--surface-2);
+}
+.perfLink:hover .perf {
+  color: var(--brand);
+}
+.perf {
+  display: block;
+  font-family: var(--font-num);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.perfNone {
+  color: var(--text-muted);
+}
+.perfSub {
+  font-family: var(--font-num);
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.acts {
+  display: inline-flex;
+  gap: 2px;
+}
+.act {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--text-3);
+}
+.act:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.editing .act:hover {
+  background: var(--surface);
+}
+.act.actOn,
+.act.actOn:hover {
+  background: var(--brand);
+  color: var(--brand-contrast);
+}
+.actDel {
+  color: var(--text-muted);
+}
+.actDel:hover,
+.editing .actDel:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.tfoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 47px;
+  padding: 8px 16px 8px 20px;
+  border-top: 1px solid var(--line);
+}
+.tfoot b {
+  color: var(--text);
+  font-family: var(--font-num);
+  font-weight: 800;
+}
+.pager a,
+.pager button,
+.pager span {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.pager ul,
+.pager ol {
+  gap: 2px;
+}
+.stateBox {
+  padding: 28px 16px;
+}
+.skRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 70px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--grey-100);
+}
+.skRow:last-child {
+  border-bottom: 0;
+}
+.skGrow {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.fetching {
+  opacity: 0.6;
+  transition: opacity var(--dur-1);
+}
+
+/* popup quick settings (banners tab) */
+.pp {
+  display: grid;
+  grid-template-columns: 184px minmax(0, 1fr);
+  gap: 20px;
+  padding: 14px 20px 16px;
+}
+.ppSet {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ppHd {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 6px;
+}
+.ppT {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.ppRow {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 40px;
+  padding: 4px 0;
+  border-top: 1px solid var(--grey-100);
+}
+.ppL {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.ppV {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.ppV > button,
+.ppV > span[class] > button {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+/* Design `.date-sm`: calendar icon on the left; the native picker opens from anywhere on the field. */
+.dateSmBox {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.dateSmBox > svg {
+  position: absolute;
+  left: 9px;
+  z-index: 1;
+  color: var(--icon-muted);
+  pointer-events: none;
+}
+.dateSmBox .dateSm {
+  position: relative;
+  padding: 0 10px 0 31px;
+}
+.dateSm::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  opacity: 0;
+  cursor: pointer;
+}
+.dateSm {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  font-family: var(--font-num);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.dateSm:focus-visible {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: var(--focus);
+}
+.checkSm.checkSm {
+  min-height: 30px;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.linkRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--brand);
+}
+.linkRow:hover {
+  text-decoration: underline;
+}
+
+/* popup mini preview card (also used by the editor preview) */
+.ppMini {
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px var(--line),
+    var(--sh-2);
+  align-self: start;
+}
+.ppArt {
+  position: relative;
+  aspect-ratio: 380 / 300;
+  background: var(--ad-ground);
+  overflow: hidden;
+}
+.ppFt {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.ppFt span {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ppFt span:last-child {
+  border-left: 1px solid var(--line);
+  color: var(--text);
+  font-weight: 800;
+}
+.ppFt span:only-child {
+  border-left: 0;
+  justify-content: center;
+}
+
+.live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* spec sheet modal */
+.specTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.specTable th,
+.specTable td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--grey-100);
+  vertical-align: middle;
+}
+.specTable thead th {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+  border-bottom-color: var(--line);
+}
+.specTable tbody th {
+  font-weight: 800;
+  color: var(--text);
+}
+.specTable tbody th small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.specTable td {
+  font-family: var(--font-num);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.specScroll {
+  overflow-x: auto;
+}
+.maxInput.maxInput {
+  width: 72px;
+  height: 36px;
+  padding: 0 8px;
+  font-family: var(--font-num);
+  font-size: 14px;
+  text-align: right;
+}
+.specNote {
+  margin-top: 12px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+@container ads (max-width: 640px) {
+  .barActions {
+    width: 100%;
+  }
+  .panelHd {
+    padding: 12px 16px;
+  }
+  .bt,
+  .bt tbody {
+    display: block;
+  }
+  .bt thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+  .bt colgroup {
+    display: none;
+  }
+  .bt tr {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    grid-template-areas: 'o b b' 'o p p' 'o s a';
+    row-gap: 8px;
+    column-gap: 10px;
+    padding: 14px 16px 14px 10px;
+    border-bottom: 1px solid var(--grey-100);
+    background: var(--surface);
+  }
+  .bt tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .bt tr.editing {
+    background: var(--brand-soft);
+  }
+  .bt tr.dragging {
+    box-shadow:
+      0 0 0 1px var(--brand-line),
+      var(--sh-2);
+  }
+  .bt td,
+  .bt tbody tr:hover td,
+  .bt tbody tr.editing td,
+  .bt tbody tr.dragging td {
+    display: block;
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .bt td:nth-child(1) {
+    grid-area: o;
+    padding-top: 2px;
+  }
+  .bt td:nth-child(2) {
+    grid-area: b;
+  }
+  .bt td:nth-child(3) {
+    grid-area: s;
+  }
+  .bt td:nth-child(4) {
+    grid-area: p;
+    text-align: left !important;
+  }
+  .bt td:nth-child(5) {
+    grid-area: a;
+    align-self: center;
+  }
+  .ord {
+    min-width: 38px;
+    height: 44px;
+  }
+  .perfLink,
+  .perfBox {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0 0 0 -6px;
+  }
+  .perf {
+    font-size: 14px;
+  }
+  .st label {
+    min-height: 44px;
+  }
+  .act {
+    width: 44px;
+    height: 44px;
+  }
+  .tfoot {
+    flex-wrap: wrap;
+    padding: 8px 16px;
+  }
+  .pager a,
+  .pager button,
+  .pager span {
+    min-width: 44px;
+    height: 44px;
+  }
+  .pp {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ppMini {
+    max-width: 220px;
+  }
+  .ppRow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    padding: 8px 0;
+  }
+  .ppV > button {
+    height: 36px;
+  }
+  .dateSm {
+    height: 40px;
+  }
+  .skRow {
+    height: 132px;
+    align-items: flex-start;
+    padding-top: 16px;
+  }
+}
+@media (max-width: 720px) {
+  .ord {
+    height: 44px;
+  }
+  .st label {
+    min-height: 44px;
+  }
+  .act {
+    width: 40px;
+    height: 40px;
+  }
+  .filters > button,
+  .reset {
+    height: 40px;
+  }
+}
+.checkSm.checkSm input {
+  width: 20px;
+  height: 20px;
+}
+.checkSm.checkSm svg {
+  left: 3px;
+  width: 14px;
+  height: 14px;
+}
+.specSave {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

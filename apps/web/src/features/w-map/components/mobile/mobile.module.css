@@ -1,0 +1,200 @@
+/* MobileMap design: floating search + chip row and the bottom sheet. */
+.top {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  pointer-events: none;
+}
+.top > * {
+  pointer-events: auto;
+}
+.search {
+  display: flex;
+  align-items: center;
+  height: 52px;
+  margin: 0 16px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow:
+    var(--sh-2),
+    0 0 0 1px rgba(10, 18, 34, 0.04);
+}
+.cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 52px;
+  padding: 0 8px 0 16px;
+  border-radius: var(--r-lg) 0 0 var(--r-lg);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  white-space: nowrap;
+  flex: none;
+}
+.cat svg {
+  color: var(--icon-muted);
+}
+.cat:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus);
+}
+.searchSep {
+  width: 1px;
+  height: 18px;
+  background: var(--line-strong);
+  flex: none;
+}
+/* The shared pill search field, flattened into the white bar. */
+.searchField {
+  flex: 1;
+  min-width: 0;
+}
+.searchField form {
+  height: 52px;
+  padding: 0 16px 0 12px;
+  gap: 8px;
+  border-radius: 0 var(--r-lg) var(--r-lg) 0;
+  background: transparent;
+}
+.searchField form:focus-within {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--brand);
+}
+.chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-top: -3px;
+  padding: 3px 16px 6px;
+}
+.chips::-webkit-scrollbar {
+  display: none;
+}
+/* Chips float on the map: shadow instead of a border (design .mm-chips .fchip). */
+.chips > button,
+.chips > span {
+  flex: none;
+  height: 38px;
+  border-color: transparent;
+  box-shadow:
+    var(--sh-2),
+    0 0 0 1px rgba(10, 18, 34, 0.05);
+}
+.chips > button[aria-expanded] {
+  padding: 0 10px 0 13px;
+}
+.fbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 0 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+.fbtn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus), var(--sh-2);
+}
+.fbtnN {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--ink-900);
+  font-family: var(--font-brand);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* ---- bottom sheet ---- */
+.sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  height: var(--sheet-h);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  background: var(--surface);
+  box-shadow: 0 -10px 30px rgba(10, 18, 34, 0.12);
+  overflow: hidden;
+  transition: height var(--dur-2) var(--ease);
+}
+.handle {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 24px;
+  flex: none;
+  cursor: grab;
+  touch-action: none;
+}
+.handle span {
+  display: block;
+  width: 40px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--grey-200);
+}
+.handle:focus-visible {
+  outline: none;
+}
+.handle:focus-visible span {
+  background: var(--brand);
+  box-shadow: var(--focus);
+}
+.sheetBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.full .sheetBody {
+  padding-bottom: 0;
+}
+
+/* ---- full filter sheet ---- */
+.filterBody {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding-bottom: 8px;
+}
+.filterRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.filterFoot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.filterFoot > :last-child {
+  flex: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet {
+    transition: none;
+  }
+}

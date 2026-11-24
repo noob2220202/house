@@ -1,0 +1,420 @@
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.kpiLink {
+  display: block;
+  border-radius: var(--r-lg);
+  transition: box-shadow var(--dur-1);
+}
+.kpiLink:hover {
+  box-shadow: var(--sh-2);
+}
+.kpiLink:hover .kpiTile {
+  border-color: var(--brand-line);
+}
+.kpiTile {
+  height: 100%;
+  transition: border-color var(--dur-1);
+}
+/* Keep the label clear of the corner icon tile. */
+.kpiTile > :first-child {
+  padding-right: 40px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--r-xs);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.chipSell {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.chipWant {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.warnText {
+  color: var(--warn);
+  font-weight: 700;
+}
+.cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  /* Panels adapt to their own width (the sidebar and the 1↔2 column switch change it). */
+  container-type: inline-size;
+}
+/* Panel header descriptions only where the header has room — the title and its action link
+   must stay on one row (otherwise "전체" drops to a third, left-aligned line). */
+.panelDesc {
+  display: inline;
+}
+@container (max-width: 640px) {
+  .panelDesc {
+    display: none;
+  }
+}
+.more {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 32px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.more:hover {
+  color: var(--brand);
+}
+
+/* Views panel */
+.views {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+}
+.viewStats {
+  display: flex;
+  flex-direction: column;
+}
+.viewStat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.viewStat:first-child {
+  padding-top: 0;
+}
+.viewStat:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.viewStat dt {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.viewStat dd {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-num);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.viewStat dd small {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+.chart {
+  padding-right: 10px;
+}
+.chart svg {
+  overflow: visible;
+}
+
+/* Row lists */
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line-soft);
+  min-width: 0;
+}
+.rows > li:last-child .row,
+.rows > .row:last-child {
+  border-bottom: 0;
+}
+a.row:hover {
+  background: var(--ground);
+}
+.dday {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  min-width: 48px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-family: var(--font-brand);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+/* 실매물 확인 chips can read "12일 지남" → a wider, fixed column so titles stay aligned. */
+.ddayWide {
+  min-width: 64px;
+}
+.ddayHot {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.ddayWarm {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.rowTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  min-width: 0;
+}
+.rowTitle > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rowSub {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rowPrice {
+  flex: none;
+  font-family: var(--font-num);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+.rowAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+  min-height: 32px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand);
+  white-space: nowrap;
+}
+.rowAction:hover {
+  color: var(--brand-hover);
+}
+
+/* Request / inquiry items */
+.feedItem {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line-soft);
+  min-width: 0;
+}
+.feed > li:last-child .feedItem {
+  border-bottom: 0;
+}
+a.feedItem:hover {
+  background: var(--ground);
+}
+.feedHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.feedTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.feedMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  min-width: 0;
+}
+.feedMeta > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.feedMeta b {
+  color: var(--text-2);
+  font-weight: 700;
+}
+.preview {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.unread {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+  flex: none;
+}
+.time {
+  flex: none;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Profile completeness */
+.complete {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.completeHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.completeHead b {
+  font-family: var(--font-num);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.03em;
+}
+.bar {
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.bar > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brand);
+}
+.missing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@media (max-width: 1180px) {
+  .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .kpis {
+    gap: 10px;
+  }
+  .views {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .viewStats {
+    flex-direction: row;
+    gap: 16px;
+  }
+  .viewStat {
+    flex: 1;
+    padding: 0;
+    border-bottom: 0;
+  }
+  .viewStat dd {
+    flex-wrap: wrap;
+    gap: 0 6px;
+    font-size: 18px;
+  }
+  .row {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 14px 16px;
+  }
+  .rowMain {
+    flex-basis: calc(100% - 64px);
+  }
+  .rowPrice {
+    margin-left: 60px;
+  }
+  .rowAction {
+    margin-left: auto;
+  }
+  .feedItem {
+    padding: 14px 16px;
+  }
+}
+
+/* Narrow panels: the distinguishing part of a title (동 · 호 line) is at its end, so titles wrap to
+   two lines instead of ellipsizing. */
+@container (max-width: 560px) {
+  .rowTitle {
+    align-items: flex-start;
+  }
+  .rowTitle > span:last-child {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+  }
+  .rowSub {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 720px) {
+  .rowsWide .rowMain {
+    flex-basis: calc(100% - 80px);
+  }
+  .rowsWide .rowPrice {
+    margin-left: 76px;
+  }
+}

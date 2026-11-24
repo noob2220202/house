@@ -1,0 +1,318 @@
+.header {
+  position: relative;
+  z-index: var(--z-header);
+}
+.utilbar {
+  background: var(--grey-50);
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--text-3);
+}
+.utilInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 36px;
+}
+.utilNav {
+  display: flex;
+  gap: 18px;
+}
+.utilNav a:hover {
+  color: var(--text);
+}
+.gnb {
+  position: relative;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.gnbInner {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  min-height: 72px;
+}
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav::-webkit-scrollbar {
+  display: none;
+}
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: var(--r-sm);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-2);
+  white-space: nowrap;
+  flex: none;
+}
+.navLink:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.navLink.on {
+  color: var(--brand);
+}
+.navLink:focus-visible {
+  box-shadow: inset var(--focus);
+}
+.sep {
+  width: 1px;
+  height: 16px;
+  background: var(--line-strong);
+  margin: 0 8px;
+  flex: none;
+}
+.act {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+  transition: background var(--dur-1);
+}
+.sell {
+  background: var(--brand);
+  color: var(--brand-contrast);
+}
+.sell:hover {
+  background: var(--brand-hover);
+}
+.find {
+  background: var(--surface);
+  color: var(--brand);
+  box-shadow: inset 0 0 0 1.5px var(--brand);
+}
+.find:hover {
+  background: var(--brand-soft);
+}
+.login {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 18px;
+  border-radius: var(--r-pill);
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background var(--dur-1);
+}
+.login:hover {
+  background: var(--surface-ink-3);
+}
+.authSlot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 78px;
+  height: 44px;
+}
+.me {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 12px 0 4px;
+  border-radius: var(--r-pill);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.me:hover {
+  background: var(--surface-2);
+}
+.meName {
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 6px;
+}
+.menu a,
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-align: left;
+}
+.menu a:hover,
+.menu button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.menu hr {
+  width: 100%;
+  height: 1px;
+  margin: 6px 0;
+  border: 0;
+  background: var(--line);
+}
+.menuHead {
+  padding: 10px 12px 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.menuHead b {
+  display: block;
+  font-size: 15px;
+  color: var(--text);
+}
+
+/* Tablet: tighten; nav scrolls horizontally */
+@media (max-width: 1180px) {
+  .gnbInner {
+    gap: 16px;
+  }
+  .navLink {
+    padding: 0 10px;
+    font-size: 15px;
+  }
+  .sep {
+    margin: 0 4px;
+  }
+  /* 내놓기 / 구하기 become 44px icon buttons so the whole GNB fits (cut off from 721 to 1180px). */
+  .cta {
+    width: 44px;
+    padding: 0;
+    justify-content: center;
+  }
+  .ctaLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+.gnbInner .logoMark {
+  display: none;
+}
+@media (max-width: 960px) {
+  .gnbInner {
+    gap: 12px;
+  }
+  .gnbInner .logoFull {
+    display: none;
+  }
+  .gnbInner .logoMark {
+    display: inline-flex;
+  }
+  .sep {
+    display: none;
+  }
+  .navLink {
+    padding: 0 8px;
+    font-size: 14px;
+  }
+  /* Whatever still overflows (zoomed text) fades out instead of being cut mid-word. */
+  .nav {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  }
+}
+@media (max-width: 800px) {
+  .navLink {
+    padding: 0 6px;
+  }
+}
+/* Mobile: the desktop header is replaced by MobileHeader + bottom tab bar */
+@media (max-width: 720px) {
+  .header {
+    display: none;
+  }
+}
+
+/* ---- Mobile header (MobileHome design) ---- */
+.mobile {
+  display: none;
+}
+@media (max-width: 720px) {
+  .mobile {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-header);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: var(--mobile-header-h);
+    padding: 0 6px 0 16px;
+    background: rgba(255, 255, 255, 0.96);
+    -webkit-backdrop-filter: saturate(1.4) blur(8px);
+    backdrop-filter: saturate(1.4) blur(8px);
+  }
+  .mobile.bordered {
+    border-bottom: 1px solid var(--line);
+  }
+}
+.mobileAct {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+.mobileBtn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--hit);
+  height: var(--hit);
+  border-radius: var(--r-md);
+  color: var(--text);
+}
+.dot {
+  position: absolute;
+  top: 10px;
+  right: 11px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.mobileTitle {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mobileBack {
+  margin-left: -10px;
+}

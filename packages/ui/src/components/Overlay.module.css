@@ -1,0 +1,32 @@
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+}
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+  animation: fade var(--dur-2) var(--ease);
+}
+.center {
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.right {
+  justify-content: flex-end;
+}
+.left {
+  justify-content: flex-start;
+}
+.bottom {
+  align-items: flex-end;
+  justify-content: center;
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}

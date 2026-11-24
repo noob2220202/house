@@ -1,0 +1,358 @@
+/* Shared layout pieces of the m-content screens (extrapolated from AdminBanners / AdminDashboard). */
+
+/* Top row of a screen: tabs / filters on the left, primary actions on the right. */
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  min-height: 44px;
+}
+.barStart,
+.barEnd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.barEnd {
+  margin-left: auto;
+}
+.barTabs {
+  align-self: flex-end;
+  margin-bottom: -1px;
+}
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* Toolbar search: @house/ui ListSearchField at 260px (full width on phones). */
+.search {
+  --list-search-w: 260px;
+}
+.compact input,
+.compact select {
+  height: 40px;
+  font-size: 14px;
+}
+.selectSm {
+  min-width: 132px;
+}
+.selectSm select {
+  height: 40px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Table cells */
+.cellMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 0;
+  white-space: normal;
+}
+.cellTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  line-height: 1.4;
+}
+.cellTitle a:hover {
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.cellSub {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+.clamp1 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+}
+.num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.muted {
+  color: var(--text-muted);
+}
+.small {
+  font-size: 13px;
+}
+.rowActions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+}
+/* Phone cards: several labelled switches in one row (공개 · 고정). */
+.cardSwitches {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+}
+.nowrap {
+  white-space: nowrap;
+}
+.pinIcon {
+  color: var(--accent-text);
+  flex: none;
+}
+.footNote {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Forms */
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 16px;
+}
+.formGrid3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.formGrid4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.span2 {
+  grid-column: span 2;
+}
+.spanAll {
+  grid-column: 1 / -1;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.stackLg {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+/* Page-level form: fills the body so its SaveBar can rest at the bottom. */
+.fill {
+  flex: 1 0 auto;
+}
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
+  align-items: start;
+}
+.splitWide {
+  grid-template-columns: minmax(0, 1fr) 400px;
+}
+.aside {
+  position: sticky;
+  top: 84px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.switchRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.switchRow:first-child {
+  padding-top: 0;
+}
+.switchRow:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.switchText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.switchLabel {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.switchHelp {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Definition list (read-only facts) */
+.facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 10px 16px;
+  font-size: 14px;
+}
+.facts dt {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.facts dd {
+  color: var(--text);
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Sticky save bar under long forms */
+.saveBar {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  /* auto top margin: sits at the bottom of the viewport when the form is short */
+  margin: auto -28px -40px;
+  padding: 12px 28px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(8px);
+}
+.saveBarInset {
+  bottom: 16px;
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-2);
+}
+.saveBarInfo {
+  font-size: 13px;
+  color: var(--text-muted);
+  min-width: 0;
+}
+.saveBarDirty {
+  color: var(--accent-text);
+  font-weight: 700;
+}
+.saveBarActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* Destructive ghost button. The class is doubled so it wins over the button's own colour
+   regardless of the order the CSS chunks are loaded in. */
+.dangerText.dangerText {
+  color: var(--danger);
+}
+.dangerText.dangerText:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.linkBtn {
+  font: inherit;
+  font-weight: 700;
+  color: var(--brand);
+  text-align: left;
+}
+.linkBtn:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 1180px) {
+  .split,
+  .splitWide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .aside {
+    position: static;
+  }
+  .formGrid4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .formGrid,
+  .formGrid3,
+  .formGrid4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .span2 {
+    grid-column: auto;
+  }
+  .search {
+    --list-search-w: 100%;
+    flex: 1 1 100%;
+  }
+  .filters {
+    width: 100%;
+  }
+  .selectSm {
+    flex: 1 1 132px;
+  }
+  .saveBar {
+    margin: auto -16px -32px;
+    padding: 10px 16px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+  .saveBarInset {
+    bottom: 12px;
+    margin: 0;
+    padding: 10px 12px;
+  }
+  .saveBarInfo {
+    display: none;
+  }
+  .saveBarActions {
+    flex: 1;
+  }
+  .saveBar .saveBarActions > * {
+    flex: 1;
+  }
+  .facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .facts dd {
+    margin-bottom: 10px;
+  }
+}
+
+/* Icon-only external link sized like IconButton size=36 variant=plain */
+.iconLink {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-sm);
+  color: var(--text-3);
+}
+.iconLink:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}

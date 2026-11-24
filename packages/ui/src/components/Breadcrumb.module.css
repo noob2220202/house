@@ -1,0 +1,30 @@
+.nav {
+  font-size: 13px;
+  color: var(--text-muted);
+  min-width: 0;
+}
+.list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.link {
+  border-radius: 4px;
+}
+.link:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+.current {
+  color: var(--text-2);
+  font-weight: 700;
+}
+.sep {
+  color: var(--grey-300);
+}

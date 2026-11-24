@@ -1,0 +1,613 @@
+/* Public agency page (/agency/[id]). No dedicated artboard: extrapolated from the Agents profile
+   drawer (identity, info list, deal counts) and the Listing detail page (two columns, sticky aside). */
+.wrap {
+  padding-block: 20px 72px;
+}
+.crumb {
+  margin-bottom: 16px;
+}
+
+/* ---- hero ---- */
+.hero {
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  overflow: hidden;
+}
+.cover {
+  position: relative;
+  height: 200px;
+  background: #e8eefb; /* sky of the cover illustration */
+}
+.cover > svg,
+.cover > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.cover > img {
+  object-fit: cover;
+}
+.heroBody {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'identity acts'
+    'identity kpis';
+  gap: 16px 24px;
+  align-items: end;
+  padding: 0 32px 28px;
+  margin-top: -44px;
+}
+.identity {
+  grid-area: identity;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.av {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  margin-bottom: 8px;
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  background: var(--surface-ink);
+  color: var(--accent);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  box-shadow:
+    0 0 0 4px var(--surface),
+    var(--sh-2);
+}
+.av img {
+  object-fit: cover;
+}
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-text);
+}
+.name {
+  font-size: clamp(24px, 2.4vw, 32px);
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.04em;
+}
+.ceo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 15px;
+  color: var(--text-3);
+}
+.ceo b {
+  color: var(--text);
+  font-weight: 700;
+}
+.verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px 0 7px;
+  border-radius: var(--r-pill);
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.kpis {
+  grid-area: kpis;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 112px;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.kpi span {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.kpi b {
+  font-family: var(--font-num);
+  font-feature-settings: 'tnum' 1;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+.heroActs {
+  grid-area: acts;
+  display: flex;
+  justify-content: flex-end;
+  align-self: end;
+}
+
+/* ---- layout ---- */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 40px;
+  align-items: start;
+  margin-top: 32px;
+}
+.main {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  min-width: 0;
+}
+.aside {
+  grid-column: 2;
+  grid-row: 1;
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.sec {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  scroll-margin-top: 24px;
+}
+.secHd {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.secHd h2 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.35;
+}
+.secHd h2 span {
+  color: var(--brand);
+}
+.secHd p {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.intro {
+  font-size: 16px;
+  line-height: 1.75;
+  color: var(--text-2);
+  white-space: pre-line;
+  word-break: keep-all;
+  text-wrap: pretty;
+  max-width: 68ch;
+}
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chipLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: -6px;
+}
+.featured {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+/* ---- listings ---- */
+.listings {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scroll-margin-top: 16px;
+}
+.listTools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.dealChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.listTools .sort {
+  width: 156px;
+}
+.resultCount {
+  font-size: 14px;
+  color: var(--text-3);
+  margin-bottom: 12px;
+}
+.resultCount b {
+  color: var(--text);
+  font-weight: 800;
+}
+/* Listing grid (and its skeleton): cards from 721px, one compact row per listing on phones. */
+.cardGrid,
+.listingList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+  gap: 20px;
+  transition: opacity var(--dur-1);
+}
+.listingList[data-stale] {
+  opacity: 0.55;
+}
+.pager {
+  margin-top: 28px;
+  justify-content: center;
+}
+
+/* ---- aside cards ---- */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.cardTitle {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.phoneLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.phone {
+  font-family: var(--font-num);
+  font-feature-settings: 'tnum' 1;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--text);
+}
+.contactBtns {
+  display: grid;
+  grid-template-columns: 1fr 1.45fr;
+  gap: 8px;
+}
+/* `a`/`button` beat the Button size class (same specificity otherwise). */
+.contactBtns > a,
+.contactBtns > button {
+  height: 52px;
+  min-width: 0;
+  padding: 0 12px;
+}
+.note {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.info {
+  display: flex;
+  flex-direction: column;
+}
+.info > div {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 10px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.info > div:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.info > div:last-child {
+  padding-bottom: 0;
+}
+.info dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  line-height: 22px;
+}
+.info dt svg {
+  color: var(--icon-muted);
+  flex: none;
+}
+.info dd {
+  margin: 0;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--text-2);
+  min-width: 0;
+}
+.info dd a {
+  font-size: 13px;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+.hoursHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 22px;
+}
+.hours {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--text-3);
+}
+.hours dt {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--text-muted);
+}
+.hours dd {
+  font-size: 13px;
+  line-height: 20px;
+  font-feature-settings: 'tnum' 1;
+}
+.hours .closed {
+  color: var(--text-muted);
+}
+.muted {
+  color: var(--text-muted);
+}
+
+/* ---- location ---- */
+.mapBox {
+  position: relative;
+  height: 320px;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--map-land);
+}
+.mapAddr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 15px;
+  color: var(--text-2);
+}
+.mapAddr p {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.mapAddr p svg {
+  color: var(--icon-muted);
+  flex: none;
+}
+.mapLinks {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ---- members ---- */
+.members {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+  gap: 12px;
+}
+.member {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  min-width: 0;
+}
+.member b {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.member span span {
+  display: block;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ---- mobile sticky CTA ---- */
+.ctaWrap {
+  display: none;
+}
+
+@media (max-width: 1180px) {
+  .featured {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1080px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 28px;
+  }
+}
+/* Tablet portrait: one column (a 370px main column next to the aside made the page ~9,000px
+   tall). Contact + 사무소 정보 sit side by side on top, the listing grid gets the full width. */
+@media (max-width: 960px) {
+  .grid {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 40px;
+  }
+  .aside {
+    position: static;
+    order: -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+@media (max-width: 720px) {
+  .wrap {
+    padding-block: 0 calc(96px + env(safe-area-inset-bottom));
+  }
+  .crumb {
+    display: none;
+  }
+  .hero {
+    margin-inline: calc(var(--gutter) * -1);
+    border: 0;
+    border-bottom: 8px solid var(--surface-2);
+    border-radius: 0;
+  }
+  .cover {
+    height: 132px;
+  }
+  .heroBody {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'identity'
+      'kpis';
+    padding: 0 16px 20px;
+    margin-top: -40px;
+  }
+  .av {
+    width: 72px;
+    height: 72px;
+    font-size: 22px;
+    border-radius: 20px;
+  }
+  .heroActs {
+    position: absolute;
+    right: 16px;
+    top: 52px;
+  }
+  .kpis {
+    justify-content: stretch;
+  }
+  .kpi {
+    flex: 1;
+    min-width: 0;
+  }
+  .grid {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 32px;
+    margin-top: 20px;
+  }
+  .aside {
+    display: flex;
+  }
+  .contact {
+    display: none;
+  }
+  .main {
+    gap: 36px;
+  }
+  .secHd h2 {
+    font-size: 20px;
+  }
+  .featured {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: var(--gutter);
+    scrollbar-width: none;
+    margin-inline: calc(var(--gutter) * -1);
+    padding-inline: var(--gutter);
+  }
+  .featured::-webkit-scrollbar {
+    display: none;
+  }
+  .featured > li {
+    flex: 0 0 72%;
+    max-width: 280px;
+    scroll-snap-align: start;
+  }
+  .listTools .sort {
+    width: 100%;
+  }
+  .listingList {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .listingList > li + li {
+    border-top: 1px solid var(--line-soft);
+  }
+  .dealChips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: calc(var(--gutter) * -1);
+    padding-inline: var(--gutter);
+  }
+  .dealChips::-webkit-scrollbar {
+    display: none;
+  }
+  .mapBox {
+    height: 240px;
+  }
+  .ctaWrap {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: var(--z-sticky);
+    box-shadow: 0 -4px 16px rgba(10, 18, 34, 0.06);
+  }
+  .ctaWrap a {
+    min-width: 0;
+    padding: 0 12px;
+  }
+  .ctaWrap a:last-child {
+    flex: 1.45;
+  }
+}

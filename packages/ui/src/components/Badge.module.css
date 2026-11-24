@@ -1,0 +1,241 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--r-xs);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+.brand {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.success {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.accent {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.ink {
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+}
+.deal {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: var(--r-xs);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.sale {
+  background: var(--deal-sale-soft);
+  color: var(--deal-sale);
+}
+.jeonse {
+  background: var(--deal-jeonse-soft);
+  color: var(--deal-jeonse);
+}
+.monthly {
+  background: var(--deal-monthly-soft);
+  color: var(--deal-monthly);
+}
+.presale {
+  background: var(--deal-presale-soft);
+  color: var(--deal-presale);
+}
+.solid.sale {
+  background: var(--deal-sale);
+  color: #fff;
+}
+.solid.jeonse {
+  background: var(--deal-jeonse);
+  color: #fff;
+}
+.solid.monthly {
+  background: var(--deal-monthly);
+  color: #fff;
+}
+.solid.presale {
+  background: var(--deal-presale);
+  color: #fff;
+}
+.dealText {
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.5;
+}
+.t_sale {
+  color: var(--deal-sale);
+}
+.t_jeonse {
+  color: var(--deal-jeonse);
+}
+.t_monthly {
+  color: var(--deal-monthly);
+}
+.t_presale {
+  color: var(--deal-presale);
+}
+.prem {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: var(--r-xs);
+  font-family: var(--font-num);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-feature-settings: 'tnum' 1;
+  white-space: nowrap;
+}
+.up {
+  background: var(--up-soft);
+  color: var(--up);
+}
+.down {
+  background: var(--down-soft);
+  color: var(--down);
+}
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 800;
+  font-feature-settings: 'tnum' 1;
+}
+.deltaUp {
+  color: var(--up);
+}
+.deltaDown {
+  color: var(--down);
+}
+.deltaFlat {
+  color: var(--text-muted);
+}
+.ad {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-family: var(--font-brand);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  border: 1px solid currentColor;
+  color: var(--text-muted);
+  background: var(--surface);
+}
+.adDark {
+  color: var(--text-on-ink);
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.55);
+}
+.verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--success);
+  white-space: nowrap;
+}
+.brokers {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: var(--r-pill);
+  background: rgba(10, 18, 34, 0.78);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.brokersLight {
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.live {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.scheduled {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.review {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.ended {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+.rejected {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.spec {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-3);
+  font-feature-settings: 'tnum' 1;
+  white-space: nowrap;
+}
+.tagAccent {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-text);
+  white-space: nowrap;
+}

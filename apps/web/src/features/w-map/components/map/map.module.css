@@ -1,0 +1,697 @@
+/* Map overlays (MapApt / OneRoom page CSS + system.css §13). Every block is positioned by the
+   page stylesheet; these rules only draw the pieces. */
+
+/* ---- breadcrumb ---- */
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 44px;
+  padding: 0 6px 0 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--sh-2);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+  max-width: 100%;
+}
+.crumbPin {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: var(--brand-contrast);
+  flex: none;
+}
+.crumbSep {
+  color: var(--icon-muted);
+  flex: none;
+}
+.crumbB {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  color: var(--text-3);
+}
+.crumbB:hover {
+  background: var(--surface-2);
+}
+.crumbB:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.crumbB svg {
+  color: var(--icon-muted);
+}
+.crumbOn {
+  color: var(--text);
+  font-weight: 800;
+}
+.crumbText {
+  padding: 0 8px;
+}
+.regionPicker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.regionTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+.regionEmpty {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.regionGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.regionBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+  line-height: 1.25;
+}
+.regionBtn small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.regionBtn:hover {
+  border-color: var(--line-strong);
+  background: var(--grey-50);
+}
+.regionBtn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.regionOn,
+.regionOn:hover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-weight: 800;
+}
+
+/* ---- MAP_AD ---- */
+.ad {
+  width: 300px;
+  padding: 16px;
+  border-radius: var(--r-lg);
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+  box-shadow: var(--sh-3);
+}
+.adCompact {
+  width: min(300px, calc(100vw - 32px));
+}
+.adTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  margin-bottom: 10px;
+}
+.adTag {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.adX {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-sm);
+  color: var(--text-on-ink-2);
+  flex: none;
+}
+.adTop .adX:first-of-type,
+.adXEnd {
+  margin-left: auto;
+}
+.adTop .adX + .adX {
+  margin-left: 0;
+}
+.adX:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-on-ink);
+}
+.adX:focus-visible,
+.adCall:focus-visible,
+.adName a:focus-visible,
+.adLink:focus-visible,
+.adMin:focus-visible {
+  outline: 2px solid var(--surface);
+  outline-offset: 2px;
+}
+.adName {
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text-on-ink);
+}
+.adName a:hover {
+  text-decoration: underline;
+}
+.adMeta {
+  font-size: 13px;
+  color: var(--text-on-ink-2);
+}
+.adStats {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+}
+.adStats span {
+  padding: 8px;
+  border-radius: var(--r-sm);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--text-on-ink-2);
+}
+.adStats b {
+  display: block;
+  font-family: var(--font-brand);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-on-ink);
+}
+.adCall {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.56);
+  border-radius: var(--r-md);
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-on-ink);
+  font-feature-settings: 'tnum' 1;
+  transition: background var(--dur-1);
+}
+.adCall:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--surface);
+}
+.adLink {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.adImage {
+  position: relative;
+  display: block;
+  aspect-ratio: 360 / 200;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface-ink-3);
+}
+.adImage img {
+  object-fit: cover;
+}
+.adMin {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 8px 0 12px;
+  border-radius: var(--r-pill);
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+  box-shadow: var(--sh-2);
+}
+.adMinName {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* ---- layers / scale / legend / status ---- */
+.layers {
+  display: flex;
+  flex-direction: column;
+  width: 72px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--sh-2);
+  overflow: hidden;
+}
+.layerB {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 62px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-3);
+}
+.layerB + .layerB {
+  border-top: 1px solid var(--line);
+}
+.layerB:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.layerB:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus);
+}
+.layerB[aria-pressed='true'] {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.scale {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.86);
+  font-family: var(--font-brand);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+  pointer-events: none;
+}
+.scale i {
+  display: block;
+  height: 6px;
+  border: 2px solid var(--text-3);
+  border-top: 0;
+}
+.legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--sh-1);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.lg_monthly i {
+  background: var(--deal-monthly);
+}
+.lg_jeonse i {
+  background: var(--deal-jeonse);
+}
+.lg_sale i {
+  background: var(--deal-sale);
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--sh-2);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.status button {
+  font-weight: 800;
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.statusError {
+  color: var(--danger);
+}
+
+/* ---- selected complex popover (.map-pop) ---- */
+.pop,
+.rpop {
+  position: absolute;
+  z-index: 4;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--sh-3);
+  transition:
+    left var(--dur-1) var(--ease),
+    top var(--dur-1) var(--ease);
+}
+.pop {
+  width: 264px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+.pop::before,
+.rpop::before {
+  content: '';
+  position: absolute;
+  top: var(--arrow-top, 52px);
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  background: var(--surface);
+  transform: rotate(45deg);
+  border-radius: 2px;
+}
+.right::before {
+  left: -6px;
+}
+.left::before {
+  right: -6px;
+}
+.docked {
+  left: 16px;
+  bottom: 56px;
+}
+.docked::before {
+  display: none;
+}
+.popHd {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+.popHd > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.popTitle {
+  font-size: var(--fs-title);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.35;
+  color: var(--text);
+}
+.popTitle:hover {
+  color: var(--brand);
+}
+.popHd .popIc {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-sm);
+  color: var(--text-3);
+  flex: none;
+}
+button.popIc:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.popIc:focus-visible,
+.rpopX:focus-visible,
+.pager button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.popTiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.popTile {
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  min-width: 0;
+}
+.popTile em {
+  display: block;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+}
+.popTile b {
+  font-family: var(--font-num);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+.popMuted {
+  color: var(--text-3);
+}
+.popRecent {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--grey-100);
+  font-size: 13px;
+  color: var(--text-3);
+}
+.popRecent b {
+  color: var(--text);
+  font-weight: 800;
+}
+.popCta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.popCta p {
+  color: var(--text-3);
+}
+
+/* ---- selected listing preview (.rpop) ---- */
+.rpop {
+  width: 272px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+.rpopRow {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+.rpopTh {
+  position: relative;
+  width: 76px;
+  height: 76px;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.rpopTx {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-right: 22px;
+}
+.rpopP {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.3;
+}
+.rpopM {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.rpopS {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rpopActs {
+  display: flex;
+  gap: 8px;
+}
+.rpopActs > :first-child {
+  flex: 1;
+}
+.rpopHeart {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+}
+.rpopX {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-sm);
+  color: var(--text-muted);
+}
+.rpopX:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.rpopLoading {
+  display: grid;
+  place-items: center;
+  min-height: 76px;
+}
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 32px;
+  padding: 0 2px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.pager b {
+  color: var(--text);
+  font-weight: 800;
+}
+.pager button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-xs);
+  color: var(--text-2);
+}
+.pager button:hover:not(:disabled) {
+  background: var(--surface);
+}
+.pager button:disabled {
+  color: var(--grey-300);
+}
+
+/* Layer panel folded into one tool button (short maps) and its popover (buttons in a row). */
+.layerToggle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--sh-2);
+  color: var(--text-2);
+}
+.layerToggle:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.layerToggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus), var(--sh-2);
+}
+.layerToggleOn,
+.layerToggleOn:hover {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.layersRow {
+  flex-direction: row;
+  width: auto;
+  box-shadow: none;
+}
+.layersRow .layerB {
+  width: 76px;
+}
+.layersRow .layerB + .layerB {
+  border-top: 0;
+  border-left: 1px solid var(--line);
+}
+
+/* 내 위치: a brand dot with a white ring and a soft halo that breathes. */
+.me {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border: 3px solid var(--surface);
+  border-radius: 50%;
+  background: var(--brand);
+  box-shadow: var(--sh-2);
+  pointer-events: none;
+}
+.me i {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  background: var(--brand);
+  opacity: 0.16;
+  animation: me-halo 2.4s var(--ease) infinite;
+}
+@keyframes me-halo {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.28;
+  }
+  100% {
+    transform: scale(1.25);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .me i {
+    animation: none;
+  }
+}

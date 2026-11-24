@@ -1,0 +1,162 @@
+/* Lettered fieldset + label/control rows (design DealRequest `.dr-group` / `.dr-row`). */
+.section {
+  border: 0;
+  margin: 0;
+  padding: var(--form-section-pad, 28px 36px 12px);
+  min-width: 0;
+}
+.section + .section {
+  border-top: 8px solid var(--grey-50);
+}
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  float: left; /* keeps the legend inside the fieldset box so it lays out like a heading */
+  width: 100%;
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  color: var(--text);
+}
+.legend + * {
+  clear: both;
+}
+.legendT {
+  min-width: 0;
+}
+.letter {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r-sm);
+  background: var(--surface-ink);
+  color: var(--accent);
+  font-family: var(--font-brand);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.note {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--text-muted);
+  text-align: right;
+}
+.body {
+  container: house-form / inline-size;
+  min-width: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: var(--form-label-w, 148px) minmax(0, 1fr);
+  gap: 12px 24px;
+  padding: 20px 0;
+  border-top: 1px solid var(--grey-100);
+}
+.row:first-child {
+  border-top: 0;
+}
+.rowL {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding-top: 12px; /* aligns the label with the text of a 48px control */
+  min-width: 0;
+}
+.label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.req {
+  color: var(--danger);
+  margin-left: 2px;
+}
+.help {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.rowC {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.error {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--danger);
+}
+
+.helpLine {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.helpLine svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--icon-muted);
+}
+.helpLine :where(b, strong) {
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+/* Stacked layout: a narrow form column (container query) or a phone (fallback for rows used
+   outside a FormSection). */
+@container house-form (max-width: 640px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 16px 0;
+  }
+  .rowL {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 8px;
+    padding-top: 0;
+  }
+  .rowL .help {
+    flex-basis: 100%;
+  }
+}
+@media (max-width: 720px) {
+  .section {
+    padding: var(--form-section-pad-mobile, 24px 16px 8px);
+  }
+  .legend {
+    font-size: 17px;
+  }
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 16px 0;
+  }
+  .rowL {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 8px;
+    padding-top: 0;
+  }
+  .rowL .help {
+    flex-basis: 100%;
+  }
+}

@@ -1,0 +1,88 @@
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* FileButton */
+.fileBtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.fileBtn:focus-within {
+  box-shadow: var(--focus);
+}
+.outline {
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text-2);
+}
+.outline:hover {
+  border-color: var(--text-3);
+  color: var(--text);
+}
+.link {
+  padding: 0 4px;
+  border-radius: var(--r-xs);
+  color: var(--brand);
+}
+.link:hover {
+  color: var(--brand-hover);
+}
+.fileDisabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.fileInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.fileInput::file-selector-button {
+  cursor: pointer;
+}
+
+/* PrivacySummary */
+.privacy {
+  margin: 6px 0 0 32px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-3);
+}
+.privacy dl {
+  display: grid;
+  gap: 4px;
+}
+.privacy dl > div {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 8px;
+}
+.privacy dt {
+  font-weight: 700;
+  color: var(--text-2);
+}
+.privacy p {
+  margin-top: 8px;
+}
+@media (max-width: 720px) {
+  .privacy {
+    margin-left: 0;
+  }
+}

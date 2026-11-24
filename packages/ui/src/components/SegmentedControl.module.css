@@ -1,0 +1,81 @@
+.seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  max-width: 100%;
+}
+.seg .item {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+  transition:
+    background var(--dur-1),
+    color var(--dur-1);
+}
+.seg .item.on {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 800;
+  box-shadow: var(--sh-1);
+}
+.seg.ink .item.on {
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+  box-shadow: none;
+}
+.seg.sm {
+  padding: 3px;
+}
+.seg.sm .item {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+.pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pills .item {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-3);
+  background: transparent;
+  white-space: nowrap;
+  transition:
+    background var(--dur-1),
+    color var(--dur-1);
+}
+.pills .item:hover {
+  background: var(--surface-2);
+}
+.pills .item.on {
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+}
+/* The selected item's shadow would hide the global focus box-shadow — use an outline ring instead. */
+.seg .item:focus-visible,
+.pills .item:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  position: relative;
+  z-index: 1;
+}
+.item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+@media (max-width: 720px) {
+  .seg.sm .item {
+    height: 38px;
+  }
+}

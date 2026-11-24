@@ -1,0 +1,286 @@
+/* Listing photo card (OneRoom design .rc) */
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  background: var(--surface);
+  transition: background var(--dur-1);
+  min-width: 0;
+}
+.card:hover {
+  background: var(--grey-50);
+}
+.cardOn,
+.cardOn:hover {
+  background: var(--brand-soft);
+  border-color: var(--brand-line);
+}
+.photo {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.cardHeart {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--text-2);
+  box-shadow: var(--sh-1);
+}
+.cardBrokers {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+}
+.more {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  max-width: calc(100% - 20px);
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: var(--sh-1);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.more b {
+  font-weight: 800;
+  color: var(--brand);
+}
+.more i {
+  font-style: normal;
+  color: var(--grey-400);
+}
+.more svg {
+  color: var(--text-3);
+  flex: none;
+}
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 6px;
+  min-width: 0;
+}
+.price {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.3;
+}
+.prem {
+  position: relative;
+  z-index: 1;
+}
+.fee {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+/* The link inside the heading covers the whole card. */
+.stretch::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.stretch:focus-visible {
+  outline: none;
+}
+.card:has(.stretch:focus-visible),
+.row:has(.stretch:focus-visible) {
+  box-shadow: var(--focus);
+}
+/* One line of facts; anything that does not fit is cut with an ellipsis (never a dangling dot). */
+.meta {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.meta span + span {
+  margin-left: 6px;
+}
+.meta span + span::before,
+.rowFacts span + span::before {
+  content: '·';
+  margin-right: 6px;
+  color: var(--grey-300);
+}
+.sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cardOn .sub {
+  color: var(--text-3);
+}
+.near {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.near svg {
+  color: var(--brand);
+  flex: none;
+}
+.ver {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin-top: 6px;
+}
+.unverified {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+/* Compact row (MobileMap .ms-row) */
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 8px 10px 20px;
+  background: var(--surface);
+}
+.row:hover {
+  background: var(--grey-50);
+}
+.rowOn,
+.rowOn:hover {
+  background: var(--brand-soft);
+}
+.thumb {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.cnt {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: rgba(10, 18, 34, 0.72);
+  color: var(--text-on-ink);
+  font-family: var(--font-num);
+  font-size: 12px;
+  font-weight: 700;
+}
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  container-type: inline-size;
+}
+/* Narrow rows (a tablet-width side panel): the price must never be cut — the 중개사 badge yields. */
+@container (max-width: 224px) {
+  .rowBrokers {
+    display: none;
+  }
+}
+.rowPrice {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+  min-width: 0;
+}
+.rowLink {
+  min-width: 0;
+}
+.rowAmount {
+  font-size: 18px;
+  letter-spacing: -0.035em;
+}
+.rowBrokers {
+  margin-left: auto;
+  flex: none;
+}
+.rowFacts {
+  font-size: 13px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rowFacts span + span {
+  margin-left: 6px;
+}
+.rowSub {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rowVerified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--success);
+}
+.rowHeart {
+  position: relative;
+  z-index: 1;
+  width: 36px;
+  height: 36px;
+  color: var(--icon-muted);
+}
+
+@media (max-width: 720px) {
+  .row {
+    grid-template-columns: 60px minmax(0, 1fr) auto;
+    padding: 9px 4px 9px 20px;
+  }
+  .rowHeart {
+    width: 44px;
+    height: 44px;
+  }
+}

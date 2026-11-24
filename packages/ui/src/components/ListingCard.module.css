@@ -1,0 +1,113 @@
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  transition:
+    box-shadow var(--dur-1),
+    transform var(--dur-1);
+  min-width: 0;
+}
+.card:hover {
+  box-shadow: var(--sh-2);
+  transform: translateY(-2px);
+}
+.card:focus-within {
+  box-shadow: var(--focus);
+}
+.photo {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.photo img {
+  object-fit: cover;
+}
+.art {
+  position: absolute;
+  inset: 0;
+}
+.brokers {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 1;
+}
+.fav {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  z-index: 2;
+}
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 20px 0;
+}
+.priceRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+}
+.name span {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.link {
+  outline: none;
+}
+.link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: var(--r-xl);
+}
+.link:focus-visible {
+  box-shadow: none;
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  font-size: 14px;
+  color: var(--text-3);
+}
+.meta span + span::before {
+  content: '·';
+  margin-right: 8px;
+  color: var(--grey-300);
+}
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 14px 20px 0;
+  padding: 12px 0 16px;
+  border-top: 1px solid var(--grey-100);
+  margin-top: auto;
+}
+.body {
+  padding-bottom: 14px;
+}
+.unverified {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.chev {
+  color: var(--icon-muted);
+}

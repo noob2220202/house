@@ -1,0 +1,65 @@
+.chip {
+  position: relative; /* anchors the sr-only input */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-2);
+  cursor: pointer;
+  user-select: none;
+  transition:
+    border-color var(--dur-1),
+    background var(--dur-1),
+    color var(--dur-1);
+}
+.chip:hover {
+  border-color: var(--brand-line);
+}
+.chip:has(input:focus-visible) {
+  box-shadow: var(--focus);
+}
+.on {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+.on:hover {
+  border-color: var(--brand);
+}
+.on:has(input:focus-visible) {
+  box-shadow:
+    inset 0 0 0 1px var(--brand),
+    var(--focus);
+}
+.check {
+  margin-left: -2px;
+}
+.text {
+  min-width: 0;
+}
+.hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.on .hint {
+  color: var(--brand);
+}
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.disabled:hover {
+  border-color: var(--line-strong);
+}
+.disabled.on:hover {
+  border-color: var(--brand);
+}

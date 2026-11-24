@@ -1,0 +1,10 @@
+/* The shared <SiteHeader> has no compact variant yet, so this layout trims it from outside, like
+   the map layout does for MapApt / OneRoom (structure: .chrome > SiteShell root > header >
+   [utility bar, GNB]): the Agents design shows the GNB only, edge to edge, so the logo lines up
+   with the full-bleed search panel. */
+.chrome > div > :global(header) > div:first-child:not(:only-child) {
+  display: none;
+}
+.chrome > div > :global(header .container) {
+  max-width: none;
+}

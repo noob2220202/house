@@ -1,0 +1,35 @@
+.avatar {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  overflow: hidden;
+  font-weight: 800;
+  flex: none;
+  line-height: 1;
+}
+.ink {
+  background: var(--surface-ink);
+  color: var(--accent);
+}
+.soft {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.neutral {
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+.square {
+  border-radius: var(--r-md);
+}
+.stack {
+  display: inline-flex;
+  align-items: center;
+}
+.stackItem {
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.stackItem + .stackItem {
+  margin-left: -6px;
+}

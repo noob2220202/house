@@ -1,0 +1,24 @@
+/* Page-level spacing of the home modules (Main.dc.html `.adsec`, MobileHome `.mh-band`). */
+.ads {
+  padding-block: 48px 64px;
+}
+.strip {
+  padding-top: 48px;
+}
+.band {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .ads {
+    padding-block: 16px 0;
+  }
+  .strip {
+    padding-block: 0 26px;
+  }
+  .band {
+    display: block;
+    height: 10px;
+    background: var(--surface-2);
+  }
+}

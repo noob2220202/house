@@ -1,0 +1,271 @@
+.list {
+  display: flex;
+  flex-direction: column;
+}
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+  transition: background var(--dur-1);
+}
+.list > li:last-child .row {
+  border-bottom: 0;
+}
+/* Last row of a flush panel: follow the panel's rounded corners (hover / unread backgrounds). */
+.list:last-child > li:last-child .row {
+  border-radius: 0 0 calc(var(--r-lg) - 1px) calc(var(--r-lg) - 1px);
+}
+.row:hover {
+  background: var(--ground);
+}
+.row:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus);
+}
+.rowUnread {
+  background: var(--brand-soft);
+}
+.rowUnread:hover {
+  background: var(--brand-soft-2);
+}
+.channel {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+.rowUnread .channel {
+  background: var(--surface);
+}
+.chMESSAGE {
+  color: var(--brand);
+}
+.chCALL {
+  color: var(--success);
+}
+.chSMS {
+  color: var(--accent-text);
+}
+.chCOPY {
+  color: var(--text-3);
+}
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.rowHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+}
+.rowTitle {
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rowTime {
+  flex: none;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.preview {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.previewAction {
+  color: var(--text-3);
+}
+/* One line: time and counters keep their width, the listing name gives way (ellipsis). */
+.metaLine {
+  flex-wrap: nowrap;
+}
+.metaLine > * {
+  flex: none;
+}
+.metaLine > .source {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rowPill {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+.search {
+  width: 260px;
+}
+.search > * {
+  width: 100%;
+}
+
+/* ---------- drawer ---------- */
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.detailTop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.detailWho {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.detailWho > b {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.detailWho > span {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.blockTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.listing {
+  display: flex;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  min-width: 0;
+}
+.listing:hover {
+  border-color: var(--brand-line);
+  background: var(--ground);
+}
+.muted {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bubble {
+  align-self: flex-start;
+  max-width: 92%;
+  padding: 12px 14px;
+  border-radius: 4px var(--r-lg) var(--r-lg) var(--r-lg);
+  background: var(--surface-2);
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: var(--text);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.replyWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.bubbleMine {
+  align-self: flex-end;
+  border-radius: var(--r-lg) 4px var(--r-lg) var(--r-lg);
+  background: var(--brand-soft);
+}
+.replyMeta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.action {
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.reply {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.replyBtn {
+  align-self: flex-end;
+}
+.memoFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .row {
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px 16px;
+  }
+  .channel {
+    width: 40px;
+    height: 40px;
+  }
+  /* The pill sits on the title line (top right) instead of taking a row of its own. */
+  .rowPill {
+    position: absolute;
+    top: 13px;
+    right: 16px;
+    padding-top: 0;
+  }
+  .rowHead {
+    min-height: 24px;
+    padding-right: 92px;
+  }
+  /* Shares the second toolbar row with the 안 읽음 chip (element selector: beats .toolbarEnd). */
+  div.search {
+    flex: 1 1 160px;
+    width: auto;
+    min-width: 0;
+  }
+}

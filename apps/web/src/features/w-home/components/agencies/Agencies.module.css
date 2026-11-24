@@ -1,0 +1,118 @@
+/* "함께하는 중개사무소" — Main.dc.html `.brk` / `.brk-c` */
+.section {
+  padding-block: 72px;
+  background: var(--ground);
+}
+.hl {
+  color: var(--brand);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
+}
+.item {
+  display: flex;
+  min-width: 0;
+}
+.card {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  transition:
+    box-shadow var(--dur-1),
+    border-color var(--dur-1);
+}
+.card:hover {
+  border-color: var(--brand-line);
+  box-shadow: var(--sh-2);
+}
+.photo {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.photo img {
+  object-fit: cover;
+}
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-text);
+}
+.name {
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meta {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--grey-100);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.stats b {
+  font-family: var(--font-num);
+  font-weight: 800;
+  color: var(--text);
+}
+
+@media (max-width: 720px) {
+  .section {
+    padding-block: 22px 26px;
+    background: var(--surface);
+  }
+  .actions {
+    width: 100%;
+  }
+  .actions > * {
+    flex: 1;
+  }
+  .grid {
+    gap: 8px;
+  }
+  .card {
+    padding: 16px;
+    border-radius: var(--r-lg);
+  }
+  /* the mobile home shows the first three offices; the rest are one tap away */
+  .item:nth-child(n + 4) {
+    display: none;
+  }
+}

@@ -1,0 +1,57 @@
+/* Topbar search pill — same footprint as the shell's default search (AdminShell .search). */
+.field {
+  width: 300px;
+  flex: none;
+}
+/*
+ * Suggestion panel: wider than the 300px pill so listing titles are readable, right-aligned with
+ * it. SearchField renders <form> + the panel as siblings and exposes no class for the panel, hence
+ * the structural selector (see openIssues: a popClassName / popWidth prop on SearchField).
+ */
+.field > form + div {
+  left: auto;
+  right: 0;
+  width: min(440px, calc(100vw - 32px));
+}
+.mobile {
+  display: none;
+}
+.lead {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  color: var(--text-3);
+  flex: none;
+}
+.lead[data-kind='all'] {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+@media (max-width: 1100px) {
+  .field {
+    width: 240px;
+  }
+}
+@media (max-width: 960px) {
+  .field {
+    flex: 0 1 240px;
+    width: auto;
+    min-width: 140px;
+  }
+  /* keep the panel clear of the 240px sidebar */
+  .field > form + div {
+    width: min(440px, calc(100vw - 400px));
+  }
+}
+/* Phone: no room for a field next to the title → icon link to the search page. */
+@media (max-width: 720px) {
+  .field {
+    display: none;
+  }
+  .mobile {
+    display: inline-flex;
+  }
+}

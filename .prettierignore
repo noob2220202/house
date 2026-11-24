@@ -6,3 +6,6 @@ coverage
 pnpm-lock.yaml
 apps/api/prisma/schema/migrations/**/*.sql
 next-env.d.ts
+.next-*
+.tmp
+tsconfig.next*.json

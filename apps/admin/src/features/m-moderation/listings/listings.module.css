@@ -1,0 +1,97 @@
+/* 매물 검수 */
+.photos {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.photo {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.photo > svg {
+  width: 100%;
+  height: 100%;
+}
+.photoBtn {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  cursor: zoom-in;
+}
+/* Outlines paint above the image (an inset shadow would sit under it; .photo clips outer rings). */
+.photoBtn:hover {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+.photoBtn:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: -3px;
+}
+.photoTag,
+.photoMore {
+  pointer-events: none;
+}
+.photoTag {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 1;
+}
+.photoMore {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  background: var(--scrim);
+  color: var(--text-on-ink);
+  font-size: 15px;
+  font-weight: 800;
+}
+.priceRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.price {
+  font-family: var(--font-num);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.heroPrice {
+  font-family: var(--font-num);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+.private {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--r-xs);
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 12px;
+  font-weight: 700;
+  vertical-align: 1px;
+}
+@media (max-width: 720px) {
+  .photos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

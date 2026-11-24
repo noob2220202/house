@@ -1,0 +1,170 @@
+/* 회원 관리 */
+.providers {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.noProvider {
+  color: var(--text-muted);
+}
+
+.memberCell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 0;
+}
+.contact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+/* identities */
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line-soft);
+  min-width: 0;
+}
+.identity:last-child {
+  border-bottom: 0;
+}
+.identityMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.identityTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.identitySub {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.identityDates {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex: none;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* consents */
+.consentWrap {
+  overflow-x: auto;
+}
+.consents {
+  width: 100%;
+  min-width: 480px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.consents th,
+.consents td {
+  padding: 12px 20px;
+  text-align: left;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+}
+.consents thead th {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--grey-50);
+  white-space: nowrap;
+}
+.consents tbody th {
+  font-weight: 700;
+  color: var(--text);
+}
+.consents tbody tr:last-child th,
+.consents tbody tr:last-child td {
+  border-bottom: 0;
+}
+.consents td {
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.consentVer {
+  margin-left: 6px;
+  font-family: var(--font-num);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* activity links */
+.activity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+@media (max-width: 720px) {
+  .identity {
+    padding: 14px 16px;
+    align-items: flex-start;
+  }
+  .identityDates {
+    display: none;
+  }
+  /* One block per consent: title + 필수/선택 on top, 동의 여부 + 일시 under it. */
+  .consentWrap {
+    overflow: visible;
+  }
+  .consents {
+    min-width: 0;
+  }
+  .consents thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .consents tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 6px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .consents tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .consents tbody th,
+  .consents tbody td {
+    display: block;
+    padding: 0;
+    border-bottom: 0;
+  }
+  .consents tbody .consentDate {
+    justify-self: end;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+}
