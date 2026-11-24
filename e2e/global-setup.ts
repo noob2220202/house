@@ -25,7 +25,9 @@ export default async function globalSetup(): Promise<void> {
     }
   }
   if (!fs.existsSync(path.join(STATE_DIR, 'admin.json'))) {
-    throw new Error(`${STATE_DIR}/admin.json missing — run scripts/e2e-stack.sh up (not --keep-data)`);
+    throw new Error(
+      `${STATE_DIR}/admin.json missing — run scripts/e2e-stack.sh up (not --keep-data)`,
+    );
   }
   fs.mkdirSync(path.join(STATE_DIR, 'auth'), { recursive: true });
 }

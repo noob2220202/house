@@ -113,6 +113,21 @@
   gap: 6px;
   flex-wrap: wrap;
 }
+/* 전문분야 chips stay on one line (Agents board): a notch tighter, scrolling sideways if the panel
+   is still too narrow, so 토지 never drops to a second row. */
+.spec {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.spec::-webkit-scrollbar {
+  display: none;
+}
+.spec .specChip {
+  flex: none;
+  padding: 0 11px;
+  font-size: 13px;
+}
 .spec .specChip svg {
   margin-left: -4px;
 }

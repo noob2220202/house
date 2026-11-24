@@ -26,7 +26,10 @@ test.describe('broker console', () => {
     await expect(page.getByRole('link', { name: /문의 관리|받은 문의/ })).toHaveCount(0);
   });
 
-  test('wizard publishes an apartment listing → public list + detail', async ({ page, context }) => {
+  test('wizard publishes an apartment listing → public list + detail', async ({
+    page,
+    context,
+  }) => {
     const { api } = await loginAs(context, SEED.ownerA1);
     const complexes = await api.get<{ items: ComplexLite[] }>('/complexes?pageSize=50');
     const complex = complexes.items.find((c) => c.assetType === 'APT' && c.approvalDate)!;
@@ -55,9 +58,10 @@ test.describe('broker console', () => {
     context,
   }) => {
     const { api } = await loginAs(context, SEED.ownerA1);
-    const regions = await api.get<{ code: string; name: string; level: string; lat: number; lng: number }[]>(
-      '/regions',
-    );
+    const regions =
+      await api.get<{ code: string; name: string; level: string; lat: number; lng: number }[]>(
+        '/regions',
+      );
     const emd = regions.find((r) => r.level === 'EMD' && r.name.endsWith('동'))!;
     const road = `전남광주통합특별시 순천시 e2e원룸길 ${Math.floor(Math.random() * 900) + 100}`;
     // Stub only the external geocoder boundary (NAVER_MAP_* keys are not configured in e2e).
@@ -121,14 +125,20 @@ test.describe('broker console', () => {
     expect(target, 'a1 has an ACTIVE complex listing').toBeTruthy();
 
     await page.goto('/agent/listings/co-broker');
-    await page.getByRole('combobox', { name: '공동중개할 단지 검색' }).fill(target.complex!.name.slice(0, 6));
-    await page.getByRole('option', { name: new RegExp(target.complex!.name) }).first().click();
+    await page
+      .getByRole('combobox', { name: '공동중개할 단지 검색' })
+      .fill(target.complex!.name.slice(0, 6));
+    await page
+      .getByRole('option', { name: new RegExp(target.complex!.name) })
+      .first()
+      .click();
     const join = page.getByRole('button', { name: /공동중개 참여$/ }).first();
     await expect(join).toBeVisible();
     // Join the a1 listing specifically when several rows are listed.
     const row = page.locator(`a[href*="/listing/${target.id}"]`).first();
     const button = (await row.count())
-      ? row.locator('xpath=ancestor::*[.//button[contains(@aria-label,"공동중개 참여")]][1]')
+      ? row
+          .locator('xpath=ancestor::*[.//button[contains(@aria-label,"공동중개 참여")]][1]')
           .getByRole('button', { name: /공동중개 참여$/ })
       : join;
     await button.click();
@@ -137,7 +147,8 @@ test.describe('broker console', () => {
     await dialog.getByLabel('담당자', { exact: true }).fill('공동테스트');
     await dialog.getByLabel('담당자 연락처').fill('010-2222-3333');
     const sent = page.waitForResponse(
-      (r) => /\/api\/v1\/agency\/listings\/[0-9a-f-]{36}\/co-brokers$/.test(r.url()) &&
+      (r) =>
+        /\/api\/v1\/agency\/listings\/[0-9a-f-]{36}\/co-brokers$/.test(r.url()) &&
         r.request().method() === 'POST',
     );
     await dialog.getByRole('button', { name: '공동중개 참여' }).click();
@@ -146,12 +157,10 @@ test.describe('broker console', () => {
     const listingId = /listings\/([0-9a-f-]{36})\/co-brokers/.exec(res.url())![1];
 
     // The primary agency sees the request on the listing.
-    const detail = await primary.api.get<{ agencies: { agencyId?: string; agency?: { id: string }; status: string }[] }>(
-      `/agency/listings/${listingId}`,
-    );
-    expect(
-      detail.agencies.some((a) => (a.agencyId ?? a.agency?.id) === a2.agencyId),
-    ).toBe(true);
+    const detail = await primary.api.get<{
+      agencies: { agencyId?: string; agency?: { id: string }; status: string }[];
+    }>(`/agency/listings/${listingId}`);
+    expect(detail.agencies.some((a) => (a.agencyId ?? a.agency?.id) === a2.agencyId)).toBe(true);
     await primary.dispose();
   });
 });
@@ -163,7 +172,9 @@ async function expectPublic(
   opts: { complexId?: string; ho?: string },
 ): Promise<{ id: string; emdCode: string | null }> {
   // Public API: detail + list (the map/list search reads the same rows).
-  const detail = await api.get<{ id: string; status: string; emdCode: string | null }>(`/listings/${id}`);
+  const detail = await api.get<{ id: string; status: string; emdCode: string | null }>(
+    `/listings/${id}`,
+  );
   expect(detail.status).toBe('ACTIVE');
   const query = opts.complexId ? `complexId=${opts.complexId}` : `emdCode=${detail.emdCode}`;
   const list = await api.get<{ items: { id: string }[] }>(`/listings?pageSize=100&${query}`);
@@ -174,7 +185,9 @@ async function expectPublic(
   const visitor = await anon.newPage();
   const res = await visitor.goto(new URL(`/listing/${id}`, page.url()).toString());
   expect(res?.status()).toBe(200);
-  await expect(visitor.getByRole('heading', { name: '중개대상물 표시·광고 명시사항' })).toBeVisible();
+  await expect(
+    visitor.getByRole('heading', { name: '중개대상물 표시·광고 명시사항' }),
+  ).toBeVisible();
   if (opts.ho) expect(await visitor.locator('body').innerText()).not.toContain(`${opts.ho}호`);
   await anon.close();
   return detail;

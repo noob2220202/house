@@ -78,9 +78,7 @@ describe('E2eOnlyGuard', () => {
     ['development', true],
     ['production', true],
   ])('answers 404 for NODE_ENV=%s flag=%s', (env, flag) => {
-    expect(() => new E2eOnlyGuard(fakeConfig(env, flag)).canActivate()).toThrow(
-      NotFoundException,
-    );
+    expect(() => new E2eOnlyGuard(fakeConfig(env, flag)).canActivate()).toThrow(NotFoundException);
   });
 });
 

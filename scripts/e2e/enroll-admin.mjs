@@ -51,7 +51,9 @@ async function call(method, route, body) {
 const login = await call('POST', '/admin/auth/login', { email, password });
 csrf = login.csrfToken;
 if (login.totpEnrolled) {
-  console.error(`${email} already has TOTP enrolled (stack not reset?) — run: scripts/e2e-stack.sh up`);
+  console.error(
+    `${email} already has TOTP enrolled (stack not reset?) — run: scripts/e2e-stack.sh up`,
+  );
   process.exit(1);
 }
 const setup = await call('POST', '/admin/auth/totp/setup', {});

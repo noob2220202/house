@@ -8,6 +8,11 @@ export const CLUSTER_ID_PREFIX = 'cluster:';
 export const CLUSTER_MIN = 3;
 /** From this zoom on every office is shown individually. */
 export const CLUSTER_MAX_ZOOM = 15.5;
+/**
+ * Clusters with a member closer than this many cells to the selected office are dissolved, so no
+ * bubble overlaps the selected office's label.
+ */
+export const SELECTED_CLEARANCE = 1;
 
 /** Grid cell width in degrees of longitude (≈1.1 km at zoom 13, halves per zoom level). */
 export function clusterCellDeg(zoom: number): number {
@@ -96,7 +101,16 @@ export function buildAgencyMarkers(
     }
     singles = [];
     for (const [key, members] of cells) {
-      if (members.length < CLUSTER_MIN) {
+      // A bubble right next to the selected office would paint over its label: near the
+      // selection the offices are shown one by one instead.
+      const nearSelected =
+        !!selected &&
+        members.some(
+          (m) =>
+            Math.abs(m.lng - selected.lng) < cellLng * SELECTED_CLEARANCE &&
+            Math.abs(m.lat - selected.lat) < cellLat * SELECTED_CLEARANCE,
+        );
+      if (members.length < CLUSTER_MIN || nearSelected) {
         singles.push(...members);
         continue;
       }

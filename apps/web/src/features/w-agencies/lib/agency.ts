@@ -183,3 +183,21 @@ export function formatResponseTime(minutes: number): string {
   const rest = m % 60;
   return rest ? `${h}시간 ${rest}분` : `${h}시간`;
 }
+
+/**
+ * Fills `emdName` (cluster bubbles, card captions) from the 읍면동 facet of `GET /agencies/regions`
+ * — the backend `AgencySummary` carries the code only. The longest matching code prefix wins.
+ */
+export function withEmdNames<T extends { emdCode?: string | null; emdName?: string | null }>(
+  offices: readonly T[],
+  regions: readonly { emdCode: string; name: string }[],
+): T[] {
+  if (regions.length === 0) return [...offices];
+  const sorted = [...regions].sort((a, b) => b.emdCode.length - a.emdCode.length);
+  return offices.map((o) => {
+    if (o.emdName || !o.emdCode) return o;
+    const code = o.emdCode;
+    const hit = sorted.find((r) => code.startsWith(r.emdCode) || r.emdCode.startsWith(code));
+    return hit ? { ...o, emdName: hit.name } : o;
+  });
+}

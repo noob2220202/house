@@ -53,7 +53,10 @@ export class Api {
     file: { name: string; mimeType: string; buffer: Buffer },
   ): Promise<T> {
     const res = await this.request.post(`${this.origin}/api/v1${path}`, {
-      headers: { origin: this.origin, ...(this.csrfToken ? { 'x-csrf-token': this.csrfToken } : {}) },
+      headers: {
+        origin: this.origin,
+        ...(this.csrfToken ? { 'x-csrf-token': this.csrfToken } : {}),
+      },
       multipart: { file },
     });
     const text = await res.text();

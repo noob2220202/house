@@ -16,7 +16,9 @@ export class ListingWizard {
   }
 
   async choose(group: string, option: string | RegExp): Promise<void> {
-    await this.radioGroup(group).getByText(option, { exact: typeof option === 'string' }).click();
+    await this.radioGroup(group)
+      .getByText(option, { exact: typeof option === 'string' })
+      .click();
   }
 
   async next(): Promise<void> {
@@ -38,7 +40,10 @@ export class ListingWizard {
     await this.choose('중개대상물 종류', '아파트');
     const search = this.page.getByRole('combobox', { name: '단지 검색' });
     await search.fill(complexName.slice(0, Math.min(6, complexName.length)));
-    await this.page.getByRole('option', { name: new RegExp(escapeRe(complexName)) }).first().click();
+    await this.page
+      .getByRole('option', { name: new RegExp(escapeRe(complexName)) })
+      .first()
+      .click();
     await expect(this.page.getByText(complexName).first()).toBeVisible();
     await this.unitFields(unit);
     // 건축물 용도: APT has an implied 공동주택 use; fill only when the select is still empty.
@@ -53,7 +58,10 @@ export class ListingWizard {
     await this.choose('중개대상물 종류', /원룸/);
     const search = this.page.getByRole('combobox', { name: '주소 검색' });
     await search.fill(roadAddress.split(' ').slice(-2).join(' '));
-    await this.page.getByRole('option', { name: new RegExp(escapeRe(roadAddress)) }).first().click();
+    await this.page
+      .getByRole('option', { name: new RegExp(escapeRe(roadAddress)) })
+      .first()
+      .click();
     await this.page.getByLabel('해당 층').fill(unit.floor);
     await this.fillIfEmpty(this.page.getByLabel('총 층수'), unit.totalFloors);
     await this.pickBuildingUseIfEmpty();
@@ -79,7 +87,8 @@ export class ListingWizard {
   async deal(kind: '매매' | '전세' | '월세', price: { amount: string; rent?: string }) {
     await this.choose('거래 형태', kind);
     if (kind === '매매') await this.page.getByLabel('매매가', { exact: true }).fill(price.amount);
-    if (kind === '전세') await this.page.getByLabel('전세 보증금', { exact: true }).fill(price.amount);
+    if (kind === '전세')
+      await this.page.getByLabel('전세 보증금', { exact: true }).fill(price.amount);
     if (kind === '월세') {
       await this.page.getByLabel('보증금', { exact: true }).fill(price.amount);
       await this.page.getByLabel('월세', { exact: true }).fill(price.rent ?? '50');
@@ -121,13 +130,14 @@ export class ListingWizard {
   /** 미리보기·게시: "광고 게시하기" → POST /agency/listings/:id/publish. Returns the listing id. */
   async publish(): Promise<string> {
     const published = this.page.waitForResponse(
-      (r) => /\/api\/v1\/agency\/listings\/[0-9a-f-]{36}\/publish$/.test(r.url()) &&
+      (r) =>
+        /\/api\/v1\/agency\/listings\/[0-9a-f-]{36}\/publish$/.test(r.url()) &&
         r.request().method() === 'POST',
     );
     await this.page.getByRole('button', { name: '광고 게시하기' }).click();
     const res = await published;
     expect(res.ok(), `publish → ${res.status()} ${await res.text()}`).toBe(true);
-    return /listings\/([0-9a-f-]{36})\/publish/.exec(res.url())![1];
+    return /listings\/([0-9a-f-]{36})\/publish/.exec(res.url())![1]!;
   }
 }
 

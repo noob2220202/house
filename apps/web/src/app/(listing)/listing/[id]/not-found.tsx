@@ -1,6 +1,13 @@
+import type { Metadata } from 'next';
 import { Button, EmptyState, Icon } from '@house/ui';
 import Link from 'next/link';
 import { ROUTES } from '@/config/nav';
+
+/** `<title>` of the 404 (otherwise the site default title would stay). */
+export const metadata: Metadata = {
+  title: '매물을 찾을 수 없어요',
+  robots: { index: false, follow: false },
+};
 
 /** Listing gone (거래 완료 · 삭제 · 숨김) or never existed. Rendered inside the listing chrome with a 404 status. */
 export default function ListingNotFound() {

@@ -51,6 +51,7 @@ import {
   panTarget,
   scaleBar,
 } from '../lib/geo';
+import { withEmdNames } from '../lib/agency';
 import { buildAgencyMarkers, isClusterId } from '../lib/markers';
 import { useAgencyUrlState, type AgencyUrlPatch } from '../lib/useAgencyUrlState';
 import { useIsMobile, useIsTablet } from '../lib/useIsMobile';
@@ -312,12 +313,12 @@ export function AgencySearch({
       selected && detail.data && !items.some((a) => a.id === selected)
         ? [...items, detail.data]
         : items;
-    return buildAgencyMarkers(withSelected, {
+    return buildAgencyMarkers(withEmdNames(withSelected, regions.data?.items ?? []), {
       zoom: view.zoom,
       selectedId: selected,
       maxLabels: isMobile ? 3 : 5,
     });
-  }, [map.data, detail.data, selected, view.zoom, isMobile]);
+  }, [map.data, detail.data, selected, view.zoom, isMobile, regions.data]);
 
   const onMarkerClick = (marker: MapMarker) => {
     if (isClusterId(marker.id)) {

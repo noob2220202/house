@@ -1003,11 +1003,16 @@
     font-size: 15px;
     line-height: 1.35;
   }
+  /* Secondary line may wrap to two lines (MobileListing board) instead of being cut. */
   .fact dd > span {
     font-size: 12px;
+    line-height: 1.4;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow-wrap: anywhere;
   }
   .fill4 {
     display: none;

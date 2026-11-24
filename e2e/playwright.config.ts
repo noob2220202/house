@@ -20,7 +20,10 @@ function chromiumExecutable(): string | undefined {
   } catch {
     // no bundled browser registered
   }
-  for (const candidate of ['/opt/pw-browsers/chromium', '/opt/pw-browsers/chromium_headless_shell']) {
+  for (const candidate of [
+    '/opt/pw-browsers/chromium',
+    '/opt/pw-browsers/chromium_headless_shell',
+  ]) {
     if (fs.existsSync(candidate)) return candidate;
   }
   return undefined;
@@ -45,10 +48,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   timeout: 60_000,
   expect: { timeout: 15_000 },
-  reporter: [
-    ['list'],
-    ['html', { outputFolder: path.join(STATE_DIR, 'report'), open: 'never' }],
-  ],
+  reporter: [['list'], ['html', { outputFolder: path.join(STATE_DIR, 'report'), open: 'never' }]],
   use: {
     actionTimeout: 15_000,
     navigationTimeout: 30_000,

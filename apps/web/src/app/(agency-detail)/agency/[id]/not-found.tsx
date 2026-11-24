@@ -1,6 +1,13 @@
+import type { Metadata } from 'next';
 import { Button, EmptyState, Icon } from '@house/ui';
 import Link from 'next/link';
 import { ROUTES } from '@/config/nav';
+
+/** `<title>` of the 404 (otherwise the site default title would stay). */
+export const metadata: Metadata = {
+  title: '중개사무소를 찾을 수 없어요',
+  robots: { index: false, follow: false },
+};
 
 export default function AgencyNotFound() {
   return (
