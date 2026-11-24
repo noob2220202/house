@@ -1,6 +1,6 @@
 import { Icon } from '@house/ui';
 import Link from 'next/link';
-import { BRAND } from '@/config/brand';
+import { BRAND, josa } from '@/config/brand';
 import { FOOTER_COLUMNS, LEGAL_LINKS } from '@/config/nav';
 import { Logo } from '@/components/brand/Logo';
 import { getBusinessInfo, type BusinessInfo } from '@/lib/site/settings';
@@ -28,7 +28,7 @@ export async function SiteFooter() {
   const year = new Intl.DateTimeFormat('en', { timeZone: 'Asia/Seoul', year: 'numeric' }).format(
     new Date(),
   );
-  const disclaimer = `매물 정보는 각 중개사무소가 등록하며, ${BRAND.name}은 통신판매중개자로서 거래 당사자가 아닙니다. © ${year} ${BRAND.name}`;
+  const disclaimer = `매물 정보는 각 중개사무소가 등록하며, ${josa(BRAND.name, '은', '는')} 통신판매중개자로서 거래 당사자가 아닙니다. © ${year} ${BRAND.name}`;
   return (
     <footer className={styles.footer}>
       {/* Desktop */}

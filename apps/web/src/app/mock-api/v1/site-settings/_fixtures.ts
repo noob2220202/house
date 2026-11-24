@@ -19,7 +19,7 @@ export const PUBLIC_SITE_SETTINGS = {
     hours: '평일 09:00 – 18:00 · 점심 12:00 – 13:00',
   },
   SEO: {
-    title: '순천부동산 | 공인중개사 공동중개 플랫폼',
+    title: '순천부동산지도 | 공인중개사 공동중개 플랫폼',
     description: '순천 공인중개사들이 함께 만드는 공동중개 부동산 서비스',
   },
   FEATURES: {

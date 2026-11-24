@@ -4,8 +4,8 @@ import { BRAND } from '@/config/brand';
 import type { Region } from '../../api/schemas';
 import s from './map.module.css';
 
-/** "전남 순천시" */
-const CITY_LABEL = BRAND.regionFull.replace('전라남도', '전남');
+/** "순천시" (the full 전남광주통합특별시 name is too long for the crumb chip). */
+const CITY_LABEL = BRAND.region;
 
 export interface RegionCrumbProps {
   regions: readonly Region[];
