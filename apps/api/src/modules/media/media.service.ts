@@ -5,11 +5,13 @@ import {
   type ImageVariant,
   type MediaPurpose,
   type MediaView,
+  type MediaVisibility,
 } from '@house/shared';
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { AppException } from '../../common/errors/app.exception';
 import { PrismaService, type PrismaTx } from '../../prisma/prisma.service';
+import { MediaFiles } from './media-files';
 import { MediaStorage } from './media-storage';
 import { MediaMapper } from './media.mapper';
 import { mediaRefSelect, mediaViewSelect, unattachedWhere, type MediaRef } from './media.selects';
@@ -37,6 +39,13 @@ export interface MediaScrubResult {
   deleted: number;
 }
 
+/** An upload `discard` soft-deleted, whose files `removeFiles` erases after commit. */
+export interface DiscardedMedia {
+  id: string;
+  storageKey: string;
+  visibility: MediaVisibility;
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -54,6 +63,7 @@ export class MediaService {
     private readonly prisma: PrismaService,
     private readonly storage: MediaStorage,
     private readonly mapper: MediaMapper,
+    private readonly files: MediaFiles,
   ) {}
 
   /**
@@ -131,8 +141,8 @@ export class MediaService {
    * Member withdrawal (PII scrub job, inside its transaction): forgets the uploaded file names of
    * all of the user's uploads (often real names, e.g. `홍길동_등록증.pdf`) and soft-deletes every
    * upload that is not attached anywhere, so the cleanup purge removes the files within the grace
-   * period. Attached uploads stay (they belong to listings/agencies now, and agency documents follow
-   * the registration-record retention policy); they are removed when their owner detaches them.
+   * period. Attached uploads stay (they belong to listings/agencies now); they are removed when their owner detaches them, or
+   * — for agency documents — by the agencies retention purge (`discard`).
    */
   async scrubOwner(
     userId: string,
@@ -154,6 +164,43 @@ export class MediaService {
       data: { deletedAt: now },
     });
     return { filenamesCleared: cleared.count, deleted: deleted.count };
+  }
+
+  /**
+   * Retention purge (inside the caller's transaction, after it deleted the rows that referenced
+   * these uploads): soft-deletes those that are no longer attached anywhere and forgets their file
+   * names. Returns what `removeFiles` needs to erase the files once the transaction committed; the
+   * cleanup purge removes any file left behind (e.g. a failed unlink) after its grace period.
+   */
+  async discard(
+    mediaIds: readonly string[],
+    db: PrismaTx,
+    now: Date = new Date(),
+  ): Promise<DiscardedMedia[]> {
+    const ids = [...new Set(mediaIds)].filter((id) => UUID.test(id));
+    if (ids.length === 0) return [];
+    const sorted = ids.map((id) => id.toLowerCase()).sort();
+    await db.$queryRaw`
+      SELECT id FROM media WHERE id = ANY(${sorted}::uuid[]) AND deleted_at IS NULL
+      ORDER BY id FOR UPDATE`;
+    const where: Prisma.MediaWhereInput = { id: { in: ids }, deletedAt: null, ...unattachedWhere };
+    const rows = await db.media.findMany({
+      where,
+      select: { id: true, storageKey: true, visibility: true },
+    });
+    if (rows.length === 0) return [];
+    await db.media.updateMany({
+      where: { id: { in: rows.map((r) => r.id) } },
+      data: { deletedAt: now, originalFilename: null },
+    });
+    return rows;
+  }
+
+  /** After the `discard` transaction committed: removes the files now (best effort). */
+  async removeFiles(rows: readonly DiscardedMedia[]): Promise<void> {
+    for (const row of rows) {
+      await this.files.removeAll(row);
+    }
   }
 
   /** Public URL of a variant (falls back to the full-size image). */

@@ -17,6 +17,7 @@ export {
   boundsContain,
   boundsToBboxParam,
   clampZoom,
+  coarsenPosition,
   roundCoord,
 } from './geo';
 export {

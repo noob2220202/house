@@ -2,7 +2,9 @@ import { ErrorCode, MediaPurpose, type ImageVariant } from '@house/shared';
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type { PrismaTx } from '../../../prisma/prisma.service';
-import { MediaService } from '../../media/media.service';
+import { MediaService, type DiscardedMedia } from '../../media/media.service';
+
+export type { DiscardedMedia };
 
 export interface MediaRef {
   storageKey: string;
@@ -30,6 +32,13 @@ export interface AgencyMediaPort {
   assertCoverUsable(mediaId: string, userId: string, tx: PrismaTx): Promise<void>;
   /** After a document row / logo reference was removed: restarts the orphan grace period. */
   released(mediaIds: readonly string[], tx: PrismaTx): Promise<void>;
+  /**
+   * Retention purge, inside the transaction that deleted the referencing rows: soft-deletes the
+   * uploads that are no longer attached anywhere (and forgets their file names).
+   */
+  discard(mediaIds: readonly string[], tx: PrismaTx, now?: Date): Promise<DiscardedMedia[]>;
+  /** After that transaction committed: erases the discarded files (best effort). */
+  removeFiles(rows: readonly DiscardedMedia[]): Promise<void>;
   /** Public URL of a variant (falls back to the original). */
   publicUrl(media: MediaRef, variant?: ImageVariant): string;
   /** Absolute path of a PRIVATE file, guaranteed to stay inside PRIVATE_UPLOAD_DIR (null if not). */
@@ -85,6 +94,14 @@ export class MediaServiceAgencyMedia implements AgencyMediaPort {
 
   released(mediaIds: readonly string[], tx: PrismaTx): Promise<void> {
     return this.media.released(mediaIds, tx);
+  }
+
+  discard(mediaIds: readonly string[], tx: PrismaTx, now?: Date): Promise<DiscardedMedia[]> {
+    return this.media.discard(mediaIds, tx, now);
+  }
+
+  removeFiles(rows: readonly DiscardedMedia[]): Promise<void> {
+    return this.media.removeFiles(rows);
   }
 
   publicUrl(media: MediaRef, variant: ImageVariant = 'thumb'): string {

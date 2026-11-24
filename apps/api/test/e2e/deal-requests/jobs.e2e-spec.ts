@@ -138,9 +138,10 @@ describe('deal-requests: jobs (e2e)', () => {
       status: DealRequestStatus.CLOSED,
       closedAt: new Date('2026-08-01T00:00:00Z'),
     });
+    // 26 days ago: still inside the 30-day retention.
     const recent = await dealRequest(t.prisma, user.id, {
       status: DealRequestStatus.CLOSED,
-      closedAt: new Date('2026-11-01T00:00:00Z'),
+      closedAt: new Date('2026-11-05T00:00:00Z'),
     });
     await t.prisma.dealRequestContactGrant.create({
       data: { dealRequestId: old.id, agencyId: b.agency.id },

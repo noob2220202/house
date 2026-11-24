@@ -5,9 +5,11 @@
   "description": "Shared zod schemas, enums and constants for api and frontends",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "module": "./dist/esm/index.js",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "module": "./dist/esm/index.js",
       "default": "./dist/index.js"
     }
   },
@@ -16,8 +18,8 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.esm.json",
+    "dev": "node scripts/dev.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "jest"

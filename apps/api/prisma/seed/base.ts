@@ -102,6 +102,7 @@ export async function seedSiteSettings(prisma: PrismaClient): Promise<void> {
       privacyOfficer: '(개인정보보호책임자 입력)',
       phone: '061-000-0000',
       email: 'contact@example.com',
+      hostingProvider: '(호스팅서비스 제공자 입력)',
     },
     CONTACT: {
       phone: '061-000-0000',
@@ -156,7 +157,7 @@ export const DEAL_REQUEST_PRIVACY_BODY = [
 export const DEAL_REQUEST_PROVIDE_BODY = [
   '- 제공받는 자: 요청의 공개 범위에 해당하는 이 서비스의 중개사무소(전체 공개: 순천시에서 승인된 모든 중개사무소, 선택 공개: 회원이 고른 중개사무소)와 이미 제안을 보낸 중개사무소',
   '- 제공 목적: 중개 제안과 상담 연락',
-  '- 요청을 받은 모든 중개사무소에 제공하는 항목: (내놓기) 매물 유형·거래 유형·희망 가격·입주 가능일, 읍면동·단지명, 전용면적 구간, 약 200m 단위로 낮춘 대략적인 위치, 사진 장수, 체크한 조건(가격 협의 가능·즉시 입주 가능·저/중/고층), (구하기) 희망 지역·단지·예산·면적·방 수·입주 희망일과 설명',
+  '- 요청을 받은 모든 중개사무소에 제공하는 항목: (내놓기) 매물 유형·거래 유형·희망 가격·입주 가능일, 읍면동·단지명, 전용면적 구간, 약 200m 단위로 낮춘 대략적인 위치, 사진 장수, 체크한 조건(가격 협의 가능·즉시 입주 가능·입주일 협의 가능)과 단지 매물의 저/중/고층 구분, (구하기) 희망 지역·단지·예산·면적·방 수·입주 희망일과 설명',
   '- 연락처를 공개한 중개사무소에만 제공하는 항목: 이름·휴대폰 번호와 (내놓기) 도로명 주소·동·호수·정확한 위치·층·전용면적·사진·설명. 제안을 수락하면서 공개를 선택하거나 요청 상세에서 직접 공개한 중개사무소만 해당하며, 공개는 언제든 취소할 수 있습니다.',
   '- 보유·이용 기간: 요청이 끝난 날부터 30일까지. 거래 완료된 요청은 30일이 지나면, 공개를 취소하거나 요청이 취소·기간 만료·운영자 종료되면 그때부터 중개사무소에서도 연락처와 상세 정보를 볼 수 없습니다.',
   '- 동의를 거부할 권리와 불이익: 동의하지 않을 수 있으며, 동의하지 않으면 요청을 등록할 수 없습니다.',
@@ -179,7 +180,13 @@ const TERMS_V1: { type: TermsType; title: string; isRequired: boolean; body: str
     type: TermsType.LOCATION,
     title: '위치기반서비스 이용약관 (선택)',
     isRequired: false,
-    body: '지도 검색에서 회원이 허용한 경우에만 현재 위치를 사용하며, 위치정보는 저장하지 않습니다.',
+    // Must say what the web "내 위치" does (features/w-auth/components/location/useMyLocation.tsx).
+    body: [
+      '- 이용 목적: 지도 검색과 중개사무소 찾기에서 "내 위치" 버튼을 눌러 지도를 현재 위치 근처로 옮깁니다. 이 약관에 동의한 경우에만 기기의 현재 위치를 확인합니다.',
+      '- 처리 방식: 현재 위치는 기기(브라우저) 안에서만 사용하며 서버로 보내거나 저장하지 않습니다. 지도는 약 500m 단위로 어림한 위치로 옮기며, 매물·중개사무소를 불러올 때 서버와 주소창에는 그 어림한 지도 범위만 전달됩니다.',
+      '- 동의 기록: 회원의 동의 여부와 일시는 약관 동의 내역으로 보관합니다. 로그인하지 않은 방문자의 동의는 기록하지 않으며, 화면을 새로 열면 다시 묻습니다.',
+      '- 동의를 거부할 권리: 동의하지 않을 수 있으며, 동의하지 않아도 지도를 직접 움직여 모든 기능을 이용할 수 있습니다.',
+    ].join('\n'),
   },
   {
     type: TermsType.MARKETING,
@@ -225,30 +232,58 @@ const TERMS_V1: { type: TermsType; title: string; isRequired: boolean; body: str
   },
 ];
 
+const SAMPLE_MARKER = '> 견본';
+
+function sampleContent(t: (typeof TERMS_V1)[number]): string {
+  const purpose = !ACCOUNT_TERMS_TYPES.includes(t.type);
+  return [
+    `# ${t.title}`,
+    '',
+    purpose
+      ? '> 견본입니다. 운영 전 법률 검토를 거쳐 관리자 화면에서 새 버전으로 교체하세요. 이 동의는 해당 신청·요청을 보낼 때마다 따로 받습니다.'
+      : '> 견본(초안)입니다. 운영 전 법률 검토를 거쳐 관리자 화면에서 새 버전으로 교체하세요.',
+    '',
+    t.body,
+    '',
+  ].join('\n');
+}
+
+/** "1.0" → "1.1", "1.9" → "1.10"; anything else gets ".1" appended. */
+function nextMinor(version: string): string {
+  const m = /^(\d+)\.(\d+)$/.exec(version);
+  return m ? `${m[1]}.${Number(m[2]) + 1}` : `${version}.1`;
+}
+
 /**
  * Version 1.0 of every terms type, effective immediately. The text is a 견본 (sample) for legal
  * review: the operator replaces it with a reviewed version in the admin before launch.
+ *
+ * Re-running the seed publishes the current sample as a new minor version when the latest
+ * document of a purpose type (D8) is still an older, unreviewed sample (it carries the sample marker) — so a
+ * corrected sample (e.g. the 내놓기·구하기 retention notice) reaches databases seeded earlier.
+ * A document the operator wrote (no marker) is never touched; consents keep their version.
  */
 export async function seedTerms(prisma: PrismaClient, now: Date): Promise<void> {
   for (const t of TERMS_V1) {
-    const existing = await prisma.termsDocument.findFirst({ where: { type: t.type } });
-    if (existing) continue;
-    const purpose = !ACCOUNT_TERMS_TYPES.includes(t.type);
+    const content = sampleContent(t);
+    const latest = await prisma.termsDocument.findFirst({
+      where: { type: t.type },
+      orderBy: [{ effectiveAt: 'desc' }, { createdAt: 'desc' }],
+    });
+    if (latest) {
+      // Account terms are left alone: a new version would ask every member to agree again.
+      const unreviewedOldSample =
+        !ACCOUNT_TERMS_TYPES.includes(t.type) &&
+        latest.content.split('\n').some((l) => l.startsWith(SAMPLE_MARKER)) &&
+        latest.content !== content;
+      if (!unreviewedOldSample) continue;
+    }
     await prisma.termsDocument.create({
       data: {
         type: t.type,
-        version: '1.0',
+        version: latest ? nextMinor(latest.version) : '1.0',
         title: t.title,
-        content: [
-          `# ${t.title}`,
-          '',
-          purpose
-            ? '> 견본입니다. 운영 전 법률 검토를 거쳐 관리자 화면에서 새 버전으로 교체하세요. 이 동의는 해당 신청·요청을 보낼 때마다 따로 받습니다.'
-            : '> 견본(초안)입니다. 운영 전 법률 검토를 거쳐 관리자 화면에서 새 버전으로 교체하세요.',
-          '',
-          t.body,
-          '',
-        ].join('\n'),
+        content,
         isRequired: t.isRequired,
         effectiveAt: now,
         publishedAt: now,

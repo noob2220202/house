@@ -15,6 +15,7 @@ function bizItems(b: BusinessInfo): { label: string; value: string }[] {
     { label: '주소', value: b.address },
     { label: '개인정보보호책임자', value: b.privacyOfficer },
     { label: '이메일', value: b.email },
+    { label: '호스팅서비스 제공', value: b.hostingProvider },
   ];
 }
 

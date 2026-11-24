@@ -18,6 +18,7 @@ const publicSiteSettingsSchema = z.object({
       privacyOfficer: z.string(),
       phone: z.string(),
       email: z.string(),
+      hostingProvider: z.string(),
     })
     .partial()
     .optional(),
@@ -47,6 +48,8 @@ export interface BusinessInfo {
   phone: string;
   /** "평일 09:00 – 18:00 · 점심 12:00 – 13:00" */
   hours: string;
+  /** 호스팅서비스 제공자 (전자상거래법 시행령 제7조 표시사항). */
+  hostingProvider: string;
 }
 
 /** Shown until the operator fills in 사이트 설정 (same placeholders as the design). */
@@ -60,6 +63,7 @@ export const BUSINESS_INFO_PLACEHOLDER: BusinessInfo = {
   email: '[이메일]',
   phone: '[대표번호]',
   hours: '평일 09:00 – 18:00 · 점심 12:00 – 13:00',
+  hostingProvider: '[호스팅서비스 제공자]',
 };
 
 /** Cached 5 min; never throws (falls back to `{}` when the API is unreachable, e.g. during build). */
@@ -87,6 +91,7 @@ export async function getBusinessInfo(): Promise<BusinessInfo> {
     email: c.email || b.email || p.email,
     phone: c.phone || b.phone || p.phone,
     hours: c.hours || p.hours,
+    hostingProvider: b.hostingProvider || p.hostingProvider,
   };
 }
 

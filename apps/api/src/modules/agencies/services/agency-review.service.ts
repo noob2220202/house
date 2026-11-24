@@ -465,7 +465,8 @@ export class AgencyReviewService {
    * Soft-deletes an application that never went live (PENDING / REJECTED), e.g. a fake one, so
    * nothing of it lingers in the queue or the applicant's account. A pending one is rejected
    * first (history row). Staff rows are closed, the applicant is notified, the action audited.
-   * Documents are kept as evidence (not released to media cleanup).
+   * Documents are kept as evidence until the retention purge erases the application 1 year after
+   * its rejection (AgencyRetentionService).
    */
   async remove(
     agencyId: string,

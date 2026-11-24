@@ -21,6 +21,7 @@ import { AgencyInviteStore } from './services/agency-invite.store';
 import { AgencyMembersService } from './services/agency-members.service';
 import { AgencyPublicService } from './services/agency-public.service';
 import { AgencyRegistrationService } from './services/agency-registration.service';
+import { AgencyRetentionService } from './services/agency-retention.service';
 import { AgencyReviewService } from './services/agency-review.service';
 import { AgencySessionSyncService } from './services/agency-session-sync.service';
 
@@ -55,6 +56,7 @@ import { AgencySessionSyncService } from './services/agency-session-sync.service
     AgencyPublicService,
     AgencyReviewService,
     AgencyDashboardService,
+    AgencyRetentionService,
     AgenciesProcessor,
   ],
   exports: [AgenciesService, AgencyDashboardService],

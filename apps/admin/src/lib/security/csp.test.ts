@@ -64,13 +64,22 @@ describe('middleware', () => {
 });
 
 describe('next.config.mjs', () => {
-  it('disables the image optimizer and allows no loopback API paths', async () => {
+  it('lets the image optimizer fetch /media only, never the API', async () => {
     const file = '../../../next.config.mjs';
     const config = ((await import(/* @vite-ignore */ file)) as { default: NextConfig }).default;
-    expect(config.images?.unoptimized).toBe(true);
-    expect(config.images?.localPatterns).toEqual([{ pathname: '/media/**' }]);
+    // The optimizer may fetch local /media (and the mock stand-ins) only — no API path, and no
+    // loopback API host (it could otherwise be pointed at any path on the API's port).
+    expect(config.images?.unoptimized).toBeFalsy();
+    expect(config.images?.localPatterns).toEqual([
+      { pathname: '/media/**' },
+      { pathname: '/mock-api/**' },
+    ]);
     for (const p of config.images?.remotePatterns ?? []) {
-      expect(p instanceof URL ? p.pathname : p.pathname).toBe('/media/**');
+      const host = p instanceof URL ? p.hostname : p.hostname;
+      expect(['localhost', '127.0.0.1', '::1', '[::1]']).not.toContain(host);
     }
+    const rewrites = (await config.rewrites?.()) as { source: string; destination: string }[];
+    const media = rewrites.find((r) => r.source === '/media/:path*');
+    expect(media?.destination).toMatch(/\/media\/:path\*$/);
   });
 });

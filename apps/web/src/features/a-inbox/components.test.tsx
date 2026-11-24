@@ -7,6 +7,7 @@ import {
   agencyRequestDetailDto,
   agencyRequestDto,
   maskName,
+  MY_AGENCY_ID,
   stageOf,
 } from '@/app/mock-api/v1/agency/deal-requests/_store';
 import type { Notification } from '@/features/w-me/schemas';
@@ -158,14 +159,80 @@ describe('<ContactCard>', () => {
 });
 
 describe('<RequestSummary>', () => {
-  it('renders a 내놓기 request without address details', () => {
+  it('renders a 내놓기 request before a grant reduced: flags and area band, no own words or address', () => {
     render(<RequestSummary request={detail('req-01')} />);
     expect(screen.getByText('희망 매매가')).toBeInTheDocument();
     expect(screen.getByText('4억 5,000')).toBeInTheDocument();
     expect(screen.getByText('가격 협의 가능')).toBeInTheDocument();
-    expect(screen.getByText(/도배·장판을 새로 했습니다/)).toBeInTheDocument();
-    expect(screen.getByText(/동·호수는 요청자가 연락처를 공개하면/)).toBeInTheDocument();
+    expect(screen.getByText('전용면적 구간')).toBeInTheDocument();
+    expect(screen.queryByText(/도배·장판을 새로 했습니다/)).toBeNull();
+    expect(
+      screen.getByText(/도로명 주소·동·호수·층·정확한 면적·사진·요청자가 쓴 설명은/),
+    ).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent('신대2로');
+  });
+
+  it('renders the full 내놓기 details once the requester shared them with this office', () => {
+    const granted = { ...seed('req-01'), grants: { [MY_AGENCY_ID]: '2026-11-20T00:00:00.000Z' } };
+    render(
+      <RequestSummary
+        request={agencyDealRequestDetailSchema.parse(agencyRequestDetailDto(granted))}
+      />,
+    );
+    expect(screen.getByText(/도배·장판을 새로 했습니다/)).toBeInTheDocument();
+    expect(screen.getByText('전용면적')).toBeInTheDocument();
+    expect(screen.queryByText(/요청자가 쓴 설명은/)).toBeNull();
+  });
+
+  it('parses the backend shape: complex, photo views, granted road address, detailsShared', () => {
+    const wire = {
+      id: 'r1',
+      type: 'SELL_OR_LEASE',
+      status: 'OPEN',
+      assetType: 'APT',
+      dealTypes: ['SALE'],
+      visibility: 'ALL_AGENCIES_IN_REGION',
+      emdCode: '1215010100',
+      roadAddress: null,
+      complex: { id: 'c1', name: '신대 레이크파크' },
+      lat: 34.951,
+      lng: 127.487,
+      exclusiveArea: null,
+      areaRange: { min: 60, max: 85 },
+      floor: null,
+      description: '· 가격 협의 가능',
+      photos: [],
+      photoCount: 2,
+      desiredSalePrice: 45000,
+      regionCodes: [],
+      complexIds: [],
+      proposalCount: 0,
+      createdAt: '2026-11-20T00:00:00.000Z',
+      targeted: false,
+      myProposal: null,
+      contact: null,
+      detailsShared: false,
+    };
+    const before = agencyDealRequestDetailSchema.parse(wire);
+    expect(before).toMatchObject({
+      complexId: 'c1',
+      complexName: '신대 레이크파크',
+      contactGranted: false,
+    });
+    render(<RequestSummary request={before} />);
+    expect(screen.getByText('첨부 사진 2장')).toBeInTheDocument();
+    expect(screen.getByText('60~85㎡')).toBeInTheDocument();
+    const after = agencyDealRequestDetailSchema.parse({
+      ...wire,
+      roadAddress: '전남광주통합특별시 순천시 중앙로 1',
+      exclusiveArea: 84.97,
+      photos: [{ mediaId: 'm1', url: '/m/large.webp', thumbUrl: '/m/thumb.webp' }],
+      contact: { name: '홍길동', phone: '01012345678', addressDetail: '101동 1001호' },
+      detailsShared: true,
+    });
+    expect(after.contactGranted).toBe(true);
+    expect(after.contact?.roadAddress).toBe('전남광주통합특별시 순천시 중앙로 1');
+    expect(after.photos[0]?.variants.thumb?.url).toBe('/m/thumb.webp');
   });
 
   it('renders the wanted regions, complexes and conditions of a 구하기 request', () => {

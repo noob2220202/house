@@ -27,14 +27,31 @@ Registered in `AppModule`. Read `docs/CONVENTIONS.md` first.
   dashboard and the new-request fan-out — even from offices that already proposed, until the flag is cleared.
 - Privacy: agency/admin selects never load contact or 동·호 (`deal-request.selects.ts`). Contact is loaded in a
   separate query only for an agency with an active `DealRequestContactGrant` while the request is
-  OPEN/MATCHED/CLOSED **and the requester is ACTIVE** (a suspended/withdrawn requester's contact is never
-  served, scrub or not). Grants come from `POST …/contact-grants` or accepting a proposal with
-  `shareContact` — **required** boolean, no default (개인정보 제3자 제공 needs an explicit opt-in). Cancel and
-  admin close revoke all grants. Admins see a masked contact only. Contact + 동·호 are erased 90 days after a
-  request ends. For withdrawn members everything identifying (contact, 동·호, road address, lat/lng/location,
-  floor, area, description, photos → media soft-deleted) is erased by
-  `DealRequestMaintenanceService.scrubUser(userId, now, tx)` — meant to be called inside the withdrawal
-  transaction, then `dispatch(notices)` after commit — with the `scrub` job as the safety net.
+  OPEN/MATCHED/CLOSED (CLOSED: only until `CONTACT_RETENTION_DAYS` after `closedAt`) **and the requester is
+  ACTIVE** (a suspended/withdrawn requester's contact is never served, scrub or not). Grants come from
+  `POST …/contact-grants` or accepting a proposal with `shareContact` — **required** boolean, no default
+  (개인정보 제3자 제공 needs an explicit opt-in). Cancel and admin close revoke all grants. Admins see a masked
+  contact only.
+- Pre-grant agency view (DEAL_REQUEST_PROVIDE 제공 항목, `DealRequestMapper.agency`): without that grant
+  (`detailsShared: false`) a 내놓기 request carries 읍면동 / 단지, asset / deal type, prices, move-in date, the
+  area band (`areaRange`, shared `DEAL_REQUEST_AREA_BANDS`), `photoCount`, lat/lng snapped to the centre of a
+  `DEAL_REQUEST_LOCATION_GRID_DEG` (0.002°, ≈ 200 m) cell and only the form's flag lines of the description
+  (`publicDealRequestDescription`: 가격 협의 가능 / 즉시 입주 가능 / 입주일 협의 가능 / 저·중·고층) — `roadAddress`,
+  `floor`, `exclusiveArea` are null and `photos` is empty. With the grant (`detailsShared: true`) everything
+  plus `contact`. 구하기 requests are not reduced (their conditions and description are the 제공 항목).
+- Retention (DEAL_REQUEST_PRIVACY notice): `CONTACT_RETENTION_DAYS` = **30** days after a request ended
+  (CLOSED / CANCELLED / EXPIRED) the `scrub` job erases contact, 동·호, road address, lat/lng/location, floor,
+  area, description and photos (media soft-deleted) and revokes the grants; the request record (type, asset /
+  deal type, prices, 읍면동 / 단지, wanted conditions, dates) stays in the requester's history. Selection is by
+  residue, so rows of an earlier policy are caught up and re-runs are no-ops. For withdrawn members the same
+  is erased at once by `DealRequestMaintenanceService.scrubUser(userId, now, tx)` — called inside the
+  withdrawal transaction, then `dispatch(notices)` after commit — with the `scrub` job as the safety net.
+  The seeded notices (`prisma/seed/base.ts` `DEAL_REQUEST_PRIVACY_BODY` / `DEAL_REQUEST_PROVIDE_BODY`) state
+  exactly these rules; `test/e2e/deal-requests/compliance.e2e-spec.ts` checks them.
+- Proposal author (공인중개사법 제18조의4): any ACTIVE member may send a proposal. The requester's
+  `ProposalView.agent` is `{ displayName, isAssistant, phone }`; for a 중개보조원 (not OWNER, not
+  `isLicensed`) `isAssistant` is true and `phone` null — the UI labels them 중개보조원 and calls the office
+  number of the agency disclosure.
 - Lifecycle: OPEN → MATCHED (proposal accepted) → CLOSED (거래 완료) / CANCELLED; OPEN → EXPIRED after 30 days
   (`expire` job; MATCHED never expires — the requester closes it). `POST …/extend` pushes an OPEN request's
   expiry to now + 30 days or reopens an EXPIRED one (≤ `MAX_EXTENSIONS` = 3 times, reopening counts toward
@@ -112,7 +129,8 @@ rooms, emdCode, emdName, complexId, thumbUrl, verifiedAt }`; default `pageSize` 
 
 - `deal-request.fanout` — enqueued on create (`jobId fanout-<id>`); advisory-locked + idempotent.
 - `deal-request.expire` — hourly at :07 KST (only when `JOBS_ENABLED`).
-- `deal-request.scrub` — daily 04:41 KST (only when `JOBS_ENABLED`).
+- `deal-request.scrub` — daily 04:41 KST (only when `JOBS_ENABLED`): 30-day erasure of ended requests +
+  withdrawn members' residue (see Retention).
 
 ## Ports (swap for the owning module's service when it exists)
 
@@ -128,4 +146,5 @@ read-only (no owning-module reader exists for these queries).
   `pnpm --filter @house/shared test -- src/deal-requests`.
 - e2e: `pnpm --filter @house/api test:e2e deal-requests` (DB `house_test_deal_requests`, Redis DB 5);
   `console.e2e-spec.ts` covers the dashboard, target agencies, address match, listing candidates and
-  the B5 notification audience.
+  the B5 notification audience; `compliance.e2e-spec.ts` the retention scrub, the pre-grant view, the
+  중개보조원 label and the seeded notice text.

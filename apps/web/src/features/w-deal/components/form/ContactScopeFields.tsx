@@ -384,7 +384,14 @@ function ConsentItem({
  * The boxes stay disabled until the documents are loaded: nobody agrees to a text they could not
  * read.
  */
-export function ConsentFields({ idPrefix, values, errors, set, recipients, terms }: ConsentFieldsProps) {
+export function ConsentFields({
+  idPrefix,
+  values,
+  errors,
+  set,
+  recipients,
+  terms,
+}: ConsentFieldsProps) {
   const labelId = `${idPrefix}-agree-label`;
   const all = values.agreePrivacy && values.agreeProvide;
   const error = errors.agreePrivacy ?? errors.agreeProvide;

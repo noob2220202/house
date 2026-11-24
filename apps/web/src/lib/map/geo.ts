@@ -97,6 +97,21 @@ export function boundsContain(b: MapBounds, p: LatLng): boolean {
   return p.lat >= b.swLat && p.lat <= b.neLat && p.lng >= b.swLng && p.lng <= b.neLng;
 }
 
+/**
+ * Grid (degrees) the device position is snapped to before the map moves to it ("내 위치"):
+ * about 550 m north–south and 450 m east–west around 순천. The map view, and so the URL (`c=`)
+ * and the bbox of every API request, only ever carry the cell — never the device position.
+ */
+export const DEVICE_POSITION_GRID_DEG = 0.005;
+
+/** Centre of the DEVICE_POSITION_GRID_DEG cell that holds `p`. */
+export function coarsenPosition(p: LatLng): LatLng {
+  const snap = (n: number) =>
+    Math.round((Math.floor(n / DEVICE_POSITION_GRID_DEG) + 0.5) * DEVICE_POSITION_GRID_DEG * 1e6) /
+    1e6;
+  return { lat: snap(p.lat), lng: snap(p.lng) };
+}
+
 /** Rounds coordinates for URLs (5 decimals ≈ 1 m). */
 export function roundCoord(n: number): number {
   return Math.round(n * 1e5) / 1e5;

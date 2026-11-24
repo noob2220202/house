@@ -29,10 +29,18 @@ if (
 }
 
 const API_ORIGIN = (process.env.INTERNAL_API_URL || 'http://127.0.0.1:4000').replace(/\/$/, '');
-// Where /media/* is served from when no nginx is in front (dev, e2e). In production nginx serves
-// /media from disk before a request reaches Next.
+// Where /media/* is fetched from by the image optimizer (and by browsers when no nginx is in front:
+// dev, e2e). Rewrites are baked in at build time: production builds get nginx's loopback media
+// origin (deploy.sh build env, MEDIA_ORIGIN=http://127.0.0.1:8088). The API serves no files, so
+// the API fallback below only suits a dev API that happens to.
 const MEDIA_ORIGIN = (process.env.MEDIA_ORIGIN || API_ORIGIN).replace(/\/$/, '');
 const isProd = process.env.NODE_ENV === 'production';
+if (isProd && !process.env.MEDIA_ORIGIN && process.env.NEXT_PUBLIC_API_MOCK !== '1') {
+  console.warn(
+    '[next.config] MEDIA_ORIGIN is not set: /_next/image will fetch /media from the API and fail. ' +
+      'Set it to the media origin (deploy kit: http://127.0.0.1:8088).',
+  );
+}
 
 /** Extra absolute media hosts, comma separated: "https://cdn.example.kr,https://media.example.kr". */
 const mediaHosts = (process.env.NEXT_PUBLIC_MEDIA_HOSTS || '')
@@ -67,22 +75,23 @@ const nextConfig = {
   typescript: { tsconfigPath: nextTsconfig },
   transpilePackages: ['@house/ui'],
   images: {
-    // No Next image optimizer: /media images are webp variants the API already generated, served by
-    // nginx from disk. `/_next/image` answers 404, so it cannot fail on /media (the optimizer would
-    // fetch it from the API, which serves no files) nor be pointed at other loopback paths.
-    unoptimized: true,
-    // Defense in depth should the optimizer ever be switched back on.
-    localPatterns: [{ pathname: '/media/**' }],
+    formats: ['image/avif', 'image/webp'],
+    // What the optimizer (/_next/image) may fetch. Local sources only under /media — rewritten
+    // below to MEDIA_ORIGIN, nginx's loopback media origin in production, which serves nothing
+    // but public media files — and the mock stand-ins (/mock-api, Next's own routes). Never a
+    // loopback API host or /api/v1/*: the optimizer must not become a request path into the API.
+    localPatterns: [{ pathname: '/media/**' }, { pathname: '/mock-api/**' }],
+    // Absolute media hosts only when configured (NEXT_PUBLIC_MEDIA_HOSTS, e.g. a CDN).
     remotePatterns: mediaHosts.map((u) => ({
       protocol: /** @type {'http' | 'https'} */ (u.protocol.replace(':', '')),
       hostname: u.hostname,
       port: u.port,
-      pathname: '/media/**',
+      pathname: '/**',
     })),
   },
   async rewrites() {
-    // In production nginx proxies /api/v1 and serves /media before a request reaches Next; these
-    // rewrites cover local development and the e2e stack (no nginx).
+    // In production nginx proxies /api/v1 and serves /media before a browser request reaches Next;
+    // these rewrites cover dev / e2e (no nginx) and the image optimizer's own fetch of /media/*.
     return [
       { source: '/api/v1/:path*', destination: `${API_ORIGIN}/api/v1/:path*` },
       { source: '/media/:path*', destination: `${MEDIA_ORIGIN}/media/:path*` },

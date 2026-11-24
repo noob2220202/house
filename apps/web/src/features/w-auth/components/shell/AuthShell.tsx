@@ -60,6 +60,7 @@ export async function MiniFooter() {
     { label: '주소', value: biz.address },
     { label: '개인정보보호책임자', value: biz.privacyOfficer },
     { label: '고객센터', value: biz.phone },
+    { label: '호스팅서비스 제공', value: biz.hostingProvider },
   ];
   return (
     <footer className={styles.foot}>

@@ -18,7 +18,8 @@ profile, and the 표시·광고 disclosure data listings need. Read `docs/CONVEN
 | `services/agency-review.service.ts`        | admin queue/detail/decision (+history, notification, audit), document stream, registry |
 | `services/agency-dashboard.service.ts`     | **exported** console-home numbers (listings, daily views, expiring / 실매물 확인 due)  |
 | `domain/dashboard.ts`                      | pure helpers: KST days, views from daily snapshots, dashboard listing rows             |
-| `jobs/agencies.processor.ts`               | queue `agencies`: hourly `agencies.daily-stats` snapshot (only when `JOBS_ENABLED`)    |
+| `jobs/agencies.processor.ts`               | queue `agencies`: hourly `agencies.daily-stats` snapshot, daily `agencies.purge-rejected` (only when `JOBS_ENABLED`) |
+| `services/agency-retention.service.ts`     | 개인정보 파기: rejected (not resubmitted) applications 1 year after the latest rejection — agency row hard-deleted (staff, documents, history cascade), document uploads soft-deleted + files removed, audited `agency.purge-rejected` (SYSTEM) |
 | `agency-search.repository.ts`              | raw PostGIS / pg_trgm SQL (bound parameters only)                                      |
 | `clients/broker-registry.client.ts`        | registry lookup interface + data.go.kr implementation (`BROKER_REGISTRY` token)        |
 | `ports/agency-media.port.ts`               | media checks / URLs via MediaService (`AGENCY_MEDIA`, same-tx `assertUsable`)          |

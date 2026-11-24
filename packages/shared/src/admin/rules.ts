@@ -111,8 +111,9 @@ export const TERMS_NOTICE_DAYS_UNFAVORABLE = 30;
  * Terms types that can never be a condition of using the service:
  *  - MARKETING: 정보통신망법 제50조 requires separate, voluntary consent for 광고성 정보, and
  *    개인정보보호법 제22조⑤ forbids refusing service because an optional consent was declined.
- *  - LOCATION: the map uses the device location only when the member allows it, and the server
- *    never stores it, so it is an optional feature rather than a core one.
+ *  - LOCATION: "내 위치" reads the device position only after the user agreed to this document
+ *    (members: recorded consent; visitors: asked each page session); the position stays on the
+ *    device (only a coarse map view reaches the server), so it is an optional feature.
  * A document of these types must have isRequired=false (checked on create, update and publish).
  */
 export const OPTIONAL_ONLY_TERMS_TYPES: readonly TermsType[] = [

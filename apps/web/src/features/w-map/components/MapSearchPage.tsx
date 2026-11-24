@@ -13,6 +13,7 @@ import {
 } from 'react';
 import { MapSummary, MapToolButton, MapView, MapZoomControl } from '@/components/map';
 import { env } from '@/config/env';
+import { useMyLocation } from '@/features/w-auth';
 import { ComplexPanelSlot, useComplexParam } from '@/features/w-complex';
 import type { MapAssetSlug } from '@/config/nav';
 import { errorMessage } from '@/lib/api';
@@ -158,7 +159,7 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
   const [naverView, setNaverView] = useState<{ bounds: MapBounds; zoom: number } | null>(null);
   const [naverFailed, setNaverFailed] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
-  const [locating, setLocating] = useState(false);
+  const { locate: requestLocation, locating, dialog: locationDialog } = useMyLocation();
   const [myPos, setMyPos] = useState<LatLng | null>(null);
 
   // ---- mobile sheet ----------------------------------------------------------------------------
@@ -484,39 +485,21 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
     searchPick.track(flyTo({ lat: item.lat, lng: item.lng }, id), id);
   };
 
-  const locate = () => {
-    if (!('geolocation' in navigator)) {
-      toast({ message: '이 브라우저에서는 내 위치를 사용할 수 없어요.', tone: 'error' });
-      return;
-    }
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocating(false);
-        const me = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        if (distanceM(me, DEFAULT_MAP_CENTER) > SERVICE_RADIUS_M) {
-          // Outside the service area: say so and leave the map where it is.
-          setMyPos(null);
-          toast({ message: '현재 위치가 순천 밖이에요.', tone: 'info' });
-          return;
-        }
-        setMyPos(me);
-        const zoom = Math.max(view.zoom, MARKER_ZOOM);
-        setView({ center: centerOn(me, zoom, openStop), zoom });
-      },
-      (error) => {
-        setLocating(false);
-        toast({
-          message:
-            error.code === error.PERMISSION_DENIED
-              ? '위치 권한이 꺼져 있어요. 브라우저 설정에서 위치 접근을 허용해 주세요.'
-              : '내 위치를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.',
-          tone: 'error',
-        });
-      },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
-    );
-  };
+  // 내 위치: only after the 위치기반서비스 consent (useMyLocation). The map moves to the coarse cell
+  // of the device, so the URL and the bbox of API requests never carry the device position; the
+  // exact "me" dot is drawn client-side for members who agreed.
+  const locate = () =>
+    requestLocation(({ coarse, precise }) => {
+      if (distanceM(coarse, DEFAULT_MAP_CENTER) > SERVICE_RADIUS_M) {
+        // Outside the service area: say so and leave the map where it is.
+        setMyPos(null);
+        toast({ message: '현재 위치가 순천 밖이에요.', tone: 'info' });
+        return;
+      }
+      setMyPos(precise);
+      const zoom = Math.max(view.zoom, MARKER_ZOOM);
+      setView({ center: centerOn(coarse, zoom, openStop), zoom });
+    });
 
   const categoryHref = useCallback(
     (to: MapAssetSlug) => buildMapHref(`/map/${to}`, { view }),
@@ -778,6 +761,7 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
     return (
       <div className={cx(s.page, s.mobile)} data-sheet={sheet}>
         <h1 className="sr-only">순천 {asset.label} 지도</h1>
+        {locationDialog}
         <div ref={mapRef} className={s.mMap} {...motionProps}>
           {mapView}
         </div>
@@ -931,6 +915,7 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
   return (
     <div className={s.page}>
       <h1 className="sr-only">순천 {asset.label} 지도</h1>
+      {locationDialog}
       <FilterBar
         {...filterProps}
         hasActive={activeCount > 0}

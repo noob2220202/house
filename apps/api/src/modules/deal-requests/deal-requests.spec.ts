@@ -244,7 +244,11 @@ describe('DealRequestMapper', () => {
 });
 
 describe('canSeeContact', () => {
-  const granted = { contactGrants: [{ agencyId: AGENCY }], contactScrubbedAt: null, closedAt: null };
+  const granted = {
+    contactGrants: [{ agencyId: AGENCY }],
+    contactScrubbedAt: null,
+    closedAt: null,
+  };
   it.each([
     [DealRequestStatus.OPEN, true],
     [DealRequestStatus.MATCHED, true],

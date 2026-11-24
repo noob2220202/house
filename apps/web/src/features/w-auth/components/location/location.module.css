@@ -1,0 +1,16 @@
+/* 위치기반서비스 consent before "내 위치" (terms text reuses signup.module.css). */
+.intro {
+  margin-bottom: var(--s-4);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+.note {
+  margin: calc(-1 * var(--s-2)) 0 var(--s-4);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.error {
+  margin-top: var(--s-4);
+}

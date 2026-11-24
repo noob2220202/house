@@ -58,7 +58,7 @@ describe('user-site Content-Security-Policy (csp.mjs)', () => {
 });
 
 describe('next.config.mjs', () => {
-  it('enforces the CSP (not Report-Only) and disables the image optimizer', async () => {
+  it('enforces the CSP (not Report-Only); the optimizer fetches /media only', async () => {
     const file = '../../../next.config.mjs';
     const config = ((await import(/* @vite-ignore */ file)) as { default: NextConfig }).default;
     const rules = (await config.headers?.()) ?? [];
@@ -67,11 +67,19 @@ describe('next.config.mjs', () => {
     expect(csp).toContain('script-src ');
     expect(all.some((h) => /report-only/i.test(h.key))).toBe(false);
 
-    expect(config.images?.unoptimized).toBe(true);
-    expect(config.images?.localPatterns).toEqual([{ pathname: '/media/**' }]);
-    // No loopback API host: the optimizer must never be able to fetch the API's other paths.
+    // The optimizer may fetch local /media (and the mock stand-ins) only — no API path, and no
+    // loopback API host (it could otherwise be pointed at any path on the API's port).
+    expect(config.images?.unoptimized).toBeFalsy();
+    expect(config.images?.localPatterns).toEqual([
+      { pathname: '/media/**' },
+      { pathname: '/mock-api/**' },
+    ]);
     for (const p of config.images?.remotePatterns ?? []) {
-      expect(p instanceof URL ? p.pathname : p.pathname).toBe('/media/**');
+      const host = p instanceof URL ? p.hostname : p.hostname;
+      expect(['localhost', '127.0.0.1', '::1', '[::1]']).not.toContain(host);
     }
+    const rewrites = (await config.rewrites?.()) as { source: string; destination: string }[];
+    const media = rewrites.find((r) => r.source === '/media/:path*');
+    expect(media?.destination).toMatch(/\/media\/:path\*$/);
   });
 });

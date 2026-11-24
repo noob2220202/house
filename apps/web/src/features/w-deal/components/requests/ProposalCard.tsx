@@ -174,8 +174,8 @@ export function ProposalCard({
       {p.memberName && p.memberIsAssistant && (
         <p className={styles.propNote}>
           <Icon name="info" size={14} />
-          중개보조원이 보낸 제안이에요. 중개보조원은 공인중개사의 업무를 돕는 직원이며, 연락은 사무소
-          대표번호로 연결돼요.
+          중개보조원이 보낸 제안이에요. 중개보조원은 공인중개사의 업무를 돕는 직원이며, 연락은
+          사무소 대표번호로 연결돼요.
         </p>
       )}
       <p className={cx(styles.propMsg, long && !open && styles.clamp)}>{p.message}</p>

@@ -35,10 +35,12 @@ export function visitorIp(incoming: HeaderSource): string | null {
   return isIP(raw) ? raw : null;
 }
 
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS = /[\u0000-\u001f\u007f]/g;
+
 /** The browser's User-Agent, capped and stripped of control characters (or null). */
 export function visitorUserAgent(incoming: HeaderSource): string | null {
-  // eslint-disable-next-line no-control-regex
-  const ua = incoming.get('user-agent')?.replace(/[\u0000-\u001f\u007f]/g, '').trim();
+  const ua = incoming.get('user-agent')?.replace(CONTROL_CHARS, '').trim();
   return ua ? ua.slice(0, MAX_USER_AGENT) : null;
 }
 

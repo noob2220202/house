@@ -335,6 +335,8 @@ export const businessInfoSchema = z.object({
   privacyOfficer: z.string().trim().min(1).max(50), // 개인정보보호책임자
   phone: z.string().trim().min(1).max(30),
   email: z.email().max(254),
+  /** 호스팅서비스 제공자 (전자상거래법 제10조, 시행령 제7조 사이버몰 운영자 표시사항). */
+  hostingProvider: z.string().trim().max(100).optional(),
 });
 export type BusinessInfo = z.infer<typeof businessInfoSchema>;
 

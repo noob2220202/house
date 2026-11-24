@@ -81,7 +81,12 @@ export function JoinForm() {
         void terms.refetch();
         setAgreeError(CONSENT_OUTDATED_MESSAGE);
         agreeRef.current?.focus();
-      } else if (err instanceof ApiError && err.isValidation && fields.displayName && !fields.code) {
+      } else if (
+        err instanceof ApiError &&
+        err.isValidation &&
+        fields.displayName &&
+        !fields.code
+      ) {
         setNameError(fields.displayName);
         nameRef.current?.focus();
       } else if (

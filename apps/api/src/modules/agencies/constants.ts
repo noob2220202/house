@@ -43,6 +43,18 @@ export const AGENCIES_QUEUE = 'agencies';
 export const AGENCY_JOBS = {
   /** Upsert today's cumulative listing views of every approved agency. */
   DAILY_STATS: 'agencies.daily-stats',
+  /** 개인정보 파기 of rejected applications past their retention period (AgencyRetentionService). */
+  PURGE_REJECTED: 'agencies.purge-rejected',
 } as const;
 /** Hourly at :53 KST (off the hour; the day's last run closes the day). */
 export const DAILY_STATS_PATTERN = '53 * * * *';
+/** Daily at 03:47 KST. */
+export const PURGE_REJECTED_PATTERN = '47 3 * * *';
+/**
+ * Retention of a rejected (not resubmitted) 등록 신청, counted from the rejection. Must match the
+ * PRIVACY_AGENCY_APPLICATION notice ("반려된 신청은 반려 후 1년": prisma/seed/base.ts and the web
+ * fallback text in features/a-agency).
+ */
+export const REJECTED_APPLICATION_RETENTION_YEARS = 1;
+/** Applications purged per query round (each in its own transaction). */
+export const RETENTION_PURGE_BATCH_SIZE = 100;

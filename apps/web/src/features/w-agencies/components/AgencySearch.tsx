@@ -8,6 +8,7 @@ import {
   LoadingRegion,
   Popover,
   Skeleton,
+  Spinner,
   cx,
   useToast,
 } from '@house/ui';
@@ -15,6 +16,7 @@ import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-qu
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { MapSummary, MapToolButton, MapView, MapZoomControl } from '@/components/map';
 import { env } from '@/config/env';
+import { useMyLocation } from '@/features/w-auth';
 import { ApiError } from '@/lib/api';
 import {
   STATIC_MAP_BOUNDS,
@@ -120,6 +122,7 @@ export function AgencySearch({
   asOf,
 }: AgencySearchProps) {
   const { toast } = useToast();
+  const { locate: requestLocation, locating, dialog: locationDialog } = useMyLocation();
   const isMobile = useIsMobile();
   // 721–1080px: the profile covers the list panel (master → detail) instead of the narrow map.
   const isTablet = useIsTablet();
@@ -337,28 +340,16 @@ export function AgencySearch({
       'replace',
     );
 
-  const locate = () => {
-    if (!('geolocation' in navigator)) {
-      toast({ message: '이 브라우저에서는 내 위치를 사용할 수 없어요.', tone: 'error' });
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        if (!isNearSuncheon(here)) {
-          toast({ message: '지금 계신 곳은 순천 밖이에요. 지도를 직접 움직여 찾아보세요.' });
-          return;
-        }
-        update({ view: { center: here, zoom: Math.max(viewRef.current.zoom, 15) } }, 'replace');
-      },
-      () =>
-        toast({
-          message: '위치 권한이 꺼져 있어요. 브라우저 설정에서 위치 사용을 허용해 주세요.',
-          tone: 'error',
-        }),
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
-    );
-  };
+  // 내 위치: only after the 위치기반서비스 consent (useMyLocation), and only the coarse cell of the
+  // device moves the map — the URL and the bbox of API requests never carry the device position.
+  const locate = () =>
+    requestLocation(({ coarse }) => {
+      if (!isNearSuncheon(coarse)) {
+        toast({ message: '지금 계신 곳은 순천 밖이에요. 지도를 직접 움직여 찾아보세요.' });
+        return;
+      }
+      update({ view: { center: coarse, zoom: Math.max(viewRef.current.zoom, 15) } }, 'replace');
+    });
 
   const setFilters = useCallback(
     (patch: Partial<AgencyFilters>) => update({ filters: patch }, historyModeOf(patch)),
@@ -573,7 +564,7 @@ export function AgencySearch({
             onZoomOut={() => zoomBy(-1)}
           />
           <MapToolButton label="내 위치로 이동" className={styles.locate} onClick={locate}>
-            <Icon name="locate" size={20} />
+            {locating ? <Spinner size={18} /> : <Icon name="locate" size={20} />}
           </MapToolButton>
         </div>
         {scale && (
@@ -604,6 +595,7 @@ export function AgencySearch({
   // head → map → profile sheet → list; wider screens put the panel first, then map and drawer.
   return (
     <div className={cx(styles.page, selected && styles.withDrawer)}>
+      {locationDialog}
       {isMobile ? (
         <>
           {head}

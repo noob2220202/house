@@ -170,10 +170,7 @@ export function ApplyForm({ agency, onCancel, onSubmitted }: ApplyFormProps) {
       // POST /agencies); on a resubmit they are added next to the ones already attached.
       const saved = resubmit
         ? await resubmitAgency(toResubmitPayload(values, uploads.ready))
-        : await registerAgency(
-            toRegisterPayload(values, uploads.ready),
-            shownConsents(terms.data),
-          );
+        : await registerAgency(toRegisterPayload(values, uploads.ready), shownConsents(terms.data));
       queryClient.setQueryData(agencyKeys.mine, saved);
       await queryClient.invalidateQueries({ queryKey: agencyKeys.mine });
       toast({

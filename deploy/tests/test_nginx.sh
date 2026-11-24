@@ -68,6 +68,7 @@ check "HTTP template + snippets pass nginx -t" ngx -t -q
 node -e 'require("http").createServer((q, r) => {
   r.setHeader("x-up-real-ip", q.headers["x-real-ip"] || "-");
   r.setHeader("x-up-xff", q.headers["x-forwarded-for"] || "-");
+  r.setHeader("x-up-ssr", q.headers["x-house-ssr"] || "-");
   r.end("upstream " + q.url);
 }).listen(+process.argv[1], "127.0.0.1")' "$UP" &
 up_pid=$!
@@ -155,6 +156,20 @@ for path in /listing/abc '/_next/image?url=%2Fmedia%2Fa.webp&w=64&q=75' /_next/s
 done
 assert_eq "admin upstream gets X-Real-IP" "$(hdr admin.web.test /members x-up-real-ip)" "127.0.0.1"
 assert_eq "admin upstream gets X-Forwarded-For" "$(hdr admin.web.test /members x-up-xff -H 'X-Forwarded-For: 6.6.6.6')" "127.0.0.1"
+# X-House-SSR marks the Next servers' own loopback API calls; a client must never get it through.
+for path in /listing/abc /api/v1/listings; do
+  assert_eq "client X-House-SSR is stripped ($path)" "$(hdr web.test "$path" x-up-ssr -H 'X-House-SSR: 1')" "-"
+done
+assert_eq "client X-House-SSR is stripped (admin)" "$(hdr admin.web.test /members x-up-ssr -H 'X-House-SSR: 1')" "-"
+# The pages' CSP comes from the apps (web: csp.mjs, admin: per-request nonce); nginx adds none.
+for host in web.test admin.web.test; do
+  hdr "$host" /listing/abc content-security-policy >/dev/null
+  if grep -qi '^content-security-policy' "$N/headers"; then
+    fail "nginx adds a CSP header on $host pages"
+  else
+    pass "nginx adds no CSP header on $host pages"
+  fi
+done
 
 # ─── /media ───
 assert_eq "public /media image served" "$(code web.test /media/listings/a.webp)" "200"

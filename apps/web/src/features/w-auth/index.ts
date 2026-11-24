@@ -9,3 +9,7 @@ export { SessionPanel } from './components/account/SessionPanel';
 export { WithdrawEntry } from './components/account/WithdrawEntry';
 export { loginPath, signupPath, oauthLoginUrl, oauthLinkUrl, type LoginIntent } from './lib/flow';
 export { maskEmail, maskName } from './lib/mask';
+export {
+  useMyLocation,
+  type DevicePosition,
+} from './components/location/useMyLocation';

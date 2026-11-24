@@ -4,6 +4,7 @@ import {
   DealRequestVisibility,
   DealType,
   dealRequestCreateSchema,
+  publicDealRequestDescription,
 } from '@house/shared';
 import { describe, expect, it } from 'vitest';
 import {
@@ -213,6 +214,19 @@ describe('내놓기 form', () => {
     expect(composeDescription('', {})).toBeUndefined();
     expect(composeDescription(' 메모 ', { moveInNow: true, moveInNegotiable: true })).toBe(
       '· 즉시 입주 가능\n\n메모',
+    );
+    // The flag lines the form writes are exactly the ones agencies get before a grant; the
+    // requester's own words are not (shared publicDealRequestDescription, DEAL_REQUEST_PROVIDE).
+    const composed = composeDescription('101동 남향, 올수리', {
+      priceNegotiable: true,
+      moveInNegotiable: true,
+      extra: [sellFloorClassText(sell({ ho: '1502' }), 25) ?? ''],
+    });
+    expect(publicDealRequestDescription(composed ?? null)).toBe(
+      '· 중층 (총 25층)\n· 가격 협의 가능\n· 입주일 협의 가능',
+    );
+    expect(publicDealRequestDescription(composeDescription('', { moveInNow: true }) ?? null)).toBe(
+      '· 즉시 입주 가능',
     );
     expect(sellPriceLabel(DealType.MONTHLY)).toBe('희망 보증금 / 월세');
     expect(priceFieldsFor(DealType.PRESALE)).toEqual({ sale: true, deposit: false, rent: false });

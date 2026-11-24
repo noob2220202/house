@@ -159,8 +159,8 @@ export function RequestSummary({ request: r, now }: RequestSummaryProps) {
 
       {sell && !shared && isRequestActive(r.status) && (
         <Callout size="sm" icon="lock" tone="muted" className={styles.privacy}>
-          도로명 주소·동·호수·층·정확한 면적·사진·요청자가 쓴 설명은 요청자가 연락처를 공개하면
-          함께 볼 수 있어요.
+          도로명 주소·동·호수·층·정확한 면적·사진·요청자가 쓴 설명은 요청자가 연락처를 공개하면 함께
+          볼 수 있어요.
         </Callout>
       )}
     </div>
