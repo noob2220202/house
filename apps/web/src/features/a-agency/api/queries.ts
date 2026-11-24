@@ -9,7 +9,7 @@ import {
   type MediaPurpose,
 } from '@house/shared';
 import type { z } from 'zod';
-import { API_BASE_PATH, ApiError, api, fetchActionConsents, qk } from '@/lib/api';
+import { API_BASE_PATH, ApiError, api, qk, type ActionConsent } from '@/lib/api';
 import type { BusinessHours } from '../lib/business-hours';
 import {
   agencyDashboardSchema,
@@ -132,13 +132,15 @@ export function geocode(query: string, signal?: AbortSignal) {
 }
 
 /**
- * Body of POST /agencies without `consents`: `registerAgency` adds the current version of the
- * 개인정보 수집·이용 동의 the applicant ticked (D8).
+ * Body of POST /agencies without `consents`: `registerAgency` takes them separately (D8) — the
+ * version of the 개인정보 수집·이용 동의 the form showed (`useActionTerms('AGENCY_APPLICATION')`).
  */
 export type AgencyRegisterRequest = Omit<AgencyRegisterInput, 'consents'>;
 
-export async function registerAgency(body: AgencyRegisterRequest) {
-  const consents = await fetchActionConsents('AGENCY_APPLICATION');
+export function registerAgency(
+  body: AgencyRegisterRequest,
+  consents: ActionConsent<'AGENCY_APPLICATION'>[],
+) {
   return api.post('/agencies', { ...body, consents }, { schema: myAgencySchema });
 }
 
@@ -214,12 +216,14 @@ export interface JoinAgencyInput {
 }
 
 /**
- * POST /agencies/join (`agencyJoinSchema`) with the current version of the 개인정보 수집·이용 동의
- * the user ticked (D8) → `MyAgencyMembership`. A joining member is always a 중개보조원 until the
- * owner records a license.
+ * POST /agencies/join (`agencyJoinSchema`) with the version of the 개인정보 수집·이용 동의 the form
+ * showed (D8) → `MyAgencyMembership`. A joining member is always a 중개보조원 until the owner
+ * records a license.
  */
-export async function joinAgency(input: JoinAgencyInput | string) {
-  const consents = await fetchActionConsents('AGENCY_JOIN');
+export function joinAgency(
+  input: JoinAgencyInput | string,
+  consents: ActionConsent<'AGENCY_JOIN'>[],
+) {
   const body = typeof input === 'string' ? { code: input } : input;
   return api.post('/agencies/join', { ...body, consents }, { schema: agencyMembershipSchema });
 }

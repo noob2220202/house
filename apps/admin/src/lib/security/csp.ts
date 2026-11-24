@@ -78,4 +78,3 @@ export function adminContentSecurityPolicy({
     .map(([name, values]) => `${name} ${[...new Set(values)].join(' ')}`)
     .join('; ');
 }
-

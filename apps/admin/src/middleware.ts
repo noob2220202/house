@@ -13,7 +13,11 @@ const DEV = process.env.NODE_ENV !== 'production';
  *    Presence check only — the console layout calls `requireAdmin()` (API-validated, TOTP verified).
  */
 export function middleware(req: NextRequest) {
-  const csp = adminContentSecurityPolicy({ nonce: createNonce(), dev: DEV, mediaHosts: MEDIA_HOSTS });
+  const csp = adminContentSecurityPolicy({
+    nonce: createNonce(),
+    dev: DEV,
+    mediaHosts: MEDIA_HOSTS,
+  });
   const { pathname, search } = req.nextUrl;
 
   if (isPublicPath(pathname) || req.cookies.has(ADMIN_SESSION_COOKIE)) {

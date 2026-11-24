@@ -241,21 +241,7 @@ export function applyFormFromAgency(agency: MyAgency): Partial<ApplyFormInput> {
   };
 }
 
-/** Items · purpose · retention of the application privacy notice (shown inline in the form). */
-export const APPLICATION_PRIVACY_NOTICE = {
-  items: '대표 공인중개사 성명, 연락처(대표·휴대폰), 사무소 주소, 사업자등록번호, 제출 서류',
-  purpose: '중개사무소 등록 심사, 심사 결과 안내, 중개사 회원 관리',
-  retention: '회원 탈퇴 또는 등록 해지 후 5년 (반려된 신청은 반려 후 1년)',
-} as const;
-
-/** Items · purpose · retention of the staff-join privacy notice. */
-export const JOIN_PRIVACY_NOTICE = {
-  items: '이름, 휴대폰 번호, 공인중개사 자격 정보 (대표님이 초대할 때 입력한 내용)',
-  purpose: '소속 중개사 등록, 매물 표시, 고용 신고 안내',
-  retention: '소속 해지 후 5년',
-} as const;
-
-/** The application body without the consents `registerAgency` adds (D8). */
+/** The application body without the consents `registerAgency` takes separately (D8). */
 const registerBodySchema = agencyRegisterSchema.omit({ consents: true });
 
 /** Shared fields of the register / resubmit bodies, from the form values. */
