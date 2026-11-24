@@ -16,11 +16,21 @@ const UNIT_OPTIONS = [
 ] as const;
 
 /** 매물 정보: headline facts (㎡ ↔ 평), 실매물 확인, and the full 표시·광고 명시사항 list. */
-export function FactsSection({ listing }: { listing: ListingDetail }) {
+export function FactsSection({
+  listing,
+  renderedAt,
+}: {
+  listing: ListingDetail;
+  /**
+   * Server render time (ms): keeps the time-dependent rows identical on hydration. Client-only
+   * callers (the broker console preview) may leave it out.
+   */
+  renderedAt?: number;
+}) {
   const [unit, setUnit] = useState<AreaUnit>('sqm');
   const facts = buildFacts(listing, unit);
   const steps = buildVerifySteps(listing);
-  const disclosure = buildDisclosure(listing);
+  const disclosure = buildDisclosure(listing, renderedAt);
   const primary = listing.agencies.find((a) => a.isPrimary) ?? listing.agencies[0];
   const options = listing.options;
 

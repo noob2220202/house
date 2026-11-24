@@ -138,7 +138,12 @@ export default async function ListingDetailPage({ params }: Props) {
           ),
         ]}
       />
-      <ListingPage listing={listing} similar={similar} ad={banners[0] ?? null} />
+      <ListingPage
+        listing={listing}
+        similar={similar}
+        ad={banners[0] ?? null}
+        renderedAt={Date.now()}
+      />
     </>
   );
 }

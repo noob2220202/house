@@ -76,6 +76,8 @@ export interface ListingPageProps {
   similar: SimilarListings;
   /** First live banner of the LISTING_SIDE slot, if any. */
   ad: ServedBanner | null;
+  /** Render time (ms) of the server page, shared with the client islands that print dates. */
+  renderedAt: number;
 }
 
 interface CtxItem {
@@ -136,7 +138,7 @@ function priceContext(l: ListingDetail): CtxItem[] {
 }
 
 /** Listing detail page body (server component). Interactive islands receive only what they need. */
-export function ListingPage({ listing, similar, ad }: ListingPageProps) {
+export function ListingPage({ listing, similar, ad, renderedAt }: ListingPageProps) {
   const l = listing;
   const name = listingName(l);
   const subtitle = listingSubtitle(l);
@@ -297,7 +299,7 @@ export function ListingPage({ listing, similar, ad }: ListingPageProps) {
             </header>
 
             <div className={styles.band} aria-hidden="true" />
-            <FactsSection listing={l} />
+            <FactsSection listing={l} renderedAt={renderedAt} />
 
             <div className={styles.band} aria-hidden="true" />
             <DescriptionSection

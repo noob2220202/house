@@ -402,7 +402,11 @@ export function disclosureLocation(l: ListingDetail): string {
  * 공인중개사법 제18조의2 · 표시·광고 명시사항 세부기준의 중개대상물 항목 전부.
  * Missing values are shown as "확인 필요" rather than hidden so the list is always complete.
  */
-export function buildDisclosure(l: ListingDetail): DisclosureRow[] {
+/**
+ * `now` (ms) decides "(예정)" for a future 사용승인일. The page passes its render time so the server
+ * HTML and the client hydration of this client-rendered table agree (no time-dependent text).
+ */
+export function buildDisclosure(l: ListingDetail, now: number = Date.now()): DisclosureRow[] {
   const p = l.property;
   const missing = '확인 필요';
   const land = l.assetType === AssetType.LAND;
@@ -461,7 +465,7 @@ export function buildDisclosure(l: ListingDetail): DisclosureRow[] {
     {
       label: '사용승인일',
       value: p.approvalDate
-        ? `${formatDate(p.approvalDate)}${Date.parse(p.approvalDate) > Date.now() ? ' (예정)' : ''}`
+        ? `${formatDate(p.approvalDate)}${Date.parse(p.approvalDate) > now ? ' (예정)' : ''}`
         : missing,
     },
     {

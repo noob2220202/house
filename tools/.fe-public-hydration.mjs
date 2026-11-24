@@ -5,8 +5,8 @@ const page = await browser.newPage({ viewport: { width: Number(w || 1440), heigh
 const msgs = [];
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') msgs.push(m.text().slice(0, 1500)); });
 page.on('pageerror', (e) => msgs.push('PAGEERROR ' + e.message.slice(0, 1500)));
-await page.goto(url, { waitUntil: 'networkidle', timeout: 120000 }).catch((e) => msgs.push('NAV ' + e.message));
-await page.waitForTimeout(800);
+await page.goto(url, { waitUntil: 'load', timeout: 120000 }).catch((e) => msgs.push('NAV ' + e.message));
+await page.waitForTimeout(5000);
 if (out) await page.screenshot({ path: out, fullPage: false });
 console.log(JSON.stringify({ title: await page.title(), msgs }, null, 1));
 await browser.close();

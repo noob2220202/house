@@ -144,3 +144,42 @@ export async function termsVersion(api: Api, type: string): Promise<string> {
   const doc = await api.get<{ version: string }>(`/terms/${type}`);
   return doc.version;
 }
+
+/**
+ * A member session in its own API context (no browser), e.g. a broker preparing data while the
+ * page under test stays anonymous. Dispose it at the end of the test.
+ */
+export async function apiSessionAs(
+  pw: { request: { newContext: (o: { baseURL?: string }) => Promise<APIRequestContext> } },
+  email: string,
+  opts: { nickname?: string } = {},
+): Promise<{ api: Api; login: E2eLogin; dispose: () => Promise<void> }> {
+  const ctx = await pw.request.newContext({ baseURL: WEB_URL });
+  const api = new Api(ctx);
+  const login = await api.post<E2eLogin>('/e2e/login', {
+    email,
+    ...(opts.nickname ? { create: { nickname: opts.nickname } } : {}),
+  });
+  api.csrfToken = login.csrfToken;
+  return { api, login, dispose: () => ctx.dispose() };
+}
+
+export interface AgencyListingLite {
+  id: string;
+  status: string;
+  assetType: string;
+  complex: { id: string; name: string } | null;
+  property: { ho: string | null; dong: string | null };
+}
+
+/** One of the broker's ACTIVE complex listings that has a 호 recorded (private field). */
+export async function activeListingWithHo(api: Api): Promise<AgencyListingLite> {
+  const page = await api.get<{ items: { id: string; status: string; complex: unknown }[] }>(
+    '/agency/listings?pageSize=100',
+  );
+  for (const row of page.items.filter((r) => r.status === 'ACTIVE' && r.complex)) {
+    const detail = await api.get<AgencyListingLite>(`/agency/listings/${row.id}`);
+    if (detail.property.ho) return detail;
+  }
+  throw new Error('no ACTIVE complex listing with a 호 in the broker seed data');
+}
