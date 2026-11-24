@@ -12,8 +12,13 @@ export const DEAL_REQUEST_LIMITS = {
   TTL_DAYS: 30,
   /** How many times the requester may extend an OPEN request or reopen an EXPIRED one. */
   MAX_EXTENSIONS: 3,
-  /** Contact name/phone and 동·호 are erased this many days after a request ends. */
-  CONTACT_RETENTION_DAYS: 90,
+  /**
+   * Retention after a request ends (CLOSED / CANCELLED / EXPIRED): this many days after `closedAt`
+   * the scrub job erases the contact name/phone, 동·호, road address, exact position, floor, area,
+   * description and photos, and granted agencies stop seeing the contact and details (the same
+   * period the DEAL_REQUEST_PRIVACY / DEAL_REQUEST_PROVIDE notices state).
+   */
+  CONTACT_RETENTION_DAYS: 30,
   /** OPEN + MATCHED requests one member may have at the same time (anti-spam). */
   MAX_ACTIVE_PER_USER: 10,
   MAX_TARGET_AGENCIES: 20,
@@ -33,7 +38,10 @@ export const DEAL_REQUEST_ACTIVE_STATUSES: readonly DealRequestStatusValue[] = [
   DealRequestStatus.MATCHED,
 ];
 
-/** Statuses in which a granted agency may read the requester's contact. */
+/**
+ * Statuses in which a granted agency may read the requester's contact and the full details — for an
+ * ended (CLOSED) request only until CONTACT_RETENTION_DAYS after `closedAt`.
+ */
 export const DEAL_REQUEST_CONTACT_STATUSES: readonly DealRequestStatusValue[] = [
   DealRequestStatus.OPEN,
   DealRequestStatus.MATCHED,

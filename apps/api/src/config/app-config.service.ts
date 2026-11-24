@@ -22,12 +22,4 @@ export class AppConfig {
   get cookieSecure(): boolean {
     return this.get('COOKIE_SECURE') ?? this.isProduction;
   }
-
-  /** Origins allowed for CORS and the CSRF Origin/Referer check. */
-  get allowedOrigins(): string[] {
-    const origins = new Set<string>(this.get('CORS_ORIGINS'));
-    origins.add(new URL(this.get('PUBLIC_BASE_URL')).origin);
-    origins.add(new URL(this.get('ADMIN_BASE_URL')).origin);
-    return [...origins];
-  }
 }

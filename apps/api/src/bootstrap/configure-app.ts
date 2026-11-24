@@ -8,6 +8,7 @@ import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { z } from 'zod';
+import { OriginPolicy } from '../common/auth/origin-policy';
 import { requestContextMiddleware } from '../common/context/request-context';
 import { renderException } from '../common/filters/all-exceptions.filter';
 import { AppConfig } from '../config/app-config.service';
@@ -15,7 +16,13 @@ import type { HttpDrainer } from './graceful-shutdown';
 
 z.config(z.locales.ko());
 
-function parseTrustProxy(value: string): boolean | number | string {
+/**
+ * Express "trust proxy" from TRUST_PROXY. With the production value "loopback", X-Forwarded-For is
+ * honoured only when the TCP peer is 127.0.0.0/8 or ::1 (nginx, or the Next.js SSR servers, which
+ * listen on 127.0.0.1 only): req.ip is then the right-most untrusted address of the chain, i.e. the
+ * visitor nginx saw. A client connecting from anywhere else cannot change req.ip with the header.
+ */
+export function parseTrustProxy(value: string): boolean | number | string {
   if (value === 'true') return true;
   if (value === 'false') return false;
   if (/^\d+$/.test(value)) return Number(value);
@@ -74,14 +81,19 @@ export function configureApp(app: NestExpressApplication, options: ConfigureAppO
       .json({ ...body, requestId: typeof req.id === 'string' ? req.id : undefined });
   });
 
-  const origins = new Set(config.allowedOrigins);
-  app.enableCors({
-    origin: (origin, cb) => cb(null, origin === undefined || origins.has(origin)),
-    credentials: true,
-    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', HEADER_NAMES.CSRF, HEADER_NAMES.REQUEST_ID],
-    exposedHeaders: [HEADER_NAMES.REQUEST_ID],
-    maxAge: 600,
+  // Credentialed CORS, with the allowed origins chosen per surface by the request path (the same
+  // OriginPolicy CsrfGuard uses): the public site's origin never gets ACAO on /api/v1/admin/**.
+  const origins = OriginPolicy.fromConfig(config);
+  // A list (not a callback) so cors always sends `Vary: Origin`, also when it refuses an origin.
+  app.enableCors((req: Request, cb) => {
+    cb(null, {
+      origin: [...origins.forRequest(req)],
+      credentials: true,
+      methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', HEADER_NAMES.CSRF, HEADER_NAMES.REQUEST_ID],
+      exposedHeaders: [HEADER_NAMES.REQUEST_ID],
+      maxAge: 600,
+    });
   });
 
   app.setGlobalPrefix(API_PREFIX);

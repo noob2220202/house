@@ -43,6 +43,21 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ ...base, REGION_SGG_CODE: '4615' })).toThrow(/REGION_SGG_CODE/);
   });
 
+  it('parses the per-surface origin lists (optional, normalized, http(s) only)', () => {
+    const { CORS_ORIGINS: _c, ...noCors } = base;
+    const env = parseEnv(noCors);
+    expect(env.CORS_ORIGINS).toEqual([]);
+    expect(env.ADMIN_CORS_ORIGINS).toEqual([]);
+    expect(
+      parseEnv({ ...base, ADMIN_CORS_ORIGINS: 'http://127.0.0.1:3001/, HTTPS://Admin.Example.kr' })
+        .ADMIN_CORS_ORIGINS,
+    ).toEqual(['http://127.0.0.1:3001', 'https://admin.example.kr']);
+    expect(() => parseEnv({ ...base, CORS_ORIGINS: 'localhost:3000' })).toThrow(/CORS_ORIGINS/);
+    expect(() => parseEnv({ ...base, ADMIN_CORS_ORIGINS: 'ftp://x.kr' })).toThrow(
+      /ADMIN_CORS_ORIGINS/,
+    );
+  });
+
   it('rejects missing required values', () => {
     expect(() => parseEnv({ ...base, DATABASE_URL: undefined })).toThrow(/DATABASE_URL/);
   });
@@ -61,6 +76,9 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ ...base, NODE_ENV: 'production', COOKIE_SECURE: 'false' })).toThrow(
       /COOKIE_SECURE/,
     );
+    expect(() =>
+      parseEnv({ ...base, NODE_ENV: 'production', ADMIN_BASE_URL: 'http://localhost:3000/admin' }),
+    ).toThrow(/ADMIN_BASE_URL/);
     expect(parseEnv({ ...base, NODE_ENV: 'production' }).NODE_ENV).toBe('production');
   });
 

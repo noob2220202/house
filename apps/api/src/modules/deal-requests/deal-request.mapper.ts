@@ -1,7 +1,13 @@
 import {
   AgencyMemberStatus,
   DEAL_REQUEST_CONTACT_STATUSES,
+  DEAL_REQUEST_LIMITS,
+  DealRequestType,
+  coarseDealRequestPoint,
+  dealRequestAreaRange,
+  isAdvertisableMember,
   maskPhone,
+  publicDealRequestDescription,
   type AdminDealRequestView,
   type AgencyDealRequestView,
   type AgencyDisclosure,
@@ -126,16 +132,42 @@ export class DealRequestMapper {
     };
   }
 
-  /** `contact` must only be passed when the agency holds an active grant (see canSeeContact). */
-  agency(r: DealRequestAgencyRow, contact: DealRequestContactRow | null): AgencyDealRequestView {
+  /**
+   * `contact` must only be passed when the agency holds an active grant (see canSeeContact) and
+   * the requester is ACTIVE (AgencyInboxService.contactsFor). Without it, a 내놓기 request is
+   * reduced to the pre-grant 제공 항목 of the DEAL_REQUEST_PROVIDE notice: 읍면동 / 단지, a
+   * ~200 m grid point, the area band, prices and conditions, the form's flag lines — no road
+   * address, exact position, floor, exact area, photos or free-text description.
+   */
+  agency(
+    r: DealRequestAgencyRow,
+    contact: DealRequestContactRow | null,
+    now: Date = new Date(),
+  ): AgencyDealRequestView {
     const proposal = r.proposals[0];
-    return {
-      ...this.base(r),
+    const shared = contact !== null && canSeeContact(r, now);
+    const full = this.base(r);
+    const area = decimalToNumber(r.exclusiveArea);
+    const common = {
       targeted: r.targets.length > 0,
       myProposal: proposal
         ? { id: proposal.id, status: proposal.status, createdAt: proposal.createdAt.toISOString() }
         : null,
-      contact: contact && canSeeContact(r) ? toContact(contact) : null,
+      contact: shared ? toContact(contact) : null,
+      detailsShared: shared,
+      areaRange: dealRequestAreaRange(area),
+      photoCount: r.photos.length,
+    };
+    if (shared || r.type !== DealRequestType.SELL_OR_LEASE) return { ...full, ...common };
+    return {
+      ...full,
+      ...coarseDealRequestPoint(r.lat, r.lng),
+      roadAddress: null,
+      exclusiveArea: null,
+      floor: null,
+      description: publicDealRequestDescription(r.description),
+      photos: [],
+      ...common,
     };
   }
 
@@ -171,9 +203,13 @@ export class DealRequestMapper {
       suggestedMonthlyRent: p.suggestedMonthlyRent,
       agencyId: p.agencyId,
       agency,
+      // A 중개보조원 is labelled as such and never shows their own number (공인중개사법
+      // 제18조의4): the requester calls the office number of the agency disclosure.
       agent:
         p.member && p.member.status === AgencyMemberStatus.ACTIVE
-          ? { displayName: p.member.displayName, phone: p.member.phone }
+          ? isAdvertisableMember(p.member)
+            ? { displayName: p.member.displayName, isAssistant: false, phone: p.member.phone }
+            : { displayName: p.member.displayName, isAssistant: true, phone: null }
           : null,
       listings: p.listings
         .map((l) => l.listing)
@@ -236,14 +272,28 @@ export class DealRequestMapper {
   }
 }
 
-/** Contact is visible to an agency with an active grant while the request is live or completed. */
+/**
+ * Contact and full details are visible to an agency with an active grant while the request is live
+ * or completed — a completed (CLOSED) one only until CONTACT_RETENTION_DAYS after it ended, the
+ * period the notices state (the scrub job then erases the data and revokes the grant).
+ */
 export function canSeeContact(
-  r: Pick<DealRequestAgencyRow, 'status' | 'contactScrubbedAt' | 'contactGrants'>,
+  r: Pick<DealRequestAgencyRow, 'status' | 'contactScrubbedAt' | 'contactGrants' | 'closedAt'>,
+  now: Date = new Date(),
 ): boolean {
   return (
     r.contactGrants.length > 0 &&
     r.contactScrubbedAt === null &&
-    DEAL_REQUEST_CONTACT_STATUSES.includes(r.status)
+    DEAL_REQUEST_CONTACT_STATUSES.includes(r.status) &&
+    !retentionOver(r.closedAt, now)
+  );
+}
+
+/** True once CONTACT_RETENTION_DAYS have passed since the request ended. */
+export function retentionOver(closedAt: Date | null, now: Date): boolean {
+  return (
+    closedAt !== null &&
+    closedAt.getTime() <= now.getTime() - DEAL_REQUEST_LIMITS.CONTACT_RETENTION_DAYS * 86_400_000
   );
 }
 

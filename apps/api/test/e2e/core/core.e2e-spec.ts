@@ -1,5 +1,6 @@
 import { AdminRole, ErrorCode, HEADER_NAMES, idParamSchema, UserRole } from '@house/shared';
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import type { Test } from 'supertest';
 import { z } from 'zod';
@@ -61,6 +62,13 @@ class ProbeController {
     return { ok: true };
   }
 
+  /** req.ip as every IP-keyed check sees it (throttler, admin allowlist, logs). */
+  @Public()
+  @Get('ip')
+  ip(@Req() req: Request): { ip: string | undefined } {
+    return { ip: req.ip };
+  }
+
   @Public()
   @Get('items/:id')
   item(@Param() params: IdParamDto): never {
@@ -76,7 +84,16 @@ class AdminProbeController {
   get(): { ok: true } {
     return { ok: true };
   }
+
+  @AdminOnly(AdminRole.ADMIN)
+  @Post()
+  post(): { ok: true } {
+    return { ok: true };
+  }
 }
+
+const WEB_ORIGIN = process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000';
+const ADMIN_ORIGIN = process.env.ADMIN_BASE_URL ?? 'http://localhost:3001';
 
 describe('core pipeline (e2e)', () => {
   let t: TestApp;
@@ -195,6 +212,81 @@ describe('core pipeline (e2e)', () => {
     });
   });
 
+  describe('origins are split by surface (admin API ≠ public site)', () => {
+    const acao = 'access-control-allow-origin';
+
+    it('CORS: the public site gets no credentialed access to /api/v1/admin/**', async () => {
+      const admin = await createAdmin(t.prisma, { role: AdminRole.ADMIN });
+      const s = await loginAdmin(t.app, admin);
+      // The admin CSRF token endpoint: readable cross-origin only by the admin site.
+      const fromWeb = await t
+        .http()
+        .get('/api/v1/admin/auth/csrf')
+        .set('Cookie', s.cookie)
+        .set('Origin', WEB_ORIGIN);
+      expect(fromWeb.headers[acao]).toBeUndefined();
+      expect(fromWeb.headers['access-control-allow-credentials']).toBeUndefined();
+      expect(fromWeb.headers.vary).toMatch(/Origin/i);
+
+      const fromAdmin = await t
+        .http()
+        .get('/api/v1/admin/auth/csrf')
+        .set('Cookie', s.cookie)
+        .set('Origin', ADMIN_ORIGIN)
+        .expect(200);
+      expect(fromAdmin.headers[acao]).toBe(ADMIN_ORIGIN);
+      expect(fromAdmin.headers['access-control-allow-credentials']).toBe('true');
+    });
+
+    it('CORS preflight follows the same split', async () => {
+      const preflight = (path: string, origin: string) =>
+        t
+          .http()
+          .options(path)
+          .set('Origin', origin)
+          .set('Access-Control-Request-Method', 'POST')
+          .set('Access-Control-Request-Headers', `content-type,${HEADER_NAMES.CSRF}`);
+
+      expect((await preflight('/api/v1/admin/__probe', WEB_ORIGIN)).headers[acao]).toBeUndefined();
+      expect((await preflight('/api/v1/admin/__probe', ADMIN_ORIGIN)).headers[acao]).toBe(
+        ADMIN_ORIGIN,
+      );
+      expect((await preflight('/api/v1/__probe/write', ADMIN_ORIGIN)).headers[acao]).toBeUndefined();
+      expect((await preflight('/api/v1/__probe/write', WEB_ORIGIN)).headers[acao]).toBe(WEB_ORIGIN);
+    });
+
+    it('CORS: user routes answer only the public site', async () => {
+      const web = await t.http().get('/api/v1/__probe/public').set('Origin', WEB_ORIGIN);
+      expect(web.headers[acao]).toBe(WEB_ORIGIN);
+      const adm = await t.http().get('/api/v1/__probe/public').set('Origin', ADMIN_ORIGIN);
+      expect(adm.headers[acao]).toBeUndefined();
+    });
+
+    it('CSRF: an admin write from the public site origin is refused even with the token', async () => {
+      const admin = await createAdmin(t.prisma, { role: AdminRole.ADMIN });
+      const s = await loginAdmin(t.app, admin);
+      for (const req of [
+        withSession(t.http().post('/api/v1/admin/__probe'), s).set('Origin', WEB_ORIGIN),
+        withSession(t.http().post('/api/v1/admin/__probe'), s)
+          .unset('Origin')
+          .set('Referer', `${WEB_ORIGIN}/listing/1`),
+      ]) {
+        const res = await req.expect(403);
+        expect(res.body.code).toBe(ErrorCode.CSRF_FAILED);
+      }
+      await withSession(t.http().post('/api/v1/admin/__probe'), s).expect(201, { ok: true });
+    });
+
+    it('CSRF: a user write from the admin site origin is refused', async () => {
+      const s = await loginUser(t.app, await createUser(t.prisma));
+      const res = await withSession(t.http().post('/api/v1/__probe/write'), s)
+        .set('Origin', ADMIN_ORIGIN)
+        .expect(403);
+      expect(res.body.code).toBe(ErrorCode.CSRF_FAILED);
+      await withSession(t.http().post('/api/v1/__probe/write'), s).expect(201, { ok: true });
+    });
+  });
+
   describe('validation + errors', () => {
     it('zod DTO validates and returns parsed body', async () => {
       await t
@@ -269,6 +361,36 @@ describe('core pipeline (e2e)', () => {
       for (let i = 0; i < 3; i++) await hit('203.0.113.7').expect(200);
       await hit('203.0.113.7').expect(429);
       await hit('198.51.100.20').expect(200);
+    });
+
+    it('SSR contract: a loopback call with X-Forwarded-For (+ x-house-ssr) is the visitor', async () => {
+      const ip = (headers: Record<string, string>) => {
+        const req = t.http().get('/api/v1/__probe/ip');
+        for (const [k, v] of Object.entries(headers)) req.set(k, v);
+        return req.expect(200).then((r) => (r.body as { ip: string }).ip);
+      };
+      // supertest connects from 127.0.0.1, like nginx and the Next.js servers in production.
+      await expect(ip({ 'x-forwarded-for': '203.0.113.9', 'x-house-ssr': '1' })).resolves.toBe(
+        '203.0.113.9',
+      );
+      // Appended chains resolve to the right-most untrusted hop; forged loopback entries are skipped.
+      await expect(ip({ 'x-forwarded-for': '198.51.100.1, 203.0.113.9' })).resolves.toBe(
+        '203.0.113.9',
+      );
+      await expect(ip({ 'x-forwarded-for': '203.0.113.9, 127.0.0.1' })).resolves.toBe(
+        '203.0.113.9',
+      );
+      // Without the header the call is the loopback address (the shared bucket the SSR layer avoids).
+      await expect(ip({ 'x-house-ssr': '1' })).resolves.toMatch(/^(::ffff:)?127\.0\.0\.1$|^::1$/);
+    });
+
+    it('SSR calls forwarding different visitors get separate buckets; x-house-ssr grants nothing', async () => {
+      const ssr = (xff: string) => hit(xff).set('x-house-ssr', '1');
+      for (let i = 0; i < 3; i++) await ssr('203.0.113.7').expect(200);
+      await ssr('203.0.113.7').expect(429);
+      // The same visitor arriving through nginx (no SSR marker) shares that bucket.
+      await hit('203.0.113.7').expect(429);
+      await ssr('198.51.100.20').expect(200);
     });
 
     it('logged-in users behind one shared IP (CGNAT) each get their own bucket', async () => {

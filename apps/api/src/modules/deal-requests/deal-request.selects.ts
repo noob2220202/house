@@ -120,7 +120,9 @@ export const proposalOwnerSelect = {
   viewedAt: true,
   respondedAt: true,
   createdAt: true,
-  member: { select: { displayName: true, phone: true, status: true } },
+  member: {
+    select: { displayName: true, phone: true, status: true, role: true, isLicensed: true },
+  },
   listings: {
     select: {
       listing: {

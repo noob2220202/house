@@ -53,10 +53,10 @@ export class AgencyInboxService {
         }),
       () => this.prisma.dealRequest.count({ where }),
     );
-    const contacts = await this.contactsFor(page.items);
+    const contacts = await this.contactsFor(page.items, now);
     return {
       ...page,
-      items: page.items.map((r) => this.mapper.agency(r, contacts.get(r.id) ?? null)),
+      items: page.items.map((r) => this.mapper.agency(r, contacts.get(r.id) ?? null, now)),
     };
   }
 
@@ -71,8 +71,8 @@ export class AgencyInboxService {
       select: dealRequestAgencySelect(actor.agencyId),
     });
     if (!row) throw AppException.notFound(ErrorCode.DEAL_REQUEST_NOT_FOUND);
-    const contacts = await this.contactsFor([row]);
-    return this.mapper.agency(row, contacts.get(row.id) ?? null);
+    const contacts = await this.contactsFor([row], now);
+    return this.mapper.agency(row, contacts.get(row.id) ?? null, now);
   }
 
   /**
@@ -103,23 +103,24 @@ export class AgencyInboxService {
       byType.find((g) => g.type === type)?._count._all ?? 0;
     const newSellCount = countOf(DealRequestType.SELL_OR_LEASE);
     const newWantedCount = countOf(DealRequestType.WANTED);
-    const contacts = await this.contactsFor(rows);
+    const contacts = await this.contactsFor(rows, now);
     return {
       newCount: newSellCount + newWantedCount,
       newSellCount,
       newWantedCount,
-      items: rows.map((r) => this.mapper.agency(r, contacts.get(r.id) ?? null)),
+      items: rows.map((r) => this.mapper.agency(r, contacts.get(r.id) ?? null, now)),
     };
   }
 
   /**
    * Contact of granted requests whose requester is still ACTIVE: a suspended or withdrawn member's
-   * contact is never revealed, even before the scrub job runs.
+   * contact (and the full details it unlocks) is never revealed, even before the scrub job runs.
    */
   private async contactsFor(
     rows: readonly DealRequestAgencyRow[],
+    now: Date,
   ): Promise<Map<string, DealRequestContactRow>> {
-    const ids = rows.filter(canSeeContact).map((r) => r.id);
+    const ids = rows.filter((r) => canSeeContact(r, now)).map((r) => r.id);
     if (ids.length === 0) return new Map();
     const contacts = await this.prisma.dealRequest.findMany({
       where: { id: { in: ids }, contactScrubbedAt: null, user: { status: UserStatus.ACTIVE } },

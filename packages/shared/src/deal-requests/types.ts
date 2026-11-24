@@ -8,6 +8,7 @@ import type {
 } from '../enums/deal-request';
 import type { AssetType, DealType, ListingStatus } from '../enums/listing';
 import type { NotificationType } from '../enums/user';
+import type { DealRequestAreaRange } from './public-view';
 
 export interface DealRequestPhotoView {
   mediaId: string;
@@ -96,8 +97,15 @@ export interface ProposalListingView {
   exclusiveArea: number | null;
 }
 
+/** The member who sent a proposal, as the requester sees them. */
 export interface ProposalAgentView {
   displayName: string;
+  /**
+   * A 중개보조원 (neither the office's 대표 nor a 소속공인중개사): the UI must say so next to the
+   * name (공인중개사법 제18조의4), and contact goes to the office number.
+   */
+  isAssistant: boolean;
+  /** The member's own number for a 공인중개사; always null for a 중개보조원. */
   phone: string | null;
 }
 
@@ -137,12 +145,24 @@ export interface AgencyProposalRef {
   createdAt: string;
 }
 
-/** What an agency sees in its inbox / detail. */
+/**
+ * What an agency sees in its inbox / detail. Until the requester shares contact + details with this
+ * agency (`detailsShared`), a 내놓기 request is the reduced view of the DEAL_REQUEST_PROVIDE
+ * notice: `roadAddress`, `floor`, `exclusiveArea` and `photos` are empty, `lat`/`lng` are the
+ * centre of a DEAL_REQUEST_LOCATION_GRID_DEG cell, `areaRange` gives the area band and
+ * `description` keeps only the form's flag lines (`publicDealRequestDescription`).
+ */
 export interface AgencyDealRequestView extends DealRequestBaseView {
   /** The requester selected this agency. */
   targeted: boolean;
   myProposal: AgencyProposalRef | null;
   contact: DealRequestContactView | null;
+  /** True while this agency holds an active grant: contact and full details are included. */
+  detailsShared: boolean;
+  /** 내놓기: band of the exclusive area (also after a grant); null without an area / for 구하기. */
+  areaRange: DealRequestAreaRange | null;
+  /** 내놓기: number of photos (the photos themselves only after a grant). */
+  photoCount: number;
 }
 
 /** A proposal as the sending agency sees it. */

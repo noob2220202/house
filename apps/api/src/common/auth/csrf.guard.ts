@@ -6,25 +6,27 @@ import type { Request } from 'express';
 import { AppConfig } from '../../config/app-config.service';
 import { SKIP_CSRF_KEY } from '../decorators/metadata-keys';
 import { AppException } from '../errors/app.exception';
+import { OriginPolicy } from './origin-policy';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**
  * Global CSRF guard for state-changing requests (runs after AuthGuard):
- *  1. If Origin (or Referer) is present it must be in the allowlist.
+ *  1. If Origin (or Referer) is present it must be allowed for the request's surface
+ *     (OriginPolicy: admin routes only the admin site, user routes only the public site).
  *  2. If the request is authenticated by a session cookie, the `x-csrf-token` header must equal
  *     the session's CSRF token (the token is also readable by the frontend in the house_csrf cookie).
  * Requests without a session carry no ambient credentials, so (2) does not apply to them.
  */
 @Injectable()
 export class CsrfGuard implements CanActivate {
-  private readonly allowed: Set<string>;
+  private readonly origins: OriginPolicy;
 
   constructor(
     private readonly reflector: Reflector,
     config: AppConfig,
   ) {
-    this.allowed = new Set(config.allowedOrigins);
+    this.origins = OriginPolicy.fromConfig(config);
   }
 
   canActivate(context: ExecutionContext): boolean {
@@ -38,7 +40,7 @@ export class CsrfGuard implements CanActivate {
     if (skip) return true;
 
     const origin = this.requestOrigin(req);
-    if (origin !== null && !this.allowed.has(origin))
+    if (origin !== null && !this.origins.allows(req, origin))
       throw AppException.forbidden(ErrorCode.CSRF_FAILED);
 
     if (req.authSession) {

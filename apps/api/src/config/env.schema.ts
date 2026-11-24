@@ -11,6 +11,14 @@ const csv = z.string().transform((s) =>
     .map((x) => x.trim())
     .filter(Boolean),
 );
+/** Comma-separated browser origins, each normalized to its origin ("https://a.kr/" → "https://a.kr"). */
+const originList = csv.pipe(
+  z.array(
+    z
+      .url({ protocol: /^https?$/, error: 'http(s) origin required, e.g. https://suncheonmap.kr' })
+      .transform((u) => new URL(u).origin),
+  ),
+);
 const optionalString = z
   .string()
   .optional()
@@ -34,8 +42,15 @@ export const envSchema = z
     PUBLIC_BASE_URL: z.url(),
     ADMIN_BASE_URL: z.url(),
     API_BASE_URL: z.url(),
-    /** Allowed browser origins (CORS + CSRF Origin check). */
-    CORS_ORIGINS: csv,
+    /**
+     * Browser origins (CORS + CSRF Origin check) are split by API surface (common/auth/origin-policy.ts):
+     * user routes accept PUBLIC_BASE_URL's origin + CORS_ORIGINS, /api/v1/admin/** accepts
+     * ADMIN_BASE_URL's origin + ADMIN_CORS_ORIGINS. The other surface's base origin is never
+     * accepted, even if listed here. Both lists are optional extras (dev aliases such as
+     * http://127.0.0.1:3000); production needs neither.
+     */
+    CORS_ORIGINS: originList.default([]),
+    ADMIN_CORS_ORIGINS: originList.default([]),
     BODY_LIMIT: z.string().default('1mb'),
 
     DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\//, 'postgresql:// URL required'),
@@ -137,6 +152,15 @@ export const envSchema = z
       });
     }
     if (env.NODE_ENV !== 'production') return;
+    // One origin for both sites would put the admin API and the public site's scripts on the same
+    // origin, which the per-surface origin policy (and the separate admin host) relies on not happening.
+    if (new URL(env.PUBLIC_BASE_URL).origin === new URL(env.ADMIN_BASE_URL).origin) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ADMIN_BASE_URL'],
+        message: 'must be a different origin from PUBLIC_BASE_URL in production',
+      });
+    }
     if (env.COOKIE_SECURE === false) {
       ctx.addIssue({
         code: 'custom',

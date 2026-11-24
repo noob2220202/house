@@ -124,9 +124,21 @@ fi
 
 PREV_RELEASE="$(current_release)"
 PREFLIGHT_PORTS=("$((API_PORT + PREFLIGHT_OFFSET))" "$((WEB_PORT + PREFLIGHT_OFFSET))" "$((ADMIN_PORT + PREFLIGHT_OFFSET))")
+# Build-time settings of web/admin (NEXT_PUBLIC_*, MEDIA_ORIGIN, ...): Next bakes them into the
+# build, so a release built with other values is rebuilt even when the commit is the same.
+mapfile -t BUILD_ENV < <(build_env_lines)
+BUILD_FP="$(printf '%s\n' "${BUILD_ENV[@]}" | build_env_fingerprint)"
+SAME_COMMIT=false
 if [[ -n "$PREV_RELEASE" && -f "$PREV_RELEASE/REVISION" && "$(cat "$PREV_RELEASE/REVISION")" == "$SHA" ]] && ! $FORCE; then
+  SAME_COMMIT=true
+  if [[ "$(cat "$PREV_RELEASE/BUILD_ENV.sha256" 2>/dev/null)" != "$BUILD_FP" ]]; then
+    SAME_COMMIT=false
+    step "같은 커밋이지만 빌드 설정(NEXT_PUBLIC_* 등)이 바뀌어 새로 빌드합니다 ($SHORT)"
+  fi
+fi
+if $SAME_COMMIT; then
   step "이미 배포된 커밋입니다 ($SHORT) — 새 빌드 없이 설정만 다시 적용(reload)합니다"
-  log "(.env 변경 반영용. 새로 빌드하려면 --force)"
+  log "(.env 변경 반영용, 빌드 설정은 그대로. 새로 빌드하려면 --force)"
   # The new .env must boot the current build on spare ports before PM2 swaps any worker.
   step "사전 기동 점검 (현재 릴리스 + 새 .env, 임시 포트 +${PREFLIGHT_OFFSET})"
   if ! HOUSE_ROOT="$HOUSE_ROOT" node "$SCRIPT_DIR/lib/preflight.cjs" "$PREV_RELEASE" "${PREFLIGHT_PORTS[@]}" 90; then
@@ -211,8 +223,17 @@ cd "$RELEASE"
 # ─── 4. install ─────────────────────────────────────────────────────────────────────────────
 FAILED_STAGE="pnpm install"
 step "의존성 설치 (pnpm install --frozen-lockfile)"
-CI=true pnpm install --frozen-lockfile --prefer-offline \
-  --store-dir "$SHARED_DIR/pnpm-store" --reporter=append-only
+# A broken network must fail the deploy within minutes, not hang it: short per-request timeouts
+# and few retries for registry fetches, plus a hard cap on the whole install (corepack included).
+PNPM_INSTALL_TIMEOUT="${PNPM_INSTALL_TIMEOUT:-900}"
+[[ "$PNPM_INSTALL_TIMEOUT" =~ ^[1-9][0-9]*$ ]] || PNPM_INSTALL_TIMEOUT=900
+if ! CI=true npm_config_fetch_retries=2 npm_config_fetch_timeout=30000 \
+  npm_config_fetch_retry_mintimeout=2000 npm_config_fetch_retry_maxtimeout=15000 \
+  timeout --kill-after=30 "$PNPM_INSTALL_TIMEOUT" pnpm install --frozen-lockfile --prefer-offline \
+  --store-dir "$SHARED_DIR/pnpm-store" --reporter=append-only; then
+  warn "pnpm install 실패 또는 ${PNPM_INSTALL_TIMEOUT}초 초과 — 서버의 인터넷 연결(registry.npmjs.org)을 확인하세요."
+  false
+fi
 ok "pnpm $(pnpm --version)"
 
 # ─── 5. build ───────────────────────────────────────────────────────────────────────────────
@@ -222,23 +243,23 @@ TURBO_ARGS=(--cache-dir="$SHARED_DIR/turbo-cache" --output-logs=errors-only)
 if $SKIP_BUILD_CACHE; then
   TURBO_ARGS+=(--force)
 elif [[ -n "$PREV_RELEASE" ]]; then
-  # Reuse Next.js incremental caches from the previous release.
+  # Reuse the Next.js build caches (webpack/SWC, optimized images) of the previous release. The
+  # runtime fetch cache is not carried over: it holds old data and grows with every distinct
+  # query string (it is rebuilt from the API as pages render).
   for app in web admin; do
     if [[ -d "$PREV_RELEASE/apps/$app/.next/cache" ]]; then
-      mkdir -p "apps/$app/.next"
-      cp -a "$PREV_RELEASE/apps/$app/.next/cache" "apps/$app/.next/cache"
+      mkdir -p "apps/$app/.next/cache"
+      rsync -a --exclude=/fetch-cache/ "$PREV_RELEASE/apps/$app/.next/cache/" "apps/$app/.next/cache/"
     fi
   done
 fi
-# Only public build-time variables reach the frontends' build (Next inlines NEXT_PUBLIC_*).
-BUILD_ENV=(NODE_ENV=production)
-while IFS= read -r key; do
-  BUILD_ENV+=("$key=$(env_get "$key")")
-done < <(grep -oE '^NEXT_PUBLIC_[A-Z0-9_]+' "$ENV_FILE" || true)
+# Only public build-time settings reach the frontends' build (build_env_lines, computed above).
+log "빌드 설정: $(printf '%s ' "${BUILD_ENV[@]%%=*}")"
 env "${BUILD_ENV[@]}" pnpm exec turbo run build "${TURBO_ARGS[@]}"
 for f in apps/api/dist/main.js apps/web/.next/BUILD_ID apps/admin/.next/BUILD_ID; do
   [[ -f "$f" ]] || { warn "빌드 결과물이 없습니다: $f"; false; }
 done
+printf '%s\n' "$BUILD_FP" >"$RELEASE/BUILD_ENV.sha256"
 ok "빌드 완료 (api, web, admin)"
 
 # ─── 6. migrate ─────────────────────────────────────────────────────────────────────────────

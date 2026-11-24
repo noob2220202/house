@@ -39,6 +39,7 @@ API_PORT=4000
 WEB_PORT=3000
 ADMIN_PORT=3001
 WORKER_PORT=4100
+MEDIA_PORT=8088 # loopback-only nginx /media origin for the Next image optimizer (MEDIA_ORIGIN)
 PREFLIGHT_OFFSET=90 # deploy.sh smoke-tests a new release on API/WEB/ADMIN_PORT + this
 API_INSTANCES=2
 WEB_INSTANCES=2
@@ -56,7 +57,7 @@ DB_USER=house
 TLS_ENABLED=true
 
 CONF_KEYS=(REPO_URL BRANCH DOMAIN ADMIN_DOMAIN TLS_ENABLED API_PORT WEB_PORT ADMIN_PORT WORKER_PORT
-  PREFLIGHT_OFFSET API_INSTANCES WEB_INSTANCES ADMIN_INSTANCES KEEP_RELEASES UPLOAD_ROOT BACKUP_DIR
+  MEDIA_PORT PREFLIGHT_OFFSET API_INSTANCES WEB_INSTANCES ADMIN_INSTANCES KEEP_RELEASES UPLOAD_ROOT BACKUP_DIR
   LOG_DIR BACKUP_RETENTION_DAYS BACKUP_KEEP_MIN RCLONE_REMOTE BACKUP_NOTIFY_URL DB_NAME DB_USER)
 
 DOMAIN_RE='^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$'
@@ -111,7 +112,7 @@ conf_valid() {
     BRANCH) [[ "$v" =~ $BRANCH_RE && "$v" != *..* ]] ;;
     DOMAIN | ADMIN_DOMAIN) [[ -z "$v" || "$v" =~ $DOMAIN_RE ]] ;;
     TLS_ENABLED) [[ "$v" == true || "$v" == false ]] ;;
-    API_PORT | WEB_PORT | ADMIN_PORT | WORKER_PORT) is_port "$v" ;;
+    API_PORT | WEB_PORT | ADMIN_PORT | WORKER_PORT | MEDIA_PORT) is_port "$v" ;;
     PREFLIGHT_OFFSET) [[ "$v" =~ ^[0-9]{1,4}$ ]] ;;
     API_INSTANCES | WEB_INSTANCES | ADMIN_INSTANCES | KEEP_RELEASES) [[ "$v" =~ ^[1-9][0-9]?$ ]] ;;
     UPLOAD_ROOT | BACKUP_DIR | LOG_DIR) [[ "$v" =~ $ABS_PATH_RE && "$v" != *..* ]] ;;
@@ -197,6 +198,96 @@ env_get() {
     END { if (found) print val }
   ' "$file"
 }
+
+# env_has_key KEY [file]: the dotenv file assigns KEY (commented-out lines do not count).
+env_has_key() {
+  local key="$1" file="${2:-$ENV_FILE}"
+  [[ -r "$file" ]] || return 1
+  awk -v k="$key" '
+    /^[[:space:]]*#/ { next }
+    {
+      line = $0
+      sub(/^[[:space:]]*(export[[:space:]]+)?/, "", line)
+      eq = index(line, "=")
+      if (eq == 0) next
+      name = substr(line, 1, eq - 1)
+      gsub(/[[:space:]]+$/, "", name)
+      if (name == k) { found = 1; exit }
+    }
+    END { exit found ? 0 : 1 }
+  ' "$file"
+}
+
+# env_add_missing <file> <group> KEY=value...: appends the keys the file does not assign yet and
+# leaves every existing line (and value) alone; the file is replaced atomically as root:<group>
+# 0640. Prints the names of the keys it added. Only for root-owned directories (shared/).
+env_add_missing() {
+  local file="$1" group="$2" kv tmp
+  shift 2
+  local -a add=()
+  for kv in "$@"; do
+    [[ "$kv" =~ ^[A-Z][A-Z0-9_]*= ]] || die "env_add_missing: KEY=value 형식이 아닙니다: $kv"
+    env_has_key "${kv%%=*}" "$file" || add+=("$kv")
+  done
+  ((${#add[@]})) || return 0
+  tmp="$(mktemp "$(dirname "$file")/.env.XXXXXX")"
+  [[ -f "$file" ]] && cat "$file" >"$tmp"
+  # Keep the last existing line intact when it has no trailing newline.
+  [[ -s "$tmp" && -n "$(tail -c1 "$tmp")" ]] && printf '\n' >>"$tmp"
+  {
+    printf '\n# Added by deploy/install.sh on %s — web/admin build settings. NEXT_PUBLIC_* values are\n' "$(date '+%Y-%m-%d')"
+    printf '# inlined into the browser code at build time: after editing them run sudo %s/deploy.sh\n' "$HOUSE_ROOT"
+    printf '# (it rebuilds automatically when they changed).\n'
+    printf '%s\n' "${add[@]}"
+  } >>"$tmp"
+  chown "root:$group" "$tmp"
+  chmod 0640 "$tmp"
+  mv -f "$tmp" "$file"
+  printf '%s\n' "${add[@]%%=*}"
+}
+
+media_origin_default() { printf 'http://127.0.0.1:%s' "$MEDIA_PORT"; }
+
+# frontend_env_defaults <scheme>: KEY=value lines the web/admin builds need in shared/.env.
+# install.sh adds the missing ones (existing values always win).
+frontend_env_defaults() {
+  local scheme="$1"
+  printf '%s\n' \
+    "NEXT_PUBLIC_SITE_URL=${scheme}://${DOMAIN}" \
+    "MEDIA_ORIGIN=$(media_origin_default)" \
+    "NEXT_PUBLIC_NAVER_MAP_KEY_ID=$(env_get NAVER_MAP_CLIENT_ID)" \
+    "NEXT_PUBLIC_NAVER_SITE_VERIFICATION=" \
+    "NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION="
+}
+
+# build_env_lines: the environment of the web/admin production build, one KEY=value per line.
+# Next inlines NEXT_PUBLIC_* into the bundles and writes the /media rewrite (MEDIA_ORIGIN) into
+# routes-manifest.json, so these are fixed at build time (turbo.json lists the non-NEXT_PUBLIC
+# ones in the build task's env, or strict env mode would drop them). Secrets never go in here.
+build_env_lines() {
+  local key scheme=https site media
+  [[ "$TLS_ENABLED" == true ]] || scheme=http
+  printf 'NODE_ENV=production\n'
+  while IFS= read -r key; do
+    case "$key" in NEXT_PUBLIC_SITE_URL | NEXT_PUBLIC_API_MOCK) continue ;; esac
+    printf '%s=%s\n' "$key" "$(env_get "$key")"
+  done < <(grep -oE '^[[:space:]]*(export[[:space:]]+)?NEXT_PUBLIC_[A-Z0-9_]+[[:space:]]*=' "$ENV_FILE" 2>/dev/null |
+    sed -E 's/^[[:space:]]*(export[[:space:]]+)?//; s/[[:space:]]*=$//' | sort -u)
+  site="$(env_get NEXT_PUBLIC_SITE_URL)"
+  if [[ -z "$site" ]]; then
+    site="${scheme}://${DOMAIN}"
+    warn "NEXT_PUBLIC_SITE_URL 이 $ENV_FILE 에 없어 ${site} 로 빌드합니다 (sudo $BIN_DIR/install.sh 를 다시 실행하면 추가됩니다)."
+  fi
+  media="$(env_get MEDIA_ORIGIN)"
+  [[ -n "$media" ]] || media="$(media_origin_default)"
+  # Mock mode is a development switch: a production build always talks to the real API.
+  printf '%s\n' "NEXT_PUBLIC_SITE_URL=${site%/}" "NEXT_PUBLIC_API_MOCK=" "MEDIA_ORIGIN=${media%/}" \
+    "INTERNAL_API_URL=http://127.0.0.1:${API_PORT}"
+}
+
+# build_env_fingerprint < lines: order-independent hash of build_env_lines' output (stored per
+# release as BUILD_ENV.sha256, so a changed NEXT_PUBLIC_* value forces a rebuild).
+build_env_fingerprint() { LC_ALL=C sort | sha256sum | cut -d' ' -f1; }
 
 # ─── PostgreSQL connection without secrets in argv ──────────────────────────────────────────
 # /proc/<pid>/cmdline is world-readable, so pg_dump/psql never get a URL with the password.
@@ -561,7 +652,7 @@ prune_keep_newest() {
 kit_validate() {
   local dir="$1" f odd
   for f in deploy.sh install.sh rollback.sh status.sh backup.sh restore.sh create-admin.sh \
-    db-shell.sh lib/common.sh lib/preflight.cjs; do
+    db-shell.sh set-keys.sh lib/common.sh lib/preflight.cjs; do
     [[ -f "$dir/$f" ]] || { warn "배포 스크립트 파일이 없습니다: $f"; return 1; }
   done
   odd="$(find "$dir" ! -type f ! -type d -printf '%P\n' | head -5)"
