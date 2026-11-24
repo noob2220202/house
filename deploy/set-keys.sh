@@ -71,7 +71,7 @@ for f in "${FIELDS[@]}"; do
     val="${val#"${val%%[![:space:]]*}"}"
     val="${val%"${val##*[![:space:]]}"}"
     [[ -z "$val" ]] && break
-    if [[ "$val" == *'"'* || "$val" == *'\'* || "$val" =~ [[:space:]] ]]; then
+    if [[ "$val" == *'"'* || "$val" == *\\* || "$val" =~ [[:space:]] ]]; then
       warn "공백·따옴표·역슬래시가 들어 있습니다. 값만 다시 복사해 붙여넣으세요."
       continue
     fi
