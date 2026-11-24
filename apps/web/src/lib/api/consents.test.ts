@@ -26,7 +26,13 @@ const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
   posted.push({ path, body: JSON.parse(body) as unknown });
   if (path === '/deal-requests') return json(201, { id: 'req-1' });
   if (path === '/agencies/join')
-    return json(200, { agencyId: 'a', agencyName: '순천', role: 'AGENT' });
+    // MyAgencyMembership (agencies module)
+    return json(200, {
+      memberId: 'm',
+      role: 'AGENT',
+      displayName: '김하늘',
+      agency: { id: 'a', name: '순천', status: 'APPROVED' },
+    });
   return json(500, { code: 'INTERNAL_ERROR', message: 'unexpected' });
 });
 

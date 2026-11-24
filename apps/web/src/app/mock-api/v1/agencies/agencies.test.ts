@@ -17,12 +17,12 @@ import { GET as getListings } from '../listings/route';
 import { searchAgencies } from './_search';
 
 /**
- * Contract of the office search as the UI uses it. The real backend must behave the same way —
- * in particular for the params that are not in `agencySearchQuerySchema` yet (`openNow`,
- * `handlesPresale`, `sort`): if it ignored them, these expectations would fail against it.
+ * Contract of the office search as the UI uses it. `sort` is a backend param; `openNow` and
+ * `handlesPresale` are mock-only (the UI hides them against the real API, api/capabilities.ts).
  */
 const req = (path: string) => new NextRequest(`http://localhost/mock-api/v1${path}&_delay=1`);
 const json = async (res: Response) => (await res.json()) as unknown;
+const fixtureOf = (id: string) => AGENCY_SUMMARIES.find((a) => a.id === id)!;
 
 // Weekday late morning in Seoul: some offices open, some closed (lunch / day off / Sunday-only).
 const NOW = new Date('2026-11-24T02:30:00Z'); // Tue 11:30 KST
@@ -39,7 +39,8 @@ describe('agencies mock — search contract', () => {
     const page = agencyPageSchema.parse(await json(res));
     expect(page.total).toBeGreaterThan(0);
     expect(page.total).toBeLessThan(AGENCY_SUMMARIES.length);
-    for (const a of page.items) expect(isOpenAt(a.businessHours, NOW)).toBe(true);
+    // The wire rows are `AgencySummary` (no hours) — check against the fixture office.
+    for (const a of page.items) expect(isOpenAt(fixtureOf(a.id).businessHours, NOW)).toBe(true);
   });
 
   it('handlesPresale=true returns only offices with an active 분양권 listing', async () => {
@@ -47,7 +48,7 @@ describe('agencies mock — search contract', () => {
     const page = agencyPageSchema.parse(await json(res));
     expect(page.total).toBeGreaterThan(0);
     expect(page.total).toBeLessThan(AGENCY_SUMMARIES.length);
-    expect(page.items.every((a) => a.handlesPresale)).toBe(true);
+    expect(page.items.every((a) => fixtureOf(a.id).handlesPresale)).toBe(true);
   });
 
   it('sort=NAME orders by name, the default by active listings', async () => {

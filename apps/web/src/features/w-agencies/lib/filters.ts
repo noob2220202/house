@@ -50,16 +50,19 @@ export function specialtyOption(value: string | null): SpecialtyOption {
   return SPECIALTY_OPTIONS.find((o) => o.value === (value ?? '')) ?? SPECIALTY_OPTIONS[0]!;
 }
 
+/** URL `sort` → list sort ("RECENT" is the old name of NEWEST, kept for shared links). */
 export function agencySortOf(value: string | null): AgencySort {
+  if (value === 'RECENT') return 'NEWEST';
   return AGENCY_SORTS.find((s) => s === value) ?? 'LISTINGS';
 }
 
 const BBOX = /^-?\d+(\.\d+)?(,-?\d+(\.\d+)?){3}$/;
 
 /**
- * Query of `GET /agencies` for the current filters. `q`, `emdCode`, `bbox`, `specialties`, `page`,
- * `pageSize` are the backend's documented params; `openNow`, `handlesPresale`, `sort` are assumed
- * and only sent while `extras` (default `AGENCY_API_EXTRAS`) is on.
+ * Query of `GET /agencies` for the current filters (`agencySearchQuerySchema`: `q`, `emdCode`,
+ * `bbox`, `specialties`, `sort`, `page`, `pageSize`). `sort` is always sent — the backend default
+ * is RELEVANCE, the list's default is 보유 매물순. `openNow` / `handlesPresale` are not backend
+ * params and are only sent while `extras` (default `AGENCY_API_EXTRAS`) is on.
  */
 export function toAgencyQuery(
   filters: AgencyFilters,
@@ -68,14 +71,14 @@ export function toAgencyQuery(
   const extras = extra.extras ?? AGENCY_API_EXTRAS;
   const q = filters.q?.trim().slice(0, 50);
   const area = filters.area && BBOX.test(filters.area) ? filters.area : undefined;
-  const sort = extras ? agencySortOf(filters.sort) : 'LISTINGS';
+  const sort = agencySortOf(filters.sort);
   return {
     q: q || undefined,
     specialties: specialtyOption(filters.spec).assetTypes,
     emdCode: filters.emd || undefined,
     openNow: extras && filters.open ? true : undefined,
     handlesPresale: extras && filters.presale ? true : undefined,
-    sort: sort === 'LISTINGS' ? undefined : sort,
+    sort,
     bbox: extra.bbox ?? area,
     page: extra.page,
     pageSize: extra.pageSize,

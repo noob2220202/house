@@ -10,11 +10,15 @@ import {
 import { z } from 'zod';
 
 /**
- * Response shapes of the deal-requests module as the frontend expects them.
- * The module only has a README + Prisma models so far — these mirror the Prisma columns
- * (apps/api/prisma/schema/deal-requests.prisma) and are recorded as assumptions in
- * docs/frontend-integration/w-deal.md. Fix a schema and its mock fixture together.
+ * Response shapes of the deal-requests module as the views read them. `GET /me/deal-requests`,
+ * `GET /me/deal-requests/:id` and the proposal answers send the shared `MyDealRequestView` /
+ * `MyDealRequestDetail` / `ProposalView`; `requestFromWire()` / `proposalFromWire()` map them
+ * (photo views, nested complex, disclosure → agency brief). target-agencies / address-match are
+ * the frontend's contract (docs/frontend-integration/w-deal.md).
  */
+
+type Raw = Record<string, unknown>;
+const isObject = (v: unknown): v is Raw => typeof v === 'object' && v !== null;
 
 const nullish = <T extends z.ZodType>(s: T) => s.nullable().optional();
 /**
@@ -71,7 +75,46 @@ export const proposalListingSchema = z.object({
 });
 export type ProposalListing = z.infer<typeof proposalListingSchema>;
 
-export const proposalSchema = z.object({
+/** `ProposalListingView` → the card fields (headline price, title). */
+function proposalListingFromWire(l: unknown): unknown {
+  if (!isObject(l) || l.price !== undefined || !('salePrice' in l)) return l;
+  const presale =
+    typeof l.presalePrice === 'number'
+      ? l.presalePrice + (typeof l.premium === 'number' ? l.premium : 0)
+      : null;
+  return {
+    ...l,
+    title: typeof l.title === 'string' ? l.title : '',
+    price: typeof l.salePrice === 'number' ? l.salePrice : presale,
+  };
+}
+
+/**
+ * Backend `ProposalView` → card shape: `agency` (표시·광고 disclosure, null for a deleted office)
+ * → brief, `agent.displayName` → `memberName`, `contactShared` → `contactGranted`.
+ */
+export function proposalFromWire(v: unknown): unknown {
+  if (!isObject(v) || !('contactShared' in v || 'agent' in v)) return v;
+  const a = isObject(v.agency) ? v.agency : null;
+  const agent = isObject(v.agent) ? v.agent : null;
+  return {
+    ...v,
+    agency: a
+      ? {
+          id: a.agencyId ?? v.agencyId,
+          name: a.name,
+          representativeName: a.representativeName ?? null,
+          phone: a.phone ?? null,
+          roadAddress: a.roadAddress ?? null,
+        }
+      : { id: v.agencyId, name: '탈퇴한 중개사무소' },
+    memberName: v.memberName ?? agent?.displayName ?? null,
+    contactGranted: v.contactGranted ?? v.contactShared === true,
+    listings: Array.isArray(v.listings) ? v.listings.map(proposalListingFromWire) : [],
+  };
+}
+
+const proposalObjectSchema = z.object({
   id: z.string(),
   dealRequestId: z.string(),
   agencyId: z.string(),
@@ -87,9 +130,50 @@ export const proposalSchema = z.object({
   viewedAt: nullish(z.string()),
   respondedAt: nullish(z.string()),
 });
-export type Proposal = z.infer<typeof proposalSchema>;
+export const proposalSchema = z.preprocess(proposalFromWire, proposalObjectSchema);
+export type Proposal = z.infer<typeof proposalObjectSchema>;
 
-export const dealRequestSchema = z.object({
+/** `DealRequestPhotoView` { mediaId, url, thumbUrl } → the media DTO shape the views read. */
+function photoFromWire(p: unknown): unknown {
+  if (!isObject(p) || typeof p.mediaId !== 'string' || p.variants !== undefined) return p;
+  const url = typeof p.url === 'string' ? p.url : '';
+  const thumb = typeof p.thumbUrl === 'string' ? p.thumbUrl : url;
+  return {
+    id: p.mediaId,
+    purpose: MediaPurpose.DEAL_REQUEST_PHOTO,
+    mimeType: 'image/jpeg',
+    width: null,
+    height: null,
+    variants: { thumb: { url: thumb, width: 0, height: 0 }, medium: { url, width: 0, height: 0 } },
+  };
+}
+
+/**
+ * Backend `MyDealRequestView` / `MyDealRequestDetail` → view shape: `complex{id,name}` →
+ * `complexId`/`complexName`, photo views → media DTOs, `targetAgencyIds` → `targetAgencyCount`,
+ * the unanswered proposals (detail only) → `pendingProposalCount`, `updatedAt` ← `createdAt`.
+ */
+export function requestFromWire(v: unknown): unknown {
+  if (!isObject(v)) return v;
+  const out: Raw = { ...v };
+  if (isObject(v.complex) && v.complexId === undefined) {
+    out.complexId = v.complex.id;
+    out.complexName = v.complex.name;
+  }
+  if (Array.isArray(v.photos)) out.photos = v.photos.map(photoFromWire);
+  if (out.targetAgencyCount === undefined && Array.isArray(v.targetAgencyIds)) {
+    out.targetAgencyCount = v.targetAgencyIds.length;
+  }
+  if (out.pendingProposalCount === undefined && Array.isArray(v.proposals)) {
+    out.pendingProposalCount = v.proposals.filter(
+      (p) => isObject(p) && (p.status === ProposalStatus.SENT || p.status === ProposalStatus.VIEWED),
+    ).length;
+  }
+  if (out.updatedAt === undefined) out.updatedAt = v.createdAt;
+  return out;
+}
+
+const dealRequestObjectSchema = z.object({
   id: z.string(),
   type: z.enum(DealRequestType),
   status: z.enum(DealRequestStatus),
@@ -139,14 +223,16 @@ export const dealRequestSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 });
-export type DealRequest = z.infer<typeof dealRequestSchema>;
+export const dealRequestSchema = z.preprocess(requestFromWire, dealRequestObjectSchema);
+export type DealRequest = z.infer<typeof dealRequestObjectSchema>;
 
-export const dealRequestDetailSchema = dealRequestSchema.extend({
+const dealRequestDetailObjectSchema = dealRequestObjectSchema.extend({
   proposals: z.array(proposalSchema).default([]),
-  /** SELECTED_AGENCIES targets (empty for ALL_AGENCIES_IN_REGION). */
+  /** SELECTED_AGENCIES targets by name (the backend sends ids only, so this stays empty there). */
   targetAgencies: z.array(agencyBriefSchema).default([]),
 });
-export type DealRequestDetail = z.infer<typeof dealRequestDetailSchema>;
+export const dealRequestDetailSchema = z.preprocess(requestFromWire, dealRequestDetailObjectSchema);
+export type DealRequestDetail = z.infer<typeof dealRequestDetailObjectSchema>;
 
 export const dealRequestPageSchema = z.object({
   items: z.array(dealRequestSchema),
@@ -157,8 +243,10 @@ export const dealRequestPageSchema = z.object({
 });
 export type DealRequestPage = z.infer<typeof dealRequestPageSchema>;
 
+/** `ContactGrantView`. */
 export const contactGrantResultSchema = z.object({
   agencyId: z.string(),
+  agencyName: nullish(z.string()),
   grantedAt: z.string(),
 });
 

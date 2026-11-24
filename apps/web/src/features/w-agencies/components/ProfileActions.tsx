@@ -2,7 +2,6 @@
 import { Icon, useToast } from '@house/ui';
 import { ROUTES } from '@/config/nav';
 import { useFavorite } from '@/lib/favorites/useFavorite';
-import { AGENCY_API_EXTRAS } from '../api/capabilities';
 import styles from './ProfileActions.module.css';
 
 export interface ProfileActionsProps {
@@ -50,8 +49,8 @@ export function ProfileActions({ agencyId, agencyName, className }: ProfileActio
 
   return (
     <div className={className ? `${styles.acts} ${className}` : styles.acts}>
-      {/* 관심 needs the favourite-agencies endpoints (see api/capabilities.ts). */}
-      {AGENCY_API_EXTRAS && <FavoriteAgencyButton agencyId={agencyId} agencyName={agencyName} />}
+      {/* `PUT|DELETE /me/favorites/agencies/:id` (home module, frontend contract). */}
+      <FavoriteAgencyButton agencyId={agencyId} agencyName={agencyName} />
       <button
         type="button"
         className={styles.act}

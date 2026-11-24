@@ -580,7 +580,10 @@ describe('public listing search (e2e)', () => {
       expect(ag.activeListingCount).toBe(1);
       const notes = await t.prisma.notification.findMany({ where: { userId: a.owner.id } });
       expect(notes).toHaveLength(1);
-      expect(notes[0]!.data).toEqual({ listingId: id });
+      expect(notes[0]).toMatchObject({
+        type: 'LISTING_EXPIRED',
+        data: { listingId: id, agencyId: a.agency.id },
+      });
 
       expect(await svc.expireDue()).toBe(0);
       expect(await t.prisma.notification.count({ where: { userId: a.owner.id } })).toBe(1);

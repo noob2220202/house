@@ -84,15 +84,16 @@ describe('home: GET /geo/geocode + policies (e2e)', () => {
       expect(geocoder.queries).toEqual([]);
     });
 
-    it('503 SERVICE_UNAVAILABLE without API keys or when the geocoder fails', async () => {
+    it('503 GEOCODE_UNAVAILABLE without API keys or when the geocoder fails', async () => {
       geocoder.configured = false;
       const off = await get('신대1로').expect(503);
-      expect(off.body.code).toBe('SERVICE_UNAVAILABLE');
+      expect(off.body.code).toBe('GEOCODE_UNAVAILABLE');
       expect(off.body.message).toContain('주소 검색');
 
       geocoder.configured = true;
       geocoder.failWith = new GeocoderUnavailableError('HTTP 500');
-      await get('신대1로').expect(503);
+      const failed = await get('신대1로').expect(503);
+      expect(failed.body.code).toBe('GEOCODE_UNAVAILABLE');
     });
   });
 
@@ -108,7 +109,7 @@ describe('home: GET /geo/geocode + policies (e2e)', () => {
     it('404 until published, then serves the version in force', async () => {
       const missing = await t.http().get('/api/v1/policies/false-listing').expect(404);
       expect(missing.body).toMatchObject({
-        code: 'NOT_FOUND',
+        code: 'POLICY_NOT_FOUND',
         message: '정책 문서를 찾을 수 없습니다.',
       });
 

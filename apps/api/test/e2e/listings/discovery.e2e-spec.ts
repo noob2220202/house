@@ -2,9 +2,11 @@ import {
   AgencyStatus,
   AssetType,
   DealType,
+  ErrorCode,
   FloorDisplay,
   ListingStatus,
   RecentViewTarget,
+  TermsType,
   kstDayKey,
 } from '@house/shared';
 import {
@@ -168,6 +170,41 @@ describe('listings: similar, view beacon, broker console (e2e)', () => {
       const draft = await seedListing(t, a.agency.id, { listing: { status: ListingStatus.DRAFT } });
       await t.http().post(`/api/v1/listings/${draft.listing.id}/view`).expect(404);
       await t.http().post('/api/v1/listings/not-a-uuid/view').expect(400);
+    });
+
+    it('still counts for a member whose required terms are pending (@SkipTermsCheck)', async () => {
+      const a = await agencyWithOwner(t);
+      const { listing } = await seedListing(t, a.agency.id);
+      const past = new Date(Date.now() - DAY_MS);
+      await t.prisma.termsDocument.create({
+        data: {
+          type: TermsType.SERVICE,
+          version: '9.0',
+          title: '이용약관',
+          content: '본문',
+          isRequired: true,
+          effectiveAt: past,
+          publishedAt: past,
+        },
+      });
+      const user = await createUser(t.prisma);
+      const s = await loginUser(t.app, user);
+      // The guard is active for this member: a real write is refused …
+      const blocked = await withSession(
+        t.http().put(`/api/v1/me/favorites/listings/${listing.id}`),
+        s,
+      ).expect(403);
+      expect(blocked.body.code).toBe(ErrorCode.AUTH_TERMS_REQUIRED);
+      // … but the view beacon counts and records the recent view.
+      await withSession(t.http().post(`/api/v1/listings/${listing.id}/view`), s)
+        .set('User-Agent', UA)
+        .expect(204);
+      expect(await t.redis.hget('listings:views:totals', listing.id)).toBe('1');
+      expect(
+        await t.prisma.recentView.count({
+          where: { userId: user.id, targetType: RecentViewTarget.LISTING, targetId: listing.id },
+        }),
+      ).toBe(1);
     });
   });
 

@@ -3,6 +3,7 @@ import { Global, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { SESSION_RESOLVER } from '../../common/auth/session-resolver';
 import { DealRequestsModule } from '../deal-requests/deal-requests.module';
+import { HomeModule } from '../home/home.module';
 import { ListingsModule } from '../listings/listings.module';
 import { MediaModule } from '../media/media.module';
 import { AdminAuthController } from './admin/admin-auth.controller';
@@ -48,6 +49,7 @@ import { WithdrawnIdentityService } from './users/withdrawn-identity.service';
   imports: [
     BullModule.registerQueue({ name: AUTH_QUEUE }),
     DealRequestsModule,
+    HomeModule,
     ListingsModule,
     MediaModule,
   ],

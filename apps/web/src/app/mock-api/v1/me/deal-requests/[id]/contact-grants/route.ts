@@ -2,7 +2,7 @@ import { contactGrantSchema } from '@house/shared';
 import type { NextRequest } from 'next/server';
 import { mockDelay, mockError, mockJson } from '@/lib/mock';
 import { ownerGuard, requestClosed, requestNotFound } from '../../../../deal-requests/_guard';
-import { dealStore } from '../../../../deal-requests/_store';
+import { dealStore, findAgency } from '../../../../deal-requests/_store';
 
 // POST /api/v1/me/deal-requests/:id/contact-grants { agencyId } — reveal the contact to one agency.
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -22,5 +22,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const grantedAt = new Date().toISOString();
   found.grants[parsed.data.agencyId] = grantedAt;
   found.updatedAt = grantedAt;
-  return mockJson({ agencyId: parsed.data.agencyId, grantedAt }, { status: 201 });
+  // ContactGrantView
+  return mockJson(
+    {
+      agencyId: parsed.data.agencyId,
+      agencyName: findAgency(parsed.data.agencyId)?.name ?? null,
+      grantedAt,
+    },
+    { status: 201 },
+  );
 }

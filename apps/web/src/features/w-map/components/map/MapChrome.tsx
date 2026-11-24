@@ -5,66 +5,30 @@ import type { MapBounds } from '@/lib/map';
 import { scaleBar } from '../../lib/geo';
 import s from './map.module.css';
 
-/** Graduation cap — the 학군 layer (drawn in the icon set's language: 24 grid, stroke 1.75). */
-function SchoolIcon() {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="m3 9.5 9-4.5 9 4.5-9 4.5z" />
-      <path d="M7 11.8v4.2c1.4 1.3 3.1 2 5 2s3.6-.7 5-2v-4.2" />
-      <path d="M21 9.5v5" />
-    </svg>
-  );
-}
-
 export interface LayerState {
   trade: boolean;
 }
 
 /**
  * Map layer panel (design `.layers`). 실거래가 switches the complex markers to the latest trade
- * price; 지적편집도 and 학군 need map-SDK layers that the MapView abstraction does not expose yet,
- * so they announce "준비 중" instead of pretending to work.
+ * price. The design's 지적편집도 / 학군 (and the 원룸 map's 통학 도보권 · 편의시설 · CCTV with the walk
+ * radius) are out of scope for launch (DECISIONS D6), so no button is shown for them.
  */
 export interface MapLayersProps {
   layers: LayerState;
   onToggleTrade: () => void;
-  onUnavailable: (name: string) => void;
   /** Lay the buttons out in a row (inside the collapsed 레이어 popover). */
   row?: boolean;
   className?: string;
 }
 
-export function MapLayers({
-  layers,
-  onToggleTrade,
-  onUnavailable,
-  row,
-  className,
-}: MapLayersProps) {
+export function MapLayers({ layers, onToggleTrade, row, className }: MapLayersProps) {
   return (
     <div
       className={cx(s.layers, row && s.layersRow, className)}
       role="group"
       aria-label="지도 레이어"
     >
-      <button type="button" className={s.layerB} onClick={() => onUnavailable('지적편집도')}>
-        <Icon name="grid" size={20} />
-        지적편집도
-      </button>
-      <button type="button" className={s.layerB} onClick={() => onUnavailable('학군')}>
-        <SchoolIcon />
-        학군
-      </button>
       <button
         type="button"
         className={s.layerB}

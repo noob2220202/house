@@ -119,10 +119,8 @@ export function RequestDetailView({ initial, now }: RequestDetailViewProps) {
   const fail = (e: unknown) => toast({ message: errorMessage(e), tone: 'error' });
 
   const accept = useMutation({
-    mutationFn: async ({ proposal, grant }: { proposal: Proposal; grant: boolean }) => {
-      await dealApi.acceptProposal(proposal.id);
-      if (grant && !proposal.contactGranted) await dealApi.grantContact(id, proposal.agencyId);
-    },
+    mutationFn: ({ proposal, grant }: { proposal: Proposal; grant: boolean }) =>
+      dealApi.acceptProposal(proposal.id, grant),
     onSuccess: (_d, { proposal, grant }) => {
       toast(
         grant

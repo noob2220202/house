@@ -1,5 +1,5 @@
 import { ErrorCode, type Paginated } from '@house/shared';
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { PolicyDocument, Prisma } from '@prisma/client';
 import { CacheService } from '../../../common/cache/cache.service';
 import { RequestContext } from '../../../common/context/request-context';
@@ -34,14 +34,9 @@ export interface AdminPolicyView extends PolicyDocumentView {
   updatedAt: string;
 }
 
-export const POLICY_NOT_FOUND_MESSAGE = '정책 문서를 찾을 수 없습니다.';
 const PUBLISHED_IMMUTABLE_MESSAGE = '게시된 정책 문서는 고칠 수 없습니다. 새 버전을 만들어 주세요.';
 
-const notFound = () =>
-  new AppException(ErrorCode.NOT_FOUND, {
-    status: HttpStatus.NOT_FOUND,
-    message: POLICY_NOT_FOUND_MESSAGE,
-  });
+const notFound = () => AppException.notFound(ErrorCode.POLICY_NOT_FOUND);
 
 function toPublic(d: PolicyDocument): PolicyDocumentView {
   return {

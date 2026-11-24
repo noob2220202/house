@@ -4,6 +4,7 @@ import type { Response } from 'express';
 import { ApiTags } from '@nestjs/swagger';
 import type { Principal } from '../../../common/auth/principal';
 import { CurrentPrincipal, Public } from '../../../common/decorators';
+import { SkipTermsCheck } from '../../auth';
 import { IdParamDto, ListingListQueryDto, MapSearchQueryDto } from '../dto';
 import { ListingQueryService } from '../services/listing-query.service';
 import { MapSearchService } from '../services/map-search.service';
@@ -55,8 +56,10 @@ export class PublicListingsController {
   /**
    * View beacon of the detail page: counts a deduped view (same viewer key as GET /listings/:id,
    * so the SSR read and the beacon count once) and records the recent view of a signed-in user.
+   * Not a member action: it still counts while the member has terms pending (TermsConsentGuard).
    */
   @Public()
+  @SkipTermsCheck()
   @Post(':id/view')
   @HttpCode(HttpStatus.NO_CONTENT)
   async view(

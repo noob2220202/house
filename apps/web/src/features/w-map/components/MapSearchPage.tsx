@@ -650,8 +650,6 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
   const layerProps = {
     layers: { trade: ui.tradeLayer },
     onToggleTrade: () => setUi({ tradeLayer: !ui.tradeLayer }),
-    onUnavailable: (name: string) =>
-      toast({ message: `${name} 레이어는 준비 중이에요.`, tone: 'info' }),
   };
   const stopDrag = (e: ReactPointerEvent) => e.stopPropagation();
 
@@ -939,7 +937,13 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
         onReset={resetFilters}
         onUnitChange={(unit) => setUi({ unit })}
       />
-      <div className={cx(s.body, complexMode ? s.bodyComplex : s.bodyListing)}>
+      <div
+        className={cx(
+          s.body,
+          complexMode ? s.bodyComplex : s.bodyListing,
+          complexMode && openComplexId && s.bodyComplexOpen,
+        )}
+      >
         <aside
           ref={panelRef}
           className={s.panel}

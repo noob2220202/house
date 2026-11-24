@@ -109,6 +109,12 @@ export const envSchema = z
     // Global per-route default, keyed per user (session) or else per client IP. Matches nginx's
     // 20 r/s per IP; strict limits for auth/report/deal-request are set per route (THROTTLE.*).
     THROTTLE_LIMIT: z.coerce.number().int().positive().default(1200),
+
+    /**
+     * TEST-ONLY browser e2e login (POST /api/v1/e2e/login, scripts/e2e-stack.sh). Only honoured
+     * with NODE_ENV=test and refused by this schema in every other environment.
+     */
+    E2E_FAKE_OAUTH: bool.default(false),
   })
   .superRefine((env, ctx) => {
     // Private documents must never be reachable under the public /media root (and vice versa).
@@ -121,6 +127,13 @@ export const envSchema = z
         code: 'custom',
         path: ['PRIVATE_UPLOAD_DIR'],
         message: 'UPLOAD_DIR and PRIVATE_UPLOAD_DIR must not contain each other',
+      });
+    }
+    if (env.E2E_FAKE_OAUTH && env.NODE_ENV !== 'test') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['E2E_FAKE_OAUTH'],
+        message: 'test-only login: allowed only with NODE_ENV=test',
       });
     }
     if (env.NODE_ENV !== 'production') return;

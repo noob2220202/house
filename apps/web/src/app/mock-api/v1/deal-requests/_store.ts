@@ -1,3 +1,15 @@
+import {
+  DEFAULT_SGG_CODE,
+  ListingStatus,
+  type AgencyDisclosure,
+  type AssetType,
+  type DealRequestPhotoView,
+  type DealType,
+  type MyDealRequestDetail,
+  type MyDealRequestView,
+  type ProposalListingView,
+  type ProposalView,
+} from '@house/shared';
 import { mockUuid } from '@/lib/mock';
 import { AGENCIES, agencyByKey, COMPLEXES, SINDAE, type MockAgency } from './_fixtures';
 
@@ -358,36 +370,135 @@ const publicAgency = (a: MockAgency) => {
 };
 export { publicAgency };
 
-function proposalDto(r: MockDealRequest, p: MockProposal) {
+/** Mock office → `AgencyDisclosure` (표시·광고 명시사항 block of a proposal). */
+function disclosureOf(a: MockAgency): AgencyDisclosure {
+  return {
+    agencyId: a.id,
+    name: a.name,
+    address: a.roadAddress,
+    roadAddress: a.roadAddress,
+    phone: a.phone,
+    registrationNumber: `46150-2020-${a.id.slice(-5)}`,
+    representativeName: a.representativeName,
+  };
+}
+
+/** Proposal listing fixture → `ProposalListingView`. */
+function proposalListingOf(l: Record<string, unknown>): ProposalListingView {
+  const price = typeof l.price === 'number' ? l.price : null;
+  const dealType = String(l.dealType) as DealType;
+  return {
+    id: String(l.id),
+    title: typeof l.title === 'string' ? l.title : null,
+    assetType: String(l.assetType ?? 'APT') as AssetType,
+    dealType,
+    status: ListingStatus.ACTIVE,
+    salePrice: dealType === 'SALE' ? price : null,
+    deposit: dealType === 'JEONSE' ? price : typeof l.deposit === 'number' ? l.deposit : null,
+    monthlyRent: typeof l.monthlyRent === 'number' ? l.monthlyRent : null,
+    presalePrice: dealType === 'PRESALE' ? price : null,
+    premium: null,
+    exclusiveArea: typeof l.exclusiveArea === 'number' ? l.exclusiveArea : null,
+  };
+}
+
+/** Proposal → `ProposalView` (deal-requests module, the requester's view). */
+function proposalDto(r: MockDealRequest, p: MockProposal): ProposalView {
   const agency = findAgency(p.agencyId);
   return {
-    ...p,
-    agency: agency ? publicAgency(agency) : { id: p.agencyId, name: '중개사무소' },
-    contactGranted: p.agencyId in r.grants,
+    id: p.id,
+    dealRequestId: p.dealRequestId,
+    status: p.status,
+    message: p.message,
+    suggestedPrice: null,
+    suggestedDeposit: null,
+    suggestedMonthlyRent: null,
+    agencyId: p.agencyId,
+    agency: agency ? disclosureOf(agency) : null,
+    agent: p.memberName ? { displayName: p.memberName, phone: null } : null,
+    listings: p.listings.map(proposalListingOf),
+    contactShared: p.agencyId in r.grants,
+    viewedAt: p.viewedAt,
+    respondedAt: p.respondedAt,
+    createdAt: p.createdAt,
   };
 }
 
-/** List item (no proposals). */
-export function requestDto(r: MockDealRequest) {
-  const { proposals, grants: _grants, userId: _userId, targetAgencyIds: _t, ...rest } = r;
+/** Offices the request was delivered to (SELECTED: the picked ones; region: the region's). */
+function deliveredTo(r: MockDealRequest): string[] {
+  if (r.visibility === 'SELECTED_AGENCIES') return [...r.targetAgencyIds];
+  const codes = r.type === 'SELL_OR_LEASE' ? (r.emdCode ? [r.emdCode] : []) : r.regionCodes;
+  return agenciesFor(codes)
+    .slice(0, r.targetAgencyCount || undefined)
+    .map((a) => a.id);
+}
+
+/** `DealRequestPhotoView` of a stored photo. */
+function photoView(m: Record<string, unknown>): DealRequestPhotoView {
+  const variants = (m.variants ?? {}) as Record<string, { url?: string } | undefined>;
+  const url = variants.medium?.url ?? variants.thumb?.url ?? '';
+  return { mediaId: String(m.id), url, thumbUrl: variants.thumb?.url ?? url };
+}
+
+/** List item = `MyDealRequestView` (no proposals). */
+export function requestDto(r: MockDealRequest): MyDealRequestView {
   return {
-    ...rest,
-    proposalCount: proposals.length,
-    pendingProposalCount: proposals.filter((p) => p.status === 'SENT' || p.status === 'VIEWED')
-      .length,
+    id: r.id,
+    type: r.type,
+    status: r.status,
+    assetType: r.assetType as AssetType,
+    dealTypes: r.dealTypes as DealType[],
+    visibility: r.visibility,
+    sggCode: DEFAULT_SGG_CODE,
+    emdCode: r.emdCode,
+    roadAddress: r.roadAddress,
+    complex: r.complexId ? { id: r.complexId, name: r.complexName ?? '' } : null,
+    lat: null,
+    lng: null,
+    exclusiveArea: r.exclusiveArea,
+    floor: r.floor,
+    desiredSalePrice: r.desiredSalePrice,
+    desiredDeposit: r.desiredDeposit,
+    desiredMonthlyRent: r.desiredMonthlyRent,
+    regionCodes: r.regionCodes,
+    complexIds: r.complexIds,
+    priceMin: r.priceMin,
+    priceMax: r.priceMax,
+    depositMin: r.depositMin,
+    depositMax: r.depositMax,
+    rentMin: r.rentMin,
+    rentMax: r.rentMax,
+    areaMin: r.areaMin,
+    areaMax: r.areaMax,
+    roomsMin: r.roomsMin,
+    moveInDate: r.moveInDate,
+    description: r.description,
+    photos: r.photos.map(photoView),
+    proposalCount: r.proposals.length,
+    expiresAt: r.expiresAt,
+    closedAt: r.closedAt,
+    createdAt: r.createdAt,
+    contactName: r.contactName,
+    contactPhone: r.contactPhone,
+    addressDetail: r.addressDetail,
+    targetAgencyIds: deliveredTo(r),
+    closeReason: null,
+    extensionCount: 0,
+    contactGrants: Object.entries(r.grants).map(([agencyId, grantedAt]) => ({
+      agencyId,
+      agencyName: findAgency(agencyId)?.name ?? null,
+      grantedAt,
+    })),
   };
 }
 
-export function requestDetailDto(r: MockDealRequest) {
+/** Detail = `MyDealRequestDetail` (with the proposals, newest first). */
+export function requestDetailDto(r: MockDealRequest): MyDealRequestDetail {
   return {
     ...requestDto(r),
     proposals: [...r.proposals]
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .map((p) => proposalDto(r, p)),
-    targetAgencies: r.targetAgencyIds
-      .map((id) => findAgency(id))
-      .filter((a): a is MockAgency => !!a)
-      .map(publicAgency),
   };
 }
 

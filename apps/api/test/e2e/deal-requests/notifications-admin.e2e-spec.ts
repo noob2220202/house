@@ -1,9 +1,15 @@
-import { AdminRole, DealRequestStatus, NotificationType } from '@house/shared';
+import {
+  AdminRole,
+  DealRequestStatus,
+  DealRequestVisibility,
+  NotificationType,
+} from '@house/shared';
 import {
   NOTIFICATION_DISPATCHER,
   type DispatchableNotification,
   type NotificationDispatcher,
 } from '../../../src/modules/deal-requests/notifications/notification-dispatcher';
+import { DealRequestMaintenanceService } from '../../../src/modules/deal-requests/services/deal-request-maintenance.service';
 import { createAdmin, loginAdmin, resetAll, withSession, type TestApp } from '../../utils';
 import {
   broker,
@@ -231,6 +237,157 @@ describe('deal-requests: notifications + admin moderation (e2e)', () => {
       expect((await t.prisma.dealRequest.findUniqueOrThrow({ where: { id: req.id } })).status).toBe(
         'OPEN',
       );
+    });
+
+    describe('POST /:id/spam-flag', () => {
+      const flag = (s: Parameters<typeof withSession>[1], id: string, body: unknown) =>
+        withSession(t.http().post(`/api/v1/admin/deal-requests/${id}/spam-flag`), s).send(
+          body as object,
+        );
+      const inbox = async (b: { s: Parameters<typeof withSession>[1] }, scope = 'ALL') =>
+        (
+          await withSession(
+            t.http().get(`/api/v1/agency/deal-requests?scope=${scope}`),
+            b.s,
+          ).expect(200)
+        ).body as unknown;
+
+      it('hides a flagged request from every agency path until cleared; audited', async () => {
+        const { user } = await requester(t);
+        const region = await broker(t);
+        const targeted = await broker(t);
+        const proposer = await broker(t);
+        const req = await dealRequest(t.prisma, user.id);
+        const sel = await dealRequest(t.prisma, user.id, {
+          visibility: DealRequestVisibility.SELECTED_AGENCIES,
+        });
+        await t.prisma.dealRequestTarget.create({
+          data: { dealRequestId: sel.id, agencyId: targeted.agency.id },
+        });
+        await proposal(t.prisma, req.id, proposer.agency.id);
+        // Before: visible.
+        expect(itemIds(await inbox(region))).toContain(req.id);
+        expect(itemIds(await inbox(targeted, 'TARGETED'))).toEqual([sel.id]);
+        expect(itemIds(await inbox(proposer, 'PROPOSED'))).toEqual([req.id]);
+
+        const admin = await createAdmin(t.prisma, { role: AdminRole.OPERATOR });
+        const s = await loginAdmin(t.app, { id: admin.id, role: AdminRole.OPERATOR });
+        const res = await flag(s, req.id, {
+          flagged: true,
+          reason: '  같은 연락처 반복 등록  ',
+        }).expect(200);
+        expect(res.body).toMatchObject({
+          id: req.id,
+          status: 'OPEN',
+          spamReason: '같은 연락처 반복 등록',
+          spamSignalCount: 0,
+          spamSignals: [],
+        });
+        expect(Date.parse(res.body.spamFlaggedAt as string)).not.toBeNaN();
+        await flag(s, sel.id, { flagged: true, reason: '광고성 요청' }).expect(200);
+        const row = await t.prisma.dealRequest.findUniqueOrThrow({ where: { id: req.id } });
+        expect(row.spamFlaggedBy).toBe(admin.id);
+        const audit = await t.prisma.auditLog.findFirstOrThrow({
+          where: { action: 'dealRequest.spamFlag', resourceId: req.id },
+        });
+        expect(audit).toMatchObject({ resourceType: 'DealRequest' });
+        expect(JSON.stringify(audit.before)).toContain('"spamFlaggedAt":null');
+        expect(JSON.stringify(audit.after)).toContain('"spamReason":"같은 연락처 반복 등록"');
+
+        // Hidden: inboxes (all scopes), detail, proposals, candidates, dashboard.
+        expect(itemIds(await inbox(region))).toEqual([]);
+        expect(itemIds(await inbox(targeted))).toEqual([]);
+        expect(itemIds(await inbox(targeted, 'TARGETED'))).toEqual([]);
+        expect(itemIds(await inbox(proposer, 'PROPOSED'))).toEqual([]);
+        await withSession(t.http().get(`/api/v1/agency/deal-requests/${req.id}`), region.s).expect(
+          404,
+        );
+        await withSession(
+          t.http().get(`/api/v1/agency/deal-requests/${req.id}/listing-candidates`),
+          region.s,
+        ).expect(404);
+        await withSession(
+          t.http().post(`/api/v1/agency/deal-requests/${req.id}/proposals`),
+          region.s,
+        )
+          .send({ message: '좋은 매물 있습니다. 연락 주세요.', listingIds: [] })
+          .expect((r) => expect([400, 404]).toContain(r.status));
+        const dash = await withSession(
+          t.http().get('/api/v1/agencies/mine/dashboard'),
+          region.s,
+        ).expect(200);
+        expect(JSON.stringify(dash.body)).not.toContain(req.id);
+        // A request flagged before its fan-out job ran notifies nobody.
+        expect(await t.app.get(DealRequestMaintenanceService).fanout(req.id)).toBe(0);
+
+        // Admin views: list filter + detail keep the flag.
+        const flagged = await withSession(
+          t.http().get('/api/v1/admin/deal-requests?spam=flagged'),
+          s,
+        ).expect(200);
+        expect(itemIds(flagged.body).sort()).toEqual([req.id, sel.id].sort());
+        const suspected = await withSession(
+          t.http().get('/api/v1/admin/deal-requests?spam=suspected'),
+          s,
+        ).expect(200);
+        expect(suspected.body.total).toBe(0);
+        const all = await withSession(t.http().get('/api/v1/admin/deal-requests'), s).expect(200);
+        expect(all.body.total).toBe(2);
+        const detail = await withSession(
+          t.http().get(`/api/v1/admin/deal-requests/${req.id}`),
+          s,
+        ).expect(200);
+        expect(detail.body).toMatchObject({ spamReason: '같은 연락처 반복 등록', spamSignals: [] });
+
+        // Re-flagging keeps the original time and replaces the reason.
+        const again = await flag(s, req.id, { flagged: true, reason: '반복 등록 확인됨' }).expect(
+          200,
+        );
+        expect(again.body.spamFlaggedAt).toBe(res.body.spamFlaggedAt);
+        expect(again.body.spamReason).toBe('반복 등록 확인됨');
+
+        // Clearing (reason optional) makes it visible again.
+        const cleared = await flag(s, req.id, { flagged: false }).expect(200);
+        expect(cleared.body).toMatchObject({ spamFlaggedAt: null, spamReason: null });
+        expect(
+          (await t.prisma.dealRequest.findUniqueOrThrow({ where: { id: req.id } })).spamFlaggedBy,
+        ).toBeNull();
+        expect(itemIds(await inbox(region))).toContain(req.id);
+        expect(itemIds(await inbox(proposer, 'PROPOSED'))).toEqual([req.id]);
+        expect(
+          await t.prisma.auditLog.count({
+            where: { action: 'dealRequest.spamFlag', resourceId: req.id },
+          }),
+        ).toBe(3);
+        // The requester is not notified of moderation flags.
+        expect(await t.prisma.notification.count({ where: { userId: user.id } })).toBe(0);
+      });
+
+      it('400 for a short / missing reason when flagging or a non-boolean flag; 404; 401', async () => {
+        const { user, s: userSession } = await requester(t);
+        const req = await dealRequest(t.prisma, user.id);
+        const s = await adminSession();
+        const short = await flag(s, req.id, { flagged: true, reason: ' 스팸 ' }).expect(400);
+        expect(short.body.code).toBe('VALIDATION_FAILED');
+        expect(JSON.stringify(short.body)).toContain('사유를 5자 이상 입력해 주세요.');
+        await flag(s, req.id, { flagged: true }).expect(400);
+        await flag(s, req.id, { flagged: 'yes', reason: '광고성 요청입니다' }).expect(400);
+        await flag(s, req.id, {}).expect(400);
+        await flag(s, req.id, { flagged: true, reason: '가'.repeat(501) }).expect(400);
+        const missing = await flag(s, '0190a0b0-0000-7000-8000-00000000dead', {
+          flagged: true,
+          reason: '광고성 요청입니다',
+        }).expect(404);
+        expect(missing.body.code).toBe('DEAL_REQUEST_NOT_FOUND');
+        await flag(userSession, req.id, { flagged: true, reason: '광고성 요청입니다' }).expect(401);
+        await flag(await adminSession({ mfaVerified: false }), req.id, {
+          flagged: true,
+          reason: '광고성 요청입니다',
+        }).expect(401);
+        expect(
+          (await t.prisma.dealRequest.findUniqueOrThrow({ where: { id: req.id } })).spamFlaggedAt,
+        ).toBeNull();
+      });
     });
   });
 });

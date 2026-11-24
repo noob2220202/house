@@ -1,10 +1,15 @@
-import { popularComplexesQuerySchema, type AssetType } from '@house/shared';
+import {
+  DEFAULT_SGG_CODE,
+  popularComplexesQuerySchema,
+  type PopularComplexItem,
+} from '@house/shared';
 import type { NextRequest } from 'next/server';
-import { mockCsv, mockDelay, mockError, mockGuard, mockJson } from '@/lib/mock';
+import { mockDelay, mockError, mockGuard, mockJson } from '@/lib/mock';
 import { POPULAR_COMPLEXES } from './_ranking';
 
-// GET /api/v1/complexes/popular?limit[&assetTypes] — public "자주 찾는 단지" ranking by weekly views
-// (complexes module). `assetTypes` (CSV) is an ASSUMED extra filter — see w-home.md.
+// GET /api/v1/complexes/popular?limit&emdCode — public "자주 찾는 단지" ranking (complexes module,
+// `popularComplexesQuerySchema`) → bare `PopularComplexItem[]`. The backend has no asset-type
+// filter (the ranking is apartments); `assetTypes` is ignored like the backend does.
 export async function GET(req: NextRequest) {
   const off = mockGuard();
   if (off) return off;
@@ -19,9 +24,35 @@ export async function GET(req: NextRequest) {
       parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
     );
   }
-  const assetTypes = mockCsv(sp, 'assetTypes') as AssetType[];
-  const items = POPULAR_COMPLEXES.filter(
-    (c) => assetTypes.length === 0 || assetTypes.includes(c.assetType),
-  ).slice(0, parsed.data.limit);
-  return mockJson({ items, updatedAt: '2026-11-23T06:00:00+09:00' });
+  const items: PopularComplexItem[] = POPULAR_COMPLEXES.slice(0, parsed.data.limit).map((c) => ({
+    id: c.id,
+    name: c.name,
+    assetType: c.assetType,
+    roadAddress: null,
+    jibunAddress: null,
+    sggCode: DEFAULT_SGG_CODE,
+    emdCode: null,
+    emdName: c.emdName,
+    lat: c.lat,
+    lng: c.lng,
+    households: c.households,
+    buildings: null,
+    builtYear: c.builtYear,
+    approvalDate: null,
+    activeListingCount: c.activeListingCount,
+    favoriteCount: 0,
+    viewCount: c.weeklyViewCount,
+    rank: c.rank,
+    score: c.weeklyViewCount,
+    listingCounts: {
+      total: c.activeListingCount,
+      byDealType: {
+        PRESALE: c.dealCounts.presale,
+        SALE: c.dealCounts.sale,
+        JEONSE: c.dealCounts.jeonse,
+        MONTHLY: c.dealCounts.monthly,
+      },
+    },
+  }));
+  return mockJson(items);
 }

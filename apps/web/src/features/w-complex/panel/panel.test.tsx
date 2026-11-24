@@ -1,4 +1,5 @@
-import { render, screen, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { bannerSchema, complexListingItemSchema, type ComplexListingSummary } from '../api/schemas';
@@ -41,12 +42,17 @@ const listing = complexListingItemSchema.parse({
   ],
 });
 
-function Row({ item = listing }: { item?: typeof listing }) {
+function Row({ item = listing, client }: { item?: typeof listing; client?: QueryClient }) {
   const [open, setOpen] = useState(false);
+  const [qc] = useState(
+    () => client ?? new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  );
   return (
-    <ul>
-      <ListingRow listing={item} unit="pyeong" open={open} onToggle={() => setOpen((o) => !o)} />
-    </ul>
+    <QueryClientProvider client={qc}>
+      <ul>
+        <ListingRow listing={item} unit="pyeong" open={open} onToggle={() => setOpen((o) => !o)} />
+      </ul>
+    </QueryClientProvider>
   );
 }
 
@@ -111,6 +117,78 @@ describe('ListingRow', () => {
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('region')).not.toBeInTheDocument();
     expect(toggle).toHaveFocus();
+  });
+});
+
+describe('ListingRow (backend list row)', () => {
+  /** `GET /listings?complexId=` row: nested complex, floorLabel, primaryAgency, no agencies[]. */
+  const wire = complexListingItemSchema.parse({
+    id: 'L09',
+    dealType: 'SALE',
+    assetType: 'APT',
+    status: 'ACTIVE',
+    salePrice: 44500,
+    dong: '101동',
+    floorLabel: '고/25',
+    floorClass: 'HIGH',
+    exclusiveArea: 84.98,
+    supplyArea: 112.4,
+    complex: { id: 'C01', name: '신대 레이크파크' },
+    coverPhoto: null,
+    primaryAgency: { id: 'b01', name: '신대중앙 공인중개사사무소' },
+    agencyCount: 1,
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('parses the wire row (floor from floorLabel, complex name)', () => {
+    expect(wire).toMatchObject({ complexId: 'C01', complexName: '신대 레이크파크', totalFloors: 25 });
+    expect(wire.agencies).toEqual([]);
+  });
+
+  it('loads the offices of the listing when the row opens', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            id: 'L09',
+            dealType: 'SALE',
+            assetType: 'APT',
+            status: 'ACTIVE',
+            lat: 34.93,
+            lng: 127.55,
+            photos: [],
+            property: { roadAddress: '순천시 해룡면 신대리 1' },
+            agencies: [
+              {
+                agencyId: 'b01',
+                isPrimary: true,
+                name: '신대중앙 공인중개사사무소',
+                roadAddress: '순천시 해룡면 신대1로 1',
+                addressDetail: null,
+                phone: '0610000000',
+                registrationNumber: '46150-2020-00001',
+                representativeName: '김서진',
+                contactName: null,
+                contactPhone: null,
+                logoUrl: null,
+              },
+            ],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    render(<Row item={wire} />);
+    await user.click(screen.getByRole('button', { name: /중개사무소 1곳/ }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('link', { name: /신대중앙 공인중개사사무소에 전화 문의/ }),
+      ).toHaveAttribute('href', 'tel:0610000000'),
+    );
+    expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toContain('/listings/L09');
   });
 });
 

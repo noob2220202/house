@@ -15,6 +15,10 @@
 .bodyComplex {
   grid-template-columns: 400px minmax(0, 1fr);
 }
+/* An open 단지 panel takes the Complex board's 520px so the name, 용적률 and filter chips fit. */
+.bodyComplex.bodyComplexOpen {
+  grid-template-columns: min(520px, 40vw) minmax(0, 1fr);
+}
 .bodyListing {
   grid-template-columns: 560px minmax(0, 1fr);
 }
@@ -158,6 +162,9 @@
   }
   .bodyComplex {
     grid-template-columns: minmax(320px, 38%) minmax(0, 1fr);
+  }
+  .bodyComplex.bodyComplexOpen {
+    grid-template-columns: minmax(380px, 46%) minmax(0, 1fr);
   }
 }
 

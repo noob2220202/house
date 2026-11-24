@@ -4,10 +4,10 @@ import { agencySummarySchema, type AgencySummary } from '@/features/w-agencies/a
 import { complexDetailSchema, type ComplexDetail } from '@/features/w-complex/api/schemas';
 
 /**
- * Response schemas of the w-content page group. Paths mirror apps/api/src/modules/{admin,auth}/README.md;
- * the controllers do not exist yet, so the payload SHAPES are assumptions (see
- * docs/frontend-integration/w-content.md). Schemas are lenient on purpose: unknown keys are ignored
- * and display-only extras are optional, so a slimmer backend payload still renders.
+ * Response schemas of the w-content page group: notices, FAQs, videos (admin module public
+ * content), terms (auth module), policies and search suggestions (home module). Lenient on
+ * purpose: unknown keys are ignored and display-only extras (notice neighbours, video stats) are
+ * optional, so the backend payload renders as is. See docs/frontend-integration/w-content.md.
  */
 
 /** A list endpoint may answer with the pagination envelope, `{ items }`, or a bare array — normalise to the envelope. */

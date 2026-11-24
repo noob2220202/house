@@ -12,7 +12,9 @@ export interface ListingNotice {
 /**
  * In-app notices to an agency's owner(s), written to the shared `notifications` table (read via
  * /me/notifications; no external delivery). A direct write: the notifications writer lives in the
- * deal-requests module, which depends on listings through agencies.
+ * deal-requests module, which depends on listings through agencies. Like every agency notice
+ * (deal-requests NotificationsService.createForMembers) each row carries `data.agencyId` — the
+ * office the recipient owns — so the console and the my-page can scope it (B5).
  */
 export interface ListingNotifierPort {
   notifyAgencyOwners(
@@ -39,17 +41,20 @@ export class PrismaListingNotifier implements ListingNotifierPort {
         role: AgencyMemberRole.OWNER,
         status: AgencyMemberStatus.ACTIVE,
       },
-      select: { userId: true },
+      select: { userId: true, agencyId: true },
+      orderBy: { createdAt: 'asc' },
     });
-    const userIds = [...new Set(owners.map((o) => o.userId))];
-    if (userIds.length === 0) return;
+    // One row per user (first agency wins), as createForMembers does.
+    const agencyOf = new Map<string, string>();
+    for (const o of owners) if (!agencyOf.has(o.userId)) agencyOf.set(o.userId, o.agencyId);
+    if (agencyOf.size === 0) return;
     await db.notification.createMany({
-      data: userIds.map((userId) => ({
+      data: [...agencyOf].map(([userId, agencyId]) => ({
         userId,
         type: notice.type,
         title: notice.title,
         body: notice.body,
-        data: { listingId: notice.listingId },
+        data: { listingId: notice.listingId, agencyId },
       })),
     });
   }

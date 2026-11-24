@@ -23,9 +23,6 @@ export interface GeocodeItemView extends GeocodeHit {
   emdCode: string | null;
 }
 
-export const GEOCODE_UNAVAILABLE_MESSAGE =
-  '지금은 주소 검색을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.';
-
 /** 시군구 name the query is anchored to when the visitor did not type it ("순천시"). */
 const SERVICE_CITY = '순천시';
 
@@ -46,9 +43,7 @@ export class GeocodeService {
 
   async search(query: string): Promise<{ items: GeocodeItemView[] }> {
     if (!this.geocoder.isConfigured()) {
-      throw new AppException(ErrorCode.SERVICE_UNAVAILABLE, {
-        message: GEOCODE_UNAVAILABLE_MESSAGE,
-      });
+      throw new AppException(ErrorCode.GEOCODE_UNAVAILABLE);
     }
     const sgg = this.config.get('REGION_SGG_CODE');
     const anchored = this.anchor(query, sgg);
@@ -65,9 +60,7 @@ export class GeocodeService {
     } catch (err) {
       if (!(err instanceof GeocoderUnavailableError)) throw err;
       this.logger.warn({ err: err.message }, 'geocoding failed');
-      throw new AppException(ErrorCode.SERVICE_UNAVAILABLE, {
-        message: GEOCODE_UNAVAILABLE_MESSAGE,
-      });
+      throw new AppException(ErrorCode.GEOCODE_UNAVAILABLE);
     }
     const coded = await Promise.all(
       hits.slice(0, GEOCODE_MAX_RESULTS).map(async (h): Promise<GeocodeItemView> => {

@@ -14,18 +14,18 @@ complexes (`RegionsService`, `ComplexSearchService`, `ComplexPopularityService`)
 
 All paths are under `/api/v1`.
 
-| Method             | Path                                                                  | Auth                 | Notes                                                                             |
-| ------------------ | --------------------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------- |
-| GET                | `/home/summary`                                                       | Public               | counters + 지역 현황; Redis 2 min                                                 |
-| GET                | `/home/popular-regions?assetTypes&limit`                              | Public               | 지역 ranking by this week's listing views; Redis 2 min                            |
-| GET                | `/search/suggest?q&limit`                                             | Public               | 지역 → 단지 → 중개사무소; `popular` keywords; Redis 1 min                         |
-| GET                | `/geo/geocode?query`                                                  | User (30/min)        | Naver geocoding proxy, service region only; 503 without keys; Redis 24 h          |
-| GET                | `/policies/:slug`                                                     | Public               | version in force; 404 `NOT_FOUND` "정책 문서를 찾을 수 없습니다." until published |
-| GET · POST         | `/admin/policies?slug&page` · `/admin/policies`                       | Admin `TERMS_MANAGE` | versions (drafts editable, published immutable); audited                          |
-| GET · PATCH/DELETE | `/admin/policies/:id`                                                 | Admin `TERMS_MANAGE` | PATCH / DELETE drafts only (409 once published)                                   |
-| POST               | `/admin/policies/:id/publish`                                         | Admin `TERMS_MANAGE` | idempotent; bumps the public cache                                                |
-| GET · PUT/DELETE   | `/me/favorites/agencies?page&pageSize` · `/me/favorites/agencies/:id` | User                 | PUT/DELETE idempotent → 204; 404 `AGENCY_NOT_FOUND` for non-approved offices      |
-| GET · PUT          | `/me/interest-regions`                                                | User                 | `{ regionKeys, notify }`                                                          |
+| Method             | Path                                                                  | Auth                 | Notes                                                                                    |
+| ------------------ | --------------------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------- |
+| GET                | `/home/summary`                                                       | Public               | counters + 지역 현황; Redis 2 min                                                        |
+| GET                | `/home/popular-regions?assetTypes&limit`                              | Public               | 지역 ranking by this week's listing views; Redis 2 min                                   |
+| GET                | `/search/suggest?q&limit`                                             | Public               | 지역 → 단지 → 중개사무소; `popular` keywords; Redis 1 min                                |
+| GET                | `/geo/geocode?query`                                                  | User (30/min)        | Naver geocoding proxy, service region only; 503 `GEOCODE_UNAVAILABLE`; Redis 24 h        |
+| GET                | `/policies/:slug`                                                     | Public               | version in force; 404 `POLICY_NOT_FOUND` "정책 문서를 찾을 수 없습니다." until published |
+| GET · POST         | `/admin/policies?slug&page` · `/admin/policies`                       | Admin `TERMS_MANAGE` | versions (drafts editable, published immutable); audited                                 |
+| GET · PATCH/DELETE | `/admin/policies/:id`                                                 | Admin `TERMS_MANAGE` | PATCH / DELETE drafts only (409 once published)                                          |
+| POST               | `/admin/policies/:id/publish`                                         | Admin `TERMS_MANAGE` | idempotent; bumps the public cache                                                       |
+| GET · PUT/DELETE   | `/me/favorites/agencies?page&pageSize` · `/me/favorites/agencies/:id` | User                 | PUT/DELETE idempotent → 204; 404 `AGENCY_NOT_FOUND` for non-approved offices             |
+| GET · PUT          | `/me/interest-regions`                                                | User                 | `{ regionKeys, notify }`                                                                 |
 
 ### Shapes
 
@@ -60,7 +60,7 @@ emdCode }] }` (≤ 10). `query`: control characters stripped, whitespace collaps
   goes through `canonicalRegionCode` (46150… → 12150…); hits outside `REGION_SGG_CODE` are dropped
   (without a code: kept only when the address says 순천시). `emdCode` is an extra field the web schema
   ignores today — the agency application can send it as `emdCode`. Without
-  `NAVER_MAP_CLIENT_ID`/`NAVER_MAP_CLIENT_SECRET`, or when Naver fails, 503 `SERVICE_UNAVAILABLE`
+  `NAVER_MAP_CLIENT_ID`/`NAVER_MAP_CLIENT_SECRET`, or when Naver fails, 503 `GEOCODE_UNAVAILABLE`
   "지금은 주소 검색을 사용할 수 없습니다. …".
 - `GET /policies/:slug` → `{ slug, title, version, effectiveAt, content }` — the latest published
   version whose `effectiveAt` has passed (`policy_documents`). Content is plain text with light

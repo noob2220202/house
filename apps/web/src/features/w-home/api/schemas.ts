@@ -4,11 +4,11 @@ import { servedBannerSchema, type ServedBanner } from '@/lib/ads/schemas';
 import { listingSummarySchema } from '@/lib/api/schemas/listing';
 
 /**
- * Response schemas of the endpoints the home page reads.
- * The backend controllers are not implemented yet (module READMEs + Prisma models only), so the
- * shapes are ASSUMPTIONS — see docs/frontend-integration/w-home.md. They are deliberately lenient
- * (optional / nullable extras, defaults) so a missing field never blanks the home page. Fix the
- * schema and the mock fixture together.
+ * Response schemas of the endpoints the home page reads. Banners, popups, popular complexes,
+ * listings, videos, agencies and site settings follow the real controllers (mapped where the
+ * names differ); `/home/summary` and `/home/popular-regions` are the frontend's contract the
+ * backend implements (docs/frontend-integration/w-home.md). Deliberately lenient (optional /
+ * nullable extras, defaults) so a missing field never blanks the home page.
  */
 
 const nullish = <T extends z.ZodType>(schema: T) => schema.nullable().optional();
@@ -115,8 +115,24 @@ export const popularRegionListSchema = listOf(popularRegionSchema);
 
 // ---- complexes ----------------------------------------------------------------------------------
 
-/** `GET /complexes/popular?limit` item ("사람들이 자주 찾는 단지"). */
-export const popularComplexSchema = z.object({
+/**
+ * Backend `PopularComplexItem` (ComplexSummary + rank, score, listingCounts { total, byDealType })
+ * → `dealCounts`. The backend has no rank movement or price columns; those cells stay empty.
+ */
+function popularFromWire(v: unknown): unknown {
+  if (typeof v !== 'object' || v === null) return v;
+  const raw = v as Record<string, unknown>;
+  const lc = raw.listingCounts as { byDealType?: Record<string, unknown> } | undefined;
+  if (raw.dealCounts !== undefined || !lc || typeof lc !== 'object') return v;
+  const by = lc.byDealType ?? {};
+  const n = (k: string) => (typeof by[k] === 'number' ? by[k] : 0);
+  return {
+    ...raw,
+    dealCounts: { presale: n('PRESALE'), sale: n('SALE'), jeonse: n('JEONSE'), monthly: n('MONTHLY') },
+  };
+}
+
+const popularComplexObjectSchema = z.object({
   id: z.string(),
   name: z.string(),
   assetType: z.enum(AssetType).optional(),
@@ -145,7 +161,9 @@ export const popularComplexSchema = z.object({
     }),
   ),
 });
-export type PopularComplex = z.infer<typeof popularComplexSchema>;
+/** `GET /complexes/popular?limit` item ("사람들이 자주 찾는 단지"). */
+export const popularComplexSchema = z.preprocess(popularFromWire, popularComplexObjectSchema);
+export type PopularComplex = z.infer<typeof popularComplexObjectSchema>;
 export const popularComplexListSchema = listOf(popularComplexSchema);
 
 // ---- listings -----------------------------------------------------------------------------------
@@ -235,9 +253,14 @@ export const suggestResponseSchema = z.object({
 
 // ---- app band (site settings) --------------------------------------------------------------------
 
-/** Extra keys of `GET /site-settings/public` read by the home page (both optional). */
+/**
+ * Keys of `GET /site-settings/public` read by the home page (D9): HOME_LAYOUT (section order +
+ * visibility, validated by `resolveHomeLayout`) and APP_LINKS (store links of the app band).
+ */
 export const appSettingsSchema = z.object({
-  FEATURES: z.record(z.string(), z.boolean()).optional(),
-  /** ASSUMED key: store links for the app band. */
-  APP_LINKS: z.object({ iosUrl: nullish(z.string()), androidUrl: nullish(z.string()) }).optional(),
+  HOME_LAYOUT: z.unknown().optional(),
+  APP_LINKS: z
+    .object({ iosUrl: nullish(z.string()), androidUrl: nullish(z.string()) })
+    .nullish()
+    .catch(null),
 });

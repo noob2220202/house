@@ -98,6 +98,8 @@ export const dealRequestAdminSelect = {
   contactPhone: true,
   closeReason: true,
   contactScrubbedAt: true,
+  spamFlaggedAt: true,
+  spamReason: true,
   deletedAt: true,
   targets: { select: { agencyId: true }, orderBy: { createdAt: 'asc' } },
 } satisfies Prisma.DealRequestSelect;

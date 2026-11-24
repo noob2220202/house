@@ -17,11 +17,13 @@ export interface AgencyScope {
  *  - any request it already proposed to (so it can follow up), unless the requester withdrew, and
  *  - OPEN, unexpired requests of active members that are either region-wide in its 시군구 or
  *    explicitly target it.
- * Deleted requests are never visible.
+ * Deleted requests and requests an admin flagged as spam are never visible (not even to an agency
+ * that already proposed), so they leave every inbox, scope (incl. TARGETED), detail and proposal path.
  */
 export function agencyVisibleWhere(scope: AgencyScope, now: Date): Prisma.DealRequestWhereInput {
   return {
     deletedAt: null,
+    spamFlaggedAt: null,
     OR: [
       {
         proposals: { some: { agencyId: scope.agencyId } },

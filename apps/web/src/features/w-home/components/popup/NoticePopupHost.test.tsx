@@ -68,7 +68,9 @@ describe('NoticePopupHost', () => {
     expect(fetchPopups).toHaveBeenCalledWith('MAIN', expect.anything());
     expect(dialog).toHaveTextContent('1 / 2');
     expect(screen.getByRole('button', { name: '일주일 동안 보지 않기' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '닫기' })).toHaveFocus();
+    // Non-blocking card: the page keeps focus (the hero search stays usable).
+    expect(dialog).toHaveAttribute('aria-modal', 'false');
+    expect(screen.getByRole('button', { name: '닫기' })).not.toHaveFocus();
   });
 
   it('"N일 동안 보지 않기" is stored per popup id + version and reveals the next popup', async () => {

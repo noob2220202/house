@@ -22,7 +22,9 @@ Registered in `AppModule`. Read `docs/CONVENTIONS.md` first.
 - Visibility: `ALL_AGENCIES_IN_REGION` (APPROVED agencies with the same 시군구) or `SELECTED_AGENCIES`
   (`DealRequestTarget`, approved agencies only). An agency also keeps seeing requests it proposed to,
   unless the requester withdrew. New/region/targeted requests of non-ACTIVE members, expired or deleted
-  ones are never in an inbox (`services/deal-request-access.ts`).
+  ones are never in an inbox (`services/deal-request-access.ts`). A request an admin flagged as spam
+  (`spamFlaggedAt`) is hidden from every agency — inbox (all scopes), detail, candidates, proposals,
+  dashboard and the new-request fan-out — even from offices that already proposed, until the flag is cleared.
 - Privacy: agency/admin selects never load contact or 동·호 (`deal-request.selects.ts`). Contact is loaded in a
   separate query only for an agency with an active `DealRequestContactGrant` while the request is
   OPEN/MATCHED/CLOSED **and the requester is ACTIVE** (a suspended/withdrawn requester's contact is never
@@ -54,26 +56,27 @@ Registered in `AppModule`. Read `docs/CONVENTIONS.md` first.
 
 ## Endpoints (prefix `/api/v1`)
 
-| Method | Path                                                                                 | Auth                                       |
-| ------ | ------------------------------------------------------------------------------------ | ------------------------------------------ |
-| POST   | `/deal-requests`                                                                     | User                                       |
-| GET    | `/me/deal-requests` · `/me/deal-requests/:id`                                        | User (owner, else 404)                     |
-| POST   | `/me/deal-requests/:id/cancel` · `/close` · `/extend`                                | User (owner)                               |
-| POST   | `/me/deal-requests/:id/contact-grants` `{agencyId}`                                  | User (owner)                               |
-| DELETE | `/me/deal-requests/:id/contact-grants/:agencyId`                                     | User (owner)                               |
-| POST   | `/me/proposals/:id/accept` `{shareContact}` · `/decline`                             | User (request owner)                       |
-| GET    | `/deal-requests/target-agencies?q&emdCode&regionCodes&page&pageSize` ¹               | Public                                     |
-| GET    | `/deal-requests/address-match?roadAddress&buildingName&bcode` ²                      | Public                                     |
-| GET    | `/agencies/mine/dashboard` ³                                                         | AGENT / AGENCY_OWNER of an APPROVED agency |
-| GET    | `/agency/deal-requests?scope&type&assetType&dealType` · `/:id`                       | AGENT / AGENCY_OWNER of an APPROVED agency |
-| GET    | `/agency/deal-requests/:id/listing-candidates?q&page&pageSize` ⁴                     | AGENT / AGENCY_OWNER                       |
-| POST   | `/agency/deal-requests/:id/proposals`                                                | AGENT / AGENCY_OWNER                       |
-| GET    | `/agency/proposals?status` · POST `/agency/proposals/:id/withdraw`                   | AGENT / AGENCY_OWNER                       |
-| GET    | `/me/notifications?cursor&limit&unreadOnly&scope` → `{items,nextCursor,unreadCount}` | User                                       |
-| GET    | `/me/notifications/unread-count?scope` → `{unread}`                                  | User                                       |
-| POST   | `/me/notifications/read?scope` `{ids}` or `{all:true}`                               | User                                       |
-| GET    | `/admin/deal-requests` · `/admin/deal-requests/:id`                                  | Admin (TOTP)                               |
-| POST   | `/admin/deal-requests/:id/close` `{reason}` (audited)                                | Admin (TOTP)                               |
+| Method | Path                                                                                                                 | Auth                                       |
+| ------ | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| POST   | `/deal-requests`                                                                                                     | User                                       |
+| GET    | `/me/deal-requests` · `/me/deal-requests/:id`                                                                        | User (owner, else 404)                     |
+| POST   | `/me/deal-requests/:id/cancel` · `/close` · `/extend`                                                                | User (owner)                               |
+| POST   | `/me/deal-requests/:id/contact-grants` `{agencyId}`                                                                  | User (owner)                               |
+| DELETE | `/me/deal-requests/:id/contact-grants/:agencyId`                                                                     | User (owner)                               |
+| POST   | `/me/proposals/:id/accept` `{shareContact}` · `/decline`                                                             | User (request owner)                       |
+| GET    | `/deal-requests/target-agencies?q&emdCode&regionCodes&page&pageSize` ¹                                               | Public                                     |
+| GET    | `/deal-requests/address-match?roadAddress&buildingName&bcode` ²                                                      | Public                                     |
+| GET    | `/agencies/mine/dashboard` ³                                                                                         | AGENT / AGENCY_OWNER of an APPROVED agency |
+| GET    | `/agency/deal-requests?scope&type&assetType&dealType` · `/:id`                                                       | AGENT / AGENCY_OWNER of an APPROVED agency |
+| GET    | `/agency/deal-requests/:id/listing-candidates?q&page&pageSize` ⁴                                                     | AGENT / AGENCY_OWNER                       |
+| POST   | `/agency/deal-requests/:id/proposals`                                                                                | AGENT / AGENCY_OWNER                       |
+| GET    | `/agency/proposals?status` · POST `/agency/proposals/:id/withdraw`                                                   | AGENT / AGENCY_OWNER                       |
+| GET    | `/me/notifications?cursor&limit&unreadOnly&scope` → `{items,nextCursor,unreadCount}`                                 | User                                       |
+| GET    | `/me/notifications/unread-count?scope` → `{unread}`                                                                  | User                                       |
+| POST   | `/me/notifications/read?scope` `{ids}` or `{all:true}`                                                               | User                                       |
+| GET    | `/admin/deal-requests?…&spam=flagged\|suspected` · `/admin/deal-requests/:id`                                        | Admin (TOTP)                               |
+| POST   | `/admin/deal-requests/:id/close` `{reason}` (audited)                                                                | Admin (TOTP)                               |
+| POST   | `/admin/deal-requests/:id/spam-flag` `{flagged, reason?}` (reason ≥ 5 when flagging; audited `dealRequest.spamFlag`) | Admin (TOTP)                               |
 
 ¹ Offices a request reaches and the "선택한 중개사" picker: every APPROVED office of `REGION_SGG_CODE`
 (the `ALL_AGENCIES_IN_REGION` rule — `total` is the reach count); offices whose 읍면동 is one of the

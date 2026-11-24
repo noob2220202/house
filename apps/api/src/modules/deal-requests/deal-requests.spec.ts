@@ -134,6 +134,8 @@ describe('DealRequestMapper', () => {
       contactPhone: '01012345678',
       closeReason: null,
       contactScrubbedAt: null,
+      spamFlaggedAt: null,
+      spamReason: null,
       deletedAt: null,
       targets: [],
     };
@@ -141,6 +143,14 @@ describe('DealRequestMapper', () => {
     expect(v.contactNameMasked).toBe('홍*동');
     expect(v.contactPhoneMasked).toBe('010-****-5678');
     expect(JSON.stringify(v)).not.toContain('01012345678');
+    expect(v).toMatchObject({
+      spamFlaggedAt: null,
+      spamReason: null,
+      spamSignalCount: 0,
+      spamSignals: [],
+    });
+    const flagged = mapper.admin({ ...row, spamFlaggedAt: NOW, spamReason: '광고성 요청' });
+    expect(flagged).toMatchObject({ spamFlaggedAt: NOW.toISOString(), spamReason: '광고성 요청' });
   });
 });
 
@@ -179,9 +189,10 @@ describe('maskName', () => {
 describe('agency visibility', () => {
   const scope = { agencyId: AGENCY, sggCode: '12150' };
 
-  it('covers proposed requests and open region/targeted requests, never deleted ones', () => {
+  it('covers proposed requests and open region/targeted requests, never deleted or spam-flagged ones', () => {
     const w = agencyVisibleWhere(scope, NOW);
     expect(w.deletedAt).toBeNull();
+    expect(w.spamFlaggedAt).toBeNull();
     expect(w.OR).toHaveLength(2);
     expect(JSON.stringify(w)).toContain('"sggCode":"12150"');
     expect(JSON.stringify(w)).toContain(`"targets":{"some":{"agencyId":"${AGENCY}"}}`);

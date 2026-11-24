@@ -1,4 +1,12 @@
-import { pyeongToSqm, type AssetType, type DealType, type Direction } from '@house/shared';
+import {
+  AgencyMemberRole,
+  pyeongToSqm,
+  toAgencyDisclosure,
+  type AgencyProfile,
+  type AssetType,
+  type DealType,
+  type Direction,
+} from '@house/shared';
 import { mockUuid } from '@/lib/mock';
 import { toListingSummary, type MockSummarySource } from '../listings/_summary';
 import type {
@@ -359,3 +367,69 @@ export const AGENCY_REGIONS: readonly AgencyRegion[] = (Object.keys(EMD) as EmdK
     ...EMD[key].center,
   }))
   .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ko'));
+
+/**
+ * `GET /agencies/:id` wire shape (`AgencyProfile`): listing counts keyed by deal / asset type,
+ * 대표 매물 as `AgencyListingCard`, the 표시·광고 disclosure block. Mock-only display extras
+ * (tagline, 전문 단지, 30일 통계, cover) are left out like the backend does.
+ */
+export function toAgencyProfileWire(d: AgencyDetail): AgencyProfile {
+  const c = d.listingCounts;
+  const byDealType: AgencyProfile['listingCounts']['byDealType'] = {};
+  if (c.presale) byDealType.PRESALE = c.presale;
+  if (c.sale) byDealType.SALE = c.sale;
+  if (c.jeonse) byDealType.JEONSE = c.jeonse;
+  if (c.monthly) byDealType.MONTHLY = c.monthly;
+  return {
+    id: d.id,
+    name: d.name,
+    representativeName: d.representativeName,
+    registrationNumber: d.registrationNumber,
+    phone: d.phone,
+    roadAddress: d.roadAddress,
+    addressDetail: d.addressDetail ?? null,
+    emdCode: d.emdCode ?? null,
+    lat: d.lat,
+    lng: d.lng,
+    specialties: d.specialties,
+    logoUrl: d.logoUrl ?? null,
+    activeListingCount: d.activeListingCount,
+    mobile: d.mobile ?? null,
+    email: null,
+    jibunAddress: d.jibunAddress ?? null,
+    intro: d.intro ?? null,
+    businessHours: d.businessHours ?? null,
+    approvedAt: d.approvedAt ?? null,
+    warningCount: 0,
+    members: d.members.map((m, i) => ({
+      id: mockUuid(`${d.id}-M${i}`),
+      displayName: m.displayName,
+      title: m.title ?? null,
+      role: m.role ?? AgencyMemberRole.AGENT,
+      isLicensed: m.isLicensed,
+    })),
+    listingCounts: {
+      total: c.presale + c.sale + c.jeonse + c.monthly,
+      byAssetType: d.listingCountsByAsset,
+      byDealType,
+    },
+    representativeListings: d.featuredListings.map((l) => ({
+      id: l.id,
+      assetType: l.assetType,
+      dealType: l.dealType,
+      title: l.title ?? null,
+      complexName: l.complexName ?? null,
+      salePrice: l.salePrice ?? null,
+      deposit: l.deposit ?? null,
+      monthlyRent: l.monthlyRent ?? null,
+      presalePrice: l.presalePrice ?? null,
+      premium: l.premium ?? null,
+      exclusiveArea: l.exclusiveArea ?? null,
+      rooms: l.rooms ?? null,
+      thumbnailUrl: l.coverPhotoUrl ?? null,
+      verifiedAt: l.verifiedAt ?? null,
+      publishedAt: l.publishedAt ?? null,
+    })),
+    disclosure: toAgencyDisclosure({ ...d, addressDetail: d.addressDetail ?? null }),
+  };
+}

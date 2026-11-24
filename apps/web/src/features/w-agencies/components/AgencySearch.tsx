@@ -26,7 +26,6 @@ import {
   type MapViewChange,
   type MapViewState,
 } from '@/lib/map';
-import { AGENCY_API_EXTRAS } from '../api/capabilities';
 import {
   AGENCY_LIST_PAGE_SIZE,
   AGENCY_MAP_PAGE_SIZE,
@@ -408,8 +407,7 @@ export function AgencySearch({
           </>
         )}
       </p>
-      {AGENCY_API_EXTRAS && (
-        <Popover
+      <Popover
           placement="bottom-end"
           label="정렬"
           flush
@@ -440,7 +438,6 @@ export function AgencySearch({
             </div>
           )}
         </Popover>
-      )}
     </div>
   );
 

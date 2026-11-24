@@ -56,7 +56,13 @@ describe('co-brokerage (e2e)', () => {
         'ACTIVE',
         'PENDING',
       ]);
-      expect(await t.prisma.notification.count({ where: { userId: a.owner.id } })).toBe(1);
+      const notes = await t.prisma.notification.findMany({ where: { userId: a.owner.id } });
+      expect(notes).toHaveLength(1);
+      // Addressed to the primary's owner and scoped to the primary office (B5).
+      expect(notes[0]).toMatchObject({
+        type: 'CO_BROKER_REQUESTED',
+        data: { listingId: id, agencyId: a.agency.id },
+      });
 
       const dup = await withSession(t.http().post(`${BASE}/${id}/co-brokers`), b.ownerSession)
         .send({})

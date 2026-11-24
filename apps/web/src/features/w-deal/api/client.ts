@@ -90,8 +90,9 @@ export const dealApi = {
   revokeContact: (id: string, agencyId: string) =>
     api.delete(`/me/deal-requests/${id}/contact-grants/${agencyId}`),
 
-  acceptProposal: (proposalId: string) =>
-    api.post(`/me/proposals/${proposalId}/accept`, undefined, { schema: proposalSchema }),
+  /** `shareContact` (required, 개인정보 제3자 제공 opt-in) also reveals the contact to the agency. */
+  acceptProposal: (proposalId: string, shareContact: boolean) =>
+    api.post(`/me/proposals/${proposalId}/accept`, { shareContact }, { schema: proposalSchema }),
 
   declineProposal: (proposalId: string) =>
     api.post(`/me/proposals/${proposalId}/decline`, undefined, { schema: proposalSchema }),

@@ -24,9 +24,9 @@ import { maxListingPage, parseListingParams, serializeListingParams } from '../l
 const parse = (qs: string) => parseFilters(AGENCY_FILTERS, new URLSearchParams(qs));
 
 describe('toAgencyQuery', () => {
-  it('sends nothing but the page size for the default filters', () => {
+  it('sends the default sort and the page size for the default filters', () => {
     const query = toAgencyQuery(defaultFilters(AGENCY_FILTERS), { pageSize: 20 });
-    expect(toQueryString(query)).toBe('?pageSize=20');
+    expect(toQueryString(query)).toBe('?sort=LISTINGS&pageSize=20');
   });
 
   it('maps URL filters to the API params', () => {
@@ -50,7 +50,7 @@ describe('toAgencyQuery', () => {
     expect(query.q).toBe('호수');
     expect(query.openNow).toBeUndefined();
     expect(query.handlesPresale).toBeUndefined();
-    expect(query.sort).toBeUndefined();
+    expect(query.sort).toBe('NAME');
     expect(resultCaption(parse('open=1&presale=1'), false)).toBe('전체');
   });
 
@@ -60,17 +60,28 @@ describe('toAgencyQuery', () => {
     const sp = Object.fromEntries(new URLSearchParams(toQueryString(query).slice(1)));
     const parsed = agencySearchQuerySchema.safeParse(sp);
     expect(parsed.success).toBe(true);
-    expect(parsed.data).toMatchObject({ q: '호수', specialties: ['APT'], pageSize: 100 });
+    expect(parsed.data).toMatchObject({
+      q: '호수',
+      specialties: ['APT'],
+      pageSize: 100,
+      sort: 'LISTINGS',
+    });
+    for (const sort of ['RECENT', 'NAME', 'LISTINGS']) {
+      const q = toAgencyQuery(parse(`sort=${sort}`));
+      const ok = agencySearchQuerySchema.safeParse({ sort: q.sort });
+      expect(ok.success, sort).toBe(true);
+    }
     expect(parsed.data?.bbox).toEqual({ swLng: 127.46, swLat: 34.9, neLng: 127.6, neLat: 34.99 });
   });
 
   it('ignores unknown specialties, sorts and malformed areas from the URL', () => {
     const query = toAgencyQuery(parse('spec=CASTLE&sort=RANDOM&area=1,2,drop%20table'));
     expect(query.specialties).toEqual([]);
-    expect(query.sort).toBeUndefined();
+    expect(query.sort).toBe('LISTINGS');
     expect(query.bbox).toBeUndefined();
     expect(specialtyOption('CASTLE').value).toBe('');
     expect(agencySortOf(null)).toBe('LISTINGS');
+    expect(agencySortOf('RECENT')).toBe('NEWEST');
   });
 
   it('prefers the viewport bbox (map) over the saved search area (list)', () => {

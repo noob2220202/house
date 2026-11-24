@@ -70,7 +70,13 @@ export class DealRequestMaintenanceService {
         const lockKey = `deal-request-fanout:${dealRequestId}`;
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`;
         const req = await tx.dealRequest.findFirst({
-          where: { id: dealRequestId, status: DealRequestStatus.OPEN, deletedAt: null },
+          // A request flagged as spam before the job ran reaches nobody.
+          where: {
+            id: dealRequestId,
+            status: DealRequestStatus.OPEN,
+            deletedAt: null,
+            spamFlaggedAt: null,
+          },
           select: {
             id: true,
             type: true,

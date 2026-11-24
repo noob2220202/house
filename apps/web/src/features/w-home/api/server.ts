@@ -5,6 +5,7 @@ import { ApiError } from '@/lib/api/errors';
 import { serverGet } from '@/lib/api/server';
 import type { QueryParams } from '@/lib/api/config';
 import { HOME_LIMITS, categoryOf } from '../config';
+import { resolveHomeLayout, type HomeSection } from '../lib/home-layout';
 import {
   agencyPageSchema,
   appSettingsSchema,
@@ -50,7 +51,10 @@ export interface HomeData {
   listings: ListingPage | undefined;
   videos: VideoItem[];
   agencies: AgencyItem[];
+  /** Store links of the app band; null = no link set (the band is hidden). */
   app: { iosUrl: string | null; androidUrl: string | null } | null;
+  /** HOME_LAYOUT: ordered sections with their visibility. */
+  layout: HomeSection[];
 }
 
 const banners = (slot: BannerSlot) =>
@@ -98,7 +102,7 @@ export async function getHomeData(): Promise<HomeData> {
   ]);
 
   const links = settings?.APP_LINKS;
-  const appEnabled = settings?.FEATURES?.appBand === true && !!(links?.iosUrl || links?.androidUrl);
+  const appEnabled = !!(links?.iosUrl || links?.androidUrl);
 
   return {
     summary,
@@ -112,5 +116,6 @@ export async function getHomeData(): Promise<HomeData> {
     app: appEnabled
       ? { iosUrl: links?.iosUrl ?? null, androidUrl: links?.androidUrl ?? null }
       : null,
+    layout: resolveHomeLayout(settings?.HOME_LAYOUT),
   };
 }

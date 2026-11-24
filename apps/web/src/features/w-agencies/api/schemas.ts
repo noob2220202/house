@@ -1,17 +1,16 @@
-import { AssetType } from '@house/shared';
+import { AgencyMemberRole, AssetType, type AgencySearchSort } from '@house/shared';
 import { z } from 'zod';
 import { listingSummarySchema } from '@/lib/api/schemas/listing';
 
 /**
- * Response shapes of the public agencies API.
- *
- * The backend module (`apps/api/src/modules/agencies`) only has its README + Prisma model so far, so
- * these shapes are ASSUMED from the `Agency` model and the Agents design. Every field the design
- * needs but the model does not have yet is optional/nullable, so the pages degrade gracefully.
- * See docs/frontend-integration/w-agencies.md — fix the schema and the mock fixture together.
+ * Response shapes of the public agencies API (`AgencySummary`, `AgencyProfile` of the agencies
+ * module). Display extras the design has but the backend does not serve (tagline, 전문 단지, 영업
+ * 시간 in the list, 30일 거래 통계) are optional/nullable so the pages degrade gracefully; the
+ * profile is mapped by `agencyProfileFromWire()`. See docs/frontend-integration/w-agencies.md.
  */
 
 const nullish = <T extends z.ZodType>(schema: T) => schema.nullish();
+const lenient = <T extends z.ZodType>(schema: T) => schema.nullish().catch(null);
 
 /** `{ mon: { open: "09:00", close: "18:00" }, … }` — a missing / null day is closed (Agency.businessHours). */
 export const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
@@ -96,8 +95,45 @@ export const agencyListingPageSchema = z.object({
 });
 export type AgencyListingPage = z.infer<typeof agencyListingPageSchema>;
 
-/** `GET /agencies/:id` */
-export const agencyDetailSchema = agencySummarySchema.extend({
+type Raw = Record<string, unknown>;
+const isObject = (v: unknown): v is Raw => typeof v === 'object' && v !== null;
+
+/** `AgencyListingCard` (대표 매물 of the profile) → the flat listing card. */
+function listingCardFromWire(c: unknown): unknown {
+  if (!isObject(c) || c.thumbnailUrl === undefined) return c;
+  const { thumbnailUrl, ...rest } = c;
+  return { ...rest, status: 'ACTIVE', coverPhotoUrl: thumbnailUrl ?? null };
+}
+
+/**
+ * Backend `AgencyProfile` → page shape: `listingCounts { total, byAssetType, byDealType }` →
+ * `listingCounts` (분양/매매/전세/월세) + `listingCountsByAsset`, `representativeListings` →
+ * `featuredListings`.
+ */
+export function agencyProfileFromWire(value: unknown): unknown {
+  if (!isObject(value)) return value;
+  const out: Raw = { ...value };
+  const lc = value.listingCounts;
+  if (isObject(lc) && ('byDealType' in lc || 'byAssetType' in lc)) {
+    const by = isObject(lc.byDealType) ? lc.byDealType : {};
+    const n = (k: string) => (typeof by[k] === 'number' ? by[k] : 0);
+    out.listingCounts = {
+      presale: n('PRESALE'),
+      sale: n('SALE'),
+      jeonse: n('JEONSE'),
+      monthly: n('MONTHLY'),
+    };
+    if (out.listingCountsByAsset === undefined && isObject(lc.byAssetType)) {
+      out.listingCountsByAsset = lc.byAssetType;
+    }
+  }
+  if (out.featuredListings === undefined && Array.isArray(value.representativeListings)) {
+    out.featuredListings = value.representativeListings.map(listingCardFromWire);
+  }
+  return out;
+}
+
+const agencyDetailObjectSchema = agencySummarySchema.extend({
   mobile: nullish(z.string()),
   jibunAddress: nullish(z.string()),
   intro: nullish(z.string()),
@@ -127,12 +163,14 @@ export const agencyDetailSchema = agencySummarySchema.extend({
         displayName: z.string(),
         title: nullish(z.string()),
         isLicensed: z.boolean().default(false),
-        role: nullish(z.enum(['OWNER', 'AGENT'])),
+        role: lenient(z.enum(AgencyMemberRole)),
       }),
     )
     .default([]),
 });
-export type AgencyDetail = z.infer<typeof agencyDetailSchema>;
+/** `GET /agencies/:id` (`AgencyProfile`). */
+export const agencyDetailSchema = z.preprocess(agencyProfileFromWire, agencyDetailObjectSchema);
+export type AgencyDetail = z.infer<typeof agencyDetailObjectSchema>;
 
 /** `GET /agencies/regions` — 읍면동 facet for the 지역 filter. */
 export const agencyRegionSchema = z.object({
@@ -150,11 +188,11 @@ export const agencyRegionsSchema = z.object({
 });
 export type AgencyRegions = z.infer<typeof agencyRegionsSchema>;
 
-/** Sort of the office list (query `sort`, assumed). */
-export const AGENCY_SORTS = ['LISTINGS', 'RECENT', 'NAME'] as const;
+/** Sort of the office list (`AgencySearchSort` of the agencies module, minus RELEVANCE). */
+export const AGENCY_SORTS = ['LISTINGS', 'NEWEST', 'NAME'] as const satisfies readonly AgencySearchSort[];
 export type AgencySort = (typeof AGENCY_SORTS)[number];
 export const AGENCY_SORT_LABEL: Record<AgencySort, string> = {
   LISTINGS: '보유 매물순',
-  RECENT: '최근 등록순',
+  NEWEST: '최근 등록순',
   NAME: '가나다순',
 };

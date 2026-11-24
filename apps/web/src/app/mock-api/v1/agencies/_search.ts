@@ -1,16 +1,36 @@
-import { agencySearchQuerySchema } from '@house/shared';
+import { agencySearchQuerySchema, type AgencySummary as WireAgencySummary } from '@house/shared';
 import type { NextRequest } from 'next/server';
 import { isOpenAt } from '@/features/w-agencies/lib/hours';
-import { AGENCY_SORTS, type AgencySummary } from '@/features/w-agencies/api/schemas';
+import type { AgencySummary } from '@/features/w-agencies/api/schemas';
 import { mockDelay, mockError, mockGuard, mockJson, mockPaginate } from '@/lib/mock';
 import { AGENCY_SUMMARIES } from './_fixtures';
 
 const normalize = (s: string) => s.replace(/\s+/g, '').toLowerCase();
 
+/** Fixture office → `AgencySummary` of the agencies module (the fixture's display extras dropped). */
+export function toAgencySummaryWire(a: AgencySummary): WireAgencySummary {
+  return {
+    id: a.id,
+    name: a.name,
+    representativeName: a.representativeName,
+    registrationNumber: a.registrationNumber,
+    phone: a.phone,
+    roadAddress: a.roadAddress,
+    addressDetail: a.addressDetail ?? null,
+    emdCode: a.emdCode ?? null,
+    lat: a.lat,
+    lng: a.lng,
+    specialties: a.specialties,
+    logoUrl: a.logoUrl ?? null,
+    activeListingCount: a.activeListingCount,
+  };
+}
+
 /**
- * GET /api/v1/agencies?q&emdCode&bbox&specialties&page&pageSize — public broker office search
- * (w-agencies). The query is validated with the backend's own `agencySearchQuerySchema`.
- * Assumed extras: `openNow`, `handlesPresale`, `sort=LISTINGS|RECENT|NAME` (default LISTINGS).
+ * GET /api/v1/agencies?q&emdCode&bbox&specialties&sort&page&pageSize — public broker office
+ * search → Paginated<AgencySummary>. The query is validated with the backend's own
+ * `agencySearchQuerySchema` (sort RELEVANCE|LISTINGS|NEWEST|NAME, default RELEVANCE).
+ * Mock-only extras (not applied by the backend): `openNow`, `handlesPresale`.
  */
 export async function searchAgencies(req: NextRequest) {
   const off = mockGuard();
@@ -32,10 +52,9 @@ export async function searchAgencies(req: NextRequest) {
         message: i.message,
       })),
     );
-  const { q, emdCode, bbox, specialties } = parsed.data;
+  const { q, emdCode, bbox, specialties, sort } = parsed.data;
   const openNow = sp.get('openNow') === 'true' || sp.get('openNow') === '1';
   const presale = sp.get('handlesPresale') === 'true' || sp.get('handlesPresale') === '1';
-  const sort = AGENCY_SORTS.find((s) => s === sp.get('sort')) ?? 'LISTINGS';
   const needle = q ? normalize(q) : '';
   const now = new Date();
 
@@ -61,8 +80,9 @@ export async function searchAgencies(req: NextRequest) {
 
   const sorted = [...items].sort((a, b) => {
     if (sort === 'NAME') return a.name.localeCompare(b.name, 'ko');
-    if (sort === 'RECENT') return b.registrationNumber.localeCompare(a.registrationNumber);
+    if (sort === 'NEWEST') return b.registrationNumber.localeCompare(a.registrationNumber);
     return b.activeListingCount - a.activeListingCount || a.name.localeCompare(b.name, 'ko');
   });
-  return mockJson(mockPaginate(sorted, req, { pageSize: 20 }));
+  const page = mockPaginate(sorted, req, { pageSize: 20 });
+  return mockJson({ ...page, items: page.items.map(toAgencySummaryWire) });
 }

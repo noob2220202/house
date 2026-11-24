@@ -87,6 +87,12 @@ model DealRequest {
   closeReason       String?   @map("close_reason") @db.VarChar(500)
   /// Contact/동호 erased (data minimization) after closure or member withdrawal.
   contactScrubbedAt DateTime? @map("contact_scrubbed_at") @db.Timestamptz(3)
+  /// Admin spam flag: while set the request is hidden from every agency (inbox, detail, proposals,
+  /// fan-out). Cleared by un-flagging. `spamFlaggedBy` is the admin id (no FK: admins live in the
+  /// auth schema; audit_logs keep the full history).
+  spamFlaggedAt     DateTime? @map("spam_flagged_at") @db.Timestamptz(3)
+  spamReason        String?   @map("spam_reason") @db.VarChar(500)
+  spamFlaggedBy     String?   @map("spam_flagged_by") @db.Uuid
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
   deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(3)

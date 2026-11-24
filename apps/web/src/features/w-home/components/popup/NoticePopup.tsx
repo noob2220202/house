@@ -1,5 +1,4 @@
 'use client';
-import { useFocusTrap, useScrollLock } from '@house/ui';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useId, useRef, type ReactNode } from 'react';
@@ -13,23 +12,23 @@ export interface NoticePopupProps {
   popup: Popup;
   /** "1 / 2" when more popups are queued behind this one. */
   position?: { index: number; total: number };
-  /** 닫기 (also Esc and the scrim). */
+  /** 닫기 (also Esc). */
   onClose: () => void;
   /** "N일 동안 보지 않기". */
   onDismiss: () => void;
 }
 
 /**
- * Notice popup dialog (DesignSystem `.notice`): 380 × 300 creative + a two-button footer.
- * Modal: focus is trapped, the page behind does not scroll, Esc / scrim = 닫기.
+ * Notice popup (DesignSystem `.notice`): the creative + a two-button footer, shown as a
+ * NON-blocking card so it never hides the hero search on a first visit — a corner card on wide
+ * screens, a bottom sheet (≤ 50% of the viewport height) on phones. No scrim, no scroll lock, no
+ * focus trap; Esc = 닫기. Keyboard users reach it as the last landmark ("공지" dialog).
  */
 export function NoticePopup({ popup, position, onClose, onDismiss }: NoticePopupProps) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
-  useScrollLock(true);
-  useFocusTrap(true, ref);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -48,7 +47,7 @@ export function NoticePopup({ popup, position, onClose, onDismiss }: NoticePopup
       {...imageProps(popup.imageUrl)}
       alt={popup.title}
       fill
-      sizes="(max-width: 420px) 100vw, 380px"
+      sizes="(max-width: 720px) 100vw, 340px"
       priority
     />
   );
@@ -75,11 +74,10 @@ export function NoticePopup({ popup, position, onClose, onDismiss }: NoticePopup
 
   return createPortal(
     <div className={styles.layer}>
-      <div className={styles.scrim} onClick={onClose} aria-hidden="true" />
       <div
         ref={ref}
         role="dialog"
-        aria-modal="true"
+        aria-modal="false"
         aria-labelledby={titleId}
         tabIndex={-1}
         className={styles.notice}
@@ -106,7 +104,7 @@ export function NoticePopup({ popup, position, onClose, onDismiss }: NoticePopup
               {hideLabel}
             </button>
           )}
-          <button type="button" className={styles.close} onClick={onClose} data-autofocus>
+          <button type="button" className={styles.close} onClick={onClose}>
             닫기
           </button>
         </div>

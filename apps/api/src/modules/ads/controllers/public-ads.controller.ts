@@ -16,6 +16,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { Public } from '../../../common/decorators';
+import { SkipTermsCheck } from '../../auth';
 import { AD_TRACKING_THROTTLE } from '../constants';
 import {
   BannerImpressionBatchDto,
@@ -44,7 +45,8 @@ function visitorOf(req: Request): AdVisitor {
 /**
  * Public ad serving + tracking. Beacons are POSTs: the frontend sends them with
  * `fetch(..., { method: 'POST', keepalive: true, credentials: 'include' })` plus the CSRF header
- * when logged in (sendBeacon cannot set headers).
+ * when logged in (sendBeacon cannot set headers). Beacons are not member actions, so they are
+ * exempt from TermsConsentGuard (@SkipTermsCheck): they count for members with pending terms.
  */
 @ApiTags('ads')
 @Controller()
@@ -68,6 +70,7 @@ export class PublicAdsController {
   }
 
   @Post('banners/impressions')
+  @SkipTermsCheck()
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle(AD_TRACKING_THROTTLE)
   async impressions(@Body() dto: BannerImpressionBatchDto, @Req() req: Request): Promise<void> {
@@ -75,13 +78,16 @@ export class PublicAdsController {
   }
 
   @Post('banners/:id/impression')
+  @SkipTermsCheck()
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle(AD_TRACKING_THROTTLE)
   async impression(@Param() p: IdParamDto, @Req() req: Request): Promise<void> {
     await this.tracking.recordImpressions([p.id], visitorOf(req));
   }
 
+  // A GET (the guard never blocks reads); marked so a later switch to POST keeps counting.
   @Get('banners/:id/click')
+  @SkipTermsCheck()
   @Redirect()
   @Header('Cache-Control', 'no-store')
   @Header('Referrer-Policy', 'strict-origin-when-cross-origin')

@@ -28,6 +28,18 @@ import type {
 } from './deal-request.selects';
 import { DEAL_REQUEST_MEDIA, type DealRequestMediaPort } from './ports/media.port';
 
+/**
+ * The admin moderation view: shared `AdminDealRequestView` + the spam flag (admin m-moderation
+ * `adminDealRequestDetailSchema`). No automatic abuse signals exist yet, so `spamSignalCount` is 0
+ * and `spamSignals` is empty. Local until shared has it.
+ */
+export interface AdminDealRequestModerationView extends AdminDealRequestView {
+  spamFlaggedAt: string | null;
+  spamReason: string | null;
+  spamSignalCount: number;
+  spamSignals: string[];
+}
+
 const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() : null);
 const dateOnly = (d: Date | null | undefined): string | null =>
   d ? d.toISOString().slice(0, 10) : null;
@@ -127,7 +139,7 @@ export class DealRequestMapper {
     };
   }
 
-  admin(r: DealRequestAdminRow): AdminDealRequestView {
+  admin(r: DealRequestAdminRow): AdminDealRequestModerationView {
     return {
       ...this.base(r),
       userId: r.userId,
@@ -137,6 +149,10 @@ export class DealRequestMapper {
       closeReason: r.closeReason,
       contactScrubbedAt: iso(r.contactScrubbedAt),
       deletedAt: iso(r.deletedAt),
+      spamFlaggedAt: iso(r.spamFlaggedAt),
+      spamReason: r.spamFlaggedAt ? r.spamReason : null,
+      spamSignalCount: 0,
+      spamSignals: [],
     };
   }
 

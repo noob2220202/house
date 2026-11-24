@@ -39,9 +39,17 @@ export const getNotice = (id: string) =>
     tags: ['notices'],
   });
 
-/** GET /faqs — every published FAQ (filtered by category / text on the client). */
+/**
+ * GET /faqs — every published FAQ (filtered by category / text on the client). The endpoint is
+ * paginated (`faqListQuerySchema`), so one page of the maximum size is asked for.
+ */
 export const getFaqs = (extra?: Record<string, string | undefined>) =>
-  serverGet('/faqs', { query: extra, schema: faqListSchema, revalidate: 300, tags: ['faqs'] });
+  serverGet('/faqs', {
+    query: { pageSize: 100, ...extra },
+    schema: faqListSchema,
+    revalidate: 300,
+    tags: ['faqs'],
+  });
 
 /** GET /videos?page&pageSize */
 export const getVideos = (page = 1, pageSize = 24, extra?: Record<string, string | undefined>) =>

@@ -485,6 +485,17 @@ describe('auth: /me account endpoints (e2e)', () => {
       });
       await t.prisma.favoriteComplex.create({ data: { userId: user.id, complexId: complex.id } });
       await t.prisma.favoriteListing.create({ data: { userId: user.id, listingId: listing.id } });
+      // home module data (no FK to users → nothing cascades; HomeUserDataService.purge)
+      await t.prisma.favoriteAgency.create({ data: { userId: user.id, agencyId: agency.id } });
+      await t.prisma.userInterestRegion.create({
+        data: { userId: user.id, regionKeys: ['sindae'], notify: true },
+      });
+      // another member's rows are untouched
+      const other = await createUser(t.prisma);
+      await t.prisma.favoriteAgency.create({ data: { userId: other.id, agencyId: agency.id } });
+      await t.prisma.userInterestRegion.create({
+        data: { userId: other.id, regionKeys: ['yeonhyang'] },
+      });
 
       await withSession(t.http().post('/api/v1/me/withdraw'), s)
         .send({ confirm: true })
@@ -509,6 +520,8 @@ describe('auth: /me account endpoints (e2e)', () => {
         SELECT revoked_at IS NOT NULL AS revoked FROM deal_request_contact_grants
          WHERE deal_request_id = ${requestId}::uuid`;
       expect(grant?.revoked).toBe(true);
+      // kept during the grace period, erased by the scrub job
+      expect(await t.prisma.favoriteAgency.count({ where: { userId: user.id } })).toBe(1);
 
       await t.app.get(PiiScrubService).scrubDue(new Date(Date.now() + 31 * 86_400_000));
       const report = await t.prisma.report.findFirstOrThrow({ where: { reporterUserId: user.id } });
@@ -518,6 +531,11 @@ describe('auth: /me account endpoints (e2e)', () => {
       expect(await t.prisma.recentView.count(where)).toBe(0);
       expect(await t.prisma.favoriteComplex.count(where)).toBe(0);
       expect(await t.prisma.favoriteListing.count(where)).toBe(0);
+      expect(await t.prisma.favoriteAgency.count(where)).toBe(0);
+      expect(await t.prisma.userInterestRegion.count(where)).toBe(0);
+      const others = { where: { userId: other.id } };
+      expect(await t.prisma.favoriteAgency.count(others)).toBe(1);
+      expect(await t.prisma.userInterestRegion.count(others)).toBe(1);
     });
 
     it('409 while the member still runs an agency; staff memberships are detached', async () => {

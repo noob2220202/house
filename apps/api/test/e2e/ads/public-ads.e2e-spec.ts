@@ -1,4 +1,4 @@
-import { AgencyStatus, kstDate, MediaPurpose, UserRole } from '@house/shared';
+import { AgencyStatus, ErrorCode, kstDate, MediaPurpose, TermsType, UserRole } from '@house/shared';
 import { ADS_REDIS } from '../../../src/modules/ads/constants';
 import { AdTrackingService } from '../../../src/modules/ads/services/ad-tracking.service';
 import {
@@ -249,6 +249,45 @@ describe('ads: public serving, tracking and stats (e2e)', () => {
       const row = await t.prisma.bannerStatDaily.findFirstOrThrow({ where: { bannerId: live.id } });
       expect(row).toMatchObject({ impressions: 3, clicks: 0 });
       expect(await t.prisma.bannerStatDaily.count({ where: { bannerId: ended.id } })).toBe(0);
+    });
+
+    it('beacons and the click still count for a member whose required terms are pending', async () => {
+      const b = await seedBanner(t.prisma);
+      const past = new Date(Date.now() - 86_400_000);
+      await t.prisma.termsDocument.create({
+        data: {
+          type: TermsType.SERVICE,
+          version: '9.0',
+          title: '이용약관',
+          content: '본문',
+          isRequired: true,
+          effectiveAt: past,
+          publishedAt: past,
+        },
+      });
+      const user = await createUser(t.prisma, { role: UserRole.USER });
+      const us = await loginUser(t.app, { id: user.id });
+      // TermsConsentGuard is active for this member (a write elsewhere is refused) …
+      const blocked = await withSession(
+        t.http().put('/api/v1/me/favorites/listings/00000000-0000-0000-0000-000000000000'),
+        us,
+      ).expect(403);
+      expect(blocked.body.code).toBe(ErrorCode.AUTH_TERMS_REQUIRED);
+      // … but the ad beacons are exempt (@SkipTermsCheck).
+      await withSession(t.http().post(`/api/v1/banners/${b.id}/impression`), us)
+        .set('User-Agent', CHROME_UA)
+        .expect(204);
+      await withSession(t.http().post('/api/v1/banners/impressions'), us)
+        .set('User-Agent', CHROME_UA)
+        .send({ ids: [b.id] })
+        .expect(204);
+      await withSession(t.http().get(`/api/v1/banners/${b.id}/click`), us)
+        .set('User-Agent', CHROME_UA)
+        .redirects(0)
+        .expect(302);
+      await flush();
+      const row = await t.prisma.bannerStatDaily.findFirstOrThrow({ where: { bannerId: b.id } });
+      expect(row).toMatchObject({ impressions: 1, clicks: 1 });
     });
 
     it('counts distinct visitors in a bounded HyperLogLog', async () => {
