@@ -12,7 +12,13 @@ Registered in `AppModule`. Read `docs/CONVENTIONS.md` first.
   **never verified, no SMS**. Abuse control: `@Throttle(THROTTLE.DEAL_REQUEST)`, daily cap
   `DEAL_REQUEST_CREATE` (counted only after validation passes), max 10 OPEN/MATCHED requests per member,
   `PROPOSAL_CREATE` cap per agency, admin moderation.
-- Region codes / complexes must lie in `REGION_SGG_CODE`.
+- 개인정보 동의 (D8): the body carries `consents: [{ type: 'DEAL_REQUEST_PRIVACY', version }, { type:
+'DEAL_REQUEST_PROVIDE', version }]` (수집·이용 + 제3자(중개사무소) 제공, versions from
+  `GET /terms/:type`). Both current published versions are required; they are checked before the daily
+  cap is consumed and recorded as `UserConsent` rows in the create transaction (auth
+  `TermsService.consentForAction`; `AUTH_CONSENT_REQUIRED` / `AUTH_CONSENT_OUTDATED` /
+  `AUTH_CONSENT_UNAVAILABLE`, see the auth README).
+- Region codes / complexes must lie in `REGION_SGG_CODE` (12150). Legacy `46150…` codes (e.g. a Kakao postcode `bcode` from before 2026-07-01) are accepted and stored as `12150…` (shared `regionCodeSchema`).
 - Visibility: `ALL_AGENCIES_IN_REGION` (APPROVED agencies with the same 시군구) or `SELECTED_AGENCIES`
   (`DealRequestTarget`, approved agencies only). An agency also keeps seeing requests it proposed to,
   unless the requester withdrew. New/region/targeted requests of non-ACTIVE members, expired or deleted

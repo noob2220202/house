@@ -26,11 +26,11 @@ Adding a provider: a class implementing `OAuthProvider`, an `AuthProvider` enum 
 | -------- | ------------------------------------------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------ |
 | GET      | `/auth/providers`                                            | Public                  | enabled providers                                                                                |
 | GET      | `/auth/oauth/{kakao,naver,google}/start`                     | Public                  | `?returnTo=/path&intent=login\|link` → 302 to provider (link needs a user session)               |
-| GET      | `/auth/oauth/{kakao,naver,google}/callback`                  | Public                  | 302 to web: `returnTo` / `/signup?provider=` / `/login?error=CODE` / `/my/account?linked=`       |
+| GET      | `/auth/oauth/{kakao,naver,google}/callback`                  | Public                  | 302 to web: `returnTo` / `/signup?provider=` / `/login?error=CODE` / `/me/account?linked=`       |
 | GET      | `/auth/signup`                                               | Public (pending cookie) | provider prefill + current terms                                                                 |
 | POST     | `/auth/signup`                                               | Public (pending cookie) | `{nickname, ageOver14: true, phone?, consents[], marketingOptIn}` → user + session               |
 | GET      | `/auth/csrf`                                                 | Public                  | re-issues `house_csrf`, returns `{csrfToken}`                                                    |
-| GET      | `/auth/me`                                                   | User                    | profile, identities, agency membership, `pendingRequiredTerms`                                   |
+| GET      | `/auth/me`                                                   | User                    | profile, identities, agency membership, `pendingRequiredTerms`, `marketingOptInAt`               |
 | POST     | `/auth/logout` · `/auth/logout-all`                          | User                    |                                                                                                  |
 | GET      | `/auth/sessions` · DELETE `/auth/sessions/:id`               | User                    | logged-in devices                                                                                |
 | PATCH    | `/me/profile`                                                | User                    | nickname, phone (format only, never verified), marketingOptIn (+ consent row)                    |
@@ -38,7 +38,7 @@ Adding a provider: a class implementing `OAuthProvider`, an `AuthProvider` enum 
 | GET/POST | `/me/consents`                                               | User                    | required terms can't be revoked                                                                  |
 | POST     | `/me/withdraw`                                               | User                    | `{confirm: true, reason?}`; blocked (409) while owning an agency                                 |
 | POST     | `/auth/withdraw`                                             | Public (ticket cookie)  | suspended member's withdrawal, `{confirm: true, reason?}`; `house_withdraw` ticket, single use   |
-| GET      | `/terms` · `/terms/:type?version=`                           | Public                  |                                                                                                  |
+| GET      | `/terms` · `/terms/:type?version=`                           | Public                  | list = account terms; `:type` any TermsType (`DEAL_REQUEST_PRIVACY`, `deal-request-privacy`, …)  |
 | POST     | `/admin/auth/login`                                          | Public                  | → pre-TOTP session (10 min idle)                                                                 |
 | POST     | `/admin/auth/totp/setup` · `/totp/activate` · `/totp/verify` | pre-TOTP admin session  | session rotated on success; rotation: verified session + `{currentPassword, code\|recoveryCode}` |
 | GET      | `/admin/auth/csrf`                                           | admin session           |                                                                                                  |
@@ -71,6 +71,24 @@ Adding a provider: a class implementing `OAuthProvider`, an `AuthProvider` enum 
   `@SkipTermsCheck()` routes (`/auth/*`, `/me/*`) stay usable; admin sessions are not affected. Only
   "agreed" is cached (Redis, keyed by the current required document ids), so publishing needs no
   cache bust.
+- Two kinds of terms documents (shared `ACCOUNT_TERMS_TYPES` / `ACTION_CONSENT_TERMS`, D8):
+  - **account terms** (SERVICE, PRIVACY, LOCATION, MARKETING): signup, `/me/consents`, `GET /terms` and
+    the re-consent guard above use only these;
+  - **purpose consents** (`PRIVACY_AGENCY_APPLICATION` for `POST /agencies`, `PRIVACY_AGENCY_JOIN` for
+    `POST /agencies/join`, `DEAL_REQUEST_PRIVACY` + `DEAL_REQUEST_PROVIDE` for `POST /deal-requests`):
+    the form reads the current version from `GET /terms/:type` and sends
+    `consents: [{ type, version }]` with the submission. `TermsService.consentForAction(tx, …)` checks
+    it against the current published version and appends `UserConsent` rows in the submission's
+    transaction. Errors: 400 `AUTH_CONSENT_REQUIRED` (`details.missing`), 400
+    `AUTH_CONSENT_OUTDATED` (`details.outdated: [{ type, version, currentVersion }]` — the form was
+    open while a new version took effect), 503 `AUTH_CONSENT_UNAVAILABLE` (no published document:
+    publish one in the admin), 400 `AUTH_TERMS_INVALID` for a type the action does not take. They are
+    required whatever the document's `isRequired` says, never block other requests, and cannot be
+    revoked through `/me/consents` (they belong to the submission).
+- `marketingOptInAt` (`users.marketing_opt_in_at`): start of the current marketing opt-in (정보통신망법
+  제50조 수신동의 일자) — set when a member opts in (signup, profile, consents), kept while they stay
+  opted in, cleared on opt-out and withdrawal. Backfilled from the consent history by migration
+  `20261124070239_auth_consent_types_marketing_opt_in_at`.
 - Suspended members can withdraw (개인정보 보호법 제36·37조). Their refused social login redirects to
   `/login?error=AUTH_ACCOUNT_SUSPENDED&withdrawable=1` and sets a 10-minute single-use httpOnly
   ticket (`house_withdraw`, path `/api/v1/auth/withdraw`) good only for `POST /auth/withdraw`. Their
@@ -86,7 +104,7 @@ Adding a provider: a class implementing `OAuthProvider`, an `AuthProvider` enum 
   use the `csrfToken` from the body for the `x-csrf-token` header; after the OAuth redirect call
   `GET /auth/csrf`. Don't rely on reading the `house_csrf` cookie: user and admin sessions share
   that cookie name.
-- Web routes the callback redirects to: `/login`, `/signup`, `/my/account` (`WEB_PATHS`).
+- Web routes the callback redirects to: `/login`, `/signup`, `/me/account` (`WEB_PATHS`, D11).
 
 ## Tests
 

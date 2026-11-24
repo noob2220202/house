@@ -190,6 +190,34 @@ describe('admin terms (e2e)', () => {
     expect(JSON.stringify(audit?.after)).not.toContain('제1조');
   });
 
+  it('authors purpose consents (D8): current in the admin list, never pending at /auth/me', async () => {
+    const { session: admin } = await adminActor(t, AdminRole.ADMIN);
+    const created = await as(t, admin, 'post', '/admin/terms')
+      .send(
+        draft({
+          type: TermsType.DEAL_REQUEST_PROVIDE,
+          version: '1.0',
+          title: '[필수] 개인정보 제3자 제공 동의',
+        }),
+      )
+      .expect(201);
+    await as(t, admin, 'post', `/admin/terms/${created.body.id}/publish`).expect(200);
+    await reachEffectiveAt(created.body.id as string);
+
+    const detail = await as(t, admin, 'get', `/admin/terms/${created.body.id}`).expect(200);
+    expect(detail.body).toMatchObject({
+      type: TermsType.DEAL_REQUEST_PROVIDE,
+      isCurrent: true,
+      isRequired: true,
+    });
+    const pub = await t.http().get(api('/terms/deal-request-provide')).expect(200);
+    expect(pub.body).toMatchObject({ id: created.body.id, version: '1.0' });
+    // Agreed per submission, so it never blocks a member or shows up as an account term.
+    const me = await withSession(t.http().get(api('/auth/me')), userSession).expect(200);
+    expect(me.body.pendingRequiredTerms).toEqual([]);
+    expect((await t.http().get(api('/terms')).expect(200)).body).toEqual([]);
+  });
+
   it('marketing and location consent can never be made required', async () => {
     const { session: admin } = await adminActor(t, AdminRole.ADMIN);
     for (const type of [TermsType.MARKETING, TermsType.LOCATION]) {

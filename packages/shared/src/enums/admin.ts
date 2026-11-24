@@ -69,6 +69,10 @@ export const SiteSettingKey = {
   SEO: 'SEO',
   FEATURES: 'FEATURES',
   FOOTER: 'FOOTER',
+  /** 메인 화면 구성: section order + visibility (admin "메인 화면 편집", D9). */
+  HOME_LAYOUT: 'HOME_LAYOUT',
+  /** App store links for the home app band (D9). */
+  APP_LINKS: 'APP_LINKS',
 } as const;
 export type SiteSettingKey = EnumValue<typeof SiteSettingKey>;
 
@@ -78,6 +82,36 @@ export const SITE_SETTING_KEY_LABEL: Record<SiteSettingKey, string> = {
   SEO: '검색엔진 최적화',
   FEATURES: '기능 설정',
   FOOTER: '하단(푸터) 정보',
+  HOME_LAYOUT: '메인 화면 구성',
+  APP_LINKS: '앱 다운로드 링크',
+};
+
+/** Sections of the user-site home page, in their default order (HOME_LAYOUT keys). */
+export const HomeSectionKey = {
+  HERO_SEARCH: 'HERO_SEARCH',
+  CATEGORY_TILES: 'CATEGORY_TILES',
+  MAIN_BANNER: 'MAIN_BANNER',
+  POPULAR_COMPLEXES: 'POPULAR_COMPLEXES',
+  NEW_LISTINGS: 'NEW_LISTINGS',
+  DEAL_REQUEST_CTA: 'DEAL_REQUEST_CTA',
+  FEATURED_AGENCIES: 'FEATURED_AGENCIES',
+  LOCAL_VIDEOS: 'LOCAL_VIDEOS',
+  NOTICES: 'NOTICES',
+  APP_BAND: 'APP_BAND',
+} as const;
+export type HomeSectionKey = EnumValue<typeof HomeSectionKey>;
+
+export const HOME_SECTION_LABEL: Record<HomeSectionKey, string> = {
+  HERO_SEARCH: '히어로 검색 · 지도',
+  CATEGORY_TILES: '매물 종류 바로가기',
+  MAIN_BANNER: '메인 배너',
+  POPULAR_COMPLEXES: '자주 찾는 단지',
+  NEW_LISTINGS: '새로 올라온 매물',
+  DEAL_REQUEST_CTA: '내놓기 · 구하기 안내',
+  FEATURED_AGENCIES: '우리 동네 중개사무소',
+  LOCAL_VIDEOS: '동네TV',
+  NOTICES: '공지사항',
+  APP_BAND: '앱 안내 띠',
 };
 
 export const REPORT_STATUS_LABEL: Record<ReportStatus, string> = {

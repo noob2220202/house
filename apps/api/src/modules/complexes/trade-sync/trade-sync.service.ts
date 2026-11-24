@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import {
   ErrorCode,
+  legacyRegionCode,
   TradeSyncKind,
   TradeSyncStatus,
   yearMonthOf,
@@ -245,7 +246,7 @@ export class TradeSyncService {
     });
     const counts: RunCounts = { fetched: 0, upserted: 0, matched: 0 };
     try {
-      const items = await this.fetchAll(kind, sggCode, yearMonth);
+      const items = await this.fetchMonth(kind, sggCode, yearMonth);
       counts.fetched = items.length;
       const { trades, skipped } = normalizeTradeBatch(kind, items, sggCode);
       if (skipped.length > 0) {
@@ -299,6 +300,29 @@ export class TradeSyncService {
     }
   }
 
+  /**
+   * Every row of the month under LAWD_CD = the configured code. Since the 2026-07-01
+   * reorganisation the API serves every month (also earlier ones) under the new code (12150) and
+   * nothing under the old one (46150); should a month come back empty anyway, it is asked once
+   * more under the legacy code so a partial upstream migration cannot silently empty a month.
+   * Rows are normalized to the configured code either way.
+   */
+  private async fetchMonth(
+    kind: TradeSyncKind,
+    sggCode: string,
+    yearMonth: number,
+  ): Promise<RawTradeItem[]> {
+    const items = await this.fetchAll(kind, sggCode, yearMonth);
+    const legacy = items.length === 0 ? legacyRegionCode(sggCode) : null;
+    if (!legacy) return items;
+    const legacyItems = await this.fetchAll(kind, legacy, yearMonth);
+    this.logger.warn(
+      { kind, yearMonth, sggCode, legacySggCode: legacy, legacyRows: legacyItems.length },
+      'trade API returned no rows for the current 시군구 code; retried with the legacy code',
+    );
+    return legacyItems;
+  }
+
   private async fetchAll(
     kind: TradeSyncKind,
     sggCode: string,
@@ -323,8 +347,13 @@ export class TradeSyncService {
     trades: readonly NormalizedTrade[],
     matcher: ComplexMatcher,
   ): Promise<{ upserted: number; matched: number; affected: string[] }> {
+    // Contracts first stored under the legacy 시군구 code (46150) are found by their old key and
+    // re-keyed in place, so a re-sync under the current code never stores a contract twice.
+    const keys = trades.flatMap((t) =>
+      t.legacySourceKey ? [t.sourceKey, t.legacySourceKey] : [t.sourceKey],
+    );
     const existing = await this.prisma.tradeRecord.findMany({
-      where: { sourceKey: { in: trades.map((t) => t.sourceKey) } },
+      where: { sourceKey: { in: keys } },
       select: {
         id: true,
         sourceKey: true,
@@ -341,7 +370,8 @@ export class TradeSyncService {
     let matched = 0;
 
     for (const t of trades) {
-      const prev = byKey.get(t.sourceKey);
+      const prev =
+        byKey.get(t.sourceKey) ?? (t.legacySourceKey ? byKey.get(t.legacySourceKey) : undefined);
       // Same rule as rematch(): an earlier match survives unless contradicted or its 단지 is gone.
       const complex = matcher.resolve(t, prev?.complexId ?? null);
       const complexId = complex?.id ?? null;
@@ -353,7 +383,9 @@ export class TradeSyncService {
         if (complexId) affected.add(complexId);
         continue;
       }
+      const rekey = prev.sourceKey !== t.sourceKey;
       const changed =
+        rekey ||
         prev.cancelled !== t.cancelled ||
         (prev.cancelledAt?.getTime() ?? null) !== (t.cancelledAt?.getTime() ?? null) ||
         prev.complexId !== complexId ||
@@ -365,6 +397,7 @@ export class TradeSyncService {
         this.prisma.tradeRecord.update({
           where: { id: prev.id },
           data: {
+            ...(rekey ? { sourceKey: t.sourceKey, sggCode: t.sggCode } : {}),
             cancelled: t.cancelled,
             cancelledAt: t.cancelledAt,
             complexId,

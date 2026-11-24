@@ -1,4 +1,5 @@
 import {
+  ACTION_CONSENT_TERMS,
   COMPLEX_ASSET_TYPES,
   DEAL_REQUEST_ACTIVE_STATUSES,
   DEAL_REQUEST_LIMITS,
@@ -30,6 +31,7 @@ import { paginate } from '../../../common/pagination/pagination';
 import { DailyCapService } from '../../../common/throttle/daily-cap.service';
 import { AppConfig } from '../../../config/app-config.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { TermsService } from '../../auth';
 import { AgenciesService } from '../../agencies/services/agencies.service';
 import { DEAL_REQUEST_JOBS, DEAL_REQUESTS_QUEUE } from '../constants';
 import { DealRequestMapper } from '../deal-request.mapper';
@@ -71,6 +73,7 @@ export class DealRequestsService {
     private readonly notifications: NotificationsService,
     private readonly lifecycle: DealRequestLifecycleService,
     private readonly agencyService: AgenciesService,
+    private readonly terms: TermsService,
     @Inject(DEAL_REQUEST_AGENCIES) private readonly agencies: DealRequestAgencyDirectory,
     @Inject(DEAL_REQUEST_COMPLEXES) private readonly complexes: DealRequestComplexesPort,
     @Inject(DEAL_REQUEST_MEDIA) private readonly media: DealRequestMediaPort,
@@ -110,12 +113,21 @@ export class DealRequestsService {
     }
     const photoIds = input.type === DealRequestType.SELL_OR_LEASE ? input.photoMediaIds : [];
     await this.media.assertPhotosUsable(photoIds, user.userId);
+    // 개인정보 수집·이용 + 제3자 제공 동의 (D8): checked before the daily cap is consumed.
+    await this.terms.verifyActionConsents(ACTION_CONSENT_TERMS.DEAL_REQUEST, input.consents, now);
 
     // Counted only once the request is known to be valid (the attempt is what we cap).
     await this.dailyCaps.consume('DEAL_REQUEST_CREATE', user.userId, now);
 
     const id = await this.prisma.$transaction(async (tx) => {
       await this.media.assertPhotosUsable(photoIds, user.userId, tx);
+      await this.terms.consentForAction(
+        tx,
+        user.userId,
+        ACTION_CONSENT_TERMS.DEAL_REQUEST,
+        input.consents,
+        now,
+      );
       const row = await tx.dealRequest.create({
         data: this.createData(user.userId, input, sggCode, place, now),
         select: { id: true },

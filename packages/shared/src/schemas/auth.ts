@@ -56,6 +56,33 @@ export type OAuthCallbackQuery = z.infer<typeof oauthCallbackQuerySchema>;
 /** Agreement to one terms document version. */
 export const consentItemSchema = z.object({ termsDocumentId: idSchema, agreed: z.boolean() });
 
+/** A terms version as shown to the user (`TermsDetail.version`). */
+export const termsVersionSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(20)
+  .regex(/^[0-9A-Za-z._-]+$/, '동의서 버전이 올바르지 않습니다.');
+
+/**
+ * `consents` of a submission that needs purpose consents (D8, ACTION_CONSENT_TERMS): the version
+ * of each document the user agreed to, as read from GET /terms/:type. Only the action's own types
+ * are accepted; each at most once. Missing or outdated entries are refused by the server
+ * (AUTH_CONSENT_REQUIRED / AUTH_CONSENT_OUTDATED), which checks against the current version.
+ */
+export function actionConsentsSchema<const T extends readonly [TermsType, ...TermsType[]]>(
+  types: T,
+) {
+  return z
+    .array(z.object({ type: z.enum(types), version: termsVersionSchema }))
+    .max(types.length)
+    .refine((list) => new Set(list.map((c) => c.type)).size === list.length, {
+      message: '같은 동의 항목을 중복으로 보낼 수 없습니다.',
+    })
+    .default([]);
+}
+export type ConsentRecordInput = { type: TermsType; version: string };
+
 export const nicknameSchema = z
   .string()
   .trim()
@@ -84,20 +111,16 @@ export const consentInputSchema = z.object({
 export type ConsentInput = z.infer<typeof consentInputSchema>;
 
 export const termsTypeSchema = z.enum(TermsType);
+/** `:type` route param: `SERVICE`, `privacy`, `deal-request-privacy`, `privacy_agency_join`, … */
 export const termsTypeParamSchema = z.object({
   type: z
     .string()
-    .transform((s) => s.toUpperCase())
+    .max(50)
+    .transform((s) => s.toUpperCase().replace(/-/g, '_'))
     .pipe(termsTypeSchema),
 });
 export const termsVersionQuerySchema = z.object({
-  version: z
-    .string()
-    .trim()
-    .min(1)
-    .max(20)
-    .regex(/^[0-9A-Za-z._-]+$/)
-    .optional(),
+  version: termsVersionSchema.optional(),
 });
 
 /**
@@ -215,6 +238,11 @@ export interface MeResponse {
   role: UserRole;
   status: UserStatus;
   marketingOptIn: boolean;
+  /**
+   * When the current marketing opt-in was given (ISO datetime; 정보통신망법 제50조⑦ 수신동의 확인
+   * notice). null while opted out.
+   */
+  marketingOptInAt: string | null;
   createdAt: string;
   identities: IdentitySummary[];
   /** Agency the session acts for (AGENT / AGENCY_OWNER). */

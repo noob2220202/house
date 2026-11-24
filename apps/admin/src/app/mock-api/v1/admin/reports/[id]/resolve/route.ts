@@ -15,7 +15,8 @@ import { hideListing, listingsDb } from '../../../listings/_fixtures';
 import { reportsDb, syncListingReports, toReportDetail } from '../../_fixtures';
 
 // POST /api/v1/admin/reports/:id/resolve — body = reportResolveSchema { status, action, note? }.
-// RECEIVED → IN_REVIEW → RESOLVED (with an action) / REJECTED. Side effects mirror the backend:
+// RECEIVED / IN_REVIEW → RESOLVED (with an action) / REJECTED; the shared schema no longer takes
+// IN_REVIEW as a target status. Side effects mirror the backend:
 // LISTING_HIDDEN hides the listing, AGENCY_WARNED adds an AgencyWarning.
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const gate = await modGate(req, { mutation: true });
@@ -35,8 +36,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const { status, action, note } = parsed.data;
   if (report.status === 'RESOLVED' || report.status === 'REJECTED')
     return mockError(409, 'REPORT_ALREADY_HANDLED', '이미 처리된 신고입니다.');
-  if (status === 'IN_REVIEW' && report.status === 'IN_REVIEW')
-    return mockError(409, 'REPORT_ALREADY_HANDLED', '이미 검토 중인 신고입니다.');
   if (status === 'REJECTED' && !note) return validationError('note', '기각 사유를 입력해 주세요.');
   const hides = action === 'LISTING_HIDDEN' || action === 'LISTING_HIDDEN_AGENCY_WARNED';
   const warns = action === 'AGENCY_WARNED' || action === 'LISTING_HIDDEN_AGENCY_WARNED';
@@ -56,25 +55,23 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     createdAt: now,
   });
 
-  if (status !== 'IN_REVIEW') {
-    report.handledAt = now;
-    report.action = status === 'RESOLVED' ? action : 'NONE';
-    const reasonText = `허위매물 신고 확인: ${REPORT_REASON_LABEL[report.reason]}${note ? ` — ${note}` : ''}`;
-    const listing = report.listingId
-      ? listingsDb().find((l) => l.id === report.listingId)
-      : undefined;
-    if (
-      status === 'RESOLVED' &&
-      hides &&
-      listing &&
-      listing.status !== 'HIDDEN' &&
-      listing.status !== 'CLOSED'
-    )
-      hideListing(listing, reasonText, admin);
-    if (status === 'RESOLVED' && warns) {
-      const agencyId = report.agencyId ?? listing?.primaryAgency.id;
-      if (agencyId) warnAgency(agencyId, reasonText, report.id, admin);
-    }
+  report.handledAt = now;
+  report.action = status === 'RESOLVED' ? action : 'NONE';
+  const reasonText = `허위매물 신고 확인: ${REPORT_REASON_LABEL[report.reason]}${note ? ` — ${note}` : ''}`;
+  const listing = report.listingId
+    ? listingsDb().find((l) => l.id === report.listingId)
+    : undefined;
+  if (
+    status === 'RESOLVED' &&
+    hides &&
+    listing &&
+    listing.status !== 'HIDDEN' &&
+    listing.status !== 'CLOSED'
+  )
+    hideListing(listing, reasonText, admin);
+  if (status === 'RESOLVED' && warns) {
+    const agencyId = report.agencyId ?? listing?.primaryAgency.id;
+    if (agencyId) warnAgency(agencyId, reasonText, report.id, admin);
   }
   if (report.listingId) syncListingReports(report.listingId);
   return mockJson(toReportDetail(report));

@@ -70,8 +70,8 @@ describe('listings query performance (e2e, 20k rows)', () => {
     await t.prisma.$executeRaw`
       INSERT INTO properties (id, asset_type, road_address, sgg_code, emd_code, lat, lng, floor,
                               total_floors, exclusive_area, rooms, baths, updated_at)
-      SELECT md5('p' || g)::uuid, 'APT', '전라남도 순천시 성능로 ' || g, '46150',
-             '46150' || lpad(((g % 30) * 10 + 101)::text, 3, '0') || '00',
+      SELECT md5('p' || g)::uuid, 'APT', '전남광주통합특별시 순천시 성능로 ' || g, '12150',
+             '12150' || lpad(((g % 30) * 10 + 101)::text, 3, '0') || '00',
              34.85 + ((g * 7919) % 20000) / 100000.0, 127.30 + ((g * 104729) % 30000) / 100000.0,
              1 + g % 20, 20, 30 + (g % 120), 1 + g % 4, 1 + g % 2, now()
       FROM generate_series(1, ${N}) g`;

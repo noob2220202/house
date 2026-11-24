@@ -56,6 +56,8 @@ function toMe(
     role: user.role,
     status: user.status,
     marketingOptIn: user.marketingOptIn,
+    marketingOptInAt:
+      user.marketingOptIn && user.marketingOptInAt ? user.marketingOptInAt.toISOString() : null,
     createdAt: user.createdAt.toISOString(),
     identities: user.identities.map(toIdentitySummary),
     agency: agency
@@ -68,6 +70,25 @@ function toMe(
       : null,
     pendingRequiredTerms,
   };
+}
+
+/**
+ * Opt-in flag + the start of the current opt-in: set when the member opts in from opted-out,
+ * kept while they stay opted in (re-saving does not move it), cleared when they opt out.
+ */
+async function marketingOptInData(
+  tx: PrismaTx,
+  userId: string,
+  optIn: boolean,
+): Promise<{ marketingOptIn: boolean; marketingOptInAt?: Date | null }> {
+  if (!optIn) return { marketingOptIn: false, marketingOptInAt: null };
+  const current = await tx.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { marketingOptIn: true, marketingOptInAt: true },
+  });
+  return current.marketingOptIn && current.marketingOptInAt
+    ? { marketingOptIn: true }
+    : { marketingOptIn: true, marketingOptInAt: new Date() };
 }
 
 /** The logged-in member's own account: profile, identities, consents, withdrawal. */
@@ -108,7 +129,9 @@ export class AccountService {
         data: {
           ...(dto.nickname !== undefined ? { nickname: dto.nickname } : {}),
           ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
-          ...(dto.marketingOptIn !== undefined ? { marketingOptIn: dto.marketingOptIn } : {}),
+          ...(dto.marketingOptIn !== undefined
+            ? await marketingOptInData(tx, principal.userId, dto.marketingOptIn)
+            : {}),
         },
       });
       if (dto.marketingOptIn !== undefined) {
@@ -165,7 +188,7 @@ export class AccountService {
       if (marketing) {
         await tx.user.update({
           where: { id: principal.userId },
-          data: { marketingOptIn: marketing.agreed },
+          data: await marketingOptInData(tx, principal.userId, marketing.agreed),
         });
       }
     });
@@ -229,6 +252,7 @@ export class AccountService {
           withdrawnAt: now,
           withdrawalReason: dto.reason ?? null,
           marketingOptIn: false,
+          marketingOptInAt: null,
           piiScrubAfter: new Date(now.getTime() + retentionDays * 86_400_000),
         },
       });

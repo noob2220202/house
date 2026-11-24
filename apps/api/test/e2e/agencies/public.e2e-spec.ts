@@ -23,15 +23,15 @@ describe('agencies: public search, map & profile (e2e)', () => {
 
   async function seed() {
     await t.prisma.region.create({
-      data: { code: '46150', name: '순천시', fullName: '전라남도 순천시', level: 'SGG' },
+      data: { code: '12150', name: '순천시', fullName: '전남광주통합특별시 순천시', level: 'SGG' },
     });
     await t.prisma.region.create({
       data: {
-        code: '46150101',
+        code: '12150101',
         name: '장천동',
-        fullName: '전라남도 순천시 장천동',
+        fullName: '전남광주통합특별시 순천시 장천동',
         level: 'EMD',
-        parentCode: '46150',
+        parentCode: '12150',
       },
     });
     const logo = await createMedia(t.prisma, {
@@ -41,8 +41,8 @@ describe('agencies: public search, map & profile (e2e)', () => {
     const central = await createAgency(t.prisma, {
       name: '중앙공인중개사사무소',
       representativeName: '홍길동',
-      roadAddress: '전라남도 순천시 중앙로 10',
-      emdCode: '46150101',
+      roadAddress: '전남광주통합특별시 순천시 중앙로 10',
+      emdCode: '12150101',
       lat: 34.95,
       lng: 127.49,
       specialties: ['APT', 'ONEROOM'],
@@ -54,7 +54,7 @@ describe('agencies: public search, map & profile (e2e)', () => {
     const lake = await createAgency(t.prisma, {
       name: '호수부동산',
       representativeName: '김영희',
-      roadAddress: '전라남도 순천시 호수공원길 5',
+      roadAddress: '전남광주통합특별시 순천시 호수공원길 5',
       lat: 34.93,
       lng: 127.52,
       specialties: ['LAND'],
@@ -102,7 +102,7 @@ describe('agencies: public search, map & profile (e2e)', () => {
       expect(await ids(`q=${encodeURIComponent('김영희')}`)).toEqual([lake.agency.id]);
       expect(await ids(`q=${encodeURIComponent('여수시')}`)).toEqual([far.agency.id]);
       expect(await ids('q=%25')).toEqual([]);
-      expect(await ids('emdCode=46150101')).toEqual([central.agency.id]);
+      expect(await ids('emdCode=12150101')).toEqual([central.agency.id]);
       expect(await ids('emdCode=46130')).toEqual([far.agency.id]);
       expect(await ids('bbox=127.45,34.9,127.55,35.0&sort=NAME')).toEqual([
         central.agency.id,
@@ -134,8 +134,8 @@ describe('agencies: public search, map & profile (e2e)', () => {
       expect(regions.body.kind).toBe('REGION_CLUSTERS');
       expect(regions.body.clusters).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ code: '46150101', name: '장천동', count: 1 }),
-          expect.objectContaining({ code: '46150', name: '순천시', count: 1 }),
+          expect.objectContaining({ code: '12150101', name: '장천동', count: 1 }),
+          expect.objectContaining({ code: '12150', name: '순천시', count: 1 }),
           expect.objectContaining({ code: '46130', name: null, count: 1 }),
         ]),
       );
@@ -231,7 +231,7 @@ describe('agencies: public search, map & profile (e2e)', () => {
           agencyId,
           name: '중앙공인중개사사무소',
           representativeName: '홍길동',
-          address: '전라남도 순천시 중앙로 10',
+          address: '전남광주통합특별시 순천시 중앙로 10',
           phone: '0617491234',
           registrationNumber: central.agency.registrationNumber,
         },

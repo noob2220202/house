@@ -56,7 +56,8 @@ export const WEB_PATHS = {
   HOME: '/',
   LOGIN: '/login',
   SIGNUP: '/signup',
-  ACCOUNT: '/my/account',
+  /** 내 계정 (apps/web `/me/account`, D11): identity-link results land here. */
+  ACCOUNT: '/me/account',
 } as const;
 
 export const REDIS_KEYS = {

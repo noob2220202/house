@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { RegionLevel } from '../enums/region';
 import { TradeDealType, TradeSyncKind, TradeSyncStatus } from '../enums/complex';
 import { AssetType } from '../enums/listing';
-import { REGION_CODE_LENGTH } from '../constants/region';
+import { canonicalRegionCode, REGION_CODE_LENGTH } from '../constants/region';
+import { canonicalAptSeq } from '../complexes/normalize';
 import { isValidYearMonth } from '../complexes/year-month';
 import {
   dateOnlySchema,
@@ -24,10 +25,11 @@ export const yearMonthSchema = z.coerce
 /** 단지 asset types (아파트 / 오피스텔). */
 export const complexAssetTypeSchema = z.enum([AssetType.APT, AssetType.OFFICETEL]);
 
-/** 읍면동 code (8 digits: 시도 2 + 시군구 3 + 읍면동 3). */
+/** 읍면동 code (8 digits: 시도 2 + 시군구 3 + 읍면동 3); legacy 46150… codes are canonicalized. */
 export const emdCodeSchema = z
   .string()
-  .regex(new RegExp(`^\\d{${REGION_CODE_LENGTH.EMD}}$`), '올바른 읍면동 코드가 아닙니다.');
+  .regex(new RegExp(`^\\d{${REGION_CODE_LENGTH.EMD}}$`), '올바른 읍면동 코드가 아닙니다.')
+  .transform(canonicalRegionCode);
 
 const searchText = z.string().trim().min(1).max(50);
 
@@ -141,11 +143,12 @@ const complexFields = {
   buildingCoverageRatio: z.number().min(0).max(100).nullable().optional(),
   heatingType: optionalText(50),
   builder: optionalText(100),
-  /** 국토교통부 aptSeq (단지 일련번호) — exact trade matching. */
+  /** 국토교통부 aptSeq (단지 일련번호) — exact trade matching; a legacy 46150- prefix is canonicalized. */
   externalCode: z
     .string()
     .trim()
     .regex(/^[0-9A-Za-z_-]{1,40}$/, '올바른 단지 코드가 아닙니다.')
+    .transform(canonicalAptSeq)
     .nullable()
     .optional(),
 };
@@ -215,7 +218,7 @@ export const tradeRematchRequestSchema = z.object({
 });
 export type TradeRematchRequest = z.infer<typeof tradeRematchRequestSchema>;
 
-/** Job ids are derived from the request ("month.46150.202410.APT_RENT+APT_TRADE"). */
+/** Job ids are derived from the request ("month.12150.202410.APT_RENT+APT_TRADE"). */
 export const tradeSyncJobParamSchema = z.object({
   jobId: z
     .string()

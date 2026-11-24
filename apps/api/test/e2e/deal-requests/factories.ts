@@ -15,6 +15,7 @@ import type { TestingModuleBuilder } from '@nestjs/testing';
 import { DEAL_REQUESTS_QUEUE } from '../../../src/modules/deal-requests/constants';
 import type { PrismaService } from '../../../src/prisma/prisma.service';
 import {
+  actionConsents,
   createAgency,
   createTestApp,
   createUser,
@@ -96,7 +97,7 @@ export function sellBody(over: Record<string, unknown> = {}): Record<string, unk
     visibility: DealRequestVisibility.ALL_AGENCIES_IN_REGION,
     contactName: '홍길동',
     contactPhone: '010-1234-5678',
-    roadAddress: '전라남도 순천시 중앙로 1',
+    roadAddress: '전남광주통합특별시 순천시 중앙로 1',
     addressDetail: '101동 1001호',
     emdCode: EMD,
     lat: 34.95,
@@ -106,6 +107,7 @@ export function sellBody(over: Record<string, unknown> = {}): Record<string, unk
     desiredSalePrice: 30000,
     moveInDate: '2027-01-15',
     description: '남향, 올수리',
+    consents: actionConsents('DEAL_REQUEST'),
     ...over,
   };
 }
@@ -122,6 +124,7 @@ export function wantedBody(over: Record<string, unknown> = {}): Record<string, u
     depositMin: 300,
     depositMax: 1000,
     rentMax: 50,
+    consents: actionConsents('DEAL_REQUEST'),
     ...over,
   };
 }
@@ -143,7 +146,7 @@ export async function dealRequest(
       sggCode: DEFAULT_SGG_CODE,
       contactName: '홍길동',
       contactPhone: '01012345678',
-      roadAddress: '전라남도 순천시 중앙로 1',
+      roadAddress: '전남광주통합특별시 순천시 중앙로 1',
       addressDetail: '101동 1001호',
       desiredSalePrice: 30000,
       expiresAt: new Date(Date.now() + 30 * 86_400_000),

@@ -1,4 +1,4 @@
-import { bannerInputSchema, BannerSlot, BannerStatus, BannerTargeting } from '@house/shared';
+import { bannerCreateSchema, BannerSlot, BannerStatus, BannerTargeting } from '@house/shared';
 import { describe, expect, it } from 'vitest';
 import type { AdminBanner } from '../api/schemas';
 import {
@@ -59,9 +59,9 @@ const banner = (patch: Partial<AdminBanner> = {}): AdminBanner => ({
   priority: 0,
   sortOrder: 2,
   targeting: BannerTargeting.REGIONS,
-  targetRegionCodes: ['4615033028'],
+  targetRegionCodes: ['1215033028'],
   targetComplexIds: [],
-  targetRegions: [{ code: '4615033028', name: '신대지구' }],
+  targetRegions: [{ code: '1215033028', name: '신대지구' }],
   targetComplexes: [],
   memo: null,
   status: BannerStatus.SCHEDULED,
@@ -147,7 +147,7 @@ describe('bannerFormSchema', () => {
       errorsOf(
         valid({
           targeting: BannerTargeting.REGIONS,
-          regions: [{ code: '4615033028', name: '신대지구' }],
+          regions: [{ code: '1215033028', name: '신대지구' }],
         }),
       ),
     ).toEqual({});
@@ -186,7 +186,7 @@ describe('bannerToForm / duplicateToForm', () => {
       startDate: '2026-12-01',
       endDate: '2026-12-31',
       position: 2,
-      regions: [{ code: '4615033028', name: '신대지구' }],
+      regions: [{ code: '1215033028', name: '신대지구' }],
       memo: '',
     });
   });
@@ -200,7 +200,7 @@ describe('bannerToForm / duplicateToForm', () => {
 
   it('falls back to codes / ids when the names are missing', () => {
     const form = bannerToForm(banner({ targetRegions: [] }));
-    expect(form.regions).toEqual([{ code: '4615033028', name: '4615033028' }]);
+    expect(form.regions).toEqual([{ code: '1215033028', name: '1215033028' }]);
   });
 
   it('a copy is paused, appended and marked as a copy', () => {
@@ -218,11 +218,11 @@ describe('bannerToForm / duplicateToForm', () => {
 });
 
 describe('toBannerInput', () => {
-  it('produces a body the shared bannerInputSchema accepts', () => {
+  it('produces a body the shared bannerCreateSchema accepts', () => {
     const input = toBannerInput(
       valid({
         targeting: BannerTargeting.REGIONS,
-        regions: [{ code: '4615033028', name: '신대지구' }],
+        regions: [{ code: '1215033028', name: '신대지구' }],
         linkUrl: ' https://example.com/x ',
       }),
     );
@@ -230,10 +230,10 @@ describe('toBannerInput', () => {
       startAt: '2026-11-24T00:00:00+09:00',
       endAt: '2026-12-24T23:59:59+09:00',
       linkUrl: 'https://example.com/x',
-      targetRegionCodes: ['4615033028'],
+      targetRegionCodes: ['1215033028'],
       targetComplexIds: [],
     });
-    expect(bannerInputSchema.safeParse(input).success).toBe(true);
+    expect(bannerCreateSchema.safeParse(input).success).toBe(true);
   });
 
   it('omits empty optionals on create and nulls them on update', () => {
@@ -261,7 +261,7 @@ describe('toBannerInput', () => {
     const input = toBannerInput(
       valid({
         targeting: BannerTargeting.ALL,
-        regions: [{ code: '4615033028', name: '신대지구' }],
+        regions: [{ code: '1215033028', name: '신대지구' }],
         complexes: [{ id: ID(7), name: '신대 레이크파크 1단지' }],
       }),
     );

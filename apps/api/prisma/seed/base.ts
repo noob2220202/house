@@ -5,45 +5,56 @@
  */
 import { hash } from '@node-rs/argon2';
 import {
+  ACCOUNT_TERMS_TYPES,
   BANNER_SLOT_SPECS,
+  HomeSectionKey,
   DEFAULT_MAP_CENTER,
+  canonicalRegionCode,
   DEFAULT_REGION_NAME,
-  DEFAULT_SGG_CODE,
   DEFAULT_SIDO_CODE,
+  DEFAULT_SIDO_NAME,
+  REGION_CODE_LENGTH,
   SiteSettingKey,
   siteSettingSchemas,
   type BannerSlot,
 } from '@house/shared';
 import { AdminRole, type PrismaClient, RegionLevel, TermsType } from '@prisma/client';
-import { SUNCHEON_REGIONS } from './regions';
+import { SEED_SGG_CODE, SUNCHEON_REGIONS } from './regions';
 
-export async function seedRegions(prisma: PrismaClient, sggCode: string): Promise<number> {
+/**
+ * 시도 + 시군구 rows for the configured REGION_SGG_CODE, plus the bundled 순천시 읍면동/리 list
+ * when that code is 순천시. The code is canonicalized first, so a legacy 46150 (전라남도 순천시,
+ * before 2026-07-01) seeds the current 12150 rows instead of silently skipping the 읍면동.
+ */
+export async function seedRegions(
+  prisma: PrismaClient,
+  configuredSggCode: string,
+): Promise<number> {
+  const sggCode = canonicalRegionCode(configuredSggCode);
+  const isSuncheon = sggCode === SEED_SGG_CODE;
+  const sidoCode = sggCode.slice(0, REGION_CODE_LENGTH.SIDO);
+  // Names of another 시군구 are unknown here; the operator corrects them in the admin.
+  const sidoName = sidoCode === DEFAULT_SIDO_CODE ? DEFAULT_SIDO_NAME : sidoCode;
   await prisma.region.upsert({
-    where: { code: DEFAULT_SIDO_CODE },
+    where: { code: sidoCode },
     update: {},
-    create: {
-      code: DEFAULT_SIDO_CODE,
-      name: '전라남도',
-      fullName: '전라남도',
-      level: RegionLevel.SIDO,
-    },
+    create: { code: sidoCode, name: sidoName, fullName: sidoName, level: RegionLevel.SIDO },
   });
   await prisma.region.upsert({
     where: { code: sggCode },
     update: {},
     create: {
       code: sggCode,
-      name: '순천시',
-      fullName: DEFAULT_REGION_NAME,
+      name: isSuncheon ? '순천시' : sggCode,
+      fullName: isSuncheon ? DEFAULT_REGION_NAME : `${sidoName} ${sggCode}`,
       level: RegionLevel.SGG,
-      parentCode: DEFAULT_SIDO_CODE,
-      lat: DEFAULT_MAP_CENTER.lat,
-      lng: DEFAULT_MAP_CENTER.lng,
+      parentCode: sidoCode,
+      ...(isSuncheon ? { lat: DEFAULT_MAP_CENTER.lat, lng: DEFAULT_MAP_CENTER.lng } : {}),
     },
   });
-  // The 읍면동/리 list below is keyed to 46150 (순천시). With another REGION_SGG_CODE the operator
-  // loads that 시군구's 법정동 list instead (admin regions API).
-  if (sggCode !== DEFAULT_SGG_CODE) return 2;
+  // The 읍면동/리 list below is 순천시's. With another REGION_SGG_CODE the operator loads that
+  // 시군구's 법정동 list instead (admin regions API).
+  if (!isSuncheon) return 2;
   let order = 0;
   for (const r of SUNCHEON_REGIONS) {
     const parentCode = r.level === 'RI' ? `${r.code.slice(0, 8)}00` : sggCode;
@@ -113,6 +124,14 @@ export async function seedSiteSettings(prisma: PrismaClient): Promise<void> {
       disclaimer:
         '매물 정보는 각 중개사무소가 등록하며, 실제 거래 조건과 다를 수 있습니다. 계약 전 반드시 현장과 서류를 확인하세요.',
     },
+    // Every section in its default order; the app band stays hidden until APP_LINKS is filled in.
+    HOME_LAYOUT: {
+      sections: Object.values(HomeSectionKey).map((key) => ({
+        key,
+        visible: key !== HomeSectionKey.APP_BAND,
+      })),
+    },
+    APP_LINKS: {},
   };
   for (const key of Object.values(SiteSettingKey)) {
     const value = siteSettingSchemas[key].parse(values[key]) as object;
@@ -145,19 +164,79 @@ const TERMS_V1: { type: TermsType; title: string; isRequired: boolean; body: str
     isRequired: false,
     body: '새 매물·단지 소식 등 광고성 정보를 앱 알림과 이메일로 받습니다. 동의하지 않아도 서비스를 이용할 수 있습니다.',
   },
+  // Purpose consents (D8): agreed with one submission, shown inline in its form (개인정보 보호법
+  // 제15조②·제17조② notice items).
+  {
+    type: TermsType.PRIVACY_AGENCY_APPLICATION,
+    title: '[필수] 중개사무소 등록 신청 개인정보 수집·이용 동의',
+    isRequired: true,
+    body: [
+      '- 수집 항목: 대표 공인중개사 성명, 연락처(대표·휴대폰), 이메일, 사무소 주소, 중개사무소 등록번호, 사업자등록번호, 제출 서류(등록증 등)',
+      '- 수집·이용 목적: 중개사무소 등록 심사, 심사 결과 안내, 중개사 회원 관리',
+      '- 보유·이용 기간: 회원 탈퇴 또는 등록 해지 후 5년 (반려된 신청은 반려 후 1년)',
+      '- 동의를 거부할 권리와 불이익: 동의하지 않을 수 있으며, 동의하지 않으면 등록 신청을 할 수 없습니다.',
+    ].join('\n'),
+  },
+  {
+    type: TermsType.PRIVACY_AGENCY_JOIN,
+    title: '[필수] 소속 중개사 합류 개인정보 수집·이용 동의',
+    isRequired: true,
+    body: [
+      '- 수집 항목: 이름, 휴대폰 번호, 직함, 공인중개사 자격 정보(대표가 확인해 입력하는 경우)',
+      '- 수집·이용 목적: 소속공인중개사·중개보조원 등록, 매물 표시·광고의 명시사항 표시, 고용 신고 안내',
+      '- 보유·이용 기간: 소속 해지 후 5년',
+      '- 동의를 거부할 권리와 불이익: 동의하지 않을 수 있으며, 동의하지 않으면 중개사무소에 합류할 수 없습니다.',
+    ].join('\n'),
+  },
+  {
+    type: TermsType.DEAL_REQUEST_PRIVACY,
+    title: '[필수] 내놓기·구하기 개인정보 수집·이용 동의',
+    isRequired: true,
+    body: [
+      '- 수집 항목: 이름, 휴대폰 번호, (내놓기) 매물 주소(동·호수 포함)·매물 정보·사진, (구하기) 희망 지역·예산 등 찾는 조건',
+      '- 수집·이용 목적: 내놓기·구하기 요청 등록, 중개사무소 제안 전달, 요청 관리와 알림',
+      '- 보유·이용 기간: 요청 종료 후 30일까지 (관계 법령에 보존 의무가 있으면 그 기간까지)',
+      '- 동의를 거부할 권리와 불이익: 동의하지 않을 수 있으며, 동의하지 않으면 요청을 등록할 수 없습니다.',
+    ].join('\n'),
+  },
+  {
+    type: TermsType.DEAL_REQUEST_PROVIDE,
+    title: '[필수] 내놓기·구하기 개인정보 제3자(중개사무소) 제공 동의',
+    isRequired: true,
+    body: [
+      '- 제공받는 자: 요청의 공개 범위에 해당하는 중개사무소(요청 근처 또는 회원이 선택한 곳, 이 서비스에 가입한 공인중개사사무소)',
+      '- 제공 목적: 중개 제안과 상담 연락',
+      '- 제공 항목: 매물 유형·거래 조건·단지와 대략적인 위치 또는 찾는 조건. 이름·휴대폰 번호·동·호수는 회원이 연락처 공개에 동의한 중개사무소에만 제공합니다.',
+      '- 보유·이용 기간: 요청 종료 후 30일까지',
+      '- 동의를 거부할 권리와 불이익: 동의하지 않을 수 있으며, 동의하지 않으면 요청을 등록할 수 없습니다.',
+    ].join('\n'),
+  },
 ];
 
-/** Version 1.0 of every terms type, effective immediately. Text is a placeholder for legal review. */
+/**
+ * Version 1.0 of every terms type, effective immediately. The text is a 견본 (sample) for legal
+ * review: the operator replaces it with a reviewed version in the admin before launch.
+ */
 export async function seedTerms(prisma: PrismaClient, now: Date): Promise<void> {
   for (const t of TERMS_V1) {
     const existing = await prisma.termsDocument.findFirst({ where: { type: t.type } });
     if (existing) continue;
+    const purpose = !ACCOUNT_TERMS_TYPES.includes(t.type);
     await prisma.termsDocument.create({
       data: {
         type: t.type,
         version: '1.0',
         title: t.title,
-        content: `# ${t.title}\n\n> 초안입니다. 운영 전 법률 검토를 거쳐 관리자 화면에서 새 버전으로 교체하세요.\n\n${t.body}\n`,
+        content: [
+          `# ${t.title}`,
+          '',
+          purpose
+            ? '> 견본입니다. 운영 전 법률 검토를 거쳐 관리자 화면에서 새 버전으로 교체하세요. 이 동의는 해당 신청·요청을 보낼 때마다 따로 받습니다.'
+            : '> 견본(초안)입니다. 운영 전 법률 검토를 거쳐 관리자 화면에서 새 버전으로 교체하세요.',
+          '',
+          t.body,
+          '',
+        ].join('\n'),
         isRequired: t.isRequired,
         effectiveAt: now,
         publishedAt: now,

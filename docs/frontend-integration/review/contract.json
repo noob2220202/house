@@ -1,189 +1,189 @@
 {
- "key": "contract",
- "score": 71,
- "summary": "직접 경로 비교 결과 프론트가 호출하는 엔드포인트 216개 중 166개(77%)가 실제 백엔드에 같은 경로·메서드로 있음. 알려진 깨지는 차이 12개를 빼면 그대로 동작하는 비율은 최대 71%이고, 응답 필드까지 전부 대조하지는 않아서 이 값은 상한치. 50개는 백엔드에 없음(홈·검색·문의·관리자 통계/알림 등). 공통 계약(/api/v1, 쿠키·CSRF 헤더 이름, 에러 envelope, 페이지네이션)은 일치함. 다만 소셜 신규가입·계정연결, 관리자 TOTP 등록·재등록, 관리자 CSRF 경로, 직원 콘솔 접근(B2), 직원 초대(B3), 관리비 스키마, 탈퇴 body가 실제 API에서 깨짐. B4는 백엔드에서 해결됐지만 activate 단계가 추가됨. B1·B5·B6·B7·B8은 미해결. 머지 후 admin은 shared 스키마 이름 변경과 zod 버전 불일치로 tsc가 실패함.",
- "pagesChecked": [
-  "apps/web src/lib/api, lib/auth, features/* clients",
-  "apps/admin src/lib/api, features/m-*",
-  "mock-api route handlers (web 96, admin 92)",
-  "apps/api 34 controllers / 213 routes",
-  "packages/shared schemas"
- ],
- "findings": [
-  {
-   "severity": "high",
-   "area": "build",
-   "title": "apps/admin 타입체크 실패 — shared 배너/팝업 스키마 이름 변경",
-   "detail": "admin의 m-ads가 bannerInputSchema/BannerInput/popupInputSchema/reorderSchema를 import하지만 shared에는 bannerCreateSchema/bannerUpdateSchema/popupCreateSchema/bannerReorderSchema만 있음. 머지 후 admin 빌드 불가",
-   "evidence": "apps/admin/src/features/m-ads/lib/banner-form.ts:6; packages/shared/src/schemas/ads.ts:138-193; contract-admin-tsc.txt",
-   "fixHint": "새 스키마 이름으로 교체(WI-4)",
-   "owner": "frontend"
-  },
-  {
-   "severity": "high",
-   "area": "build",
-   "title": "zod 버전 불일치(앱 4.1.13 vs shared/api 4.6.7)",
-   "detail": "web 12건, admin 27건 tsc 오류 중 상당수가 zod 내부 타입 불일치 때문(zodResolver에 shared 스키마 전달 불가)",
-   "evidence": "apps/web/package.json:25, apps/admin/package.json:25, packages/shared/package.json:26; CoBrokerView.tsx:51, ReportDialog.tsx:28",
-   "fixHint": "두 앱 모두 zod 4.6.7로 올리기(WI-1)",
-   "owner": "frontend"
-  },
-  {
-   "severity": "high",
-   "area": "auth",
-   "title": "소셜 신규가입 흐름 불일치",
-   "detail": "백엔드는 신규 사용자를 세션 없이 /signup?provider= 로 보내고 pending 쿠키를 둔 뒤 GET/POST /auth/signup으로 가입 처리. 프론트는 세션과 signupCompleted=false가 있다고 가정하고 POST /me/consents만 호출하므로 가입을 완료할 수 없음",
-   "evidence": "apps/api/src/modules/auth/oauth/oauth.service.ts:170-182; apps/web/src/features/w-auth/api.ts:76",
-   "fixHint": "/signup을 GET/POST /auth/signup {nickname, ageOver14, consents, marketingOptIn}으로 연동(WI-2)",
-   "owner": "frontend"
-  },
-  {
-   "severity": "high",
-   "area": "auth",
-   "title": "OAuth 계정연결·오류 리다이렉트 불일치",
-   "detail": "프론트는 link=1을 보내지만 백엔드는 intent=link를 받으므로 연결 대신 로그인이 됨. 오류는 /login?error=로 오는데 프론트는 /auth/callback?error=를 기다림. 연결 완료는 /my/account로 가는데 프론트 페이지는 /me/account. 오류코드 이름도 다름(AUTH_IDENTITY_DUPLICATE vs AUTH_IDENTITY_ALREADY_LINKED)",
-   "evidence": "apps/web/src/features/w-auth/lib/flow.ts:106; packages/shared/src/schemas/auth.ts:43; apps/api/src/modules/auth/auth.constants.ts:55-60",
-   "fixHint": "프론트를 intent=link로 바꾸고 /login에서 error 처리. 백엔드는 WEB_PATHS.ACCOUNT를 '/me/account'로",
-   "owner": "both"
-  },
-  {
-   "severity": "high",
-   "area": "admin-auth",
-   "title": "관리자 TOTP 최초 등록·재등록 흐름 불일치",
-   "detail": "백엔드는 setup → activate로 등록하고 verify는 등록된 관리자 로그인에만 씀. 프론트는 등록 확인에 verify를 호출해 400 AUTH_TOTP_NOT_ENROLLED가 남. 재등록은 currentPassword와 code가 필요한데 프론트는 빈 body를 보내 403 AUTH_REAUTH_REQUIRED가 남",
-   "evidence": "apps/admin/src/features/m-core/api/index.ts:40-44; apps/api/src/modules/auth/admin/admin-auth.controller.ts:62-104; admin-auth.service.ts:131-170",
-   "fixHint": "activateTotp 추가, 재등록 시 비밀번호·코드 입력, 복구코드 로그인 UI(WI-3)",
-   "owner": "frontend"
-  },
-  {
-   "severity": "high",
-   "area": "csrf",
-   "title": "관리자 CSRF 토큰 경로 오류",
-   "detail": "admin csrf.ts가 /auth/csrf(사용자 경로)를 호출함. 백엔드는 관리자 전용 GET /admin/auth/csrf를 두고 있음. 쿠키가 없으면 관리자 세션과 무관한 토큰이 발급돼 CSRF_FAILED가 반복됨. house_csrf 쿠키 이름을 사용자와 관리자가 같이 씀",
-   "evidence": "apps/admin/src/lib/api/csrf.ts:28; apps/api/src/modules/auth/admin/admin-auth.controller.ts:54; session.service.ts:184-201",
-   "fixHint": "/admin/auth/csrf를 쓰고 응답 body의 csrfToken 사용. 백엔드는 관리자용 쿠키 이름 분리를 검토",
-   "owner": "both"
-  },
-  {
-   "severity": "high",
-   "area": "agency",
-   "title": "소속 직원(AGENT)이 /agencies/mine에서 404 (B2)",
-   "detail": "백엔드는 대표에게만 응답하고 직원은 404를 받음. 콘솔이 이를 '사무소 없음'으로 처리해 직원이 콘솔을 쓸 수 없음. 직원용 GET /agencies/membership은 이미 있음",
-   "evidence": "apps/api/src/modules/agencies/services/agency-registration.service.ts:328-335; apps/web/src/app/agent/layout.tsx:23-32",
-   "fixHint": "AGENT 역할이면 /agencies/membership과 /agencies/:id를 사용(WI-5)",
-   "owner": "frontend"
-  },
-  {
-   "severity": "high",
-   "area": "agency",
-   "title": "직원 초대 API 경로·모델 다름 (B3)",
-   "detail": "백엔드는 /agencies/mine/invites에서 Redis 코드를 쓰고 코드는 생성 시 한 번만 보여 줌. 프론트는 POST /agencies/mine/members와 INVITED 행, 코드 재열람을 가정함",
-   "evidence": "apps/api/src/modules/agencies/controllers/my-agency.controller.ts:134-156; apps/web/src/features/a-agency/lib/staff.ts:50",
-   "fixHint": "프론트를 invites API로 전환(WI-5)",
-   "owner": "frontend"
-  },
-  {
-   "severity": "high",
-   "area": "listings",
-   "title": "매물 등록 관리비 스키마 불일치",
-   "detail": "프론트는 maintenanceFeeWon과 maintenanceFeeItems:string[]을 보내지만 백엔드는 maintenanceFee{billingType, items[{kind, included, amountWon}], unavailableReason}을 받음. 등록·수정·게시 검증이 실패함",
-   "evidence": "packages/shared/src/schemas/listings.ts:212-236; apps/web/src/features/a-listings/api/schemas.ts:119-120",
-   "fixHint": "에디터 draft 구조를 shared에 맞춰 변경(WI-6)",
-   "owner": "frontend"
-  },
-  {
-   "severity": "high",
-   "area": "auth",
-   "title": "회원탈퇴 body에 confirm:true 누락",
-   "detail": "shared withdrawSchema가 confirm:true를 요구해 400이 남(tsc 오류도 있음)",
-   "evidence": "apps/web/src/features/w-auth/components/withdraw/WithdrawForm.tsx:83; packages/shared/src/schemas/auth.ts:116",
-   "fixHint": "{confirm:true, reason} 전송",
-   "owner": "frontend"
-  },
-  {
-   "severity": "medium",
-   "area": "auth",
-   "title": "/auth/me 응답 모양 차이",
-   "detail": "백엔드 MeResponse는 nickname이 nullable(프론트는 string 필수라 null이면 502). agencyId 대신 agency.agencyId. signupCompleted가 없고 pendingRequiredTerms가 있음",
-   "evidence": "apps/web/src/lib/auth/types.ts:8-22; packages/shared/src/schemas/auth.ts:207-224",
-   "fixHint": "sessionUserSchema에서 매핑(WI-2)",
-   "owner": "frontend"
-  },
-  {
-   "severity": "medium",
-   "area": "listings",
-   "title": "매물 카드 요약 모양 차이로 사진·단지명 누락",
-   "detail": "백엔드 ListingSummary는 complex{id,name}, coverPhoto{thumbUrl…}, floorLabel, emdCode를 씀. 프론트는 complexName, coverPhotoUrl, floor, emdName을 기대함. 파싱은 통과하지만 모든 카드에서 사진과 단지명이 빠짐",
-   "evidence": "packages/shared/src/listings/types.ts:41-73; apps/web/src/lib/api/schemas/listing.ts:105-157",
-   "fixHint": "listingSummarySchema에 preprocess 매핑 추가, 백엔드는 emdName 추가",
-   "owner": "both"
-  },
-  {
-   "severity": "high",
-   "area": "endpoints",
-   "title": "백엔드에 없는 엔드포인트 50개",
-   "detail": "홈(summary/popular-regions), 검색 suggest, similar/view, 단지 nearby/agencies, 사무소 regions·관심사무소, 관심지역, 거래의뢰 target-agencies/address-match, geocode, policies, 약관 버전, 콘솔 dashboard/summary/co-broker-candidates/문의 5개, 관리자 dashboard/queues·search·알림·통계 4개·social-login·videos/order·spam-flag 등",
-   "evidence": "contract/inventory.md (MISSING 행)",
-   "fixHint": "INTEGRATION_PLAN WI-8/9/10 (일부는 기존 API로 프론트 전환)",
-   "owner": "backend"
-  },
-  {
-   "severity": "medium",
-   "area": "admin",
-   "title": "관리자 경로·메서드 차이",
-   "detail": "문서 파일은 프론트 …/documents/:docId, 백엔드 …/:docId/file. registry-check는 프론트 POST, 백엔드 GET ?refresh. 단지 사진은 프론트 개별 CRUD, 백엔드 PUT 전체 목록",
-   "evidence": "apps/api/src/modules/agencies/controllers/admin-agencies.controller.ts; apps/api/src/modules/complexes/controllers/admin-complexes.controller.ts:106",
-   "fixHint": "프론트에서 경로 수정(WI-10)",
-   "owner": "frontend"
-  },
-  {
-   "severity": "medium",
-   "area": "admin",
-   "title": "HOME_LAYOUT·APP_LINKS 사이트설정 키 없음",
-   "detail": "SiteSettingKey에 HOME_LAYOUT과 APP_LINKS가 없어 관리자 메인화면 편집 GET/PUT이 400",
-   "evidence": "packages/shared/src/enums/admin.ts:66-72",
-   "fixHint": "shared에 키와 스키마 추가(WI-S)",
-   "owner": "backend"
-  },
-  {
-   "severity": "medium",
-   "area": "admin-auth",
-   "title": "관리자 비밀번호 최소 길이 10 vs 12",
-   "detail": "프론트는 10자 이상을 허용하지만 백엔드는 12자를 요구해 서버 오류가 남",
-   "evidence": "apps/admin/src/features/m-core/lib/otp.ts:31; packages/shared/src/schemas/auth.ts:174",
-   "fixHint": "shared adminPasswordSchema 재사용",
-   "owner": "frontend"
-  },
-  {
-   "severity": "medium",
-   "area": "notifications",
-   "title": "알림 unreadCount 필드 없음 (B5 미해결)",
-   "detail": "목록에 unreadCount가 없음(별도 /me/notifications/unread-count가 {unread} 반환). 읽음 처리 응답은 {updated, unread}. data.agencyId와 scope 필터 없음",
-   "evidence": "apps/api/src/modules/deal-requests/notifications/notifications.service.ts:92-133",
-   "fixHint": "프론트는 unread-count 사용, 백엔드는 agencyId 추가",
-   "owner": "both"
-  },
-  {
-   "severity": "medium",
-   "area": "blockers",
-   "title": "B6 배너 크기·B8 동의기록·B1 지역코드 미해결",
-   "detail": "MAIN_HERO가 여전히 1920×520. consents 필드와 TermsType 추가 없음. DEFAULT_SGG_CODE는 여전히 46150",
-   "evidence": "packages/shared/src/constants/ads.ts:17; constants/region.ts:5; enums/user.ts:92-97",
-   "fixHint": "오너 결정 후 shared 수정(WI-S)",
-   "owner": "owner-decision"
-  },
-  {
-   "severity": "medium",
-   "area": "inquiries",
-   "title": "문의(B7) 백엔드 전무",
-   "detail": "/agency/inquiries* 5개 엔드포인트와 contact-events가 없음",
-   "evidence": "be_routes.txt",
-   "fixHint": "런칭 시 콘솔 문의함 숨김, 이후 백엔드 구현",
-   "owner": "owner-decision"
+  "key": "contract",
+  "score": 71,
+  "summary": "직접 경로 비교 결과 프론트가 호출하는 엔드포인트 216개 중 166개(77%)가 실제 백엔드에 같은 경로·메서드로 있음. 알려진 깨지는 차이 12개를 빼면 그대로 동작하는 비율은 최대 71%이고, 응답 필드까지 전부 대조하지는 않아서 이 값은 상한치. 50개는 백엔드에 없음(홈·검색·문의·관리자 통계/알림 등). 공통 계약(/api/v1, 쿠키·CSRF 헤더 이름, 에러 envelope, 페이지네이션)은 일치함. 다만 소셜 신규가입·계정연결, 관리자 TOTP 등록·재등록, 관리자 CSRF 경로, 직원 콘솔 접근(B2), 직원 초대(B3), 관리비 스키마, 탈퇴 body가 실제 API에서 깨짐. B4는 백엔드에서 해결됐지만 activate 단계가 추가됨. B1·B5·B6·B7·B8은 미해결. 머지 후 admin은 shared 스키마 이름 변경과 zod 버전 불일치로 tsc가 실패함.",
+  "pagesChecked": [
+    "apps/web src/lib/api, lib/auth, features/* clients",
+    "apps/admin src/lib/api, features/m-*",
+    "mock-api route handlers (web 96, admin 92)",
+    "apps/api 34 controllers / 213 routes",
+    "packages/shared schemas"
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "area": "build",
+      "title": "apps/admin 타입체크 실패 — shared 배너/팝업 스키마 이름 변경",
+      "detail": "admin의 m-ads가 bannerInputSchema/BannerInput/popupInputSchema/reorderSchema를 import하지만 shared에는 bannerCreateSchema/bannerUpdateSchema/popupCreateSchema/bannerReorderSchema만 있음. 머지 후 admin 빌드 불가",
+      "evidence": "apps/admin/src/features/m-ads/lib/banner-form.ts:6; packages/shared/src/schemas/ads.ts:138-193; contract-admin-tsc.txt",
+      "fixHint": "새 스키마 이름으로 교체(WI-4)",
+      "owner": "frontend"
+    },
+    {
+      "severity": "high",
+      "area": "build",
+      "title": "zod 버전 불일치(앱 4.1.13 vs shared/api 4.6.7)",
+      "detail": "web 12건, admin 27건 tsc 오류 중 상당수가 zod 내부 타입 불일치 때문(zodResolver에 shared 스키마 전달 불가)",
+      "evidence": "apps/web/package.json:25, apps/admin/package.json:25, packages/shared/package.json:26; CoBrokerView.tsx:51, ReportDialog.tsx:28",
+      "fixHint": "두 앱 모두 zod 4.6.7로 올리기(WI-1)",
+      "owner": "frontend"
+    },
+    {
+      "severity": "high",
+      "area": "auth",
+      "title": "소셜 신규가입 흐름 불일치",
+      "detail": "백엔드는 신규 사용자를 세션 없이 /signup?provider= 로 보내고 pending 쿠키를 둔 뒤 GET/POST /auth/signup으로 가입 처리. 프론트는 세션과 signupCompleted=false가 있다고 가정하고 POST /me/consents만 호출하므로 가입을 완료할 수 없음",
+      "evidence": "apps/api/src/modules/auth/oauth/oauth.service.ts:170-182; apps/web/src/features/w-auth/api.ts:76",
+      "fixHint": "/signup을 GET/POST /auth/signup {nickname, ageOver14, consents, marketingOptIn}으로 연동(WI-2)",
+      "owner": "frontend"
+    },
+    {
+      "severity": "high",
+      "area": "auth",
+      "title": "OAuth 계정연결·오류 리다이렉트 불일치",
+      "detail": "프론트는 link=1을 보내지만 백엔드는 intent=link를 받으므로 연결 대신 로그인이 됨. 오류는 /login?error=로 오는데 프론트는 /auth/callback?error=를 기다림. 연결 완료는 /my/account로 가는데 프론트 페이지는 /me/account. 오류코드 이름도 다름(AUTH_IDENTITY_DUPLICATE vs AUTH_IDENTITY_ALREADY_LINKED)",
+      "evidence": "apps/web/src/features/w-auth/lib/flow.ts:106; packages/shared/src/schemas/auth.ts:43; apps/api/src/modules/auth/auth.constants.ts:55-60",
+      "fixHint": "프론트를 intent=link로 바꾸고 /login에서 error 처리. 백엔드는 WEB_PATHS.ACCOUNT를 '/me/account'로",
+      "owner": "both"
+    },
+    {
+      "severity": "high",
+      "area": "admin-auth",
+      "title": "관리자 TOTP 최초 등록·재등록 흐름 불일치",
+      "detail": "백엔드는 setup → activate로 등록하고 verify는 등록된 관리자 로그인에만 씀. 프론트는 등록 확인에 verify를 호출해 400 AUTH_TOTP_NOT_ENROLLED가 남. 재등록은 currentPassword와 code가 필요한데 프론트는 빈 body를 보내 403 AUTH_REAUTH_REQUIRED가 남",
+      "evidence": "apps/admin/src/features/m-core/api/index.ts:40-44; apps/api/src/modules/auth/admin/admin-auth.controller.ts:62-104; admin-auth.service.ts:131-170",
+      "fixHint": "activateTotp 추가, 재등록 시 비밀번호·코드 입력, 복구코드 로그인 UI(WI-3)",
+      "owner": "frontend"
+    },
+    {
+      "severity": "high",
+      "area": "csrf",
+      "title": "관리자 CSRF 토큰 경로 오류",
+      "detail": "admin csrf.ts가 /auth/csrf(사용자 경로)를 호출함. 백엔드는 관리자 전용 GET /admin/auth/csrf를 두고 있음. 쿠키가 없으면 관리자 세션과 무관한 토큰이 발급돼 CSRF_FAILED가 반복됨. house_csrf 쿠키 이름을 사용자와 관리자가 같이 씀",
+      "evidence": "apps/admin/src/lib/api/csrf.ts:28; apps/api/src/modules/auth/admin/admin-auth.controller.ts:54; session.service.ts:184-201",
+      "fixHint": "/admin/auth/csrf를 쓰고 응답 body의 csrfToken 사용. 백엔드는 관리자용 쿠키 이름 분리를 검토",
+      "owner": "both"
+    },
+    {
+      "severity": "high",
+      "area": "agency",
+      "title": "소속 직원(AGENT)이 /agencies/mine에서 404 (B2)",
+      "detail": "백엔드는 대표에게만 응답하고 직원은 404를 받음. 콘솔이 이를 '사무소 없음'으로 처리해 직원이 콘솔을 쓸 수 없음. 직원용 GET /agencies/membership은 이미 있음",
+      "evidence": "apps/api/src/modules/agencies/services/agency-registration.service.ts:328-335; apps/web/src/app/agent/layout.tsx:23-32",
+      "fixHint": "AGENT 역할이면 /agencies/membership과 /agencies/:id를 사용(WI-5)",
+      "owner": "frontend"
+    },
+    {
+      "severity": "high",
+      "area": "agency",
+      "title": "직원 초대 API 경로·모델 다름 (B3)",
+      "detail": "백엔드는 /agencies/mine/invites에서 Redis 코드를 쓰고 코드는 생성 시 한 번만 보여 줌. 프론트는 POST /agencies/mine/members와 INVITED 행, 코드 재열람을 가정함",
+      "evidence": "apps/api/src/modules/agencies/controllers/my-agency.controller.ts:134-156; apps/web/src/features/a-agency/lib/staff.ts:50",
+      "fixHint": "프론트를 invites API로 전환(WI-5)",
+      "owner": "frontend"
+    },
+    {
+      "severity": "high",
+      "area": "listings",
+      "title": "매물 등록 관리비 스키마 불일치",
+      "detail": "프론트는 maintenanceFeeWon과 maintenanceFeeItems:string[]을 보내지만 백엔드는 maintenanceFee{billingType, items[{kind, included, amountWon}], unavailableReason}을 받음. 등록·수정·게시 검증이 실패함",
+      "evidence": "packages/shared/src/schemas/listings.ts:212-236; apps/web/src/features/a-listings/api/schemas.ts:119-120",
+      "fixHint": "에디터 draft 구조를 shared에 맞춰 변경(WI-6)",
+      "owner": "frontend"
+    },
+    {
+      "severity": "high",
+      "area": "auth",
+      "title": "회원탈퇴 body에 confirm:true 누락",
+      "detail": "shared withdrawSchema가 confirm:true를 요구해 400이 남(tsc 오류도 있음)",
+      "evidence": "apps/web/src/features/w-auth/components/withdraw/WithdrawForm.tsx:83; packages/shared/src/schemas/auth.ts:116",
+      "fixHint": "{confirm:true, reason} 전송",
+      "owner": "frontend"
+    },
+    {
+      "severity": "medium",
+      "area": "auth",
+      "title": "/auth/me 응답 모양 차이",
+      "detail": "백엔드 MeResponse는 nickname이 nullable(프론트는 string 필수라 null이면 502). agencyId 대신 agency.agencyId. signupCompleted가 없고 pendingRequiredTerms가 있음",
+      "evidence": "apps/web/src/lib/auth/types.ts:8-22; packages/shared/src/schemas/auth.ts:207-224",
+      "fixHint": "sessionUserSchema에서 매핑(WI-2)",
+      "owner": "frontend"
+    },
+    {
+      "severity": "medium",
+      "area": "listings",
+      "title": "매물 카드 요약 모양 차이로 사진·단지명 누락",
+      "detail": "백엔드 ListingSummary는 complex{id,name}, coverPhoto{thumbUrl…}, floorLabel, emdCode를 씀. 프론트는 complexName, coverPhotoUrl, floor, emdName을 기대함. 파싱은 통과하지만 모든 카드에서 사진과 단지명이 빠짐",
+      "evidence": "packages/shared/src/listings/types.ts:41-73; apps/web/src/lib/api/schemas/listing.ts:105-157",
+      "fixHint": "listingSummarySchema에 preprocess 매핑 추가, 백엔드는 emdName 추가",
+      "owner": "both"
+    },
+    {
+      "severity": "high",
+      "area": "endpoints",
+      "title": "백엔드에 없는 엔드포인트 50개",
+      "detail": "홈(summary/popular-regions), 검색 suggest, similar/view, 단지 nearby/agencies, 사무소 regions·관심사무소, 관심지역, 거래의뢰 target-agencies/address-match, geocode, policies, 약관 버전, 콘솔 dashboard/summary/co-broker-candidates/문의 5개, 관리자 dashboard/queues·search·알림·통계 4개·social-login·videos/order·spam-flag 등",
+      "evidence": "contract/inventory.md (MISSING 행)",
+      "fixHint": "INTEGRATION_PLAN WI-8/9/10 (일부는 기존 API로 프론트 전환)",
+      "owner": "backend"
+    },
+    {
+      "severity": "medium",
+      "area": "admin",
+      "title": "관리자 경로·메서드 차이",
+      "detail": "문서 파일은 프론트 …/documents/:docId, 백엔드 …/:docId/file. registry-check는 프론트 POST, 백엔드 GET ?refresh. 단지 사진은 프론트 개별 CRUD, 백엔드 PUT 전체 목록",
+      "evidence": "apps/api/src/modules/agencies/controllers/admin-agencies.controller.ts; apps/api/src/modules/complexes/controllers/admin-complexes.controller.ts:106",
+      "fixHint": "프론트에서 경로 수정(WI-10)",
+      "owner": "frontend"
+    },
+    {
+      "severity": "medium",
+      "area": "admin",
+      "title": "HOME_LAYOUT·APP_LINKS 사이트설정 키 없음",
+      "detail": "SiteSettingKey에 HOME_LAYOUT과 APP_LINKS가 없어 관리자 메인화면 편집 GET/PUT이 400",
+      "evidence": "packages/shared/src/enums/admin.ts:66-72",
+      "fixHint": "shared에 키와 스키마 추가(WI-S)",
+      "owner": "backend"
+    },
+    {
+      "severity": "medium",
+      "area": "admin-auth",
+      "title": "관리자 비밀번호 최소 길이 10 vs 12",
+      "detail": "프론트는 10자 이상을 허용하지만 백엔드는 12자를 요구해 서버 오류가 남",
+      "evidence": "apps/admin/src/features/m-core/lib/otp.ts:31; packages/shared/src/schemas/auth.ts:174",
+      "fixHint": "shared adminPasswordSchema 재사용",
+      "owner": "frontend"
+    },
+    {
+      "severity": "medium",
+      "area": "notifications",
+      "title": "알림 unreadCount 필드 없음 (B5 미해결)",
+      "detail": "목록에 unreadCount가 없음(별도 /me/notifications/unread-count가 {unread} 반환). 읽음 처리 응답은 {updated, unread}. data.agencyId와 scope 필터 없음",
+      "evidence": "apps/api/src/modules/deal-requests/notifications/notifications.service.ts:92-133",
+      "fixHint": "프론트는 unread-count 사용, 백엔드는 agencyId 추가",
+      "owner": "both"
+    },
+    {
+      "severity": "medium",
+      "area": "blockers",
+      "title": "B6 배너 크기·B8 동의기록·B1 지역코드 미해결",
+      "detail": "MAIN_HERO가 여전히 1920×520. consents 필드와 TermsType 추가 없음. DEFAULT_SGG_CODE는 여전히 46150",
+      "evidence": "packages/shared/src/constants/ads.ts:17; constants/region.ts:5; enums/user.ts:92-97",
+      "fixHint": "오너 결정 후 shared 수정(WI-S)",
+      "owner": "owner-decision"
+    },
+    {
+      "severity": "medium",
+      "area": "inquiries",
+      "title": "문의(B7) 백엔드 전무",
+      "detail": "/agency/inquiries* 5개 엔드포인트와 contact-events가 없음",
+      "evidence": "be_routes.txt",
+      "fixHint": "런칭 시 콘솔 문의함 숨김, 이후 백엔드 구현",
+      "owner": "owner-decision"
+    }
+  ],
+  "artifacts": {
+    "plan": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/INTEGRATION_PLAN.md",
+    "inventory": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/contract/inventory.md"
   }
- ],
- "artifacts": {
-  "plan": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/INTEGRATION_PLAN.md",
-  "inventory": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/contract/inventory.md"
- }
 }

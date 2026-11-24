@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   const make = (kind: MockTradeSyncRun['kind'], base: number): MockTradeSyncRun => ({
     id: newId(),
     kind,
-    sggCode: '46150',
+    sggCode: '12150',
     yearMonth: input.yearMonth,
     status: 'RUNNING',
     fetchedCount: 0,

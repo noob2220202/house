@@ -4,12 +4,16 @@ import {
   DealRequestStatus,
   DealRequestVisibility,
   DealType,
+  DEFAULT_SGG_CODE,
+  ErrorCode,
   MediaPurpose,
   NotificationType,
   ProposalStatus,
+  TermsType,
 } from '@house/shared';
 import { DailyCapService } from '../../../src/common/throttle/daily-cap.service';
 import {
+  createActionConsentTerms,
   createAgency,
   createComplex,
   createMedia,
@@ -42,6 +46,7 @@ describe('deal-requests: requester (e2e)', () => {
   beforeEach(async () => {
     queue.jobs.length = 0;
     await resetAll(t);
+    await createActionConsentTerms(t.prisma);
   });
   afterAll(() => t?.close());
 
@@ -59,7 +64,7 @@ describe('deal-requests: requester (e2e)', () => {
         status: 'OPEN',
         assetType: 'APT',
         dealTypes: ['SALE'],
-        sggCode: '46150',
+        sggCode: '12150',
         emdCode: EMD,
         contactName: '홍길동',
         contactPhone: '01012345678',
@@ -85,6 +90,91 @@ describe('deal-requests: requester (e2e)', () => {
       const [loc] = await t.prisma.$queryRaw<{ ok: boolean }[]>`
         SELECT location IS NOT NULL AS ok FROM deal_requests WHERE id = ${row.id}::uuid`;
       expect(loc?.ok).toBe(true);
+    });
+
+    describe('개인정보 수집·이용 + 제3자 제공 동의 (D8)', () => {
+      it('records both consents with the request', async () => {
+        const { user, s } = await requester(t);
+        await withSession(t.http().post('/api/v1/deal-requests'), s).send(wantedBody()).expect(201);
+        const rows = await t.prisma.userConsent.findMany({
+          where: { userId: user.id },
+          include: { termsDocument: true },
+          orderBy: { termsDocument: { type: 'asc' } },
+        });
+        expect(rows.map((r) => [r.termsDocument.type, r.termsDocument.version, r.agreed])).toEqual([
+          [TermsType.DEAL_REQUEST_PRIVACY, '1.0', true],
+          [TermsType.DEAL_REQUEST_PROVIDE, '1.0', true],
+        ]);
+      });
+
+      it('400 AUTH_CONSENT_REQUIRED when one is missing; no request, no consent, no cap used', async () => {
+        const { user, s } = await requester(t);
+        const res = await withSession(t.http().post('/api/v1/deal-requests'), s)
+          .send(sellBody({ consents: [{ type: TermsType.DEAL_REQUEST_PRIVACY, version: '1.0' }] }))
+          .expect(400);
+        expect(res.body).toMatchObject({
+          code: ErrorCode.AUTH_CONSENT_REQUIRED,
+          message: '필수 동의 항목에 동의해 주세요.',
+          details: { missing: [TermsType.DEAL_REQUEST_PROVIDE] },
+        });
+        expect(await t.prisma.dealRequest.count()).toBe(0);
+        expect(await t.prisma.userConsent.count()).toBe(0);
+        expect(await t.app.get(DailyCapService).used('DEAL_REQUEST_CREATE', user.id)).toBe(0);
+        expect(queue.jobs).toEqual([]);
+      });
+
+      it('400 AUTH_CONSENT_OUTDATED for a version that is no longer current', async () => {
+        const { s } = await requester(t);
+        const past = new Date(Date.now() - 1000);
+        await t.prisma.termsDocument.create({
+          data: {
+            type: TermsType.DEAL_REQUEST_PROVIDE,
+            version: '2.0',
+            title: '제3자 제공 동의 2.0',
+            content: '견본',
+            isRequired: true,
+            effectiveAt: past,
+            publishedAt: past,
+          },
+        });
+        const res = await withSession(t.http().post('/api/v1/deal-requests'), s)
+          .send(sellBody())
+          .expect(400);
+        expect(res.body).toMatchObject({
+          code: ErrorCode.AUTH_CONSENT_OUTDATED,
+          details: {
+            outdated: [
+              { type: TermsType.DEAL_REQUEST_PROVIDE, version: '1.0', currentVersion: '2.0' },
+            ],
+          },
+        });
+        await withSession(t.http().post('/api/v1/deal-requests'), s)
+          .send(
+            sellBody({
+              consents: [
+                { type: TermsType.DEAL_REQUEST_PRIVACY, version: '1.0' },
+                { type: TermsType.DEAL_REQUEST_PROVIDE, version: '2.0' },
+              ],
+            }),
+          )
+          .expect(201);
+      });
+
+      it('400 VALIDATION_FAILED for duplicate or foreign consent types', async () => {
+        const { s } = await requester(t);
+        for (const consents of [
+          [
+            { type: TermsType.DEAL_REQUEST_PRIVACY, version: '1.0' },
+            { type: TermsType.DEAL_REQUEST_PRIVACY, version: '1.0' },
+          ],
+          [{ type: TermsType.PRIVACY_AGENCY_JOIN, version: '1.0' }],
+        ]) {
+          const res = await withSession(t.http().post('/api/v1/deal-requests'), s)
+            .send(sellBody({ consents }))
+            .expect(400);
+          expect(res.body.code).toBe(ErrorCode.VALIDATION_FAILED);
+        }
+      });
     });
 
     it('201: 구하기 to selected agencies, complex + photos validated', async () => {
@@ -187,6 +277,19 @@ describe('deal-requests: requester (e2e)', () => {
         expect(issuePaths(res.body)).toContain(path);
       }
       expect(await t.prisma.dealRequest.count()).toBe(0);
+    });
+
+    it('accepts legacy 46150… region codes (Kakao bcode / old links) and stores 12150…', async () => {
+      const { s } = await requester(t);
+      const res = await withSession(t.http().post('/api/v1/deal-requests'), s)
+        .send(wantedBody({ regionCodes: ['4615010100', '46150'] }))
+        .expect(201);
+      expect(res.body.regionCodes).toEqual([EMD, DEFAULT_SGG_CODE]);
+      const row = await t.prisma.dealRequest.findUniqueOrThrow({ where: { id: res.body.id } });
+      expect(row).toMatchObject({
+        sggCode: DEFAULT_SGG_CODE,
+        regionCodes: [EMD, DEFAULT_SGG_CODE],
+      });
     });
 
     it('400 for out-of-region codes, mismatching complex, unapproved target, foreign photo', async () => {

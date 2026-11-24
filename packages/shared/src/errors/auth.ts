@@ -19,6 +19,9 @@ export const AuthErrorCode = {
   AUTH_TERMS_INVALID: 'AUTH_TERMS_INVALID',
   AUTH_TERMS_NOT_FOUND: 'AUTH_TERMS_NOT_FOUND',
   AUTH_REQUIRED_TERMS_REVOKE: 'AUTH_REQUIRED_TERMS_REVOKE',
+  AUTH_CONSENT_REQUIRED: 'AUTH_CONSENT_REQUIRED',
+  AUTH_CONSENT_OUTDATED: 'AUTH_CONSENT_OUTDATED',
+  AUTH_CONSENT_UNAVAILABLE: 'AUTH_CONSENT_UNAVAILABLE',
   AUTH_SIGNUP_EXPIRED: 'AUTH_SIGNUP_EXPIRED',
   AUTH_IDENTITY_DUPLICATE: 'AUTH_IDENTITY_DUPLICATE',
   AUTH_PROVIDER_ALREADY_LINKED: 'AUTH_PROVIDER_ALREADY_LINKED',
@@ -51,6 +54,11 @@ export const AUTH_ERROR_MESSAGES: Record<keyof typeof AuthErrorCode, string> = {
   AUTH_TERMS_INVALID: '현재 시행 중인 약관이 아닙니다. 새로고침 후 다시 시도해 주세요.',
   AUTH_TERMS_NOT_FOUND: '약관을 찾을 수 없습니다.',
   AUTH_REQUIRED_TERMS_REVOKE: '필수 약관 동의는 철회할 수 없습니다. 회원 탈퇴를 이용해 주세요.',
+  AUTH_CONSENT_REQUIRED: '필수 동의 항목에 동의해 주세요.',
+  AUTH_CONSENT_OUTDATED:
+    '동의 내용이 변경되었습니다. 새로고침 후 변경된 내용을 확인하고 다시 동의해 주세요.',
+  AUTH_CONSENT_UNAVAILABLE:
+    '동의서가 아직 게시되지 않아 지금은 접수할 수 없습니다. 잠시 후 다시 시도하거나 고객센터로 문의해 주세요.',
   AUTH_SIGNUP_EXPIRED: '가입 시간이 만료되었습니다. 소셜 로그인을 다시 진행해 주세요.',
   AUTH_IDENTITY_DUPLICATE: '이미 다른 계정에 연결된 소셜 계정입니다.',
   AUTH_PROVIDER_ALREADY_LINKED: '이미 같은 서비스의 다른 소셜 계정이 연결되어 있습니다.',

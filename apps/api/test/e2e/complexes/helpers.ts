@@ -29,7 +29,9 @@ export function fixture(name: string): string {
 
 /**
  * Fixture-backed TradeApiClient: responses keyed by `${kind}:${yearMonth}` (XML bodies parsed by
- * the real parser), optional page cap to exercise pagination, and injectable failures.
+ * the real parser) for any LAWD_CD, or by `${kind}:${yearMonth}:${sggCode}` for one code only
+ * (`set(..., sggCode)`, e.g. to simulate the legacy-code fallback); optional page cap to exercise
+ * pagination, and injectable failures.
  */
 export class FakeTradeApi implements TradeApiClient {
   configured = true;
@@ -39,8 +41,8 @@ export class FakeTradeApi implements TradeApiClient {
   private readonly bodies = new Map<string, string>();
   private readonly failures = new Map<string, Error>();
 
-  set(kind: TradeSyncKind, yearMonth: number, body: string): this {
-    this.bodies.set(`${kind}:${yearMonth}`, body);
+  set(kind: TradeSyncKind, yearMonth: number, body: string, sggCode?: string): this {
+    this.bodies.set(sggCode ? `${kind}:${yearMonth}:${sggCode}` : `${kind}:${yearMonth}`, body);
     return this;
   }
 
@@ -62,7 +64,7 @@ export class FakeTradeApi implements TradeApiClient {
     const key = `${req.kind}:${req.yearMonth}`;
     const failure = this.failures.get(key);
     if (failure) return Promise.reject(failure);
-    const body = this.bodies.get(key);
+    const body = this.bodies.get(`${key}:${req.sggCode}`) ?? this.bodies.get(key);
     if (body === undefined) return Promise.resolve(parseTradeApiResponse(emptyResponse()));
     const all = parseTradeApiResponse(body);
     const size = Math.min(req.numOfRows, this.maxRowsPerPage ?? req.numOfRows);
@@ -107,9 +109,9 @@ export async function seedBuyoung(
 ): Promise<{ complex: Complex; at84: ComplexAreaType; at59: ComplexAreaType }> {
   const complex = await createComplex(t.prisma, {
     name: '연향부영3차',
-    roadAddress: '전라남도 순천시 연향번영길 100',
-    jibunAddress: '전라남도 순천시 연향동 1234-5',
-    emdCode: '46150114',
+    roadAddress: '전남광주통합특별시 순천시 연향번영길 100',
+    jibunAddress: '전남광주통합특별시 순천시 연향동 1234-5',
+    emdCode: '12150114',
     emdName: '연향동',
     jibun: '1234-5',
     households: 600,
@@ -140,7 +142,7 @@ export async function insertTrade(
     data: {
       sourceKey: createHash('sha256').update(`test-${n}-${Math.random()}`).digest('hex'),
       kind: TradeSyncKind.APT_TRADE,
-      sggCode: '46150',
+      sggCode: '12150',
       aptName: '테스트',
       dealType: TradeDealType.SALE,
       dealYm: dealDate.getUTCFullYear() * 100 + dealDate.getUTCMonth() + 1,

@@ -1,6 +1,6 @@
 import { MediaPurpose, type DealRequestType, type DealRequestCreateInput } from '@house/shared';
 import { z } from 'zod';
-import { api, qk } from '@/lib/api';
+import { api, fetchActionConsents, qk } from '@/lib/api';
 import {
   addressMatchSchema,
   contactGrantResultSchema,
@@ -25,8 +25,13 @@ export function mediaThumbUrl(media: Pick<Media, 'variants'>): string {
   return media.variants.thumb?.url ?? media.variants.medium?.url ?? '';
 }
 
-/** Create payload = the shared schema input + photo ids (assumed field, see the integration doc). */
-export type DealRequestCreatePayload = DealRequestCreateInput & { photoMediaIds?: string[] };
+type WithoutConsents<T> = T extends unknown ? Omit<T, 'consents'> : never;
+
+/**
+ * Create payload = the shared `dealRequestCreateSchema` (SELL_OR_LEASE carries `photoMediaIds`)
+ * without `consents`: `dealApi.create` adds the current consent versions itself (D8).
+ */
+export type DealRequestCreatePayload = WithoutConsents<DealRequestCreateInput>;
 
 export interface MyRequestsQuery {
   type?: DealRequestType;
@@ -54,8 +59,14 @@ export const dealKeys = {
 };
 
 export const dealApi = {
-  create: (payload: DealRequestCreatePayload) =>
-    api.post('/deal-requests', payload, { schema: createdSchema }),
+  /**
+   * POST /deal-requests with the 개인정보 수집·이용 / 제3자 제공 consents (D8) the user ticked on
+   * the last step, at the current published versions (GET /terms/:type).
+   */
+  create: async (payload: DealRequestCreatePayload) => {
+    const consents = await fetchActionConsents('DEAL_REQUEST');
+    return api.post('/deal-requests', { ...payload, consents }, { schema: createdSchema });
+  },
 
   listMine: (query: MyRequestsQuery, signal?: AbortSignal) =>
     api.get('/me/deal-requests', { query: { ...query }, schema: dealRequestPageSchema, signal }),

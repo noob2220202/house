@@ -3,7 +3,10 @@ import { BannerTargeting, type BannerSlot } from '../enums/ads';
 export interface BannerSlotSpec {
   /** Max simultaneously live banners in the slot (overridable in banner_slot_configs). */
   maxActive: number;
-  /** Recommended image size in px (pc / mobile). */
+  /**
+   * Upload size in px (pc / mobile) — what the admin form asks for. Hero slots follow the approved design
+   * (D4): the image is shown in a smaller frame (MAIN_HERO desktop 1240×220 at 2×, mobile 358×160 at 3×).
+   */
   pc: { width: number; height: number };
   mobile: { width: number; height: number } | null;
   label: string;
@@ -16,8 +19,8 @@ export interface BannerSlotSpec {
 export const BANNER_SLOT_SPECS: Record<BannerSlot, BannerSlotSpec> = {
   MAIN_HERO: {
     maxActive: 8,
-    pc: { width: 1920, height: 520 },
-    mobile: { width: 750, height: 560 },
+    pc: { width: 2480, height: 440 },
+    mobile: { width: 1074, height: 480 },
     label: '메인 상단 대형',
     requiresAgency: false,
     requiredTargeting: null,
@@ -64,8 +67,8 @@ export const BANNER_SLOT_SPECS: Record<BannerSlot, BannerSlotSpec> = {
   },
   MOBILE_MAIN: {
     maxActive: 8,
-    pc: { width: 750, height: 560 },
-    mobile: { width: 750, height: 560 },
+    pc: { width: 1074, height: 480 },
+    mobile: { width: 1074, height: 480 },
     label: '모바일 메인',
     requiresAgency: false,
     requiredTargeting: null,

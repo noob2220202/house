@@ -21,6 +21,7 @@ import { FavoritesService } from './services/favorites.service';
 import { ListingCountersService } from './services/listing-counters.service';
 import { ListingExpiryService } from './services/listing-expiry.service';
 import { ListingQueryService } from './services/listing-query.service';
+import { ListingRegionNamesService } from './services/listing-region-names.service';
 import { ListingSummariesService } from './services/listing-summaries.service';
 import { ListingViewsService } from './services/listing-views.service';
 import { ListingsModerationService } from './services/listings-moderation.service';
@@ -47,6 +48,7 @@ import { RecentViewsService } from './services/recent-views.service';
     { provide: LISTING_NOTIFIER, useClass: PrismaListingNotifier },
     ListingSearchRepository,
     ListingMapper,
+    ListingRegionNamesService,
     ListingSummariesService,
     ListingCountersService,
     ListingViewsService,

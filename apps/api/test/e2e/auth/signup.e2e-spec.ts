@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { COOKIE_NAMES, ErrorCode, TermsType } from '@house/shared';
 import { WithdrawnIdentityService } from '../../../src/modules/auth/users/withdrawn-identity.service';
-import { resetAll, type TestApp } from '../../utils';
+import { createActionConsentTerms, resetAll, type TestApp } from '../../utils';
 import type { FakeOAuthHttp } from './fakes/fake-oauth-http';
 import {
   callback,
@@ -76,6 +76,8 @@ describe('auth: social signup completion (e2e)', () => {
   describe('POST /api/v1/auth/signup', () => {
     it('creates the member, identity and consent records, then logs in', async () => {
       const terms = await seedTerms(t.prisma);
+      // Purpose consents (D8) are agreed per submission, never at signup.
+      await createActionConsentTerms(t.prisma);
       const cookie = await pendingKakaoSignup();
       const res = await post(cookie, {
         nickname: '순천댁',
@@ -94,6 +96,7 @@ describe('auth: social signup completion (e2e)', () => {
         email: 'new@example.com',
         role: 'USER',
         marketingOptIn: true,
+        marketingOptInAt: expect.any(String),
         pendingRequiredTerms: [],
       });
       const cookies = setCookies(res);
@@ -131,6 +134,7 @@ describe('auth: social signup completion (e2e)', () => {
       }).expect(201);
       expect(res.body.user.phone).toBeNull();
       expect(res.body.user.marketingOptIn).toBe(false);
+      expect(res.body.user.marketingOptInAt).toBeNull();
     });
 
     it('400 AUTH_TERMS_REQUIRED when a required document is not agreed', async () => {

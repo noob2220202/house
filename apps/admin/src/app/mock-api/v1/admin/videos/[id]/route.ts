@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (isResponse(input)) return input;
   const patch: Partial<typeof row> = {};
   if (input.title !== undefined) patch.title = input.title;
-  if (input.description !== undefined) patch.description = input.description.trim() || null;
+  if (input.description !== undefined) patch.description = input.description?.trim() || null;
   if (input.regionCode !== undefined) patch.regionCode = input.regionCode || null;
   if (input.complexId !== undefined) patch.complexId = input.complexId || null;
   if (input.isPublished !== undefined) patch.isPublished = input.isPublished;

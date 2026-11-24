@@ -1,9 +1,11 @@
 import {
   addMonths,
+  canonicalAptSeq,
   complexNameVariants,
   isChosungQuery,
   isValidYearMonth,
   kstDayKey,
+  legacyAptSeq,
   matchesChosung,
   normalizeComplexName,
   normalizeEmdName,
@@ -22,6 +24,24 @@ import {
 } from '../schemas';
 
 describe('complex name / 지번 normalization', () => {
+  it('canonicalizes the 시군구 prefix of 국토교통부 aptSeq (2026-07-01 개편)', () => {
+    expect(canonicalAptSeq('46150-1001')).toBe('12150-1001');
+    expect(canonicalAptSeq(' 12150-1001 ')).toBe('12150-1001');
+    expect(canonicalAptSeq('46230-77')).toBe('46230-77');
+    expect(canonicalAptSeq('K1234')).toBe('K1234');
+    expect(legacyAptSeq('12150-1001')).toBe('46150-1001');
+    expect(legacyAptSeq('46150-1001')).toBeNull();
+    expect(legacyAptSeq('K1234')).toBeNull();
+    const parsed = complexCreateSchema.parse({
+      name: '테스트',
+      lat: 34.95,
+      lng: 127.48,
+      externalCode: '46150-1001',
+      emdCode: '46150114',
+    });
+    expect(parsed).toMatchObject({ externalCode: '12150-1001', emdCode: '12150114' });
+  });
+
   it('normalizes names (spaces, brackets, 아파트 suffix, full-width)', () => {
     expect(normalizeComplexName('연향 부영아파트')).toBe('연향부영');
     expect(normalizeComplexName('e편한세상(순천)')).toBe('e편한세상순천');
@@ -48,11 +68,11 @@ describe('complex name / 지번 normalization', () => {
   });
 
   it('parses 지번 addresses', () => {
-    expect(parseJibunAddress('전라남도 순천시 연향동 1234-5')).toEqual({
+    expect(parseJibunAddress('전남광주통합특별시 순천시 연향동 1234-5')).toEqual({
       emdName: '연향동',
       jibun: '1234-5',
     });
-    expect(parseJibunAddress('전라남도 순천시 해룡면 신대리 2000번지')).toEqual({
+    expect(parseJibunAddress('전남광주통합특별시 순천시 해룡면 신대리 2000번지')).toEqual({
       emdName: '신대리',
       jibun: '2000',
     });
@@ -97,7 +117,7 @@ describe('complexes schemas', () => {
   });
 
   it('accepts only derived trade-sync job ids', () => {
-    for (const jobId of ['month.46150.202410.APT_TRADE+APT_RENT', 'rematch.46150.all']) {
+    for (const jobId of ['month.12150.202410.APT_TRADE+APT_RENT', 'rematch.12150.all']) {
       expect(tradeSyncJobParamSchema.safeParse({ jobId }).success).toBe(true);
     }
     for (const jobId of [

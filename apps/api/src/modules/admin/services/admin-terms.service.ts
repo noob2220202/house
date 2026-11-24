@@ -194,7 +194,7 @@ export class AdminTermsService {
 
   private async context(ids: string[]): Promise<TermsContext> {
     const [current, latest, counts] = await Promise.all([
-      this.terms.current(),
+      this.terms.currentAll(),
       this.prisma.termsDocument.findMany({
         where: { publishedAt: { not: null } },
         orderBy: [{ type: 'asc' }, { effectiveAt: 'desc' }],

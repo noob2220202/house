@@ -14,6 +14,8 @@ import {
   TRADE_SYNC_JOBS,
   TRADE_SYNC_LOCK_TTL_SECONDS,
 } from '../../../src/modules/complexes/constants';
+import { parseTradeApiResponse } from '../../../src/modules/complexes/trade-sync/trade-api.parser';
+import { normalizeTradeBatch } from '../../../src/modules/complexes/trade-sync/trade-normalizer';
 import { TradeSyncProcessor } from '../../../src/modules/complexes/trade-sync/trade-sync.processor';
 import { TradeSyncService } from '../../../src/modules/complexes/trade-sync/trade-sync.service';
 import { QUEUES } from '../../../src/queue/queue.constants';
@@ -63,9 +65,9 @@ describe('complexes: 실거래가 sync (e2e)', () => {
     const buyoung = await seedBuyoung(t);
     const hyundai = await createComplex(t.prisma, {
       name: '조례현대',
-      emdCode: '46150133',
+      emdCode: '12150133',
       emdName: '조례동',
-      externalCode: '46150-2002',
+      externalCode: '12150-2002',
     });
     return { ...buyoung, hyundai };
   }
@@ -104,7 +106,7 @@ describe('complexes: 실거래가 sync (e2e)', () => {
       const { complex, at84, at59, hyundai } = await seedComplexes();
       const res = await sync({ yearMonth: YM }).expect(202);
       expect(res.body).toEqual({
-        jobId: `month.46150.${YM}.APT_TRADE+APT_RENT`,
+        jobId: `month.12150.${YM}.APT_TRADE+APT_RENT`,
         kind: 'MONTH',
         state: 'waiting',
       });
@@ -117,7 +119,7 @@ describe('complexes: 실거래가 sync (e2e)', () => {
       expect(trade).toMatchObject({
         kind: 'APT_TRADE',
         status: 'SUCCEEDED',
-        sggCode: '46150',
+        sggCode: '12150',
         fetchedCount: 6,
         upsertedCount: 5,
         matchedCount: 4,
@@ -175,12 +177,12 @@ describe('complexes: 실거래가 sync (e2e)', () => {
       const b = await sync({ yearMonth: YM, kinds: ['APT_RENT', 'APT_TRADE'] }).expect(202);
       expect(b.body.jobId).toBe(a.body.jobId);
       const c = await sync({ yearMonth: YM, kinds: ['APT_RENT'] }).expect(202);
-      expect(c.body.jobId).toBe(`month.46150.${YM}.APT_RENT`);
+      expect(c.body.jobId).toBe(`month.12150.${YM}.APT_RENT`);
       expect(await queue().getWaitingCount()).toBe(2);
     });
 
     it('never attributes trades to a same-named 단지 with a different 국토교통부 code', async () => {
-      const { complex } = await seedBuyoung(t, { externalCode: '46150-7777' });
+      const { complex } = await seedBuyoung(t, { externalCode: '12150-7777' });
       await syncNow({ yearMonth: YM, kinds: ['APT_TRADE'] });
       expect(await t.prisma.tradeRecord.count({ where: { complexId: complex.id } })).toBe(0);
       expect(await t.prisma.complexTradeStat.count()).toBe(0);
@@ -193,7 +195,7 @@ describe('complexes: 실거래가 sync (e2e)', () => {
       // the admin learns this 단지 is a different 국토교통부 단지 than the one reported
       await t.prisma.complex.update({
         where: { id: complex.id },
-        data: { externalCode: '46150-7777' },
+        data: { externalCode: '12150-7777' },
       });
       const again = await syncNow({ yearMonth: YM, kinds: ['APT_TRADE'] });
       expect(again.runs[0]).toMatchObject({ upsertedCount: 3, matchedCount: 0 });
@@ -228,7 +230,83 @@ describe('complexes: 실거래가 sync (e2e)', () => {
       const res = await syncNow({ yearMonth: YM, kinds: ['APT_TRADE'] });
       expect(res.runs[0]).toMatchObject({ fetchedCount: 6, upsertedCount: 5 });
       expect(fake.calls.map((c) => c.pageNo)).toEqual([1, 2, 3]);
-      expect(fake.calls[0]).toMatchObject({ sggCode: '46150', yearMonth: YM, kind: 'APT_TRADE' });
+      expect(fake.calls[0]).toMatchObject({ sggCode: '12150', yearMonth: YM, kind: 'APT_TRADE' });
+    });
+
+    it('retries an empty month once with the legacy code (46150) and stores the current codes', async () => {
+      const { complex, hyundai } = await seedComplexes();
+      const legacyBody = fixture('apt-trade-202410.xml')
+        .replaceAll('<sggCd>12150</sggCd>', '<sggCd>46150</sggCd>')
+        .replaceAll('<aptSeq>12150-', '<aptSeq>46150-');
+      fake.reset();
+      fake.set(TradeSyncKind.APT_TRADE, YM, legacyBody, '46150');
+      const res = await syncNow({ yearMonth: YM, kinds: ['APT_TRADE'] });
+      expect(res.runs[0]).toMatchObject({
+        sggCode: '12150',
+        status: 'SUCCEEDED',
+        fetchedCount: 6,
+        upsertedCount: 5,
+        matchedCount: 4,
+      });
+      expect(fake.calls.map((c) => c.sggCode)).toEqual(['12150', '46150']);
+      const rows = await t.prisma.tradeRecord.findMany();
+      expect(new Set(rows.map((r) => r.sggCode))).toEqual(new Set(['12150']));
+      expect(rows.filter((r) => r.complexId === complex.id)).toHaveLength(3);
+      // matched by the canonicalized aptSeq (46150-2002 → 12150-2002)
+      expect(rows.find((r) => r.price === 25000)?.complexId).toBe(hyundai.id);
+
+      // a month that is empty under both codes asks each once and succeeds with 0 rows
+      fake.reset();
+      const empty = await syncNow({ yearMonth: YM, kinds: ['APT_RENT'] });
+      expect(empty.runs[0]).toMatchObject({ status: 'SUCCEEDED', fetchedCount: 0 });
+      expect(fake.calls.map((c) => c.sggCode)).toEqual(['12150', '46150']);
+    });
+
+    it('re-keys contracts stored under the legacy code instead of duplicating them', async () => {
+      await seedComplexes();
+      // A month synced before 2026-07-01: LAWD_CD 46150, legacy sggCd / aptSeq in the rows.
+      const legacyBody = fixture('apt-trade-202410.xml')
+        .replaceAll('<sggCd>12150</sggCd>', '<sggCd>46150</sggCd>')
+        .replaceAll('<aptSeq>12150-', '<aptSeq>46150-');
+      const legacy = normalizeTradeBatch(
+        TradeSyncKind.APT_TRADE,
+        parseTradeApiResponse(legacyBody).items,
+        '46150',
+      ).trades;
+      // What the pre-migration code stored: keys hashed with 46150 (= today's legacySourceKey).
+      for (const tr of legacy) {
+        await t.prisma.tradeRecord.create({
+          data: {
+            sourceKey: tr.legacySourceKey ?? '',
+            kind: tr.kind,
+            sggCode: '12150', // rewritten by the region-code migration; the key is not
+            aptName: tr.aptName,
+            dealType: tr.dealType,
+            dealDate: tr.dealDate,
+            dealYm: tr.dealYm,
+            exclusiveArea: tr.exclusiveArea,
+            price: tr.price,
+            cancelled: tr.cancelled,
+            raw: tr.raw,
+          },
+        });
+      }
+      expect(await t.prisma.tradeRecord.count()).toBe(5);
+
+      const res = await syncNow({ yearMonth: YM, kinds: ['APT_TRADE'] });
+      expect(res.runs[0]).toMatchObject({ fetchedCount: 6, upsertedCount: 5 });
+      const rows = await t.prisma.tradeRecord.findMany();
+      expect(rows).toHaveLength(5);
+      const current = normalizeTradeBatch(
+        TradeSyncKind.APT_TRADE,
+        parseTradeApiResponse(fixture('apt-trade-202410.xml')).items,
+        '12150',
+      ).trades;
+      expect(rows.map((r) => r.sourceKey).sort()).toEqual(current.map((c) => c.sourceKey).sort());
+
+      const again = await syncNow({ yearMonth: YM, kinds: ['APT_TRADE'] });
+      expect(again.runs[0]).toMatchObject({ upsertedCount: 0 });
+      expect(await t.prisma.tradeRecord.count()).toBe(5);
     });
 
     it('records failed runs; the job fails with per-kind results (retried by BullMQ)', async () => {
@@ -255,7 +333,7 @@ describe('complexes: 실거래가 sync (e2e)', () => {
 
     it('a job for a month that is already syncing fails (409) and releases its own lock', async () => {
       await t.redis.set(
-        COMPLEXES_REDIS_KEYS.tradeSyncLock('APT_RENT', '46150', YM),
+        COMPLEXES_REDIS_KEYS.tradeSyncLock('APT_RENT', '12150', YM),
         'other',
         'EX',
         60,
@@ -266,14 +344,14 @@ describe('complexes: 실거래가 sync (e2e)', () => {
       expect(await t.prisma.tradeSyncRun.count()).toBe(0);
       // the APT_TRADE lock taken before the conflict was released
       expect(
-        await t.redis.exists(COMPLEXES_REDIS_KEYS.tradeSyncLock('APT_TRADE', '46150', YM)),
+        await t.redis.exists(COMPLEXES_REDIS_KEYS.tradeSyncLock('APT_TRADE', '12150', YM)),
       ).toBe(0);
       await syncNow({ yearMonth: YM, kinds: ['APT_TRADE'] });
     });
 
     it('keeps its locks alive with a heartbeat and never extends a lock it lost', async () => {
       const svc = t.app.get(TradeSyncService);
-      const key = COMPLEXES_REDIS_KEYS.tradeSyncLock('APT_TRADE', '46150', YM);
+      const key = COMPLEXES_REDIS_KEYS.tradeSyncLock('APT_TRADE', '12150', YM);
       await t.redis.set(key, 'mine', 'EX', 5);
       expect(await svc.extendLocks([{ key, token: 'mine' }])).toBe(1);
       expect(await t.redis.ttl(key)).toBeGreaterThan(TRADE_SYNC_LOCK_TTL_SECONDS - 5);
@@ -394,16 +472,16 @@ describe('complexes: 실거래가 sync (e2e)', () => {
 
     it('404 for unknown jobs, 400 for malformed ids, 401 without an admin session', async () => {
       const notFound = await withSession(
-        t.http().get(`${URL}/jobs/month.46150.${YM}.APT_TRADE`),
+        t.http().get(`${URL}/jobs/month.12150.${YM}.APT_TRADE`),
         admin,
       ).expect(404);
       expect(notFound.body.code).toBe(ErrorCode.TRADE_SYNC_JOB_NOT_FOUND);
       await withSession(t.http().get(`${URL}/jobs/repeat:abc`), admin).expect(400);
       await withSession(t.http().get(`${URL}/jobs/other.1`), admin).expect(400);
-      await t.http().get(`${URL}/jobs/month.46150.${YM}.APT_TRADE`).expect(401);
+      await t.http().get(`${URL}/jobs/month.12150.${YM}.APT_TRADE`).expect(401);
       const user = await createUser(t.prisma);
       await withSession(
-        t.http().get(`${URL}/jobs/month.46150.${YM}.APT_TRADE`),
+        t.http().get(`${URL}/jobs/month.12150.${YM}.APT_TRADE`),
         await loginUser(t.app, user),
       ).expect(401);
     });
@@ -416,8 +494,8 @@ describe('complexes: 실거래가 sync (e2e)', () => {
       const { complex } = await seedBuyoung(t);
 
       const res = await rematchReq({}).expect(202);
-      expect(res.body).toEqual({ jobId: 'rematch.46150.all', kind: 'REMATCH', state: 'waiting' });
-      expect(await processJob<TradeRematchResult>('rematch.46150.all')).toEqual({
+      expect(res.body).toEqual({ jobId: 'rematch.12150.all', kind: 'REMATCH', state: 'waiting' });
+      expect(await processJob<TradeRematchResult>('rematch.12150.all')).toEqual({
         scanned: 7,
         matched: 5,
         unmatched: 0,
@@ -427,7 +505,7 @@ describe('complexes: 실거래가 sync (e2e)', () => {
       expect(await t.prisma.complexTradeStat.count({ where: { complexId: complex.id } })).toBe(4);
 
       const again = await rematchReq({ fromYm: YM }).expect(202);
-      expect(again.body.jobId).toBe(`rematch.46150.${YM}`);
+      expect(again.body.jobId).toBe(`rematch.12150.${YM}`);
       expect(await processJob<TradeRematchResult>(again.body.jobId as string)).toMatchObject({
         matched: 0,
         unmatched: 0,
@@ -441,13 +519,13 @@ describe('complexes: 실거래가 sync (e2e)', () => {
         name: '현대아파트',
         emdName: '연향동',
         jibun: '100',
-        externalCode: '46150-100',
+        externalCode: '12150-100',
       });
       const right = await createComplex(t.prisma, {
         name: '현대',
         emdName: '연향동',
         jibun: '555',
-        externalCode: '46150-999',
+        externalCode: '12150-999',
       });
       const gone = await createComplex(t.prisma, { name: '부영', emdName: '덕월동' });
       const replacement = await createComplex(t.prisma, { name: '부영', emdName: '덕월동' });
@@ -457,7 +535,7 @@ describe('complexes: 실거래가 sync (e2e)', () => {
         aptName: '현대',
         emdName: '연향동',
         jibun: '555',
-        raw: { aptSeq: '46150-999' },
+        raw: { aptSeq: '12150-999' },
       });
       // a 지번 contradiction with no better candidate → detached
       const orphan = await insertTrade(t, {
@@ -471,7 +549,7 @@ describe('complexes: 실거래가 sync (e2e)', () => {
         aptName: '현대아파트',
         emdName: '연향동',
         jibun: '100',
-        raw: { aptSeq: '46150-100' },
+        raw: { aptSeq: '12150-100' },
       });
       // a trade still attached to a 단지 that was soft-deleted outside remove()
       const stale = await insertTrade(t, {
@@ -482,7 +560,7 @@ describe('complexes: 실거래가 sync (e2e)', () => {
       await t.prisma.complex.update({ where: { id: gone.id }, data: { deletedAt: new Date() } });
 
       await rematchReq({}).expect(202);
-      expect(await processJob<TradeRematchResult>('rematch.46150.all')).toEqual({
+      expect(await processJob<TradeRematchResult>('rematch.12150.all')).toEqual({
         scanned: 4,
         matched: 0,
         unmatched: 1,
@@ -499,9 +577,9 @@ describe('complexes: 실거래가 sync (e2e)', () => {
     });
 
     it('a rematch job refuses to run while another rematch holds the lock', async () => {
-      await t.redis.set(COMPLEXES_REDIS_KEYS.rematchLock('46150'), 'other', 'EX', 60);
+      await t.redis.set(COMPLEXES_REDIS_KEYS.rematchLock('12150'), 'other', 'EX', 60);
       await rematchReq({}).expect(202);
-      const err = await failure(processJob('rematch.46150.all'));
+      const err = await failure(processJob('rematch.12150.all'));
       expect(err.code).toBe(ErrorCode.TRADE_SYNC_IN_PROGRESS);
     });
 

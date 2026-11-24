@@ -1,6 +1,7 @@
 // Owned by the listings module team.
 import { z } from 'zod';
 import { MAX_LISTING_PHOTOS } from '../constants/media';
+import { canonicalRegionCode } from '../constants/region';
 import {
   AssetType,
   BuildingUse,
@@ -129,8 +130,14 @@ const propertyShape = {
   dong: text(20),
   /** 호 — PRIVATE, never returned by public endpoints. */
   ho: text(20),
-  /** 10-digit 법정동코드 from the address lookup; must be inside the service region. */
-  emdCode: z.string().regex(/^\d{10}$/, '법정동코드는 10자리 숫자입니다.'),
+  /**
+   * 10-digit 법정동코드 from the address lookup (Kakao postcode `bcode`); must be inside the
+   * service region. A legacy 46150… code is canonicalized to 12150….
+   */
+  emdCode: z
+    .string()
+    .regex(/^\d{10}$/, '법정동코드는 10자리 숫자입니다.')
+    .transform(canonicalRegionCode),
   lat: latSchema,
   lng: lngSchema,
   /** Negative = basement (B1 = -1); there is no 0층. Must not exceed totalFloors. */

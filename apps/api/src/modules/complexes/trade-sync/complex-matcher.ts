@@ -1,4 +1,5 @@
 import {
+  canonicalAptSeq,
   complexNameVariants,
   normalizeEmdName,
   normalizeJibun,
@@ -25,6 +26,8 @@ export interface TradeIdentity {
 
 interface Indexed {
   complex: MatchableComplex;
+  /** externalCode with a legacy 시군구 prefix canonicalized (canonicalAptSeq). */
+  seq: string | null;
   emd: string | null;
   /** Normalized 지번 (explicit, else parsed from the 지번주소). */
   jibun: string | null;
@@ -40,7 +43,7 @@ function push<K, V>(map: Map<K, V[]>, key: K, value: V): void {
 /** A different 국토교통부 code or a different 지번 rules a 단지 out, whatever the name says. */
 function conflicts(c: Indexed, aptSeq: string | null, jibun: string | null): boolean {
   return (
-    (aptSeq != null && c.complex.externalCode != null && c.complex.externalCode !== aptSeq) ||
+    (aptSeq != null && c.seq != null && c.seq !== aptSeq) ||
     (jibun != null && c.jibun != null && c.jibun !== jibun)
   );
 }
@@ -72,9 +75,10 @@ export class ComplexMatcher {
       const emd = normalizeEmdName(parsed.emdName ?? complex.emdName);
       const jibun = normalizeJibun(complex.jibun) ?? parsed.jibun;
       const names = new Set(complexNameVariants(complex.name, parsed.emdName ?? complex.emdName));
-      const entry: Indexed = { complex, emd, jibun, names };
+      const seq = complex.externalCode ? canonicalAptSeq(complex.externalCode) : null;
+      const entry: Indexed = { complex, seq, emd, jibun, names };
       this.byId.set(complex.id, entry);
-      if (complex.externalCode) this.bySeq.set(complex.externalCode, entry);
+      if (seq) this.bySeq.set(seq, entry);
       if (emd && jibun) push(this.byEmdJibun, `${emd}|${jibun}`, entry);
       for (const n of names) {
         push(this.byName, n, entry);
@@ -84,14 +88,16 @@ export class ComplexMatcher {
   }
 
   match(t: TradeIdentity): MatchableComplex | null {
-    if (t.aptSeq) {
-      const hit = this.bySeq.get(t.aptSeq);
+    // Rows synced before 2026-07-01 still carry "46150-…" in raw.aptSeq (rematch reads it).
+    const aptSeq = t.aptSeq ? canonicalAptSeq(t.aptSeq) : null;
+    if (aptSeq) {
+      const hit = this.bySeq.get(aptSeq);
       if (hit) return hit.complex;
     }
     const emd = normalizeEmdName(t.emdName);
     const variants = complexNameVariants(t.aptName, t.emdName);
     const jibun = normalizeJibun(t.jibun);
-    const ok = (c: Indexed) => !conflicts(c, t.aptSeq, jibun);
+    const ok = (c: Indexed) => !conflicts(c, aptSeq, jibun);
 
     if (emd && jibun) {
       const candidates = (this.byEmdJibun.get(`${emd}|${jibun}`) ?? []).filter(ok);
@@ -136,8 +142,9 @@ export class ComplexMatcher {
   keeps(complexId: string, t: Pick<TradeIdentity, 'aptSeq' | 'jibun'>): boolean {
     const entry = this.byId.get(complexId);
     if (!entry) return false;
-    if (t.aptSeq && entry.complex.externalCode === t.aptSeq) return true;
-    return !conflicts(entry, t.aptSeq, normalizeJibun(t.jibun));
+    const aptSeq = t.aptSeq ? canonicalAptSeq(t.aptSeq) : null;
+    if (aptSeq && entry.seq === aptSeq) return true;
+    return !conflicts(entry, aptSeq, normalizeJibun(t.jibun));
   }
 
   /** Nearest 평형 by 전용면적 within the tolerance (ties → first declared). */

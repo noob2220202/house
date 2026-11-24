@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
+  ACCOUNT_TERMS_TYPES,
+  type ConsentRecordInput,
   type ConsentStatus,
   ErrorCode,
   type TermsDetail,
@@ -16,13 +18,15 @@ export interface ConsentDecision {
   agreed: boolean;
 }
 
-/** Display order of terms types (이용약관 → 개인정보 → 위치기반 → 마케팅). */
-const TYPE_ORDER: TermsType[] = [
-  TermsType.SERVICE,
-  TermsType.PRIVACY,
-  TermsType.LOCATION,
-  TermsType.MARKETING,
-];
+/** Display order of terms types (이용약관 → 개인정보 → 위치기반 → 마케팅 → purpose consents). */
+const TYPE_ORDER: TermsType[] = Object.values(TermsType);
+const ALL_TERMS_TYPES: readonly TermsType[] = TYPE_ORDER;
+
+export interface OutdatedConsent {
+  type: TermsType;
+  version: string;
+  currentVersion: string;
+}
 
 export function toTermsSummary(d: TermsDocument): TermsSummary {
   return {
@@ -38,25 +42,103 @@ export function toTermsSummary(d: TermsDocument): TermsSummary {
 /**
  * Terms documents (read side; authoring lives in the admin module) and append-only consent records.
  * "Current" = published, effective now, latest effectiveAt per type.
+ *
+ * Two kinds of documents share the table (shared ACCOUNT_TERMS_TYPES / ACTION_CONSENT_TERMS):
+ *  - account terms (이용약관 …): signup, /me/consents, GET /terms and the write guard use only these;
+ *  - purpose consents (D8): agreed with one submission (등록 신청, 합류, 내놓기·구하기) through
+ *    `consentForAction`, which checks the version the user saw and records it with that submission.
  */
 @Injectable()
 export class TermsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async current(now: Date = new Date(), db: PrismaTx = this.prisma): Promise<TermsDocument[]> {
+  /** Current documents of the given types (default: account terms), in display order. */
+  async current(
+    now: Date = new Date(),
+    db: PrismaTx = this.prisma,
+    types: readonly TermsType[] = ACCOUNT_TERMS_TYPES,
+  ): Promise<TermsDocument[]> {
     const docs = await db.termsDocument.findMany({
-      where: { publishedAt: { not: null, lte: now }, effectiveAt: { lte: now } },
+      where: {
+        type: { in: [...types] },
+        publishedAt: { not: null, lte: now },
+        effectiveAt: { lte: now },
+      },
       orderBy: [{ type: 'asc' }, { effectiveAt: 'desc' }, { createdAt: 'desc' }],
       distinct: ['type'],
     });
     return docs.sort((a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type));
   }
 
+  /** Current documents of every type, purpose consents included (admin views). */
+  currentAll(now: Date = new Date(), db: PrismaTx = this.prisma): Promise<TermsDocument[]> {
+    return this.current(now, db, ALL_TERMS_TYPES);
+  }
+
+  /**
+   * Purpose consents of one submission (D8). Every type in `types` must be given exactly at the
+   * version that is current at `now`:
+   *  - no published document for a type → 503 AUTH_CONSENT_UNAVAILABLE (nothing to agree to);
+   *  - a type missing from `given` → 400 AUTH_CONSENT_REQUIRED `{ missing }`;
+   *  - an older / unknown version (the form was open while a new version took effect) →
+   *    400 AUTH_CONSENT_OUTDATED `{ outdated: [{ type, version, currentVersion }] }`;
+   *  - a type that the action does not ask for → 400 AUTH_TERMS_INVALID.
+   * Pass the submission's transaction as `db` and call `record()` with the result in it, or use
+   * `consentForAction`, so the consent rows commit together with what they consent to.
+   */
+  async verifyActionConsents(
+    types: readonly TermsType[],
+    given: readonly ConsentRecordInput[],
+    now: Date = new Date(),
+    db: PrismaTx = this.prisma,
+  ): Promise<ConsentDecision[]> {
+    const foreign = given.find((c) => !types.includes(c.type));
+    if (foreign)
+      throw AppException.badRequest(ErrorCode.AUTH_TERMS_INVALID, { type: foreign.type });
+    const current = new Map((await this.current(now, db, types)).map((d) => [d.type, d]));
+    const unavailable = types.filter((t) => !current.has(t));
+    if (unavailable.length > 0) {
+      throw new AppException(ErrorCode.AUTH_CONSENT_UNAVAILABLE, {
+        details: { types: unavailable },
+      });
+    }
+    const byType = new Map(given.map((c) => [c.type, c.version]));
+    const missing = types.filter((t) => !byType.has(t));
+    if (missing.length > 0) {
+      throw AppException.badRequest(ErrorCode.AUTH_CONSENT_REQUIRED, { missing });
+    }
+    const outdated: OutdatedConsent[] = [];
+    const decisions: ConsentDecision[] = [];
+    for (const [type, doc] of current) {
+      const version = byType.get(type) ?? '';
+      if (version !== doc.version) outdated.push({ type, version, currentVersion: doc.version });
+      else decisions.push({ termsDocumentId: doc.id, agreed: true });
+    }
+    if (outdated.length > 0) {
+      throw AppException.badRequest(ErrorCode.AUTH_CONSENT_OUTDATED, { outdated });
+    }
+    return decisions;
+  }
+
+  /** verifyActionConsents + record, inside the caller's transaction. */
+  async consentForAction(
+    tx: PrismaTx,
+    userId: string,
+    types: readonly TermsType[],
+    given: readonly ConsentRecordInput[],
+    now: Date = new Date(),
+  ): Promise<void> {
+    await this.record(tx, userId, await this.verifyActionConsents(types, given, now, tx));
+  }
+
   async listCurrent(): Promise<TermsSummary[]> {
     return (await this.current()).map(toTermsSummary);
   }
 
-  /** Current version of a type, or a specific published version (history view). */
+  /**
+   * Current version of a type, or a specific published version (history view). Serves account terms
+   * and purpose consents alike (the forms read the version to send back from here).
+   */
   async getByType(type: TermsType, version?: string): Promise<TermsDetail> {
     const now = new Date();
     const doc = version

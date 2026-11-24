@@ -17,7 +17,7 @@ const sell = {
   visibility: DealRequestVisibility.ALL_AGENCIES_IN_REGION,
   contactName: ' 홍길동 ',
   contactPhone: '010-1234-5678',
-  roadAddress: '전라남도 순천시 중앙로 1',
+  roadAddress: '전남광주통합특별시 순천시 중앙로 1',
   desiredSalePrice: 30000,
 };
 
@@ -29,7 +29,7 @@ const wanted = {
   targetAgencyIds: [AGENCY],
   contactName: '김철수',
   contactPhone: '+82 10 9876 5432',
-  regionCodes: ['4615010100'],
+  regionCodes: ['1215010100'],
   depositMin: 300,
   depositMax: 1000,
   rentMax: 50,
@@ -41,6 +41,26 @@ function issuePaths(input: unknown): string[] {
 }
 
 describe('dealRequestCreateSchema', () => {
+  it('canonicalizes legacy 46150… region codes (Kakao bcode / old URLs)', () => {
+    const v = dealRequestCreateSchema.parse({ ...wanted, regionCodes: ['4615010100', '12150'] });
+    expect(v.type === DealRequestType.WANTED && v.regionCodes).toEqual(['1215010100', '12150']);
+    const s = dealRequestCreateSchema.parse({ ...sell, emdCode: '4615031022' });
+    expect(s.type === DealRequestType.SELL_OR_LEASE && s.emdCode).toBe('1215031022');
+  });
+
+  it('takes the two D8 consents; foreign types and duplicates are refused', () => {
+    expect(dealRequestCreateSchema.parse(sell).consents).toEqual([]);
+    const consents = [
+      { type: 'DEAL_REQUEST_PRIVACY', version: '1.0' },
+      { type: 'DEAL_REQUEST_PROVIDE', version: '1.0' },
+    ];
+    expect(dealRequestCreateSchema.parse({ ...wanted, consents }).consents).toEqual(consents);
+    expect(issuePaths({ ...sell, consents: [consents[0], consents[0]] })).toEqual(['consents']);
+    expect(issuePaths({ ...sell, consents: [{ type: 'MARKETING', version: '1.0' }] })[0]).toMatch(
+      /^consents/,
+    );
+  });
+
   it('parses a 내놓기 request and normalizes the phone (never verified)', () => {
     const v = dealRequestCreateSchema.parse(sell);
     expect(v.contactPhone).toBe('01012345678');
@@ -161,9 +181,9 @@ describe('helpers', () => {
   });
 
   it('regionCodesWithinSgg', () => {
-    expect(regionCodesWithinSgg(['46150', '4615010100'], '46150')).toBe(true);
-    expect(regionCodesWithinSgg(['4613010100'], '46150')).toBe(false);
-    expect(regionCodesWithinSgg(['46'], '46150')).toBe(false);
+    expect(regionCodesWithinSgg(['12150', '1215010100'], '12150')).toBe(true);
+    expect(regionCodesWithinSgg(['4613010100'], '12150')).toBe(false);
+    expect(regionCodesWithinSgg(['46'], '12150')).toBe(false);
   });
 
   it('dealRequestExpiry adds whole days', () => {

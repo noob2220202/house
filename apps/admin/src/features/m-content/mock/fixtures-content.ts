@@ -1,3 +1,4 @@
+import type { TermsType } from '@house/shared';
 import { mockUuid } from './ids';
 
 /**
@@ -418,7 +419,7 @@ export const VIDEOS: MockVideo[] = [
     '신대지구 34평, 지금 사도 될까? 2026 하반기 시세 점검',
     '2026-11-19T18:00:00+09:00',
     '신대 레이크파크 1·3단지 34평 실거래가 흐름과 전세가율을 짚어 봅니다.',
-    { complexId: mockUuid('C01'), regionCode: '4615033028' },
+    { complexId: mockUuid('C01'), regionCode: '1215033028' },
   ),
   video(
     'V02',
@@ -426,7 +427,7 @@ export const VIDEOS: MockVideo[] = [
     '연향들 도시개발사업 토지 분양, 일정과 위치 핵심 정리',
     '2026-11-14T18:00:00+09:00',
     '2025년 12월 시작된 토지 분양 일정과 구역별 위치를 5분으로 정리했습니다.',
-    { regionCode: '4615012100' },
+    { regionCode: '1215012100' },
   ),
   video(
     'V03',
@@ -441,7 +442,7 @@ export const VIDEOS: MockVideo[] = [
     '순천 원룸 월세, 순천대·청암대·제일대 앞 시세 지도',
     '2026-10-30T18:00:00+09:00',
     '대학가 세 곳의 원룸·투룸 월세 시세를 지도와 함께 살펴봅니다.',
-    { regionCode: '4615011000' },
+    { regionCode: '1215011000' },
   ),
   video(
     'V05',
@@ -449,7 +450,7 @@ export const VIDEOS: MockVideo[] = [
     '선월 하이츠 2차 분양권, 프리미엄 흐름과 입주 일정',
     '2026-10-22T18:00:00+09:00',
     '2027년 3월 입주를 앞둔 선월 하이츠 2차의 평형별 프리미엄을 정리했습니다.',
-    { complexId: mockUuid('C03'), regionCode: '4615033029' },
+    { complexId: mockUuid('C03'), regionCode: '1215033029' },
   ),
   video(
     'V06',
@@ -476,7 +477,7 @@ export const VIDEO_THUMBS: Record<string, { tone: string; tag: string; lines: [s
 
 export interface MockTerms {
   id: string;
-  type: 'SERVICE' | 'PRIVACY' | 'LOCATION' | 'MARKETING';
+  type: TermsType;
   version: string;
   title: string;
   content: string;

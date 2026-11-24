@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BannerStatus, popupInputSchema } from '@house/shared';
+import { BannerStatus, popupCreateSchema } from '@house/shared';
 import type { NextRequest } from 'next/server';
 import { mockDelay, mockError, mockJson, mockPaginate } from '@/lib/mock';
 import { adminGuard, readJson, validationError } from '../banners/_guard';
@@ -23,12 +23,12 @@ export async function GET(req: NextRequest) {
   return mockJson({ ...page, items: page.items.map(toAdminPopup) });
 }
 
-// POST /api/v1/admin/popups — body = popupInputSchema. New popups go to the end of the order.
+// POST /api/v1/admin/popups — body = popupCreateSchema. New popups go to the end of the order.
 export async function POST(req: NextRequest) {
   const denied = adminGuard(req, { mutation: true });
   if (denied) return denied;
   await mockDelay(req, 300);
-  const parsed = popupInputSchema.safeParse(await readJson(req));
+  const parsed = popupCreateSchema.safeParse(await readJson(req));
   if (!parsed.success) return validationError(parsed.error);
   const input = parsed.data;
   if (!getMedia(input.mediaId))

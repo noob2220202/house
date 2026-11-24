@@ -1,124 +1,124 @@
 {
- "key": "v-rest",
- "score": 86,
- "summary": "중개사무소 목록·상세, 내놓기/구하기, 로그인·가입 화면은 시안(B · Crisp Blue)과 거의 같게 구현됐고, 내놓기와 구하기는 끝까지 제출하면 완료 페이지로 정상 이동함. 로그인 화면에는 카카오·네이버·Google만 있고 Apple, 이메일·비밀번호, 휴대폰 인증은 모두 빠져 있어 요구사항을 충족함. 1440·390 전 페이지에서 가로 넘침과 JS 에러가 없었고, 콘솔에는 비로그인 상태의 /auth/me 401만 찍힘. 푸터에는 필수 사업자 정보와 약관 링크(개인정보처리방침 굵게)가 있지만, 로그인·가입 화면 전용 미니 푸터에서는 통신판매업 신고번호가 빠져 있음. 사업자 정보 값은 아직 전부 플레이스홀더라 오픈 전에 관리자 설정에서 입력해야 함. 나머지는 위저드 구조 차이와 입력값 검증 같은 중·저 수준 문제임.",
- "pagesChecked": [
-  "/agencies",
-  "/agencies?sel=…",
-  "/agency/<id>",
-  "/agency/<없는id>",
-  "/deal",
-  "/deal/sell (4단계 제출→complete)",
-  "/deal/find (4단계 제출→complete)",
-  "/login",
-  "/signup (as=new)",
-  "/me",
-  "/me/requests",
-  "/me/favorites",
-  "/me/recent",
-  "/me/notifications",
-  "/me/profile",
-  "/me/account",
-  "/me/withdraw",
-  "/notices",
-  "/faq",
-  "/videos",
-  "/tools",
-  "/support",
-  "/support/ads",
-  "/support/report",
-  "/search",
-  "/search?q=신대",
-  "/community",
-  "/terms/service",
-  "/terms/privacy",
-  "/terms/location",
-  "/terms/brokerage-fee",
-  "/terms/false-listing",
-  "/nonexistent-xyz (404)",
-  "390: agencies, agency, deal, deal/sell, deal/find, login, me/*, notices, faq, videos, tools, support, search, community, terms, 404"
- ],
- "findings": [
-  {
-   "severity": "high",
-   "area": "footer/auth",
-   "title": "로그인·회원가입 화면 푸터에 통신판매업 신고번호 누락",
-   "detail": "인증 화면용 MiniFooter는 상호·대표·사업자등록번호·주소·개인정보보호책임자·고객센터만 표시하고 통신판매업 신고번호가 없음. 일반 SiteFooter(데스크톱·모바일)에는 있음. 전자상거래법 표시사항 누락(범위는 /login, /signup, /auth/*).",
-   "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/_login.1440.png (하단 사업자 정보 줄), /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/su.png; /home/user/house-fe/apps/web/src/features/w-auth/components/shell/AuthShell.tsx:53-60",
-   "fixHint": "MiniFooter items에 {label:'통신판매업 신고', value: biz.mailOrderNumber} 추가(SiteFooter bizItems 재사용 권장)",
-   "owner": "frontend"
-  },
-  {
-   "severity": "medium",
-   "area": "footer/settings",
-   "title": "사업자 정보가 전부 '[상호]' 같은 대괄호 플레이스홀더로 노출",
-   "detail": "모든 페이지 푸터와 /support 연락 카드(‘번호를 준비하고 있어요’)가 관리자 사이트설정 미입력 시 플레이스홀더로 표시됨. 오픈 전 관리자에서 BUSINESS_INFO/CONTACT를 반드시 입력해야 하며, 값이 비면 배포 차단 같은 가드가 없음.",
-   "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/s3.png (고객센터 카드), /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/_login.1440.png 푸터; /home/user/house-fe/apps/web/src/lib/site/settings.ts:75-91",
-   "fixHint": "오픈 체크리스트에 사업자 정보 입력 항목 추가, 운영 빌드에서 플레이스홀더 노출 시 경고",
-   "owner": "owner-decision"
-  },
-  {
-   "severity": "medium",
-   "area": "deal",
-   "title": "내놓기/구하기 폼이 시안과 다른 4단계 위저드 구조",
-   "detail": "DealRequest 시안은 /deal 랜딩 아래 한 화면에 A·B·C·D 섹션을 이어서 작성(3단계 표시: 간편 로그인→매물 정보 입력→중개사 확인·전달). 구현은 /deal/sell·/deal/find 별도 경로의 4단계 위저드(매물 정보/거래 조건/사진·연락처/확인·전달). 시각 스타일·요약 카드·'몇 곳의 중개사가 받나요' 패널은 시안과 일치하고 흐름도 정상 완료됨.",
-   "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/deal-design-a.png vs /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/s6.png",
-   "fixHint": "의도된 변경이면 시안 승인자 확인. 유지 시 1단계에 '간편 로그인 완료' 표시 정도만 맞추면 됨",
-   "owner": "owner-decision"
-  },
-  {
-   "severity": "low",
-   "area": "deal",
-   "title": "면적·동호·금액 상한 검증 없음",
-   "detail": "자동입력 테스트에서 아파트 전용 30000평(99,173㎡), 30000동 30000호, 월세 3억이 그대로 접수되어 완료 페이지·/me/requests에 노출됨.",
-   "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/s10.png (완료 페이지 '전용 99,173.55㎡ (30000평)'), /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/m2.png (/me/requests)",
-   "fixHint": "zod 스키마에 합리적 상한(면적, 동·호 자릿수, 월세 범위) 추가 — 백엔드도 동일",
-   "owner": "both"
-  },
-  {
-   "severity": "low",
-   "area": "agencies",
-   "title": "필터 칩이 2줄로 줄바꿈(‘토지’ 단독 줄)",
-   "detail": "시안은 전체/아파트/원룸·투룸/상가/토지 5개가 한 줄. 구현은 ‘주택’ 칩이 추가돼 1440에서 ‘토지’가 둘째 줄로 떨어져 리스트 영역이 좁아짐. 지도 핀도 시안의 상점 아이콘 핀 대신 숫자 핀.",
-   "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/_agencies.1440.png vs /home/user/house-fe/design/shots/Agents.dc.html.1440.png",
-   "fixHint": "칩 간격/패딩 축소 또는 가로 스크롤 1줄",
-   "owner": "frontend"
-  },
-  {
-   "severity": "low",
-   "area": "agencies",
-   "title": "선택된 중개사 핀이 클러스터 원과 겹침",
-   "detail": "카드 선택 시 강조 핀(신대중앙 62)이 ‘해룡면 11’ 클러스터 위에 겹쳐 그려져 둘 다 읽기 어려움.",
-   "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/ag-click.1440.png (지도 하단 중앙)",
-   "fixHint": "선택 시 해당 마커를 클러스터에서 제외하거나 z-index·오프셋 조정",
-   "owner": "frontend"
-  },
-  {
-   "severity": "low",
-   "area": "404",
-   "title": "/agency/<없는 id> 404 페이지 제목이 기본 사이트 제목",
-   "detail": "상태코드 404와 본문(‘중개사무소를 찾을 수 없어요’)은 정상이나 <title>이 ‘순천부동산 | 공인중개사 공동중개 플랫폼’으로 남음. 일반 404는 ‘페이지를 찾을 수 없어요’.",
-   "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/ag404.png; batch 출력 title",
-   "fixHint": "agency/[id]/not-found 또는 generateMetadata에서 notFound 시 제목 지정",
-   "owner": "frontend"
-  },
-  {
-   "severity": "low",
-   "area": "signup",
-   "title": "마케팅 수신 채널(앱 푸시/문자/이메일) 선택 없음",
-   "detail": "시안의 [선택] 마케팅 정보 수신 아래 채널 체크박스 3개가 구현에 없음(단일 동의만).",
-   "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/su.png vs /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/login-design.png",
-   "fixHint": "정책상 채널별 동의가 필요하면 추가, 아니면 시안 갱신",
-   "owner": "owner-decision"
-  },
-  {
-   "severity": "low",
-   "area": "me",
-   "title": "로그인 계정 연결 블록이 /me/profile과 /me/account에 중복",
-   "detail": "두 페이지 모두 카카오/네이버/Google 연결·해제 카드를 동일하게 보여줌. 정보 구조상 한 곳(계정 설정)에만 있는 편이 명확.",
-   "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/s8.png 오른쪽, /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/s9.png 오른쪽",
-   "fixHint": "내 정보에서는 요약+링크로 축소",
-   "owner": "frontend"
-  }
- ]
+  "key": "v-rest",
+  "score": 86,
+  "summary": "중개사무소 목록·상세, 내놓기/구하기, 로그인·가입 화면은 시안(B · Crisp Blue)과 거의 같게 구현됐고, 내놓기와 구하기는 끝까지 제출하면 완료 페이지로 정상 이동함. 로그인 화면에는 카카오·네이버·Google만 있고 Apple, 이메일·비밀번호, 휴대폰 인증은 모두 빠져 있어 요구사항을 충족함. 1440·390 전 페이지에서 가로 넘침과 JS 에러가 없었고, 콘솔에는 비로그인 상태의 /auth/me 401만 찍힘. 푸터에는 필수 사업자 정보와 약관 링크(개인정보처리방침 굵게)가 있지만, 로그인·가입 화면 전용 미니 푸터에서는 통신판매업 신고번호가 빠져 있음. 사업자 정보 값은 아직 전부 플레이스홀더라 오픈 전에 관리자 설정에서 입력해야 함. 나머지는 위저드 구조 차이와 입력값 검증 같은 중·저 수준 문제임.",
+  "pagesChecked": [
+    "/agencies",
+    "/agencies?sel=…",
+    "/agency/<id>",
+    "/agency/<없는id>",
+    "/deal",
+    "/deal/sell (4단계 제출→complete)",
+    "/deal/find (4단계 제출→complete)",
+    "/login",
+    "/signup (as=new)",
+    "/me",
+    "/me/requests",
+    "/me/favorites",
+    "/me/recent",
+    "/me/notifications",
+    "/me/profile",
+    "/me/account",
+    "/me/withdraw",
+    "/notices",
+    "/faq",
+    "/videos",
+    "/tools",
+    "/support",
+    "/support/ads",
+    "/support/report",
+    "/search",
+    "/search?q=신대",
+    "/community",
+    "/terms/service",
+    "/terms/privacy",
+    "/terms/location",
+    "/terms/brokerage-fee",
+    "/terms/false-listing",
+    "/nonexistent-xyz (404)",
+    "390: agencies, agency, deal, deal/sell, deal/find, login, me/*, notices, faq, videos, tools, support, search, community, terms, 404"
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "area": "footer/auth",
+      "title": "로그인·회원가입 화면 푸터에 통신판매업 신고번호 누락",
+      "detail": "인증 화면용 MiniFooter는 상호·대표·사업자등록번호·주소·개인정보보호책임자·고객센터만 표시하고 통신판매업 신고번호가 없음. 일반 SiteFooter(데스크톱·모바일)에는 있음. 전자상거래법 표시사항 누락(범위는 /login, /signup, /auth/*).",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/_login.1440.png (하단 사업자 정보 줄), /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/su.png; /home/user/house-fe/apps/web/src/features/w-auth/components/shell/AuthShell.tsx:53-60",
+      "fixHint": "MiniFooter items에 {label:'통신판매업 신고', value: biz.mailOrderNumber} 추가(SiteFooter bizItems 재사용 권장)",
+      "owner": "frontend"
+    },
+    {
+      "severity": "medium",
+      "area": "footer/settings",
+      "title": "사업자 정보가 전부 '[상호]' 같은 대괄호 플레이스홀더로 노출",
+      "detail": "모든 페이지 푸터와 /support 연락 카드(‘번호를 준비하고 있어요’)가 관리자 사이트설정 미입력 시 플레이스홀더로 표시됨. 오픈 전 관리자에서 BUSINESS_INFO/CONTACT를 반드시 입력해야 하며, 값이 비면 배포 차단 같은 가드가 없음.",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/s3.png (고객센터 카드), /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/_login.1440.png 푸터; /home/user/house-fe/apps/web/src/lib/site/settings.ts:75-91",
+      "fixHint": "오픈 체크리스트에 사업자 정보 입력 항목 추가, 운영 빌드에서 플레이스홀더 노출 시 경고",
+      "owner": "owner-decision"
+    },
+    {
+      "severity": "medium",
+      "area": "deal",
+      "title": "내놓기/구하기 폼이 시안과 다른 4단계 위저드 구조",
+      "detail": "DealRequest 시안은 /deal 랜딩 아래 한 화면에 A·B·C·D 섹션을 이어서 작성(3단계 표시: 간편 로그인→매물 정보 입력→중개사 확인·전달). 구현은 /deal/sell·/deal/find 별도 경로의 4단계 위저드(매물 정보/거래 조건/사진·연락처/확인·전달). 시각 스타일·요약 카드·'몇 곳의 중개사가 받나요' 패널은 시안과 일치하고 흐름도 정상 완료됨.",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/deal-design-a.png vs /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/s6.png",
+      "fixHint": "의도된 변경이면 시안 승인자 확인. 유지 시 1단계에 '간편 로그인 완료' 표시 정도만 맞추면 됨",
+      "owner": "owner-decision"
+    },
+    {
+      "severity": "low",
+      "area": "deal",
+      "title": "면적·동호·금액 상한 검증 없음",
+      "detail": "자동입력 테스트에서 아파트 전용 30000평(99,173㎡), 30000동 30000호, 월세 3억이 그대로 접수되어 완료 페이지·/me/requests에 노출됨.",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/s10.png (완료 페이지 '전용 99,173.55㎡ (30000평)'), /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/m2.png (/me/requests)",
+      "fixHint": "zod 스키마에 합리적 상한(면적, 동·호 자릿수, 월세 범위) 추가 — 백엔드도 동일",
+      "owner": "both"
+    },
+    {
+      "severity": "low",
+      "area": "agencies",
+      "title": "필터 칩이 2줄로 줄바꿈(‘토지’ 단독 줄)",
+      "detail": "시안은 전체/아파트/원룸·투룸/상가/토지 5개가 한 줄. 구현은 ‘주택’ 칩이 추가돼 1440에서 ‘토지’가 둘째 줄로 떨어져 리스트 영역이 좁아짐. 지도 핀도 시안의 상점 아이콘 핀 대신 숫자 핀.",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/_agencies.1440.png vs /home/user/house-fe/design/shots/Agents.dc.html.1440.png",
+      "fixHint": "칩 간격/패딩 축소 또는 가로 스크롤 1줄",
+      "owner": "frontend"
+    },
+    {
+      "severity": "low",
+      "area": "agencies",
+      "title": "선택된 중개사 핀이 클러스터 원과 겹침",
+      "detail": "카드 선택 시 강조 핀(신대중앙 62)이 ‘해룡면 11’ 클러스터 위에 겹쳐 그려져 둘 다 읽기 어려움.",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/ag-click.1440.png (지도 하단 중앙)",
+      "fixHint": "선택 시 해당 마커를 클러스터에서 제외하거나 z-index·오프셋 조정",
+      "owner": "frontend"
+    },
+    {
+      "severity": "low",
+      "area": "404",
+      "title": "/agency/<없는 id> 404 페이지 제목이 기본 사이트 제목",
+      "detail": "상태코드 404와 본문(‘중개사무소를 찾을 수 없어요’)은 정상이나 <title>이 ‘순천부동산 | 공인중개사 공동중개 플랫폼’으로 남음. 일반 404는 ‘페이지를 찾을 수 없어요’.",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/ag404.png; batch 출력 title",
+      "fixHint": "agency/[id]/not-found 또는 generateMetadata에서 notFound 시 제목 지정",
+      "owner": "frontend"
+    },
+    {
+      "severity": "low",
+      "area": "signup",
+      "title": "마케팅 수신 채널(앱 푸시/문자/이메일) 선택 없음",
+      "detail": "시안의 [선택] 마케팅 정보 수신 아래 채널 체크박스 3개가 구현에 없음(단일 동의만).",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/su.png vs /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/login-design.png",
+      "fixHint": "정책상 채널별 동의가 필요하면 추가, 아니면 시안 갱신",
+      "owner": "owner-decision"
+    },
+    {
+      "severity": "low",
+      "area": "me",
+      "title": "로그인 계정 연결 블록이 /me/profile과 /me/account에 중복",
+      "detail": "두 페이지 모두 카카오/네이버/Google 연결·해제 카드를 동일하게 보여줌. 정보 구조상 한 곳(계정 설정)에만 있는 편이 명확.",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/s8.png 오른쪽, /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-rest/s9.png 오른쪽",
+      "fixHint": "내 정보에서는 요약+링크로 축소",
+      "owner": "frontend"
+    }
+  ]
 }

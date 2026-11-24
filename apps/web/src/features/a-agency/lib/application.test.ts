@@ -5,18 +5,21 @@ import {
   DOCUMENT_ACCEPT,
   DOCUMENT_MAX_BYTES,
   IMAGE_ACCEPT,
-  PRIVACY_CONSENT_VERSION,
   applyFormFromAgency,
   documentsChangedSinceRejection,
   latestDocuments,
   missingDocuments,
   missingRecommended,
-  registerPayloadFromAgency,
   profileCompleteness,
+  resubmitPayloadFromAgency,
   statusView,
   toRegisterPayload,
+  toResubmitPayload,
   validateUpload,
 } from './application';
+
+const CERT_MEDIA_ID = '0b6f9a52-3c1d-4e8a-9f27-5d1c2b3a4e01';
+const BIZ_MEDIA_ID = '0b6f9a52-3c1d-4e8a-9f27-5d1c2b3a4e02';
 
 const doc = (
   type: AgencyDocumentType,
@@ -136,7 +139,10 @@ describe('application form', () => {
   it('normalizes values and builds the register payload of the shared schema', () => {
     const parsed = applyFormSchema.parse(valid);
     expect(parsed.registrationNumber).toBe('46150-2026-00095');
-    const payload = toRegisterPayload(parsed);
+    const payload = toRegisterPayload(parsed, [
+      { type: 'REGISTRATION_CERT', mediaId: CERT_MEDIA_ID },
+      { type: 'BUSINESS_REG_CERT', mediaId: BIZ_MEDIA_ID },
+    ]);
     expect(payload).toMatchObject({
       name: '조례한빛 공인중개사사무소',
       registrationNumber: '46150-2026-00095',
@@ -151,9 +157,34 @@ describe('application form', () => {
     expect(payload.jibunAddress).toBeUndefined();
     expect(payload).not.toHaveProperty('agreeTruth');
     expect(payload).not.toHaveProperty('agreePrivacy');
-    expect(payload.consents).toEqual([
-      { type: 'PRIVACY_AGENCY_APPLICATION', version: PRIVACY_CONSENT_VERSION },
+    // Upload-first: the documents go with the application; the consent is added by registerAgency.
+    expect(payload.documents).toEqual([
+      { type: 'REGISTRATION_CERT', mediaId: CERT_MEDIA_ID },
+      { type: 'BUSINESS_REG_CERT', mediaId: BIZ_MEDIA_ID },
     ]);
+    expect(payload).not.toHaveProperty('consents');
+  });
+
+  it('refuses a register payload without the 중개사무소 등록증', () => {
+    const parsed = applyFormSchema.parse(valid);
+    expect(() => toRegisterPayload(parsed, [])).toThrow();
+    expect(() =>
+      toRegisterPayload(parsed, [{ type: 'BUSINESS_REG_CERT', mediaId: BIZ_MEDIA_ID }]),
+    ).toThrow('중개사무소 등록증을 첨부해 주세요.');
+  });
+
+  it('builds a resubmit payload that adds only the newly uploaded documents', () => {
+    const parsed = applyFormSchema.parse(valid);
+    const withDocs = toResubmitPayload(parsed, [
+      { type: 'REGISTRATION_CERT', mediaId: CERT_MEDIA_ID },
+    ]);
+    expect(withDocs).toMatchObject({
+      registrationNumber: '46150-2026-00095',
+      documents: [{ type: 'REGISTRATION_CERT', mediaId: CERT_MEDIA_ID }],
+    });
+    const fieldsOnly = toResubmitPayload(parsed, []);
+    expect(fieldsOnly.documents).toBeUndefined();
+    expect(fieldsOnly).not.toHaveProperty('consents');
   });
 
   it('reports field errors in Korean', () => {
@@ -268,15 +299,17 @@ describe('rejected applications', () => {
   });
 
   it('builds a resubmit body from the stored application', () => {
-    const body = registerPayloadFromAgency(rejected);
+    const body = resubmitPayloadFromAgency(rejected);
     expect(body).toMatchObject({
       name: agency.name,
       registrationNumber: agency.registrationNumber,
       businessNumber: '0000000000',
       addressDetail: '105호',
       specialties: ['APT'],
-      consents: [{ type: 'PRIVACY_AGENCY_APPLICATION', version: PRIVACY_CONSENT_VERSION }],
     });
+    // The replaced documents are attached already; the application's consent still covers it.
+    expect(body.documents).toBeUndefined();
+    expect(body).not.toHaveProperty('consents');
     expect(body.mobile).toBeUndefined();
     expect(body.intro).toBeUndefined();
   });

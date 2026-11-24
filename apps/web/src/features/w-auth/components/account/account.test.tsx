@@ -205,6 +205,7 @@ describe('<WithdrawForm>', () => {
     expect(calls.withdrawAccount).not.toHaveBeenCalled();
     await user.click(within(dialog).getByRole('button', { name: '탈퇴하기' }));
     expect(calls.withdrawAccount).toHaveBeenCalledWith({
+      confirm: true,
       reason: '이미 집을 구했어요 — 신대지구에 구했어요',
     });
   });

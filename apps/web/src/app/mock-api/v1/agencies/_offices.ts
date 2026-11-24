@@ -7,7 +7,7 @@ import type { AgencyDetail, BusinessHours } from '@/features/w-agencies/api/sche
  * FICTIONAL: B01–B08 come from design/drafts/system/mockdata.md §4, B09–B14 are the small offices
  * drawn on the Agents design map, the rest fill the 석현동 / 신대지구 clusters and the other 동.
  * Positions are in % of the stylized Suncheon map so the static map reproduces the design layout.
- * 읍면동 codes are made-up 8-digit codes under 46150 (순천시).
+ * 읍면동 codes are made-up 8-digit codes under 12150 (순천시).
  */
 
 const B = STATIC_MAP_BOUNDS;
@@ -22,15 +22,15 @@ export function at(xPct: number, yPct: number): { lat: number; lng: number } {
 }
 
 export const EMD = {
-  haeryong: { emdCode: '46150360', name: '해룡면', center: at(62, 84) },
-  jorye: { emdCode: '46150127', name: '조례동', center: at(52, 22) },
-  yeonhyang: { emdCode: '46150128', name: '연향동', center: at(50, 55) },
-  wangji: { emdCode: '46150126', name: '왕지동', center: at(78, 18) },
-  seokhyeon: { emdCode: '46150113', name: '석현동', center: at(32, 16) },
-  ocheon: { emdCode: '46150131', name: '오천동', center: at(36, 88) },
-  deogyeon: { emdCode: '46150121', name: '덕연동', center: at(22, 30) },
-  jangcheon: { emdCode: '46150105', name: '장천동', center: at(19, 72) },
-  pungdeok: { emdCode: '46150130', name: '풍덕동', center: at(66, 92) },
+  haeryong: { emdCode: '12150360', name: '해룡면', center: at(62, 84) },
+  jorye: { emdCode: '12150127', name: '조례동', center: at(52, 22) },
+  yeonhyang: { emdCode: '12150128', name: '연향동', center: at(50, 55) },
+  wangji: { emdCode: '12150126', name: '왕지동', center: at(78, 18) },
+  seokhyeon: { emdCode: '12150113', name: '석현동', center: at(32, 16) },
+  ocheon: { emdCode: '12150131', name: '오천동', center: at(36, 88) },
+  deogyeon: { emdCode: '12150121', name: '덕연동', center: at(22, 30) },
+  jangcheon: { emdCode: '12150105', name: '장천동', center: at(19, 72) },
+  pungdeok: { emdCode: '12150130', name: '풍덕동', center: at(66, 92) },
 } as const;
 export type EmdKey = keyof typeof EMD;
 

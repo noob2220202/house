@@ -12,7 +12,7 @@ describe('listing search SQL', () => {
     const sql = join(
       filterConditions(
         {
-          emdCode: '46150101',
+          emdCode: '12150101',
           complexId: '01890000-0000-7000-8000-000000000001',
           dealTypes: ['SALE'],
           priceMin: 100,
@@ -23,13 +23,13 @@ describe('listing search SQL', () => {
       ),
     );
     expect(sql.sql).not.toContain('DROP');
-    expect(sql.values).toEqual(expect.arrayContaining([[evil], '46150101%', 100, 127.4]));
+    expect(sql.values).toEqual(expect.arrayContaining([[evil], '12150101%', 100, 127.4]));
   });
 
   it('maps emdCode length to the right column', () => {
-    expect(join(filterConditions({ emdCode: '46150' })).sql).toContain('l.sgg_code = ?');
-    expect(join(filterConditions({ emdCode: '4615010100' })).sql).toContain('l.emd_code = ?');
-    expect(join(filterConditions({ emdCode: '46150101' })).sql).toContain('l.emd_code LIKE ?');
+    expect(join(filterConditions({ emdCode: '12150' })).sql).toContain('l.sgg_code = ?');
+    expect(join(filterConditions({ emdCode: '1215010100' })).sql).toContain('l.emd_code = ?');
+    expect(join(filterConditions({ emdCode: '12150101' })).sql).toContain('l.emd_code LIKE ?');
   });
 
   it('builds one branch per public status and null segment for nullable sorts', () => {

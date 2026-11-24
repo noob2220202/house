@@ -50,7 +50,7 @@ describe('agency listings (e2e)', () => {
         floorLabel: '12/20층',
         builtYear: 2015,
         isPrimaryAgency: true,
-        property: { ho: '1203', dong: '101', emdCode: '4615010400', complexId: complex.id },
+        property: { ho: '1203', dong: '101', emdCode: '1215010400', complexId: complex.id },
         complex: { id: complex.id },
       });
       expect(res.body.agencies).toHaveLength(1);
@@ -61,10 +61,20 @@ describe('agency listings (e2e)', () => {
         contactName: a.agency.representativeName,
       });
       const row = await t.prisma.listing.findUniqueOrThrow({ where: { id: res.body.id } });
-      expect(row).toMatchObject({ sggCode: '46150', emdCode: '4615010400', lat: 34.95, rooms: 3 });
+      expect(row).toMatchObject({ sggCode: '12150', emdCode: '1215010400', lat: 34.95, rooms: 3 });
       const [loc] = await t.prisma.$queryRaw<{ ok: boolean }[]>`
         SELECT location IS NOT NULL AS ok FROM listings WHERE id = ${row.id}::uuid`;
       expect(loc?.ok).toBe(true);
+    });
+
+    it('stores a legacy 46150… 법정동 code (old Kakao bcode) as the current 12150… code', async () => {
+      const a = await agencyWithOwner(t);
+      const res = await withSession(t.http().post(BASE), a.ownerSession)
+        .send(publishablePayload({ property: { emdCode: '4615010400' } }))
+        .expect(201);
+      expect(res.body.property.emdCode).toBe('1215010400');
+      const row = await t.prisma.listing.findUniqueOrThrow({ where: { id: res.body.id } });
+      expect(row).toMatchObject({ sggCode: '12150', emdCode: '1215010400' });
     });
 
     it('a licensed AGENT member can create; contact defaults to the member', async () => {
@@ -384,7 +394,7 @@ describe('agency listings (e2e)', () => {
           dealType: 'SALE',
           property: {
             assetType: 'APT',
-            roadAddress: '전라남도 순천시 연향로 1',
+            roadAddress: '전남광주통합특별시 순천시 연향로 1',
             lat: 34.95,
             lng: 127.49,
           },

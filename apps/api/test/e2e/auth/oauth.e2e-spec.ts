@@ -333,7 +333,7 @@ describe('auth: social OAuth (e2e)', () => {
       });
       const s = await loginUser(t.app, user);
       const started = await startOAuth(t, 'naver', {
-        query: { intent: 'link', returnTo: '/my/account' },
+        query: { intent: 'link', returnTo: '/me/account' },
         cookie: s.cookie,
       });
       fake.naverCode('n', { id: 'nv-link' });
@@ -343,9 +343,25 @@ describe('auth: social OAuth (e2e)', () => {
         { code: 'n', state: started.state },
         { house_oauth: started.binding, [COOKIE_NAMES.SESSION]: s.cookie.split('=')[1] },
       ).expect(302);
-      expect(res.headers.location).toBe('http://localhost:3000/my/account?linked=naver');
+      expect(res.headers.location).toBe('http://localhost:3000/me/account?linked=naver');
       const ids = await t.prisma.identity.findMany({ where: { userId: user.id } });
       expect(ids.map((i) => i.provider).sort()).toEqual(['KAKAO', 'NAVER']);
+    });
+
+    it('lands on the web account page (/me/account) when no returnTo was given', async () => {
+      const user = await createUser(t.prisma, {
+        identities: { create: { provider: 'KAKAO', providerUserId: 'k-default' } },
+      });
+      const s = await loginUser(t.app, user);
+      const started = await startOAuth(t, 'naver', { query: { intent: 'link' }, cookie: s.cookie });
+      fake.naverCode('n', { id: 'nv-default' });
+      const res = await callback(
+        t,
+        'naver',
+        { code: 'n', state: started.state },
+        { house_oauth: started.binding, [COOKIE_NAMES.SESSION]: s.cookie.split('=')[1] },
+      ).expect(302);
+      expect(res.headers.location).toBe('http://localhost:3000/me/account?linked=naver');
     });
 
     it('refuses an identity that belongs to another account', async () => {
@@ -365,7 +381,7 @@ describe('auth: social OAuth (e2e)', () => {
         { house_oauth: started.binding, [COOKIE_NAMES.SESSION]: s.cookie.split('=')[1] },
       ).expect(302);
       const target = redirectTarget(res);
-      expect(target.pathname).toBe('/my/account');
+      expect(target.pathname).toBe('/me/account');
       expect(target.searchParams.get('error')).toBe(ErrorCode.AUTH_IDENTITY_DUPLICATE);
     });
 

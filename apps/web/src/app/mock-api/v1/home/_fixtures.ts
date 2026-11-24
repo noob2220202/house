@@ -40,7 +40,7 @@ const asset = (
 
 export const REGIONS: readonly MockRegion[] = [
   {
-    code: '4615012500',
+    code: '1215012500',
     name: '연향동',
     emdName: '연향동',
     lat: 34.944,
@@ -53,7 +53,7 @@ export const REGIONS: readonly MockRegion[] = [
     rankDelta: 1,
   },
   {
-    code: '4615033028',
+    code: '1215033028',
     name: '신대지구',
     emdName: '해룡면 신대리',
     lat: 34.9335,
@@ -66,7 +66,7 @@ export const REGIONS: readonly MockRegion[] = [
     rankDelta: 0,
   },
   {
-    code: '4615012400',
+    code: '1215012400',
     name: '조례동',
     emdName: '조례동',
     lat: 34.9585,
@@ -79,7 +79,7 @@ export const REGIONS: readonly MockRegion[] = [
     rankDelta: -1,
   },
   {
-    code: '4615012700',
+    code: '1215012700',
     name: '오천지구',
     emdName: '오천동',
     lat: 34.927,
@@ -92,7 +92,7 @@ export const REGIONS: readonly MockRegion[] = [
     rankDelta: 2,
   },
   {
-    code: '4615012300',
+    code: '1215012300',
     name: '왕지동',
     emdName: '왕지동',
     lat: 34.97,
@@ -105,7 +105,7 @@ export const REGIONS: readonly MockRegion[] = [
     rankDelta: -1,
   },
   {
-    code: '4615011500',
+    code: '1215011500',
     name: '석현동',
     emdName: '석현동',
     lat: 34.969,
@@ -118,7 +118,7 @@ export const REGIONS: readonly MockRegion[] = [
     rankDelta: 1,
   },
   {
-    code: '4615033027',
+    code: '1215033027',
     name: '선월지구',
     emdName: '해룡면 선월리',
     lat: 34.92,
@@ -131,7 +131,7 @@ export const REGIONS: readonly MockRegion[] = [
     rankDelta: null,
   },
   {
-    code: '4615012600',
+    code: '1215012600',
     name: '덕연동',
     emdName: '덕연동',
     lat: 34.949,

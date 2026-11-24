@@ -85,13 +85,16 @@ describe('ttlUntilNextBoundary', () => {
 
 describe('regionCodePrefixes', () => {
   it('expands 법정동 codes to every ancestor level', () => {
-    expect(regionCodePrefixes(['4615025021'])).toEqual(['46', '46150', '46150250', '4615025021']);
+    expect(regionCodePrefixes(['1215025021'])).toEqual(['12', '12150', '12150250', '1215025021']);
+  });
+  it('canonicalizes legacy 46150… codes first', () => {
+    expect(regionCodePrefixes(['4615025021'])).toEqual(['12', '12150', '12150250', '1215025021']);
   });
   it('merges, dedupes and skips invalid/empty codes', () => {
-    expect(regionCodePrefixes(['46150', '46150101', null, undefined, 'abc', '461'])).toEqual([
-      '46',
-      '46150',
-      '46150101',
+    expect(regionCodePrefixes(['12150', '12150101', null, undefined, 'abc', '461'])).toEqual([
+      '12',
+      '12150',
+      '12150101',
     ]);
   });
 });

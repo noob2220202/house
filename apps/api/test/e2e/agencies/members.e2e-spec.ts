@@ -1,6 +1,8 @@
-import { AgencyStatus, UserRole } from '@house/shared';
+import { AgencyStatus, ErrorCode, TermsType, UserRole } from '@house/shared';
 import { SessionService } from '../../../src/modules/auth/session/session.service';
 import {
+  actionConsents,
+  createActionConsentTerms,
   createAgency,
   createListing,
   createTestApp,
@@ -19,7 +21,10 @@ describe('agencies: staff, invites & membership (e2e)', () => {
   beforeAll(async () => {
     t = await createTestApp();
   });
-  beforeEach(() => resetAll(t));
+  beforeEach(async () => {
+    await resetAll(t);
+    await createActionConsentTerms(t.prisma);
+  });
   afterAll(() => t?.close());
 
   async function ownerSession() {
@@ -59,7 +64,7 @@ describe('agencies: staff, invites & membership (e2e)', () => {
       // Revoked codes cannot be redeemed.
       const joiner = await loginUser(t.app, await createUser(t.prisma));
       await withSession(t.http().post('/api/v1/agencies/join'), joiner)
-        .send({ code: invite.code, displayName: '김실장' })
+        .send({ code: invite.code, displayName: '김실장', consents: actionConsents('AGENCY_JOIN') })
         .expect(400);
     });
 
@@ -115,6 +120,7 @@ describe('agencies: staff, invites & membership (e2e)', () => {
           phone: '010-2222-3333',
           isLicensed: true,
           licenseNumber: '2020-1234',
+          consents: actionConsents('AGENCY_JOIN'),
         })
         .expect(201);
       expect(res.body).toMatchObject({
@@ -138,7 +144,7 @@ describe('agencies: staff, invites & membership (e2e)', () => {
       // Single use.
       const second = await loginUser(t.app, await createUser(t.prisma));
       const reused = await withSession(t.http().post('/api/v1/agencies/join'), second)
-        .send({ code: invite.code, displayName: '박실장' })
+        .send({ code: invite.code, displayName: '박실장', consents: actionConsents('AGENCY_JOIN') })
         .expect(400);
       expect(reused.body.code).toBe('AGENCY_INVITE_INVALID');
     });
@@ -149,12 +155,12 @@ describe('agencies: staff, invites & membership (e2e)', () => {
       const other = await createPendingAgency(t.prisma);
       const so = await loginUser(t.app, other.owner, { agencyId: other.agency.id });
       const res = await withSession(t.http().post('/api/v1/agencies/join'), so)
-        .send({ code: invite.code, displayName: '홍길동' })
+        .send({ code: invite.code, displayName: '홍길동', consents: actionConsents('AGENCY_JOIN') })
         .expect(409);
       expect(res.body.code).toBe('AGENCY_ALREADY_MEMBER');
       const fresh = await loginUser(t.app, await createUser(t.prisma));
       await withSession(t.http().post('/api/v1/agencies/join'), fresh)
-        .send({ code: invite.code, displayName: '새직원' })
+        .send({ code: invite.code, displayName: '새직원', consents: actionConsents('AGENCY_JOIN') })
         .expect(201);
     });
 
@@ -167,25 +173,70 @@ describe('agencies: staff, invites & membership (e2e)', () => {
       const invite = await issueInvite(s);
       const su = await loginUser(t.app, { id: user.id, role: UserRole.USER });
       await withSession(t.http().post('/api/v1/agencies/join'), su)
-        .send({ code: invite.code, displayName: '복귀' })
+        .send({ code: invite.code, displayName: '복귀', consents: actionConsents('AGENCY_JOIN') })
         .expect(201);
       const member = await t.prisma.agencyMember.findUniqueOrThrow({ where: { id: memberId } });
       expect(member).toMatchObject({ status: 'ACTIVE', displayName: '복귀', removedAt: null });
+    });
+
+    it('records the 합류 privacy consent with the membership (D8)', async () => {
+      const { s } = await ownerSession();
+      const invite = await issueInvite(s);
+      const user = await createUser(t.prisma);
+      const su = await loginUser(t.app, user);
+      await withSession(t.http().post('/api/v1/agencies/join'), su)
+        .send({ code: invite.code, displayName: '김실장', consents: actionConsents('AGENCY_JOIN') })
+        .expect(201);
+      const rows = await t.prisma.userConsent.findMany({
+        where: { userId: user.id },
+        include: { termsDocument: true },
+      });
+      expect(rows.map((r) => [r.termsDocument.type, r.termsDocument.version, r.agreed])).toEqual([
+        [TermsType.PRIVACY_AGENCY_JOIN, '1.0', true],
+      ]);
+    });
+
+    it('400 AUTH_CONSENT_REQUIRED / OUTDATED without the current consent; the code survives', async () => {
+      const { s } = await ownerSession();
+      const invite = await issueInvite(s);
+      const user = await createUser(t.prisma);
+      const su = await loginUser(t.app, user);
+      const missing = await withSession(t.http().post('/api/v1/agencies/join'), su)
+        .send({ code: invite.code, displayName: '김실장' })
+        .expect(400);
+      expect(missing.body).toMatchObject({
+        code: ErrorCode.AUTH_CONSENT_REQUIRED,
+        details: { missing: [TermsType.PRIVACY_AGENCY_JOIN] },
+      });
+      const outdated = await withSession(t.http().post('/api/v1/agencies/join'), su)
+        .send({
+          code: invite.code,
+          displayName: '김실장',
+          consents: actionConsents('AGENCY_JOIN', '0.9'),
+        })
+        .expect(400);
+      expect(outdated.body.code).toBe(ErrorCode.AUTH_CONSENT_OUTDATED);
+      expect(await t.prisma.agencyMember.count({ where: { userId: user.id } })).toBe(0);
+      expect(await t.prisma.userConsent.count()).toBe(0);
+      // The refused attempts did not burn the single-use code.
+      await withSession(t.http().post('/api/v1/agencies/join'), su)
+        .send({ code: invite.code, displayName: '김실장', consents: actionConsents('AGENCY_JOIN') })
+        .expect(201);
     });
 
     it('401 anonymous; 400 for malformed codes and unknown codes', async () => {
       await t
         .http()
         .post('/api/v1/agencies/join')
-        .send({ code: 'ABCDEFGHJK', displayName: 'x' })
+        .send({ code: 'ABCDEFGHJK', displayName: 'x', consents: actionConsents('AGENCY_JOIN') })
         .expect(401);
       const su = await loginUser(t.app, await createUser(t.prisma));
       const bad = await withSession(t.http().post('/api/v1/agencies/join'), su)
-        .send({ code: '0000', displayName: 'x' })
+        .send({ code: '0000', displayName: 'x', consents: actionConsents('AGENCY_JOIN') })
         .expect(400);
       expect(bad.body.code).toBe('VALIDATION_FAILED');
       const unknown = await withSession(t.http().post('/api/v1/agencies/join'), su)
-        .send({ code: 'ABCDEFGHJK', displayName: 'x' })
+        .send({ code: 'ABCDEFGHJK', displayName: 'x', consents: actionConsents('AGENCY_JOIN') })
         .expect(400);
       expect(unknown.body.code).toBe('AGENCY_INVITE_INVALID');
     });

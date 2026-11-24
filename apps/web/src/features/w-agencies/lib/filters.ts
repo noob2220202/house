@@ -7,7 +7,7 @@ import { SPECIALTY_LABEL } from './agency';
 
 /**
  * Filters of /agencies, kept in the query string next to the map view (`c`, `z`, `sel`):
- *   ?q=호수&spec=APT&emd=46150115&open=1&presale=1&sort=NAME&area=<bbox>
+ *   ?q=호수&spec=APT&emd=12150115&open=1&presale=1&sort=NAME&area=<bbox>
  */
 export const AGENCY_FILTERS = defineFilters({
   q: { type: 'string' },

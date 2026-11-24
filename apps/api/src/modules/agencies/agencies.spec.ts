@@ -21,7 +21,7 @@ const office = {
   brkrNm: '홍길동',
   sttusSeCode: '1',
   sttusSeCodeNm: '영업중',
-  ldCodeNm: '전라남도 순천시',
+  ldCodeNm: '전남광주통합특별시 순천시',
   registDe: '2020-03-02',
 };
 
@@ -34,7 +34,7 @@ describe('broker registry response parsing', () => {
       representativeName: '홍길동',
       operating: true,
       statusLabel: '영업중',
-      regionName: '전라남도 순천시',
+      regionName: '전남광주통합특별시 순천시',
       registeredOn: '2020-03-02',
     });
     expect(parseRegistryResponse({ EBOfficeInfos: { field: office } }, REG)?.officeName).toBe(
@@ -88,7 +88,7 @@ describe('브이월드 broker registry client', () => {
     const client = new VworldBrokerRegistryClient(config({}));
     expect(client.enabled).toBe(false);
     const spy = jest.spyOn(globalThis, 'fetch');
-    await expect(client.findByRegistrationNumber(REG, '46150')).rejects.toThrow(
+    await expect(client.findByRegistrationNumber(REG, '12150')).rejects.toThrow(
       BrokerRegistryUnavailableError,
     );
     expect(spy).not.toHaveBeenCalled();
@@ -101,30 +101,73 @@ describe('브이월드 broker registry client', () => {
         new Response(JSON.stringify({ EBOfficeInfos: { field: [office] } }), { status: 200 }),
       );
     const client = new VworldBrokerRegistryClient(config({ VWORLD_API_KEY: 'k-123' }));
-    const rec = await client.findByRegistrationNumber(REG, '46150');
+    const rec = await client.findByRegistrationNumber(REG, '12150');
     expect(rec?.officeName).toBe('순천중앙 공인중개사사무소');
     const [url, init] = spy.mock.calls[0] as [URL, RequestInit];
     expect(`${url.origin}${url.pathname}`).toBe('https://api.vworld.kr/ned/data/getEBOfficeInfo');
     expect(Object.fromEntries(url.searchParams)).toMatchObject({
       key: 'k-123',
       domain: 'brand.example',
-      ldCode: '46150',
+      ldCode: '12150',
       jurirno: REG,
       format: 'json',
     });
     expect(init.headers).toEqual({ Referer: 'https://brand.example/' });
   });
 
+  describe('ldCode fallback (2026-07-01 46150 → 12150)', () => {
+    const found = () =>
+      new Response(JSON.stringify({ EBOfficeInfos: { field: [office] } }), { status: 200 });
+    const none = () => new Response(JSON.stringify({ EBOfficeInfos: {} }), { status: 200 });
+    const ldCodes = (spy: jest.SpyInstance) =>
+      spy.mock.calls.map(([url]) => (url as URL).searchParams.get('ldCode'));
+
+    it('retries once with 46150 when no office matches under 12150', async () => {
+      const spy = jest
+        .spyOn(globalThis, 'fetch')
+        .mockResolvedValueOnce(none())
+        .mockResolvedValueOnce(found());
+      const client = new VworldBrokerRegistryClient(config({ VWORLD_API_KEY: 'k' }));
+      const rec = await client.findByRegistrationNumber(REG, '12150');
+      expect(rec?.registrationNumber).toBe(REG);
+      expect(ldCodes(spy)).toEqual(['12150', '46150']);
+    });
+
+    it('answers null after both codes, and never retries a hit or an unaliased code', async () => {
+      const client = new VworldBrokerRegistryClient(config({ VWORLD_API_KEY: 'k' }));
+      const both = jest
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation(() => Promise.resolve(none()));
+      expect(await client.findByRegistrationNumber(REG, '12150')).toBeNull();
+      expect(ldCodes(both)).toEqual(['12150', '46150']);
+      both.mockRestore();
+
+      const hit = jest
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation(() => Promise.resolve(found()));
+      // a legacy code passed in is canonicalized before the first call
+      expect(await client.findByRegistrationNumber(REG, '46150')).not.toBeNull();
+      expect(ldCodes(hit)).toEqual(['12150']);
+      hit.mockRestore();
+
+      const other = jest
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation(() => Promise.resolve(none()));
+      expect(await client.findByRegistrationNumber(REG, '11110')).toBeNull();
+      expect(ldCodes(other)).toEqual(['11110']);
+    });
+  });
+
   it('maps HTTP failures and error envelopes to BrokerRegistryUnavailableError', async () => {
     const client = new VworldBrokerRegistryClient(config({ VWORLD_API_KEY: 'k' }));
     jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('', { status: 503 }));
-    await expect(client.findByRegistrationNumber(REG, '46150')).rejects.toThrow('HTTP 503');
+    await expect(client.findByRegistrationNumber(REG, '12150')).rejects.toThrow('HTTP 503');
     jest
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ response: { status: 'ERROR', error: { code: 'X' } } })),
       );
-    await expect(client.findByRegistrationNumber(REG, '46150')).rejects.toThrow(
+    await expect(client.findByRegistrationNumber(REG, '12150')).rejects.toThrow(
       BrokerRegistryUnavailableError,
     );
   });

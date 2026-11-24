@@ -58,6 +58,8 @@ export interface ListingSummary extends ListingPriceView {
   buildingName: string | null;
   dong: string | null;
   emdCode: string | null;
+  /** 법정동 (읍면동) name of emdCode, e.g. "조례동" — from the regions table; null when unknown. */
+  emdName: string | null;
   lat: number;
   lng: number;
   complex: { id: string; name: string } | null;

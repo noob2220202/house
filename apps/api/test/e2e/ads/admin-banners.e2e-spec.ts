@@ -54,7 +54,7 @@ describe('ads: admin banners (e2e)', () => {
       const s = await adminSession(t);
       const { agency } = await createAgency(t.prisma);
       const mobile = await bannerMedia(t.prisma);
-      await createRegion(t.prisma, '46150101', '삼거동');
+      await createRegion(t.prisma, '12150101', '삼거동');
       const res = await withSession(t.http().post(BASE), s)
         .send(
           await validBody({
@@ -62,7 +62,7 @@ describe('ads: admin banners (e2e)', () => {
             agencyId: agency.id,
             mobileMediaId: mobile.id,
             targeting: 'REGIONS',
-            targetRegionCodes: ['46150101'],
+            targetRegionCodes: ['12150101'],
             priority: 5,
           }),
         )
@@ -74,7 +74,7 @@ describe('ads: admin banners (e2e)', () => {
         agency: { id: agency.id, name: agency.name },
         status: 'ACTIVE',
         targeting: 'REGIONS',
-        targetRegionCodes: ['46150101'],
+        targetRegionCodes: ['12150101'],
         priority: 5,
         sortOrder: 0,
         createdByAdminId: s.adminId,
@@ -157,11 +157,11 @@ describe('ads: admin banners (e2e)', () => {
       expect(res.body.code).toBe('BANNER_MEDIA_INVALID');
 
       res = await withSession(t.http().post(BASE), s)
-        .send(await validBody({ targeting: 'REGIONS', targetRegionCodes: ['46150999'] }))
+        .send(await validBody({ targeting: 'REGIONS', targetRegionCodes: ['12150999'] }))
         .expect(400);
       expect(res.body).toMatchObject({
         code: 'BANNER_TARGET_INVALID',
-        details: { missingRegionCodes: ['46150999'] },
+        details: { missingRegionCodes: ['12150999'] },
       });
 
       res = await withSession(t.http().post(BASE), s)
@@ -255,8 +255,8 @@ describe('ads: admin banners (e2e)', () => {
     it('COMPLEX_FEATURED_AGENCY capacity is per complex page, not city-wide', async () => {
       const s = await adminSession(t);
       const { agency } = await createAgency(t.prisma);
-      const c1 = await createComplex(t.prisma, { emdCode: '46150101' });
-      const c2 = await createComplex(t.prisma, { emdCode: '46150250' });
+      const c1 = await createComplex(t.prisma, { emdCode: '12150101' });
+      const c2 = await createComplex(t.prisma, { emdCode: '12150250' });
       // Default limit 3: 3 on c1 + 1 on c2 = 4 banners in the slot.
       for (const c of [c1, c1, c1, c2]) {
         await withSession(t.http().post(BASE), s)
@@ -278,22 +278,22 @@ describe('ads: admin banners (e2e)', () => {
     it('region-targeted banners only compete where their 법정동 overlap', async () => {
       const s = await adminSession(t);
       await t.prisma.bannerSlotConfig.create({ data: { slot: 'MAP_AD', maxActive: 1 } });
-      await createRegion(t.prisma, '46150');
-      await createRegion(t.prisma, '46150101');
-      await createRegion(t.prisma, '46150250');
+      await createRegion(t.prisma, '12150');
+      await createRegion(t.prisma, '12150101');
+      await createRegion(t.prisma, '12150250');
       const region = (code: string) =>
         validBody({ slot: 'MAP_AD', targeting: 'REGIONS', targetRegionCodes: [code] });
       await withSession(t.http().post(BASE), s)
-        .send(await region('46150101'))
+        .send(await region('12150101'))
         .expect(201);
       await withSession(t.http().post(BASE), s)
-        .send(await region('46150250'))
+        .send(await region('12150250'))
         .expect(201);
       // The whole city overlaps both 읍면동.
       const res = await withSession(t.http().post(BASE), s)
-        .send(await region('46150'))
+        .send(await region('12150'))
         .expect(409);
-      expect(res.body.details.context).toEqual({ regionCode: '46150101' });
+      expect(res.body.details.context).toEqual({ regionCode: '12150101' });
     });
 
     it('PATCH that shortens a banner works after the slot limit was lowered; extending does not', async () => {
@@ -407,7 +407,7 @@ describe('ads: admin banners (e2e)', () => {
   describe('PATCH /admin/banners/:id', () => {
     it('200 updates fields and targeting, clears nullable fields, audits before/after', async () => {
       const s = await adminSession(t);
-      await createRegion(t.prisma, '46150');
+      await createRegion(t.prisma, '12150');
       const b = await seedBanner(t.prisma, { advertiserName: '광고주' });
       const res = await withSession(t.http().patch(`${BASE}/${b.id}`), s)
         .send({
@@ -415,7 +415,7 @@ describe('ads: admin banners (e2e)', () => {
           advertiserName: null,
           linkUrl: '/complexes',
           targeting: 'REGIONS',
-          targetRegionCodes: ['46150'],
+          targetRegionCodes: ['12150'],
         })
         .expect(200);
       expect(res.body).toMatchObject({
@@ -423,7 +423,7 @@ describe('ads: admin banners (e2e)', () => {
         advertiserName: null,
         linkUrl: '/complexes',
         targeting: 'REGIONS',
-        targetRegionCodes: ['46150'],
+        targetRegionCodes: ['12150'],
       });
 
       // Switching back to ALL drops the region targets.

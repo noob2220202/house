@@ -274,6 +274,21 @@ describe('notifications', () => {
     ).toBeNull();
     expect(notificationHref({ type: 'AGENCY_APPROVED', data: { agencyId: 'a1' } })).toBe('/agent');
   });
+  it('sends listing events of the primary agency (만료, 공동중개 요청) to the console editor', () => {
+    for (const type of ['LISTING_EXPIRED', 'CO_BROKER_REQUESTED'] as const) {
+      // The listings module sends these to the agency owners with `data.listingId` only.
+      expect(isAgencyNotification({ type, data: { listingId: 'l 1' } })).toBe(true);
+      expect(notificationHref({ type, data: { listingId: 'l 1' } })).toBe(
+        '/agent/listings/l%201/edit',
+      );
+      expect(notificationHref({ type, data: null })).toBe('/agent/listings');
+    }
+    expect(notificationMeta('LISTING_EXPIRED')).toMatchObject({
+      label: '광고기간 만료',
+      tone: 'warn',
+    });
+    expect(notificationMeta('CO_BROKER_REQUESTED').label).toBe('공동중개 요청');
+  });
   it('only follows site-relative urls from the payload', () => {
     expect(notificationHref({ type: 'SYSTEM', data: { url: '/notices' } })).toBe('/notices');
     expect(

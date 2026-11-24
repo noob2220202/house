@@ -67,8 +67,11 @@ export class ListingMapper {
     };
   }
 
-  /** `agencyCount`: disclosable ACTIVE agencies on the listing (ListingSummariesService). */
-  summary(row: ListingSummaryRow, agencyCount: number): ListingSummary {
+  /**
+   * `agencyCount`: disclosable ACTIVE agencies on the listing; `emdName`: 법정동 name of
+   * row.emdCode (both page-scoped lookups, ListingSummariesService / ListingRegionNamesService).
+   */
+  summary(row: ListingSummaryRow, agencyCount: number, emdName: string | null): ListingSummary {
     const area = decimalToNumber(row.exclusiveArea);
     const cover = row.photos[0];
     return {
@@ -94,6 +97,7 @@ export class ListingMapper {
       buildingName: row.property.buildingName,
       dong: row.property.dong,
       emdCode: row.emdCode,
+      emdName,
       lat: row.lat,
       lng: row.lng,
       complex: row.complex ? { id: row.complex.id, name: row.complex.name } : null,
@@ -128,6 +132,7 @@ export class ListingMapper {
   private detailBase(
     row: ListingPublicDetailRow | ListingAgencyDetailRow,
     exactFloor: boolean,
+    emdName: string | null,
   ): Omit<ListingDetail, 'agencies' | 'isFavorite'> {
     const p = row.property;
     const latest = row.verifications[0];
@@ -135,7 +140,7 @@ export class ListingMapper {
     const agencyCount = row.agencies.filter(
       (a) => a.status === ListingAgencyStatus.ACTIVE && isDisclosable(a.agency),
     ).length;
-    const base = this.summary({ ...row, photos: cover ? [cover] : [] }, agencyCount);
+    const base = this.summary({ ...row, photos: cover ? [cover] : [] }, agencyCount, emdName);
     return {
       ...base,
       complex: row.complex
@@ -182,9 +187,13 @@ export class ListingMapper {
   }
 
   /** Public detail: never includes 호, hidden reason or member ids. */
-  publicDetail(row: ListingPublicDetailRow, isFavorite: boolean): ListingDetail {
+  publicDetail(
+    row: ListingPublicDetailRow,
+    isFavorite: boolean,
+    emdName: string | null,
+  ): ListingDetail {
     return {
-      ...this.detailBase(row, false),
+      ...this.detailBase(row, false, emdName),
       agencies: row.agencies.filter((a) => isDisclosable(a.agency)).map((a) => this.disclosure(a)),
       isFavorite,
     };
@@ -194,9 +203,13 @@ export class ListingMapper {
    * Agency view. Co-brokers get the shared ad content only: no 호, no hidden reason, no other
    * agencies' pending/ended rows or member ids — those belong to the primary agency.
    */
-  agencyDetail(row: ListingAgencyDetailRow, actingAgencyId: string): AgencyListingDetail {
+  agencyDetail(
+    row: ListingAgencyDetailRow,
+    actingAgencyId: string,
+    emdName: string | null,
+  ): AgencyListingDetail {
     const p = row.property;
-    const base = this.detailBase(row, true);
+    const base = this.detailBase(row, true, emdName);
     const isPrimary = row.primaryAgencyId === actingAgencyId;
     return {
       ...base,

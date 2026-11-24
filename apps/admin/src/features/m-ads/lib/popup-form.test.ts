@@ -1,4 +1,9 @@
-import { POPUP_MAX_DISMISS_DAYS, PopupPage, popupInputSchema } from '@house/shared';
+import {
+  POPUP_MAX_DISMISS_DAYS,
+  PopupPage,
+  popupCreateSchema,
+  popupUpdateSchema,
+} from '@house/shared';
 import { describe, expect, it } from 'vitest';
 import { LAST_POSITION } from './banner-form';
 import {
@@ -101,7 +106,7 @@ describe('popupFormSchema', () => {
 });
 
 describe('toPopupInput', () => {
-  it('produces a body the shared popupInputSchema accepts', () => {
+  it('produces a body the shared popupCreateSchema accepts', () => {
     const input = toPopupInput(
       valid({ linkUrl: '/notices', targetPages: [PopupPage.MAIN, PopupPage.MAP] }),
     );
@@ -112,11 +117,15 @@ describe('toPopupInput', () => {
       endAt: '2026-12-08T23:59:59+09:00',
       dismissDays: 7,
     });
-    expect(popupInputSchema.safeParse(input).success).toBe(true);
+    expect(popupCreateSchema.safeParse(input).success).toBe(true);
   });
 
   it('clears the link on update only', () => {
     expect(toPopupInput(valid()).linkUrl).toBeUndefined();
     expect(toPopupInput(valid(), { clear: true }).linkUrl).toBeNull();
+  });
+
+  it('produces an update body the shared popupUpdateSchema accepts', () => {
+    expect(popupUpdateSchema.safeParse(toPopupInput(valid(), { clear: true })).success).toBe(true);
   });
 });

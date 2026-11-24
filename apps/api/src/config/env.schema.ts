@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { canonicalRegionCode, DEFAULT_SGG_CODE } from '@house/shared';
 import { z } from 'zod';
 
 const bool = z
@@ -87,11 +88,17 @@ export const envSchema = z
     MEDIA_BASE_URL: z.string().default('/media'),
     MAX_UPLOAD_MB: z.coerce.number().positive().max(100).default(15),
 
-    /** 시군구 code of the service region (순천시 = 46150). */
+    /**
+     * 시군구 code of the service region (전남광주통합특별시 순천시 = 12150 since 2026-07-01). A
+     * legacy code with a known alias (46150) is mapped to the current one, so an old .env keeps
+     * working; the stored data is moved by the 20261124120000_region_code_12150 migration.
+     */
     REGION_SGG_CODE: z
       .string()
+      .trim()
       .regex(/^\d{5}$/)
-      .default('46150'),
+      .default(DEFAULT_SGG_CODE)
+      .transform(canonicalRegionCode),
 
     /**
      * Run BullMQ processors + register repeatable jobs. Forced by the entry point (main.ts: false,

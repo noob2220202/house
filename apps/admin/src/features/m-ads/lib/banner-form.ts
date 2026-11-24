@@ -3,7 +3,7 @@ import {
   BannerSlot,
   BannerTargeting,
   isSafeLinkUrl,
-  type BannerInput,
+  type BannerCreateInput,
 } from '@house/shared';
 import { z } from 'zod';
 import { mediaUrl, type AdminBanner, type Media } from '../api/schemas';
@@ -208,13 +208,13 @@ export function duplicateToForm(banner: AdminBanner): BannerFormValues {
 }
 
 /**
- * Form values → request body (`bannerInputSchema`). On update (`clear: true`) emptied optional
+ * Form values → request body (`bannerCreateSchema`; the PATCH body of `bannerUpdateSchema` uses the same fields). On update (`clear: true`) emptied optional
  * fields are sent as `null` so the backend clears them; on create they are simply omitted.
  */
 export function toBannerInput(
   values: BannerFormValues,
   options: { clear?: boolean } = {},
-): Record<string, unknown> & Pick<BannerInput, 'slot' | 'title' | 'startAt' | 'endAt'> {
+): Record<string, unknown> & Pick<BannerCreateInput, 'slot' | 'title' | 'startAt' | 'endAt'> {
   const blank = options.clear ? null : undefined;
   const hasMobileSlot = BANNER_SLOT_SPECS[values.slot].mobile !== null;
   const advertiserName = values.agency ? values.agency.name : values.advertiserName.trim();

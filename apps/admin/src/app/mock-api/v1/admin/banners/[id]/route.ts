@@ -1,4 +1,4 @@
-import { ERROR_MESSAGES, bannerInputSchema } from '@house/shared';
+import { ERROR_MESSAGES, bannerCreateSchema } from '@house/shared';
 import type { NextRequest } from 'next/server';
 import { mockDelay, mockError, mockJson } from '@/lib/mock';
 import { agencyById } from '../../../agencies/_fixtures';
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 }
 
 // PATCH /api/v1/admin/banners/:id — partial body (the status toggle sends only `{ paused }`); the
-// merged record must satisfy bannerInputSchema.
+// merged record must satisfy bannerCreateSchema.
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   const denied = adminGuard(req, { mutation: true });
   if (denied) return denied;
@@ -53,7 +53,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const merged = Object.fromEntries(
     Object.entries({ ...current, ...patch }).filter(([, v]) => v !== null),
   );
-  const parsed = bannerInputSchema.safeParse(merged);
+  const parsed = bannerCreateSchema.safeParse(merged);
   if (!parsed.success) return validationError(parsed.error);
   const input = parsed.data;
   const invalid = checkBannerInput(input, banner);

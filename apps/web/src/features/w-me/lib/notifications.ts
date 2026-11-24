@@ -1,6 +1,7 @@
 import { NotificationType } from '@house/shared';
 import type { IconName } from '@house/ui';
 import { ROUTES } from '@/config/nav';
+import { AGENT_ROUTES } from '@/features/a-agency/nav';
 import { INBOX_ROUTES } from '@/features/a-inbox/routes';
 import { safeReturnTo } from '@/lib/auth/paths';
 import type { Notification } from '../schemas';
@@ -19,6 +20,8 @@ export interface NotificationMeta {
  * (`deal-requests` README): DEAL_REQUEST_RECEIVED / PROPOSAL_ACCEPTED / CONTACT_GRANTED are sent to
  * the members of an AGENCY (a request arrived, our proposal was accepted, the requester opened
  * their contact to us); PROPOSAL_RECEIVED is the only one sent to the REQUESTER.
+ * LISTING_EXPIRED / CO_BROKER_REQUESTED come from the `listings` module and go to the OWNERS of the
+ * listing's primary agency with `data.listingId` (광고기간 만료, 다른 사무소의 공동중개 참여 요청).
  */
 export const NOTIFICATION_META: Record<NotificationType, NotificationMeta> = {
   DEAL_REQUEST_RECEIVED: { label: '새 요청 도착', icon: 'home-up', tone: 'brand' },
@@ -30,6 +33,8 @@ export const NOTIFICATION_META: Record<NotificationType, NotificationMeta> = {
   AGENCY_WARNED: { label: '운영 안내', icon: 'siren', tone: 'warn' },
   LISTING_HIDDEN: { label: '매물 안내', icon: 'building', tone: 'warn' },
   REPORT_RESOLVED: { label: '신고 처리', icon: 'shield', tone: 'success' },
+  LISTING_EXPIRED: { label: '광고기간 만료', icon: 'clock', tone: 'warn' },
+  CO_BROKER_REQUESTED: { label: '공동중개 요청', icon: 'link', tone: 'brand' },
   SYSTEM: { label: '알림', icon: 'megaphone', tone: 'neutral' },
 };
 
@@ -57,6 +62,8 @@ const AGENCY_ONLY_TYPES: ReadonlySet<NotificationType> = new Set([
   NotificationType.DEAL_REQUEST_RECEIVED,
   NotificationType.PROPOSAL_ACCEPTED,
   NotificationType.CONTACT_GRANTED,
+  NotificationType.LISTING_EXPIRED,
+  NotificationType.CO_BROKER_REQUESTED,
 ]);
 
 /**
@@ -81,7 +88,12 @@ function safeUrl(data: Notification['data']): string | null {
 function agencyHref(n: Pick<Notification, 'type' | 'data'>): string | null {
   const dealRequestId = str(n.data, 'dealRequestId');
   const inquiryId = str(n.data, 'inquiryId');
+  const listingId = str(n.data, 'listingId');
   switch (n.type) {
+    case NotificationType.LISTING_EXPIRED:
+    case NotificationType.CO_BROKER_REQUESTED:
+      // The console has no listing detail page of its own: the editor is the detail view.
+      return listingId ? AGENT_ROUTES.listingEdit(listingId) : AGENT_ROUTES.listings;
     case NotificationType.DEAL_REQUEST_RECEIVED:
     case NotificationType.PROPOSAL_RECEIVED:
     case NotificationType.PROPOSAL_ACCEPTED:

@@ -1,15 +1,15 @@
-import { reorderSchema } from '@house/shared';
+import { popupReorderSchema } from '@house/shared';
 import type { NextRequest } from 'next/server';
 import { mockDelay, mockError, mockJson } from '@/lib/mock';
 import { adminGuard, readJson, validationError } from '../../banners/_guard';
 import { findPopup, sortedPopups } from '../_store';
 
-// PUT /api/v1/admin/popups/reorder — body = reorderSchema `{ ids }` in the new display order.
+// PUT /api/v1/admin/popups/reorder — body = popupReorderSchema `{ ids }` in the new display order.
 export async function PUT(req: NextRequest) {
   const denied = adminGuard(req, { mutation: true });
   if (denied) return denied;
   await mockDelay(req, 250);
-  const parsed = reorderSchema.safeParse(await readJson(req));
+  const parsed = popupReorderSchema.safeParse(await readJson(req));
   if (!parsed.success) return validationError(parsed.error);
   const popups = parsed.data.ids.map(findPopup);
   if (popups.some((p) => !p))

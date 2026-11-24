@@ -6,8 +6,8 @@ import { mockUuid } from '@/lib/mock';
  * listing picker. Fictional (design/drafts/system/mockdata.md); ids reuse the public listing mocks
  * (`mockUuid('L01')`) where those exist so "매물 보기" opens a real page.
  */
-const SINDAE = '4615033028';
-const SEONWOL = '4615033029';
+const SINDAE = '1215033028';
+const SEONWOL = '1215033029';
 const C01 = mockUuid('C01');
 const C03 = mockUuid('C03');
 const C06 = mockUuid('C06');

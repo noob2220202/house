@@ -18,7 +18,7 @@ import { useRouter } from 'next/navigation';
 import { useId, useRef, useState } from 'react';
 import { Controller, useForm, type FieldErrors } from 'react-hook-form';
 import { ApiError, errorMessage } from '@/lib/api';
-import { agencyKeys, attachDocument, registerAgency, resubmitAgency } from '../api/queries';
+import { agencyKeys, registerAgency, resubmitAgency } from '../api/queries';
 import {
   applyFormSchema,
   type ApplyFormInput,
@@ -33,6 +33,7 @@ import {
   latestDocuments,
   missingDocuments,
   toRegisterPayload,
+  toResubmitPayload,
 } from '../lib/application';
 import {
   REGISTRATION_NUMBER_EXAMPLE,
@@ -158,29 +159,16 @@ export function ApplyForm({ agency, onCancel, onSubmitted }: ApplyFormProps) {
       return;
     }
     try {
-      const payload = toRegisterPayload(values);
-      const saved = resubmit ? await resubmitAgency(payload) : await registerAgency(payload);
-      const results = await Promise.allSettled(
-        uploads.ready.map((d) =>
-          attachDocument({ type: d.type, mediaId: d.mediaId, fileName: d.fileName }),
-        ),
-      );
-      const failed = results.filter((r) => r.status === 'rejected').length;
+      // The uploaded documents travel with the application (the server requires the 등록증 in
+      // POST /agencies); on a resubmit they are added next to the ones already attached.
+      const saved = resubmit
+        ? await resubmitAgency(toResubmitPayload(values, uploads.ready))
+        : await registerAgency(toRegisterPayload(values, uploads.ready));
       queryClient.setQueryData(agencyKeys.mine, saved);
       await queryClient.invalidateQueries({ queryKey: agencyKeys.mine });
-      toast(
-        failed > 0
-          ? {
-              message: `신청은 접수됐지만 서류 ${failed}건을 첨부하지 못했어요. 아래에서 다시 올려 주세요.`,
-              tone: 'error',
-              duration: 8000,
-            }
-          : {
-              message: resubmit
-                ? '다시 신청했어요. 심사 결과를 알려 드릴게요.'
-                : '신청이 접수되었어요.',
-            },
-      );
+      toast({
+        message: resubmit ? '다시 신청했어요. 심사 결과를 알려 드릴게요.' : '신청이 접수되었어요.',
+      });
       onSubmitted?.();
       router.refresh();
       window.scrollTo({ top: 0 });

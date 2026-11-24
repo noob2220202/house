@@ -5,7 +5,7 @@ import { MOCK_SIGNUP_COOKIE, dropAuthState } from '../../auth/_state';
 import { meGuard, mockForcedFailure } from '../_store';
 
 // Owned by the w-auth page group.
-// POST /api/v1/me/withdraw — body: withdrawSchema { reason? }. Soft delete (status=WITHDRAWN), all
+// POST /api/v1/me/withdraw — body: withdrawSchema { confirm: true, reason? }. Soft delete (status=WITHDRAWN), all
 // sessions destroyed, PII scrub scheduled. An agency owner must hand over or close the office first
 // (ASSUMED 409 AUTH_WITHDRAW_AGENCY_OWNER).
 export async function POST(req: NextRequest) {

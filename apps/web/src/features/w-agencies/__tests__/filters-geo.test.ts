@@ -31,13 +31,13 @@ describe('toAgencyQuery', () => {
 
   it('maps URL filters to the API params', () => {
     const query = toAgencyQuery(
-      parse('q=%20호수%20&spec=ONEROOM&emd=46150127&open=1&presale=1&sort=NAME'),
+      parse('q=%20호수%20&spec=ONEROOM&emd=12150127&open=1&presale=1&sort=NAME'),
       { page: 2, pageSize: 20, extras: true },
     );
     expect(query).toMatchObject({
       q: '호수',
       specialties: ['ONEROOM', 'OFFICETEL'],
-      emdCode: '46150127',
+      emdCode: '12150127',
       openNow: true,
       handlesPresale: true,
       sort: 'NAME',
@@ -56,7 +56,7 @@ describe('toAgencyQuery', () => {
 
   it('produces a query the backend schema accepts', () => {
     const bbox = boundsToQueryBbox({ swLat: 34.9, swLng: 127.46, neLat: 34.99, neLng: 127.6 });
-    const query = toAgencyQuery(parse('q=호수&spec=APT&emd=46150127'), { bbox, pageSize: 100 });
+    const query = toAgencyQuery(parse('q=호수&spec=APT&emd=12150127'), { bbox, pageSize: 100 });
     const sp = Object.fromEntries(new URLSearchParams(toQueryString(query).slice(1)));
     const parsed = agencySearchQuerySchema.safeParse(sp);
     expect(parsed.success).toBe(true);

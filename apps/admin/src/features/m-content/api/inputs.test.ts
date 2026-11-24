@@ -70,7 +70,7 @@ describe('video request bodies (localVideoInputSchema)', () => {
     title: '영상',
     youtubeUrl: 'https://youtu.be/dQw4w9WgXcQ',
     description: '설명',
-    regionCode: '4615033028',
+    regionCode: '1215033028',
     complexId: '00010184-0000-4000-8000-000101840001',
     isPublished: true,
   };
@@ -85,7 +85,7 @@ describe('video request bodies (localVideoInputSchema)', () => {
   it('sends only what changed on update, null to unlink', () => {
     expect(
       videoPatchBody(
-        { ...form, description: '설명', regionCode: '4615033028', complexId: saved.complexId },
+        { ...form, description: '설명', regionCode: '1215033028', complexId: saved.complexId },
         saved,
       ),
     ).toEqual({ isPublished: true });
@@ -154,7 +154,7 @@ describe('complex forms', () => {
     name: '신대 레이크파크 1단지',
     roadAddress: null,
     jibunAddress: null,
-    emdCode: '4615033028',
+    emdCode: '1215033028',
     emdName: null,
     jibun: null,
     lat: 34.9215,

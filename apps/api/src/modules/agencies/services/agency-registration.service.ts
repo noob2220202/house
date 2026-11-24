@@ -1,4 +1,5 @@
 import {
+  ACTION_CONSENT_TERMS,
   AgencyDocumentType,
   AgencyMemberRole,
   AgencyMemberStatus,
@@ -23,6 +24,7 @@ import { AuditService } from '../../../common/audit/audit.service';
 import { AppException } from '../../../common/errors/app.exception';
 import { AppConfig } from '../../../config/app-config.service';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
+import { TermsService } from '../../auth';
 import { AgencyMapper, toDocumentView } from '../agency.mapper';
 import { agencyDocumentSelect, myAgencySelect } from '../agency.selects';
 import { MAX_AGENCY_DOCUMENTS } from '../constants';
@@ -80,14 +82,24 @@ export class AgencyRegistrationService {
     private readonly cache: AgencyCacheService,
     private readonly sessions: AgencySessionSyncService,
     private readonly audit: AuditService,
+    private readonly terms: TermsService,
     @Inject(AGENCY_MEDIA) private readonly media: AgencyMediaPort,
   ) {}
 
   async register(user: UserPrincipal, input: AgencyRegisterInput): Promise<MyAgency> {
+    const now = new Date();
     // Pending rows are outside the partial unique index, so no unique violation can occur here.
     const agencyId = await this.prisma.$transaction(async (tx) => {
       await lockUserMembership(tx, user.userId);
       await this.assertCanStartAgency(tx, user.userId);
+      // 개인정보 수집·이용 동의 (D8): current version, recorded with the application.
+      await this.terms.consentForAction(
+        tx,
+        user.userId,
+        ACTION_CONSENT_TERMS.AGENCY_APPLICATION,
+        input.consents,
+        now,
+      );
       await this.assertRegistrationNumberFree(tx, input.registrationNumber);
       await this.media.assertDocumentsUsable(
         input.documents.map((d) => d.mediaId),

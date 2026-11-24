@@ -59,17 +59,17 @@ describe('ads: public serving, tracking and stats (e2e)', () => {
     });
 
     it('applies region / complex targeting by 법정동 prefix', async () => {
-      const complex = await createComplex(t.prisma, { emdCode: '46150250' });
+      const complex = await createComplex(t.prisma, { emdCode: '12150250' });
       const all = await seedBanner(t.prisma, { sortOrder: 0 });
       const sgg = await seedBanner(t.prisma, {
         sortOrder: 1,
         targeting: 'REGIONS',
-        targetRegions: { create: [{ regionCode: '46150' }] },
+        targetRegions: { create: [{ regionCode: '12150' }] },
       });
       const otherEmd = await seedBanner(t.prisma, {
         sortOrder: 2,
         targeting: 'REGIONS',
-        targetRegions: { create: [{ regionCode: '46150101' }] },
+        targetRegions: { create: [{ regionCode: '12150101' }] },
       });
       const byComplex = await seedBanner(t.prisma, {
         sortOrder: 3,
@@ -80,7 +80,7 @@ describe('ads: public serving, tracking and stats (e2e)', () => {
       let res = await t.http().get('/api/v1/banners?slot=MAIN_HERO').expect(200);
       expect(pluck(res)).toEqual([all.id]);
 
-      res = await t.http().get('/api/v1/banners?slot=MAIN_HERO&regionCode=4615010100').expect(200);
+      res = await t.http().get('/api/v1/banners?slot=MAIN_HERO&regionCode=1215010100').expect(200);
       expect(pluck(res)).toEqual([all.id, sgg.id, otherEmd.id]);
 
       res = await t

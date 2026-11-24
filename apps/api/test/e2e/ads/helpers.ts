@@ -31,7 +31,9 @@ export async function createRegion(
 ): Promise<void> {
   const level =
     code.length === 5 ? RegionLevel.SGG : code.length === 8 ? RegionLevel.EMD : RegionLevel.RI;
-  await prisma.region.create({ data: { code, name, fullName: `전라남도 순천시 ${name}`, level } });
+  await prisma.region.create({
+    data: { code, name, fullName: `전남광주통합특별시 순천시 ${name}`, level },
+  });
 }
 
 /** A banner row inserted directly (bypasses slot limits; for serve/tracking setups). */

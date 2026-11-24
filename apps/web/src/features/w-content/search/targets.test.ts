@@ -37,7 +37,7 @@ describe('search targets', () => {
   it('routes suggestions by type', () => {
     expect(suggestionHref({ type: 'COMPLEX', id: 'c-1' })).toBe('/complex/c-1');
     expect(suggestionHref({ type: 'AGENCY', id: 'b-1' })).toBe('/agency/b-1');
-    expect(suggestionHref({ type: 'REGION', id: '4615012100' })).toBe('/map/apt');
+    expect(suggestionHref({ type: 'REGION', id: '1215012100' })).toBe('/map/apt');
   });
 });
 

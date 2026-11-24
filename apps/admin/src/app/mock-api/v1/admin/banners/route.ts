@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BannerSlot, BannerStatus, bannerInputSchema } from '@house/shared';
+import { BannerSlot, BannerStatus, bannerCreateSchema } from '@house/shared';
 import type { NextRequest } from 'next/server';
 import { mockDelay, mockError, mockJson, mockPaginate } from '@/lib/mock';
 import { agencyById } from '../../agencies/_fixtures';
@@ -50,12 +50,12 @@ export async function GET(req: NextRequest) {
   return mockJson({ ...page, items: page.items.map(toAdminBanner) });
 }
 
-// POST /api/v1/admin/banners — body = bannerInputSchema. New banners go to the end of their slot.
+// POST /api/v1/admin/banners — body = bannerCreateSchema. New banners go to the end of their slot.
 export async function POST(req: NextRequest) {
   const denied = adminGuard(req, { mutation: true });
   if (denied) return denied;
   await mockDelay(req, 300);
-  const parsed = bannerInputSchema.safeParse(await readJson(req));
+  const parsed = bannerCreateSchema.safeParse(await readJson(req));
   if (!parsed.success) return validationError(parsed.error);
   const input = parsed.data;
   const invalid = checkBannerInput(input);

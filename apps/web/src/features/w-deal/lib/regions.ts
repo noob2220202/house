@@ -2,7 +2,7 @@
  * 순천시 생활권 offered in the 구하기 region picker.
  *
  * The picker loads the regions from `GET /regions` (assumed endpoint shared with w-map) so the
- * codes are the backend's — whatever 시군구 code it is configured with (46150 / 12150). This
+ * codes are the backend's — whatever 시군구 code it is configured with (12150, D1). This
  * static list only supplies the presentation (which names are "많이 찾는 지역", chip hints) and
  * is the fallback while loading, when the endpoint fails, and for server-rendered names. Its codes
  * mirror the w-map mock (src/app/mock-api/v1/map/_fixtures.ts → REGIONS) so every mock agrees.
@@ -18,25 +18,25 @@ export interface RegionOption {
 }
 
 export const SUNCHEON_REGIONS: readonly RegionOption[] = [
-  { code: '4615033028', name: '신대지구', hint: '해룡면 신대리', group: 'popular' },
-  { code: '4615033029', name: '선월지구', hint: '분양권', group: 'popular' },
-  { code: '4615012100', name: '연향동', hint: '금당지구 포함', group: 'popular' },
-  { code: '4615012000', name: '조례동', hint: '호수공원', group: 'popular' },
-  { code: '4615011900', name: '오천동', hint: '오천지구', group: 'popular' },
-  { code: '4615012200', name: '왕지동', group: 'popular' },
-  { code: '4615011800', name: '풍덕동', group: 'more' },
-  { code: '4615011500', name: '덕연동', group: 'more' },
-  { code: '4615011000', name: '석현동', hint: '순천대 인근', group: 'more' },
-  { code: '4615010900', name: '매곡동', group: 'more' },
-  { code: '4615010400', name: '장천동', hint: '순천역 인근', group: 'more' },
-  { code: '4615011700', name: '덕월동', hint: '청암대 인근', group: 'more' },
-  { code: '4615031000', name: '서면', group: 'more' },
+  { code: '1215033028', name: '신대지구', hint: '해룡면 신대리', group: 'popular' },
+  { code: '1215033029', name: '선월지구', hint: '분양권', group: 'popular' },
+  { code: '1215012100', name: '연향동', hint: '금당지구 포함', group: 'popular' },
+  { code: '1215012000', name: '조례동', hint: '호수공원', group: 'popular' },
+  { code: '1215011900', name: '오천동', hint: '오천지구', group: 'popular' },
+  { code: '1215012200', name: '왕지동', group: 'popular' },
+  { code: '1215011800', name: '풍덕동', group: 'more' },
+  { code: '1215011500', name: '덕연동', group: 'more' },
+  { code: '1215011000', name: '석현동', hint: '순천대 인근', group: 'more' },
+  { code: '1215010900', name: '매곡동', group: 'more' },
+  { code: '1215010400', name: '장천동', hint: '순천역 인근', group: 'more' },
+  { code: '1215011700', name: '덕월동', hint: '청암대 인근', group: 'more' },
+  { code: '1215031000', name: '서면', group: 'more' },
 ];
 
 const BY_CODE = new Map(SUNCHEON_REGIONS.map((r) => [r.code, r]));
 const PRESET_BY_NAME = new Map(SUNCHEON_REGIONS.map((r) => [r.name, r]));
 
-/** Region display name for a code ("4615012100" → "연향동"); unknown codes are shown as-is. */
+/** Region display name for a code ("1215012100" → "연향동"); unknown codes are shown as-is. */
 export function regionName(code: string): string {
   return BY_CODE.get(code)?.name ?? code;
 }

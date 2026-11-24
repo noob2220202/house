@@ -1,24 +1,26 @@
+import { DEFAULT_SGG_CODE, canonicalRegionCode } from '@house/shared';
 import { BRAND } from '@/config/brand';
 
 /**
  * Service area of the 내놓기 / 구하기 forms.
  *
- * 순천시 has two 시군구 codes in the wild: the classic 46150 (전라남도) that the backend seed and
- * packages/shared still default to, and 12150 that the Kakao postcode service returns since the
- * 전남·광주 통합 (sido "전남광주통합특별시"). Both are accepted; override the list with
+ * 순천시 is 12150 (전남광주통합특별시, since 2026-07-01, D1). Codes are compared after
+ * `canonicalRegionCode`, so an address that still carries the legacy 46150… code (cached postcode
+ * data, old links) is inside the area and is sent with its current code. Override the list with
  * NEXT_PUBLIC_REGION_SGG_CODES (comma separated, the first one is the primary code) when the
  * backend's REGION_SGG_CODE changes. See docs/frontend-integration/w-deal.md.
  */
 export const SERVICE_SGG_CODES: readonly string[] = (
-  process.env.NEXT_PUBLIC_REGION_SGG_CODES || '46150,12150'
+  process.env.NEXT_PUBLIC_REGION_SGG_CODES || DEFAULT_SGG_CODE
 )
   .split(',')
-  .map((c) => c.trim())
+  .map((c) => canonicalRegionCode(c.trim()))
   .filter((c) => /^\d{5}$/.test(c));
 
 /** True when a 법정동코드 (10 digits) lies inside one of the service 시군구. */
 export function isServiceRegionCode(code: string): boolean {
-  return SERVICE_SGG_CODES.some((sgg) => code.startsWith(sgg));
+  const current = canonicalRegionCode(code);
+  return SERVICE_SGG_CODES.some((sgg) => current.startsWith(sgg));
 }
 
 /** Fields of the postcode result used for the check (all optional — older payloads lack some). */
@@ -35,14 +37,15 @@ export interface ServiceAreaInput {
  */
 export function inServiceArea(data: ServiceAreaInput): boolean {
   if (data.sigungu && data.sigungu === BRAND.region) return true;
-  if (data.sigunguCode && SERVICE_SGG_CODES.includes(data.sigunguCode)) return true;
+  if (data.sigunguCode && SERVICE_SGG_CODES.includes(canonicalRegionCode(data.sigunguCode)))
+    return true;
   if (data.bcode === '') return !data.sigungu && !data.sigunguCode;
   return isServiceRegionCode(data.bcode);
 }
 
-/** Region codes for the reach lookup of an address: its 법정동코드, only inside the service area. */
+/** Region codes for the reach lookup of an address: its current 법정동코드, only inside the service area. */
 export function serviceRegionCodesOf(bcode: string): string[] {
-  return bcode && isServiceRegionCode(bcode) ? [bcode] : [];
+  return bcode && isServiceRegionCode(bcode) ? [canonicalRegionCode(bcode)] : [];
 }
 
 const SIDO_ABBR =

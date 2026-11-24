@@ -131,7 +131,7 @@ async function seedComplexes(prisma: PrismaClient, sggCode: string, r: Rand) {
         assetType: c.assetType,
         name: c.name,
         roadAddress: c.roadAddress,
-        jibunAddress: `전라남도 순천시 ${c.emd} ${c.jibun}`,
+        jibunAddress: `전남광주통합특별시 순천시 ${c.emd} ${c.jibun}`,
         sggCode,
         emdCode: regionCode(c.emd),
         emdName: emd?.name ?? null,
@@ -487,7 +487,7 @@ function planListings(
         complexId: cx.id,
         areaTypeId: atId,
         roadAddress: c.roadAddress,
-        jibunAddress: `전라남도 순천시 ${c.emd} ${c.jibun}`,
+        jibunAddress: `전남광주통합특별시 순천시 ${c.emd} ${c.jibun}`,
         buildingName: c.name,
         dong: isOt ? null : `${100 + intBetween(r, 1, c.buildings)}동`,
         ho: `${floor}${String(intBetween(r, 1, 4)).padStart(2, '0')}호`,
@@ -571,8 +571,8 @@ function planListings(
     const pos = jitter(r, spot.lat, spot.lng, 350);
     const p: PropertyState = {
       ...emptyProperty(assetType, sggCode),
-      roadAddress: `전라남도 순천시 ${spot.street} ${intBetween(r, 2, 120)}`,
-      jibunAddress: `전라남도 순천시 ${spot.emd} ${intBetween(r, 100, 999)}-${intBetween(r, 1, 30)}`,
+      roadAddress: `전남광주통합특별시 순천시 ${spot.street} ${intBetween(r, 2, 120)}`,
+      jibunAddress: `전남광주통합특별시 순천시 ${spot.emd} ${intBetween(r, 100, 999)}-${intBetween(r, 1, 30)}`,
       emdCode: regionCode(spot.emd),
       lat: pos.lat,
       lng: pos.lng,
@@ -1190,6 +1190,7 @@ export async function seedDemo(
   prisma: PrismaClient,
   options: { sggCode: string; uploadDir: string; now: Date },
 ): Promise<Counts> {
+  // Fixed RNG seed (a number, not a region code) so the demo data stays the same across runs.
   const r = rng(46150);
   const uploadDir = path.resolve(options.uploadDir);
   const complexes = await seedComplexes(prisma, options.sggCode, r);

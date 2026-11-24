@@ -28,15 +28,15 @@ const BASE = '/api/v1/admin/complexes';
 const validComplex = {
   name: '순천 신대 중흥S-클래스',
   assetType: 'APT',
-  roadAddress: '전라남도 순천시 해룡면 향매로 100',
-  jibunAddress: '전라남도 순천시 해룡면 신대리 2000',
-  emdCode: '46150310',
+  roadAddress: '전남광주통합특별시 순천시 해룡면 향매로 100',
+  jibunAddress: '전남광주통합특별시 순천시 해룡면 신대리 2000',
+  emdCode: '12150310',
   lat: 34.9312,
   lng: 127.5503,
   households: 1000,
   parkingTotal: 1450,
   approvalDate: '2016-11-30',
-  externalCode: '46150-777',
+  externalCode: '12150-777',
   areaTypes: [
     { exclusiveArea: 84.99, supplyArea: 112.5, typeName: '84A', rooms: 3, baths: 2 },
     { exclusiveArea: 59.9, typeName: '59' },
@@ -85,16 +85,16 @@ describe('complexes: admin API (e2e)', () => {
       const r = await withSession(t.http().post(BASE), operator).send(validComplex).expect(201);
       expect(r.body).toMatchObject({
         name: '순천 신대 중흥S-클래스',
-        sggCode: '46150',
-        emdCode: '46150310',
+        sggCode: '12150',
+        emdCode: '12150310',
         emdName: '신대리',
         jibun: '2000',
         builtYear: 2016,
         approvalYear: 2016,
         approvalDate: '2016-11-30',
         parkingPerHousehold: 1.45,
-        externalCode: '46150-777',
-        region: { code: '46150310', name: '해룡면' },
+        externalCode: '12150-777',
+        region: { code: '12150310', name: '해룡면' },
         tradeCount: 0,
         deletedAt: null,
       });
@@ -134,7 +134,7 @@ describe('complexes: admin API (e2e)', () => {
       expect((await post({ ...validComplex, emdCode: '46130101' }).expect(400)).body.code).toBe(
         ErrorCode.COMPLEX_REGION_INVALID,
       );
-      expect((await post({ ...validComplex, emdCode: '46150999' }).expect(400)).body.code).toBe(
+      expect((await post({ ...validComplex, emdCode: '12150999' }).expect(400)).body.code).toBe(
         ErrorCode.COMPLEX_REGION_INVALID,
       );
       await post(validComplex).expect(201);
@@ -167,7 +167,7 @@ describe('complexes: admin API (e2e)', () => {
 
   describe('GET /admin/complexes[/:id]', () => {
     it('lists (optionally with deleted / missing 국토교통부 code) and shows admin-only fields', async () => {
-      const { complex } = await seedBuyoung(t, { externalCode: '46150-1001' });
+      const { complex } = await seedBuyoung(t, { externalCode: '12150-1001' });
       const gone = await createComplex(t.prisma, { name: '철거단지', deletedAt: new Date() });
       await insertTrade(t, { complexId: complex.id });
 
@@ -192,7 +192,7 @@ describe('complexes: admin API (e2e)', () => {
       const one = await withSession(t.http().get(`${BASE}/${complex.id}`), operator).expect(200);
       expect(one.body).toMatchObject({
         jibun: '1234-5',
-        externalCode: '46150-1001',
+        externalCode: '12150-1001',
         tradeCount: 1,
       });
       const deleted = await withSession(t.http().get(`${BASE}/${gone.id}`), operator).expect(200);
@@ -215,7 +215,7 @@ describe('complexes: admin API (e2e)', () => {
         .send({
           name: '연향 부영 3차',
           approvalDate: '1999-01-15',
-          jibunAddress: '전라남도 순천시 연향동 1240',
+          jibunAddress: '전남광주통합특별시 순천시 연향동 1240',
         })
         .expect(200);
       expect(r.body).toMatchObject({
@@ -255,14 +255,14 @@ describe('complexes: admin API (e2e)', () => {
 
   describe('DELETE /admin/complexes/:id', () => {
     it('detaches its 실거래 and stats; the queued rematch hands them to a replacement 단지', async () => {
-      const { complex, at84 } = await seedBuyoung(t, { externalCode: '46150-1001' });
+      const { complex, at84 } = await seedBuyoung(t, { externalCode: '12150-1001' });
       const trade = await insertTrade(t, {
         complexId: complex.id,
         areaTypeId: at84.id,
         aptName: '연향부영3차',
         emdName: '연향동',
         jibun: '1234-5',
-        raw: { aptSeq: '46150-1001' },
+        raw: { aptSeq: '12150-1001' },
       });
       await t.prisma.complexTradeStat.create({
         data: {
@@ -287,13 +287,13 @@ describe('complexes: admin API (e2e)', () => {
         .send({
           ...validComplex,
           name: '연향부영3차',
-          jibunAddress: '전라남도 순천시 연향동 1234-5',
-          emdCode: '46150114',
-          externalCode: '46150-1001',
+          jibunAddress: '전남광주통합특별시 순천시 연향동 1234-5',
+          emdCode: '12150114',
+          externalCode: '12150-1001',
           areaTypes: [{ exclusiveArea: 84.97, typeName: '84' }],
         })
         .expect(201);
-      const job = await queue().getJob('rematch.46150.all');
+      const job = await queue().getJob('rematch.12150.all');
       expect(job).toBeDefined();
       await t.app.get(TradeSyncProcessor).process(job as Job);
       const moved = await t.prisma.tradeRecord.findUniqueOrThrow({ where: { id: trade.id } });
@@ -305,7 +305,7 @@ describe('complexes: admin API (e2e)', () => {
     });
 
     it('soft-deletes (ADMIN only), releases the 국토교통부 code and hides it publicly', async () => {
-      const { complex } = await seedBuyoung(t, { externalCode: '46150-1001' });
+      const { complex } = await seedBuyoung(t, { externalCode: '12150-1001' });
       const r = await withSession(t.http().delete(`${BASE}/${complex.id}`), operator).expect(403);
       expect(r.body.code).toBe(ErrorCode.FORBIDDEN);
       await withSession(t.http().delete(`${BASE}/${complex.id}`), admin).expect(204);
@@ -543,28 +543,28 @@ describe('complexes: admin API (e2e)', () => {
     it('PUT /admin/regions/:code upserts with parent checks and refreshes the cached list', async () => {
       const list = await t.http().get('/api/v1/regions').expect(200);
       expect(
-        (list.body as { code: string; lat: number | null }[]).find((x) => x.code === '46150114')
+        (list.body as { code: string; lat: number | null }[]).find((x) => x.code === '12150114')
           ?.lat,
       ).toBeNull();
-      const r = await withSession(t.http().put('/api/v1/admin/regions/46150114'), admin)
+      const r = await withSession(t.http().put('/api/v1/admin/regions/12150114'), admin)
         .send({
           name: '연향동',
-          fullName: '전라남도 순천시 연향동',
+          fullName: '전남광주통합특별시 순천시 연향동',
           level: 'EMD',
-          parentCode: '46150',
+          parentCode: '12150',
           lat: 34.958,
           lng: 127.522,
         })
         .expect(200);
-      expect(r.body).toMatchObject({ code: '46150114', lat: 34.958 });
+      expect(r.body).toMatchObject({ code: '12150114', lat: 34.958 });
       const after = await t.http().get('/api/v1/regions').expect(200);
       expect(
-        (after.body as { code: string; lat: number | null }[]).find((x) => x.code === '46150114')
+        (after.body as { code: string; lat: number | null }[]).find((x) => x.code === '12150114')
           ?.lat,
       ).toBe(34.958);
       expect(
         await t.prisma.auditLog.count({
-          where: { action: 'region.upsert', resourceId: '46150114' },
+          where: { action: 'region.upsert', resourceId: '12150114' },
         }),
       ).toBe(1);
 
@@ -572,24 +572,24 @@ describe('complexes: admin API (e2e)', () => {
         withSession(t.http().put(`/api/v1/admin/regions/${code}`), admin).send(body);
       const emd = {
         name: '신규동',
-        fullName: '전라남도 순천시 신규동',
+        fullName: '전남광주통합특별시 순천시 신규동',
         level: 'EMD',
-        parentCode: '46150',
+        parentCode: '12150',
       };
-      await put('4615019999', emd).expect(400); // 10-digit code is not an EMD
-      expect((await put('46150199', { ...emd, parentCode: '46130' }).expect(400)).body.code).toBe(
+      await put('1215019999', emd).expect(400); // 10-digit code is not an EMD
+      expect((await put('12150199', { ...emd, parentCode: '46130' }).expect(400)).body.code).toBe(
         ErrorCode.REGION_PARENT_INVALID,
       );
       expect((await put('46130199', { ...emd, parentCode: '46130' }).expect(400)).body.code).toBe(
         ErrorCode.REGION_PARENT_INVALID,
       );
-      await put('46150199', { ...emd, level: 'TOWN' }).expect(400);
+      await put('12150199', { ...emd, level: 'TOWN' }).expect(400);
       await put('abc', emd).expect(400);
-      await put('46150199', emd).expect(200);
-      await withSession(t.http().put('/api/v1/admin/regions/46150199'), operator)
+      await put('12150199', emd).expect(200);
+      await withSession(t.http().put('/api/v1/admin/regions/12150199'), operator)
         .send(emd)
         .expect(403);
-      await expectAdminOnly('put', '/api/v1/admin/regions/46150199', emd);
+      await expectAdminOnly('put', '/api/v1/admin/regions/12150199', emd);
     });
   });
 });

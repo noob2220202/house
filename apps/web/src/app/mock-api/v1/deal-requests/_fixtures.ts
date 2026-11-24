@@ -19,15 +19,15 @@ export interface MockAgency {
 }
 
 // Provisional region codes — identical to src/app/mock-api/v1/map/_fixtures.ts (REGIONS).
-export const SINDAE = '4615033028';
-export const SEONWOL = '4615033029';
-const YEONHYANG = '4615012100';
-const JORYE = '4615012000';
-const OCHEON = '4615011900';
-const WANGJI = '4615012200';
-const SEOKHYEON = '4615011000';
-const DEOGWOL = '4615011700';
-const JANGCHEON = '4615010400';
+export const SINDAE = '1215033028';
+export const SEONWOL = '1215033029';
+const YEONHYANG = '1215012100';
+const JORYE = '1215012000';
+const OCHEON = '1215011900';
+const WANGJI = '1215012200';
+const SEOKHYEON = '1215011000';
+const DEOGWOL = '1215011700';
+const JANGCHEON = '1215010400';
 /** 신대·선월 (해룡면) — the design's "신대·선월 중개사무소 12곳". */
 const HAERYONG = [SINDAE, SEONWOL];
 

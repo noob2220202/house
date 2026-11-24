@@ -1,17 +1,96 @@
 {
- "key": "v-core",
- "score": 84,
- "summary": "홈(1440/390), 지도(아파트·원룸, 1440/390), 단지 패널·단지 페이지, 매물 상세(1440/390)를 승인 보드와 비교했습니다. 전체 섹션 구성·타이포·컬러·간격은 보드와 매우 가깝고, 필터 적용(URL 반영)·클러스터 줌인·마커 요약 팝오버·'매물 N건 보기'→단지 패널·목록 클릭이 모두 정상 동작하며, 134개 내부 링크 404 없음, 390 가로 오버플로 없음입니다. 매물 상세에는 공인중개사법 제18조의2 표시·광고 명시사항 표(소재지·종류·거래형태·금액·면적·총층·해당층·사용승인일·방향·방/욕실·입주가능일·주차·관리비)와 사무소별 명칭·대표자·소재지·연락처·등록번호가 1440/390 모두 표시됩니다. 주요 이탈은 단지 패널 폭(400px, 보드 약 520px)으로 단지명·용적률·필터가 잘리는 점, 지도 위 동·호 배치도 미구현, 원룸 지도의 통학 도보권/편의시설/CCTV 레이어 누락 및 지적편집도·학군 '준비 중' 처리입니다. 그 외 홈 앱 안내 밴드·중개사 카드 통계는 데이터 유무에 따라 숨겨지고, 상세 페이지에서 간헐적 하이드레이션 오류(#418)가 1회 관찰됐습니다.",
- "pagesChecked": ["/ (1440, 390)", "/map → /map/apt (1440, 390) + 거래방식 필터·클러스터·마커·목록 클릭", "/map/apt?complex=<id> 단지 패널 (1440, 390)", "/map/oneroom (1440, 390)", "/complex/00010184-... (1440, 390)", "/listing/0001234d-... (1440, 390)"],
- "findings": [
-  {"severity":"medium","area":"지도 · 단지 패널","title":"단지 패널 폭 400px로 보드(약 520px)보다 좁아 정보가 잘림","detail":"단지명 '신대 레이크파크 …' 말줄임, 상단 브레드크럼 잘림, 요약 줄에서 용적률 229% 누락(주차가 2줄로 밀림), 필터바 방향·동 칩이 화면 밖, 평/㎡ 토글이 다음 줄로 내려감.","evidence":"/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-cpanel-zoom.png (좌: 보드 Complex 1440, 우: 실제) · apps/web/src/features/w-map/components/MapSearchPage.module.css:16 (.bodyComplex grid-template-columns: 400px)","fixHint":"단지 모드 패널 폭을 보드 값(약 520px)으로 늘리거나 1440 이상에서 min(520px,36vw) 적용","owner":"frontend"},
-  {"severity":"medium","area":"지도 · 단지 패널","title":"지도 위 동·호 배치도(선택 매물 103동 25층) 미구현","detail":"보드 Complex 1440/390은 단지 선택 시 지도에 동·호 그리드 오버레이와 '선택 매물 · 103동 25층' 라벨을 보여주지만, 실제는 일반 단지 마커만 표시. 관련 컴포넌트 검색 결과 없음.","evidence":"/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-cpanel.png, /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-cpanel390.png · grep '선택 매물|DongHo' 결과 없음","fixHint":"동·호 데이터(단지 동/라인/층) 기반 오버레이 추가, 데이터 없으면 숨김","owner":"both"},
-  {"severity":"medium","area":"지도 · 원룸","title":"원룸 지도 레이어(통학 도보권·편의시설·CCTV)와 도보 반경 오버레이 누락","detail":"보드 OneRoom 1440은 우측에 통학 도보권/편의시설/CCTV 도구와 대학 정문 도보 10분 반경 원을 보여주나, 실제 원룸 지도에는 줌/내 위치 버튼만 있음. 아파트 지도의 지적편집도·학군은 클릭 시 '준비 중' 토스트만 뜸.","evidence":"/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-oneroom-right.png, /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-oneroom.png · apps/web/src/features/w-map/components/map/MapChrome.tsx:33-36, MapSearchPage.tsx:654","fixHint":"지도 SDK 레이어 연동 후 자산별 레이어 세트 구성. 출시 전 미지원이면 버튼 숨김 여부 결정","owner":"both"},
-  {"severity":"low","area":"홈","title":"앱 안내 밴드(관심 단지 알림·스토어 버튼) 미노출","detail":"보드 Main 1440의 '관심 단지에 새 매물이 올라오면 가장 먼저 알려드려요' 섹션이 실제 홈에 없음. AppBand는 data.app이 있을 때만 렌더링되며 mock 응답에 app 값이 없음.","evidence":"/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-home-b.png · apps/web/src/features/w-home/components/HomePage.tsx:82","fixHint":"앱 출시 여부에 따라 노출 결정, 백엔드 홈 응답에 app 필드 포함 여부 확인","owner":"owner-decision"},
-  {"severity":"low","area":"홈","title":"함께하는 중개사무소 카드에 30일 거래·평균 응답 통계와 로고 이미지 누락","detail":"보드는 카드당 매물/최근 거래/평균 응답 3개 지표와 사무소 사진을 보여주나, 실제는 매물 수와 이니셜 아바타만 표시(데이터 없을 때 숨김 처리).","evidence":"/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-home-b.png · apps/web/src/features/w-home/components/agencies/AgenciesSection.tsx:96-107","fixHint":"홈 중개사 목록 API에 deals30d·avgResponseMinutes·logoUrl 포함","owner":"backend"},
-  {"severity":"low","area":"홈","title":"첫 방문 시 공지 팝업이 히어로·검색을 가림","detail":"'허위매물을 신고하면…' 팝업이 1440/390 모두 첫 화면 중앙을 덮음(보드에는 없음). 관리자 팝업 기능으로 보이나 모바일에서 검색창·카테고리를 완전히 가림.","evidence":"/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-home-a.png, /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-mhome-a.png","fixHint":"모바일은 하단 시트형으로, 또는 노출 빈도 정책 확인","owner":"owner-decision"},
-  {"severity":"low","area":"매물 상세","title":"간헐적 React 하이드레이션 오류 #418","detail":"/listing/<id> 1440 첫 로드 중 1회 'Minified React error #418 (HTML)' 발생, 이후 4회 재시도에서는 재현 안 됨. 시간 의존 텍스트 렌더링 가능성.","evidence":"/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/listing-1440.json","fixHint":"서버/클라이언트 간 날짜·상대시간 텍스트 차이 점검(dev 빌드로 재현)","owner":"frontend"},
-  {"severity":"low","area":"공통","title":"비로그인 모든 페이지에서 /auth/me 401 콘솔 오류","detail":"익명 방문 시 매 페이지 GET /mock-api/v1/auth/me 401이 콘솔 error로 기록됨. 기능 영향은 없으나 모니터링 노이즈.","evidence":"/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/home-1440.json, /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/map-1440.json","fixHint":"세션 쿠키 없으면 호출 생략 또는 204/200(null) 응답","owner":"both"},
-  {"severity":"low","area":"매물 상세 · 모바일","title":"모바일 매물 정보 그리드 텍스트 말줄임","detail":"390에서 입주가능일 '2027.02.01 이…', 관리비 설명 등이 잘림(보드는 2줄 표시).","evidence":"/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-mlist-a.png","fixHint":"보조 텍스트 2줄 허용(line-clamp:2)","owner":"frontend"}
- ]
+  "key": "v-core",
+  "score": 84,
+  "summary": "홈(1440/390), 지도(아파트·원룸, 1440/390), 단지 패널·단지 페이지, 매물 상세(1440/390)를 승인 보드와 비교했습니다. 전체 섹션 구성·타이포·컬러·간격은 보드와 매우 가깝고, 필터 적용(URL 반영)·클러스터 줌인·마커 요약 팝오버·'매물 N건 보기'→단지 패널·목록 클릭이 모두 정상 동작하며, 134개 내부 링크 404 없음, 390 가로 오버플로 없음입니다. 매물 상세에는 공인중개사법 제18조의2 표시·광고 명시사항 표(소재지·종류·거래형태·금액·면적·총층·해당층·사용승인일·방향·방/욕실·입주가능일·주차·관리비)와 사무소별 명칭·대표자·소재지·연락처·등록번호가 1440/390 모두 표시됩니다. 주요 이탈은 단지 패널 폭(400px, 보드 약 520px)으로 단지명·용적률·필터가 잘리는 점, 지도 위 동·호 배치도 미구현, 원룸 지도의 통학 도보권/편의시설/CCTV 레이어 누락 및 지적편집도·학군 '준비 중' 처리입니다. 그 외 홈 앱 안내 밴드·중개사 카드 통계는 데이터 유무에 따라 숨겨지고, 상세 페이지에서 간헐적 하이드레이션 오류(#418)가 1회 관찰됐습니다.",
+  "pagesChecked": [
+    "/ (1440, 390)",
+    "/map → /map/apt (1440, 390) + 거래방식 필터·클러스터·마커·목록 클릭",
+    "/map/apt?complex=<id> 단지 패널 (1440, 390)",
+    "/map/oneroom (1440, 390)",
+    "/complex/00010184-... (1440, 390)",
+    "/listing/0001234d-... (1440, 390)"
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "area": "지도 · 단지 패널",
+      "title": "단지 패널 폭 400px로 보드(약 520px)보다 좁아 정보가 잘림",
+      "detail": "단지명 '신대 레이크파크 …' 말줄임, 상단 브레드크럼 잘림, 요약 줄에서 용적률 229% 누락(주차가 2줄로 밀림), 필터바 방향·동 칩이 화면 밖, 평/㎡ 토글이 다음 줄로 내려감.",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-cpanel-zoom.png (좌: 보드 Complex 1440, 우: 실제) · apps/web/src/features/w-map/components/MapSearchPage.module.css:16 (.bodyComplex grid-template-columns: 400px)",
+      "fixHint": "단지 모드 패널 폭을 보드 값(약 520px)으로 늘리거나 1440 이상에서 min(520px,36vw) 적용",
+      "owner": "frontend"
+    },
+    {
+      "severity": "medium",
+      "area": "지도 · 단지 패널",
+      "title": "지도 위 동·호 배치도(선택 매물 103동 25층) 미구현",
+      "detail": "보드 Complex 1440/390은 단지 선택 시 지도에 동·호 그리드 오버레이와 '선택 매물 · 103동 25층' 라벨을 보여주지만, 실제는 일반 단지 마커만 표시. 관련 컴포넌트 검색 결과 없음.",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-cpanel.png, /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-cpanel390.png · grep '선택 매물|DongHo' 결과 없음",
+      "fixHint": "동·호 데이터(단지 동/라인/층) 기반 오버레이 추가, 데이터 없으면 숨김",
+      "owner": "both"
+    },
+    {
+      "severity": "medium",
+      "area": "지도 · 원룸",
+      "title": "원룸 지도 레이어(통학 도보권·편의시설·CCTV)와 도보 반경 오버레이 누락",
+      "detail": "보드 OneRoom 1440은 우측에 통학 도보권/편의시설/CCTV 도구와 대학 정문 도보 10분 반경 원을 보여주나, 실제 원룸 지도에는 줌/내 위치 버튼만 있음. 아파트 지도의 지적편집도·학군은 클릭 시 '준비 중' 토스트만 뜸.",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-oneroom-right.png, /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-oneroom.png · apps/web/src/features/w-map/components/map/MapChrome.tsx:33-36, MapSearchPage.tsx:654",
+      "fixHint": "지도 SDK 레이어 연동 후 자산별 레이어 세트 구성. 출시 전 미지원이면 버튼 숨김 여부 결정",
+      "owner": "both"
+    },
+    {
+      "severity": "low",
+      "area": "홈",
+      "title": "앱 안내 밴드(관심 단지 알림·스토어 버튼) 미노출",
+      "detail": "보드 Main 1440의 '관심 단지에 새 매물이 올라오면 가장 먼저 알려드려요' 섹션이 실제 홈에 없음. AppBand는 data.app이 있을 때만 렌더링되며 mock 응답에 app 값이 없음.",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-home-b.png · apps/web/src/features/w-home/components/HomePage.tsx:82",
+      "fixHint": "앱 출시 여부에 따라 노출 결정, 백엔드 홈 응답에 app 필드 포함 여부 확인",
+      "owner": "owner-decision"
+    },
+    {
+      "severity": "low",
+      "area": "홈",
+      "title": "함께하는 중개사무소 카드에 30일 거래·평균 응답 통계와 로고 이미지 누락",
+      "detail": "보드는 카드당 매물/최근 거래/평균 응답 3개 지표와 사무소 사진을 보여주나, 실제는 매물 수와 이니셜 아바타만 표시(데이터 없을 때 숨김 처리).",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-home-b.png · apps/web/src/features/w-home/components/agencies/AgenciesSection.tsx:96-107",
+      "fixHint": "홈 중개사 목록 API에 deals30d·avgResponseMinutes·logoUrl 포함",
+      "owner": "backend"
+    },
+    {
+      "severity": "low",
+      "area": "홈",
+      "title": "첫 방문 시 공지 팝업이 히어로·검색을 가림",
+      "detail": "'허위매물을 신고하면…' 팝업이 1440/390 모두 첫 화면 중앙을 덮음(보드에는 없음). 관리자 팝업 기능으로 보이나 모바일에서 검색창·카테고리를 완전히 가림.",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-home-a.png, /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-mhome-a.png",
+      "fixHint": "모바일은 하단 시트형으로, 또는 노출 빈도 정책 확인",
+      "owner": "owner-decision"
+    },
+    {
+      "severity": "low",
+      "area": "매물 상세",
+      "title": "간헐적 React 하이드레이션 오류 #418",
+      "detail": "/listing/<id> 1440 첫 로드 중 1회 'Minified React error #418 (HTML)' 발생, 이후 4회 재시도에서는 재현 안 됨. 시간 의존 텍스트 렌더링 가능성.",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/listing-1440.json",
+      "fixHint": "서버/클라이언트 간 날짜·상대시간 텍스트 차이 점검(dev 빌드로 재현)",
+      "owner": "frontend"
+    },
+    {
+      "severity": "low",
+      "area": "공통",
+      "title": "비로그인 모든 페이지에서 /auth/me 401 콘솔 오류",
+      "detail": "익명 방문 시 매 페이지 GET /mock-api/v1/auth/me 401이 콘솔 error로 기록됨. 기능 영향은 없으나 모니터링 노이즈.",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/home-1440.json, /tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/map-1440.json",
+      "fixHint": "세션 쿠키 없으면 호출 생략 또는 204/200(null) 응답",
+      "owner": "both"
+    },
+    {
+      "severity": "low",
+      "area": "매물 상세 · 모바일",
+      "title": "모바일 매물 정보 그리드 텍스트 말줄임",
+      "detail": "390에서 입주가능일 '2027.02.01 이…', 관리비 설명 등이 잘림(보드는 2줄 표시).",
+      "evidence": "/tmp/claude-0/-home-user-house/c2396f93-7331-5f3f-8b66-a9630e5b89f0/scratchpad/review/v-core/c-mlist-a.png",
+      "fixHint": "보조 텍스트 2줄 허용(line-clamp:2)",
+      "owner": "frontend"
+    }
+  ]
 }

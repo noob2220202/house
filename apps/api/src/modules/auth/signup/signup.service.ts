@@ -86,6 +86,7 @@ export class SignupService {
             profileImageUrl: profile.profileImageUrl,
             role: UserRole.USER,
             marketingOptIn,
+            marketingOptInAt: marketingOptIn ? now : null,
             ageConfirmedAt: now,
             identities: {
               create: {

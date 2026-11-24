@@ -2,6 +2,7 @@ import {
   DealType,
   FloorDisplay,
   ListingStatus,
+  MAINTENANCE_FEE_KIND_LABEL,
   listingDraftSchema,
   type ListingDraftInput,
 } from '@house/shared';
@@ -272,7 +273,11 @@ export function applyDraft(l: StoredListing, d: ListingDraftInput): void {
   l.presalePrice = n(d.presalePrice);
   l.premium = n(d.premium);
   l.maintenanceFeeWon = n(d.maintenanceFeeWon);
-  l.maintenanceFeeItems = d.maintenanceFeeItems ?? [];
+  // The real contract sends `maintenanceFee { billingType, items[] }`; the stored console row still
+  // keeps the included item names (labels) until the editor moves to the new shape.
+  l.maintenanceFeeItems = (d.maintenanceFee?.items ?? [])
+    .filter((item) => item.included)
+    .map((item) => MAINTENANCE_FEE_KIND_LABEL[item.kind]);
   l.moveInType = n(d.moveInType);
   l.moveInDate = n(d.moveInDate);
   l.floorDisplay = d.floorDisplay;

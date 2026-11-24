@@ -54,7 +54,7 @@ logic; it can equally be assembled from existing aggregates (`/map/search` REGIO
   "regions": [
     // 읍면동 (or 지구) clusters for the hero map chips and the quick-search chips
     {
-      "code": "4615033028",
+      "code": "1215033028",
       "name": "신대지구",
       "emdName": "해룡면 신대리",
       "lat": 34.9335,
@@ -82,7 +82,7 @@ are grouped into 단지 — `COMPLEX_ASSET_TYPES`).
     {
       "rank": 1,
       "rankDelta": 1, // + moved up, − moved down, 0 flat, null = new entry
-      "code": "4615011500",
+      "code": "1215011500",
       "name": "석현동",
       "emdName": "석현동",
       "lat": 34.969,

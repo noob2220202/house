@@ -1,4 +1,5 @@
 import {
+  ACTION_CONSENT_TERMS,
   AgencyMemberRole,
   AgencyMemberStatus,
   AgencyStatus,
@@ -20,6 +21,7 @@ import type { UserPrincipal } from '../../../common/auth/principal';
 import { AppException } from '../../../common/errors/app.exception';
 import { paginate } from '../../../common/pagination/pagination';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
+import { TermsService } from '../../auth';
 import { toMemberView } from '../agency.mapper';
 import { agencyMemberSelect } from '../agency.selects';
 import { MAX_ACTIVE_INVITES } from '../constants';
@@ -47,6 +49,7 @@ export class AgencyMembersService {
     private readonly invites: AgencyInviteStore,
     private readonly cache: AgencyCacheService,
     private readonly sessions: AgencySessionSyncService,
+    private readonly terms: TermsService,
     @Inject(AGENCY_LISTINGS_SYNC) private readonly listings: AgencyListingsSync,
   ) {}
 
@@ -219,10 +222,13 @@ export class AgencyMembersService {
 
   /** Redeems an invite code: the user becomes an ACTIVE AGENT of the inviting (APPROVED) agency. */
   async join(user: UserPrincipal, input: AgencyJoinInput): Promise<MyAgencyMembership> {
+    const now = new Date();
     const peeked = await this.invites.peek(input.code);
     if (!peeked) throw AppException.badRequest(ErrorCode.AGENCY_INVITE_INVALID);
-    // Eligibility is checked before the code is claimed so a refused join does not burn it.
+    // Eligibility and the privacy consent (D8) are checked before the code is claimed so a refused
+    // join does not burn it; both are checked again inside the transaction.
     await this.assertCanJoin(this.prisma, user.userId, peeked.agencyId);
+    await this.terms.verifyActionConsents(ACTION_CONSENT_TERMS.AGENCY_JOIN, input.consents, now);
 
     const claimed = await this.invites.consume(input.code);
     if (!claimed) throw AppException.badRequest(ErrorCode.AGENCY_INVITE_INVALID);
@@ -230,6 +236,13 @@ export class AgencyMembersService {
       await this.prisma.$transaction(async (tx) => {
         await lockUserMembership(tx, user.userId);
         await this.assertCanJoin(tx, user.userId, claimed.agencyId);
+        await this.terms.consentForAction(
+          tx,
+          user.userId,
+          ACTION_CONSENT_TERMS.AGENCY_JOIN,
+          input.consents,
+          now,
+        );
         const data = {
           role: AgencyMemberRole.AGENT,
           status: AgencyMemberStatus.ACTIVE,

@@ -3,7 +3,7 @@ import { Button, Callout, Checkbox, Icon, Input, Panel, useToast } from '@house/
 import { useId, useRef, useState, type FormEvent } from 'react';
 import { ApiError, errorMessage } from '@/lib/api';
 import { joinAgency } from '../api/queries';
-import { JOIN_PRIVACY_NOTICE, PRIVACY_CONSENT_VERSION } from '../lib/application';
+import { JOIN_PRIVACY_NOTICE } from '../lib/application';
 import { formatInviteCode, isCompleteInviteCode, normalizeInviteCode } from '../lib/registration';
 import { AGENT_ROUTES } from '../nav';
 import { PrivacySummary } from '../ui/PrivacySummary';
@@ -42,9 +42,7 @@ export function JoinForm() {
     setBusy(true);
     setError(undefined);
     try {
-      const result = await joinAgency(normalizeInviteCode(code), [
-        { type: 'PRIVACY_AGENCY_JOIN', version: PRIVACY_CONSENT_VERSION },
-      ]);
+      const result = await joinAgency(normalizeInviteCode(code));
       setJoined(result.agencyName);
       toast({ message: `${result.agencyName}에 합류했어요.` });
       // Full navigation: the session role changed, so every server guard must re-run.

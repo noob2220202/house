@@ -94,6 +94,14 @@ export const TermsType = {
   PRIVACY: 'PRIVACY',
   LOCATION: 'LOCATION',
   MARKETING: 'MARKETING',
+  /** 중개사무소 등록 신청 — 개인정보 수집·이용 동의 (POST /agencies). */
+  PRIVACY_AGENCY_APPLICATION: 'PRIVACY_AGENCY_APPLICATION',
+  /** 소속 중개사 합류 — 개인정보 수집·이용 동의 (POST /agencies/join). */
+  PRIVACY_AGENCY_JOIN: 'PRIVACY_AGENCY_JOIN',
+  /** 내놓기·구하기 — 개인정보 수집·이용 동의 (POST /deal-requests). */
+  DEAL_REQUEST_PRIVACY: 'DEAL_REQUEST_PRIVACY',
+  /** 내놓기·구하기 — 개인정보 제3자(중개사무소) 제공 동의 (POST /deal-requests). */
+  DEAL_REQUEST_PROVIDE: 'DEAL_REQUEST_PROVIDE',
 } as const;
 export type TermsType = EnumValue<typeof TermsType>;
 
@@ -102,7 +110,41 @@ export const TERMS_TYPE_LABEL: Record<TermsType, string> = {
   PRIVACY: '개인정보처리방침',
   LOCATION: '위치기반서비스 이용약관',
   MARKETING: '마케팅 정보 수신 동의',
+  PRIVACY_AGENCY_APPLICATION: '중개사무소 등록 신청 개인정보 수집·이용 동의',
+  PRIVACY_AGENCY_JOIN: '소속 중개사 합류 개인정보 수집·이용 동의',
+  DEAL_REQUEST_PRIVACY: '내놓기·구하기 개인정보 수집·이용 동의',
+  DEAL_REQUEST_PROVIDE: '내놓기·구하기 개인정보 제3자 제공 동의',
 };
+
+/**
+ * Account terms: agreed at signup, re-consented through /me/consents, listed by GET /terms and
+ * enforced on every write by the terms guard (when required).
+ */
+export const ACCOUNT_TERMS_TYPES: readonly TermsType[] = [
+  TermsType.SERVICE,
+  TermsType.PRIVACY,
+  TermsType.LOCATION,
+  TermsType.MARKETING,
+];
+
+/**
+ * Purpose consents (D8): given with one submission, sent as `consents: [{ type, version }]` in its
+ * body. The server requires the current published version of every listed type (whatever the
+ * document's isRequired flag says) and records a consent row per type in the same transaction.
+ */
+export const ACTION_CONSENT_TERMS = {
+  /** POST /agencies */
+  AGENCY_APPLICATION: [TermsType.PRIVACY_AGENCY_APPLICATION],
+  /** POST /agencies/join */
+  AGENCY_JOIN: [TermsType.PRIVACY_AGENCY_JOIN],
+  /** POST /deal-requests */
+  DEAL_REQUEST: [TermsType.DEAL_REQUEST_PRIVACY, TermsType.DEAL_REQUEST_PROVIDE],
+} as const satisfies Record<string, readonly TermsType[]>;
+export type ConsentAction = keyof typeof ACTION_CONSENT_TERMS;
+
+export function isAccountTermsType(type: TermsType): boolean {
+  return ACCOUNT_TERMS_TYPES.includes(type);
+}
 
 export const NotificationType = {
   DEAL_REQUEST_RECEIVED: 'DEAL_REQUEST_RECEIVED',

@@ -240,7 +240,7 @@ export function proposalTermsIssues(
   return issues;
 }
 
-/** True when every region code lies inside the service's 시군구 (e.g. 46150 순천시). */
+/** True when every region code lies inside the service's 시군구 (e.g. 12150 순천시). */
 export function regionCodesWithinSgg(codes: readonly string[], sggCode: string): boolean {
   return codes.every((c) => c.length >= sggCode.length && c.startsWith(sggCode));
 }

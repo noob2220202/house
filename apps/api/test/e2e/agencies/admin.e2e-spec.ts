@@ -2,6 +2,8 @@ import { AdminRole, AgencyStatus, UserRole, type BrokerRegistryRecord } from '@h
 import { BROKER_REGISTRY } from '../../../src/modules/agencies/clients/broker-registry.client';
 import { SessionService } from '../../../src/modules/auth/session/session.service';
 import {
+  actionConsents,
+  createActionConsentTerms,
   createAdmin,
   createAgency,
   createComplex,
@@ -34,6 +36,7 @@ describe('agencies: admin review (e2e)', () => {
   beforeEach(async () => {
     registry.reset();
     await resetAll(t);
+    await createActionConsentTerms(t.prisma);
   });
   afterAll(() => t?.close());
 
@@ -267,7 +270,7 @@ describe('agencies: admin review (e2e)', () => {
       await t.http().get(`/api/v1/agencies/${agency.id}`).expect(404);
       const joiner = await loginUser(t.app, await createUser(t.prisma));
       await withSession(t.http().post('/api/v1/agencies/join'), joiner)
-        .send({ code: invite.body.code, displayName: 'x' })
+        .send({ code: invite.body.code, displayName: 'x', consents: actionConsents('AGENCY_JOIN') })
         .expect(400);
 
       // Lifting a suspension is as privileged as imposing it.
@@ -534,18 +537,18 @@ describe('agencies: admin review (e2e)', () => {
         s,
       )
         .send({
-          roadAddress: '전라남도 순천시 연향로 5',
+          roadAddress: '전남광주통합특별시 순천시 연향로 5',
           addressDetail: '2층',
-          emdCode: '4615010800',
+          emdCode: '1215010800',
           lat: 34.95,
           lng: 127.52,
           reason: '이전신고 확인 (등록증 재발급본)',
         })
         .expect(200);
       expect(res.body).toMatchObject({
-        roadAddress: '전라남도 순천시 연향로 5',
+        roadAddress: '전남광주통합특별시 순천시 연향로 5',
         addressDetail: '2층',
-        emdCode: '4615010800',
+        emdCode: '1215010800',
         lat: 34.95,
         lng: 127.52,
       });
@@ -559,7 +562,7 @@ describe('agencies: admin review (e2e)', () => {
         adminUserId: a.id,
         before: { roadAddress: agency.roadAddress },
         after: {
-          roadAddress: '전라남도 순천시 연향로 5',
+          roadAddress: '전남광주통합특별시 순천시 연향로 5',
           reason: '이전신고 확인 (등록증 재발급본)',
         },
       });
@@ -687,7 +690,7 @@ describe('agencies: admin review (e2e)', () => {
         representativeName: '홍길동',
         operating: true,
         statusLabel: '영업중',
-        regionName: '전라남도 순천시',
+        regionName: '전남광주통합특별시 순천시',
         registeredOn: '2020-01-01',
       });
       const { s } = await admin();

@@ -40,6 +40,15 @@ Every admin route also needs an admin session with TOTP verified (global AuthGua
 
 ## Notes
 
+- **Site settings** (`siteSettingSchemas[key]`, all keys in `GET /site-settings/public`): BUSINESS_INFO,
+  CONTACT, SEO, FEATURES, FOOTER, plus (D9) `HOME_LAYOUT` `{ sections: [{ key, visible }] }` — the home
+  sections in display order (`HomeSectionKey`: HERO_SEARCH, CATEGORY_TILES, MAIN_BANNER,
+  POPULAR_COMPLEXES, NEW_LISTINGS, DEAL_REQUEST_CTA, FEATURED_AGENCIES, LOCAL_VIDEOS, NOTICES, APP_BAND),
+  each key at most once; a key that is not listed keeps its default place and stays visible — and
+  `APP_LINKS` `{ iosUrl?, androidUrl? }` (absolute `https://`, no credentials; `null` clears a link).
+  The base seed writes defaults (all sections, APP_BAND hidden; no links). Link URLs anywhere in the
+  settings reject backslashes and control characters (`isSafeLinkUrl`).
+
 - **Audit.** Mutations use `@Audit` + `RequestContext.setAuditBefore()`, or `AuditService.record(…, tx)`
   (report resolution, member suspension, terms publication). `AdminMutationAuditInterceptor`
   (APP_INTERCEPTOR) is the safety net for every module: an undecorated, successful `/admin/**`

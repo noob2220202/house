@@ -27,31 +27,31 @@ and disclosure helpers live in `packages/shared/src/agencies/`.
 
 ## Endpoints (prefix `/api/v1`)
 
-| Method       | Path                                                      | Auth                              | Notes                                                    |
-| ------------ | --------------------------------------------------------- | --------------------------------- | -------------------------------------------------------- |
-| GET          | `/agencies?q&emdCode&bbox&specialties&sort&page&pageSize` | Public                            | APPROVED only; trigram on name / 대표 / address          |
-| GET          | `/agencies/map?bbox&zoom&q&specialties`                   | Public                            | REGION_CLUSTERS / GRID_CLUSTERS / MARKERS by zoom        |
-| GET          | `/agencies/:id`                                           | Public                            | profile, staff, listing counts, 대표 매물, disclosure    |
-| POST         | `/agencies`                                               | User                              | 등록 신청 → PENDING (needs a REGISTRATION_CERT document) |
-| GET          | `/agencies/mine`                                          | User (owner)                      | own agency, any status, documents + status history       |
-| PATCH        | `/agencies/mine`                                          | User (owner)                      | profile (PENDING/APPROVED); APPROVED: 소재지 → 400 \*    |
-| POST         | `/agencies/mine/resubmit`                                 | User (owner)                      | REJECTED → PENDING; 409 if active in another agency      |
-| GET/POST     | `/agencies/mine/documents`                                | User (owner)                      | private document refs (media AGENCY_DOCUMENT, PRIVATE)   |
-| DELETE       | `/agencies/mine/documents/:docId`                         | User (owner)                      | only before approval; keeps ≥ 1 등록증                   |
-| GET          | `/agencies/mine/members`                                  | AGENCY_OWNER                      | paginated, `includeRemoved`                              |
-| PATCH/DELETE | `/agencies/mine/members/:memberId`                        | AGENCY_OWNER                      | remove downgrades the agent to USER + updates sessions   |
-| GET/POST     | `/agencies/mine/invites`                                  | AGENCY_OWNER                      | code returned once on creation                           |
-| DELETE       | `/agencies/mine/invites/:inviteId`                        | AGENCY_OWNER                      |                                                          |
-| POST         | `/agencies/join`                                          | User                              | redeem code → AGENT (THROTTLE.AUTH)                      |
-| GET          | `/agencies/membership`                                    | User                              | caller's live membership                                 |
-| POST         | `/agencies/membership/leave`                              | User (agent)                      | owners cannot leave                                      |
-| GET          | `/admin/agencies?status&q&sort&page`                      | Admin (OPERATOR+)                 | review queue (status=PENDING, oldest first)              |
-| GET          | `/admin/agencies/:id?includeRemoved`                      | Admin                             | full contacts; each view audited `agency.pii-view` †     |
-| DELETE       | `/admin/agencies/:id` `{ reason }`                        | Admin (OPERATOR+)                 | soft-delete a PENDING / REJECTED application, audited    |
-| POST         | `/admin/agencies/:id/decision`                            | Admin (suspend/reinstate: ADMIN+) | APPROVED / REJECTED / SUSPENDED (+reason), audited       |
-| PATCH        | `/admin/agencies/:id/location`                            | Admin (OPERATOR+)                 | 소재지 change after 이전신고 check (+reason), audited    |
-| GET          | `/admin/agencies/:id/documents/:docId/file`               | Admin                             | streams the private file, `no-store`, view audited       |
-| GET          | `/admin/agencies/:id/registry-check?refresh`              | Admin                             | MATCH / MISMATCH / NOT_FOUND / UNAVAILABLE               |
+| Method       | Path                                                      | Auth                              | Notes                                                  |
+| ------------ | --------------------------------------------------------- | --------------------------------- | ------------------------------------------------------ |
+| GET          | `/agencies?q&emdCode&bbox&specialties&sort&page&pageSize` | Public                            | APPROVED only; trigram on name / 대표 / address        |
+| GET          | `/agencies/map?bbox&zoom&q&specialties`                   | Public                            | REGION_CLUSTERS / GRID_CLUSTERS / MARKERS by zoom      |
+| GET          | `/agencies/:id`                                           | Public                            | profile, staff, listing counts, 대표 매물, disclosure  |
+| POST         | `/agencies`                                               | User                              | 등록 신청 → PENDING (등록증 + D8 `consents` required)  |
+| GET          | `/agencies/mine`                                          | User (owner)                      | own agency, any status, documents + status history     |
+| PATCH        | `/agencies/mine`                                          | User (owner)                      | profile (PENDING/APPROVED); APPROVED: 소재지 → 400 \*  |
+| POST         | `/agencies/mine/resubmit`                                 | User (owner)                      | REJECTED → PENDING; 409 if active in another agency    |
+| GET/POST     | `/agencies/mine/documents`                                | User (owner)                      | private document refs (media AGENCY_DOCUMENT, PRIVATE) |
+| DELETE       | `/agencies/mine/documents/:docId`                         | User (owner)                      | only before approval; keeps ≥ 1 등록증                 |
+| GET          | `/agencies/mine/members`                                  | AGENCY_OWNER                      | paginated, `includeRemoved`                            |
+| PATCH/DELETE | `/agencies/mine/members/:memberId`                        | AGENCY_OWNER                      | remove downgrades the agent to USER + updates sessions |
+| GET/POST     | `/agencies/mine/invites`                                  | AGENCY_OWNER                      | code returned once on creation                         |
+| DELETE       | `/agencies/mine/invites/:inviteId`                        | AGENCY_OWNER                      |                                                        |
+| POST         | `/agencies/join`                                          | User                              | redeem code → AGENT (THROTTLE.AUTH), `consents` D8     |
+| GET          | `/agencies/membership`                                    | User                              | caller's live membership                               |
+| POST         | `/agencies/membership/leave`                              | User (agent)                      | owners cannot leave                                    |
+| GET          | `/admin/agencies?status&q&sort&page`                      | Admin (OPERATOR+)                 | review queue (status=PENDING, oldest first)            |
+| GET          | `/admin/agencies/:id?includeRemoved`                      | Admin                             | full contacts; each view audited `agency.pii-view` †   |
+| DELETE       | `/admin/agencies/:id` `{ reason }`                        | Admin (OPERATOR+)                 | soft-delete a PENDING / REJECTED application, audited  |
+| POST         | `/admin/agencies/:id/decision`                            | Admin (suspend/reinstate: ADMIN+) | APPROVED / REJECTED / SUSPENDED (+reason), audited     |
+| PATCH        | `/admin/agencies/:id/location`                            | Admin (OPERATOR+)                 | 소재지 change after 이전신고 check (+reason), audited  |
+| GET          | `/admin/agencies/:id/documents/:docId/file`               | Admin                             | streams the private file, `no-store`, view audited     |
+| GET          | `/admin/agencies/:id/registry-check?refresh`              | Admin                             | MATCH / MISMATCH / NOT_FOUND / UNAVAILABLE             |
 
 Status machine (admin): PENDING → APPROVED | REJECTED, APPROVED → SUSPENDED, SUSPENDED → APPROVED.
 Owner: REJECTED → PENDING (resubmit). First approval sets the owner's role to AGENCY_OWNER and updates
@@ -94,6 +94,16 @@ location responses mask owner and staff contacts; the full detail (owner name/em
 phone/license number) writes an `agency.pii-view` audit row (field names only). REMOVED staff are
 listed only with `includeRemoved=true`, phones masked.
 
+### 개인정보 동의 (D8)
+
+`POST /agencies` takes `consents: [{ type: 'PRIVACY_AGENCY_APPLICATION', version }]` and
+`POST /agencies/join` takes `consents: [{ type: 'PRIVACY_AGENCY_JOIN', version }]`, with the version the
+form showed (`GET /terms/:type`). The current published version is required; a `UserConsent` row is
+written in the same transaction as the application / membership (auth `TermsService.consentForAction`,
+errors in the auth README). A join with a missing or outdated consent is refused before the invite
+code is claimed, so the code survives. `POST /agencies/mine/resubmit` does not take consents (the
+application's consent still covers it).
+
 ## For other modules
 
 ```ts
@@ -112,3 +122,9 @@ await agencies.recordWarning({ agencyId, reason, reportId, adminId }, tx); // re
 - Registry lookup: `VworldBrokerRegistryClient` calls 브이월드 `getEBOfficeInfo` (the nsdi.go.kr API moved
   there in 2024; data.go.kr only has the bulk file). Needs `VWORLD_API_KEY`; the key is domain-bound, so the
   call sends `VWORLD_DOMAIN` (default: `PUBLIC_BASE_URL` host) as `domain` and Referer.
+  `ldCode` is the office's 시군구 (12150 since the 2026-07-01 reorganisation); when no office matches, the
+  lookup is retried once with the legacy code (46150, `legacyRegionCode`) and a warning is logged — whether
+  브이월드 files offices registered before the reorganisation under the new code is undocumented.
+- Region codes: `emdCode` (profile / application) accepts legacy `46150…` codes and stores `12150…`
+  (shared `regionCodeSchema`); `sggCode` is derived from it. 등록번호 keep their issued form
+  (`46150-2020-00012`) — they are identifiers, not region codes, and are never rewritten.

@@ -30,7 +30,11 @@ describe('admin listing moderation (e2e)', () => {
     const complex = await createComplex(t.prisma);
     const { listing } = await createListing(t.prisma, {
       agencyId: agency.id,
-      property: { complexId: complex.id, ho: '1203', roadAddress: '전라남도 순천시 연향로 10' },
+      property: {
+        complexId: complex.id,
+        ho: '1203',
+        roadAddress: '전남광주통합특별시 순천시 연향로 10',
+      },
       listing: { complexId: complex.id, title: '연향동 역세권 아파트' },
     });
     await t.prisma.complex.update({ where: { id: complex.id }, data: { activeListingCount: 1 } });
@@ -57,7 +61,7 @@ describe('admin listing moderation (e2e)', () => {
       expect.objectContaining({
         id: listing.id,
         primaryAgency: { id: agency.id, name: agency.name },
-        roadAddress: '전라남도 순천시 연향로 10',
+        roadAddress: '전남광주통합특별시 순천시 연향로 10',
         openReportCount: 0,
       }),
     ]);

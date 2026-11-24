@@ -20,9 +20,9 @@ import {
   type TestSession,
 } from '../../utils';
 
-/** 법정동코드 inside 순천시 (46150). */
-export const EMD_CODE = '4615010400';
-export const OTHER_EMD_CODE = '4615010500';
+/** 법정동코드 inside 순천시 (12150). */
+export const EMD_CODE = '1215010400';
+export const OTHER_EMD_CODE = '1215010500';
 
 export interface AgencyCtx {
   agency: Agency;
@@ -91,8 +91,8 @@ export function publishablePayload(overrides: Record<string, unknown> = {}) {
     ...rest,
     property: {
       assetType: AssetType.APT,
-      roadAddress: '전라남도 순천시 연향로 100',
-      jibunAddress: '전라남도 순천시 연향동 1500',
+      roadAddress: '전남광주통합특별시 순천시 연향로 100',
+      jibunAddress: '전남광주통합특별시 순천시 연향동 1500',
       buildingName: '테스트아파트',
       emdCode: EMD_CODE,
       lat: 34.95,

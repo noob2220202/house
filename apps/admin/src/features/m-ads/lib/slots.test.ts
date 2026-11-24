@@ -51,9 +51,9 @@ describe('slot metadata', () => {
 
 describe('slotSpecText', () => {
   it('prints both sizes, or says where a slot is not shown', () => {
-    expect(slotSpecText(info(BannerSlot.MAIN_HERO))).toBe('PC 1920×520 / 모바일 750×560');
+    expect(slotSpecText(info(BannerSlot.MAIN_HERO))).toBe('PC 2480×440 / 모바일 1074×480');
     expect(slotSpecText(info(BannerSlot.LISTING_SIDE))).toBe('PC 300×250 · 모바일 미노출');
-    expect(slotSpecText(info(BannerSlot.MOBILE_MAIN))).toBe('모바일 750×560');
+    expect(slotSpecText(info(BannerSlot.MOBILE_MAIN))).toBe('모바일 1074×480');
     expect(isMobileOnlySlot(BannerSlot.MOBILE_MAIN)).toBe(true);
     expect(isMobileOnlySlot(BannerSlot.MAIN_HERO)).toBe(false);
   });

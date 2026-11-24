@@ -3,6 +3,28 @@
  * Pure functions so the frontends can reuse them (e.g. duplicate checks in the admin).
  */
 
+import { canonicalRegionCode, legacyRegionCode } from '../constants/region';
+
+const APT_SEQ = /^(\d{5})-(.+)$/;
+
+/**
+ * 국토교통부 단지 일련번호 (aptSeq, "{시군구}-{번호}", e.g. "46150-1001") with a legacy 시군구
+ * prefix mapped to the current code ("12150-1001"), so trades fetched before and after the
+ * 2026-07-01 reorganisation match the same 단지. Other values are returned trimmed.
+ */
+export function canonicalAptSeq(aptSeq: string): string {
+  const trimmed = aptSeq.trim();
+  const m = APT_SEQ.exec(trimmed);
+  return m ? `${canonicalRegionCode(m[1] ?? '')}-${m[2] ?? ''}` : trimmed;
+}
+
+/** Inverse of {@link canonicalAptSeq}: "12150-1001" → "46150-1001"; `null` without an alias. */
+export function legacyAptSeq(aptSeq: string): string | null {
+  const m = APT_SEQ.exec(aptSeq.trim());
+  const legacy = m ? legacyRegionCode(m[1] ?? '') : null;
+  return m && legacy ? `${legacy}-${m[2] ?? ''}` : null;
+}
+
 const BRACKETED = /[([{（［【〔][^)\]}）］】〕]*[)\]}）］】〕]/g;
 const PUNCT_AND_SPACE = /[\s·•.,'"`~!@#$%^&*_+=|\\/:;?<>()[\]{}（）［］【】〔〕-]/g;
 const TRAILING_SUFFIX = /(아파트|apt|apartment)$/;
@@ -60,7 +82,7 @@ export function normalizeJibun(jibun: string | null | undefined): string | null 
   return bu === '' || /^0*$/.test(bu) ? main : `${main}-${bu.replace(/^0+/, '')}`;
 }
 
-/** "전라남도 순천시 연향동 1234-5" → { emdName: "연향동", jibun: "1234-5" } (best effort). */
+/** "전남광주통합특별시 순천시 연향동 1234-5" → { emdName: "연향동", jibun: "1234-5" } (best effort). */
 export function parseJibunAddress(address: string | null | undefined): {
   emdName: string | null;
   jibun: string | null;

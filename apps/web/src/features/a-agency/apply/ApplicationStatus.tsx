@@ -32,7 +32,7 @@ import {
   latestDocuments,
   missingDocuments,
   missingRecommended,
-  registerPayloadFromAgency,
+  resubmitPayloadFromAgency,
   statusView,
 } from '../lib/application';
 import { formatBusinessNumber } from '../lib/registration';
@@ -79,7 +79,7 @@ export function ApplicationStatus({ agency, onEdit, focusOnMount }: ApplicationS
 
   const [confirmResubmit, setConfirmResubmit] = useState(false);
   const resubmit = useMutation({
-    mutationFn: () => resubmitAgency(registerPayloadFromAgency(agency)),
+    mutationFn: () => resubmitAgency(resubmitPayloadFromAgency(agency)),
     onSuccess: (saved) => {
       queryClient.setQueryData(agencyKeys.mine, saved);
       void queryClient.invalidateQueries({ queryKey: agencyKeys.mine });

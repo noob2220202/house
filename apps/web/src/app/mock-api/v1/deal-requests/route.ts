@@ -1,4 +1,4 @@
-import { dealRequestCreateSchema } from '@house/shared';
+import { ACTION_CONSENT_TERMS, dealRequestCreateSchema } from '@house/shared';
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import {
@@ -62,6 +62,10 @@ export async function POST(req: NextRequest) {
     );
   }
   const input = parsed.data;
+  // D8: both purpose consents must be sent (the mock does not check the versions like the server).
+  if (input.consents.length !== ACTION_CONSENT_TERMS.DEAL_REQUEST.length) {
+    return mockError(400, 'AUTH_CONSENT_REQUIRED', '필수 동의 항목에 동의해 주세요.');
+  }
   const now = new Date().toISOString();
   // ASSUMED extra field (not in the shared schema yet): ids of uploaded DEAL_REQUEST_PHOTO media.
   const photoIds = photoIdsSchema.safeParse(raw).data?.photoMediaIds ?? [];

@@ -48,7 +48,7 @@ function row(): ListingAgencyDetailRow {
     floorClass: 'MID',
     floorDisplay: 'CLASS',
     builtYear: 2015,
-    emdCode: '4615010400',
+    emdCode: '1215010400',
     lat: 34.9,
     lng: 127.4,
     photoCount: 1,
@@ -73,7 +73,7 @@ function row(): ListingAgencyDetailRow {
     property: {
       id: 'p1',
       ho: 'SECRET-HO',
-      emdCode: '4615010400',
+      emdCode: '1215010400',
       complexId: null,
       areaTypeId: null,
       assetType: 'APT',
@@ -155,6 +155,7 @@ describe('ListingMapper', () => {
     const out = mapper.publicDetail(
       { ...r, agencies: r.agencies.filter((a) => a.status === 'ACTIVE') },
       false,
+      '조례동',
     );
     const json = JSON.stringify(out);
     expect(json).not.toContain('SECRET-HO');
@@ -167,6 +168,7 @@ describe('ListingMapper', () => {
     expect(out.exclusiveAreaPyeong).toBe(25.7);
     // Only disclosable agencies are counted: the suspended a2 is not.
     expect(out.agencyCount).toBe(1);
+    expect(out).toMatchObject({ emdCode: '1215010400', emdName: '조례동' });
   });
 
   it('public detail shows the 관리비 breakdown and the 건축물 용도 (implied for 아파트)', () => {
@@ -178,7 +180,7 @@ describe('ListingMapper', () => {
       ],
     };
     const r = row();
-    const out = mapper.publicDetail({ ...r, maintenanceFee: fee, agencies: [] }, false);
+    const out = mapper.publicDetail({ ...r, maintenanceFee: fee, agencies: [] }, false, null);
     expect(out.maintenanceFee).toEqual(fee);
     expect(out.property.buildingUse).toBe('APARTMENT');
     const room = mapper.publicDetail(
@@ -190,13 +192,15 @@ describe('ListingMapper', () => {
         property: { ...r.property, assetType: 'ONEROOM', buildingUse: 'MULTI_FAMILY_HOUSE' },
       },
       false,
+      null,
     );
     expect(room.maintenanceFee).toBeNull();
     expect(room.property.buildingUse).toBe('MULTI_FAMILY_HOUSE');
   });
 
   it('agency detail includes the private fields', () => {
-    const out = mapper.agencyDetail(row(), 'a1');
+    const out = mapper.agencyDetail(row(), 'a1', '해룡면 신대리');
+    expect(out.emdName).toBe('해룡면 신대리');
     expect(out.property.ho).toBe('SECRET-HO');
     expect(out.property.floor).toBe(9);
     expect(out.isPrimaryAgency).toBe(true);
@@ -214,7 +218,7 @@ describe('ListingMapper', () => {
   });
 
   it('co-broker detail hides 호, the hidden reason, pending rows and other member ids', () => {
-    const out = mapper.agencyDetail(row(), 'a2');
+    const out = mapper.agencyDetail(row(), 'a2', null);
     expect(out.isPrimaryAgency).toBe(false);
     expect(out.property.ho).toBeNull();
     expect(out.hiddenReason).toBeNull();
@@ -224,12 +228,13 @@ describe('ListingMapper', () => {
   });
 
   it('summary drops price fields that do not apply to the deal type', () => {
-    const out = mapper.summary({ ...row(), monthlyRent: 50, deposit: 1000 }, 2);
+    const out = mapper.summary({ ...row(), monthlyRent: 50, deposit: 1000 }, 2, null);
     expect(out).toMatchObject({
       salePrice: 30000,
       deposit: null,
       monthlyRent: null,
       agencyCount: 2,
+      emdName: null,
     });
   });
 });

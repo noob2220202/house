@@ -59,7 +59,11 @@ actions get 403 `LISTING_PRIMARY_AGENCY_ONLY`.
 - 광고기간: publish sets `expiresAt = now + LISTING_AD_TTL_DAYS`; a 실매물 확인 extends it. The
   `listings.expire-ads` job (queue `cleanup`, hourly) moves overdue ACTIVE/RESERVED ads to DRAFT and
   notifies the primary agency's owner. Republishing keeps the first `publishedAt` (no free 끌어올리기).
-- Region guard: `emdCode` must be in REGION_SGG_CODE and is required to publish; the point must lie
+- `ListingSummary.emdName` (also on the details): display name of `emdCode` from `regions`, looked up
+  once per page (`ListingRegionNamesService`, `domain/emd-name.ts`): the 읍면동 name ("조례동") whether
+  the row uses the 8- or 10-digit code, or "읍면 리" for a 리 code ("해룡면 신대리"); null when the code
+  is not in `regions`.
+- Region guard: `emdCode` must be in REGION_SGG_CODE (12150; a legacy `46150…` code is canonicalized to `12150…` by the shared schema before the check) and is required to publish; the point must lie
   within `SERVICE_REGION_RADIUS_M` of the 시군구 centroid and `EMD_MAX_DISTANCE_M` of the 법정동 centroid
   (when the regions table has them).
 

@@ -19,7 +19,7 @@ import {
 
 const agency = {
   name: '순천공인중개사사무소',
-  roadAddress: '전라남도 순천시 연향로 1',
+  roadAddress: '전남광주통합특별시 순천시 연향로 1',
   phone: '0617491234',
   registrationNumber: '46150-2026-00001',
   representativeName: '홍길동',
@@ -35,8 +35,8 @@ function complete(overrides: Partial<PublishCheckInput> = {}): PublishCheckInput
     ...overrides,
     property: {
       assetType: 'APT',
-      roadAddress: '전라남도 순천시 연향로 100',
-      emdCode: '4615010400',
+      roadAddress: '전남광주통합특별시 순천시 연향로 100',
+      emdCode: '1215010400',
       floor: 3,
       totalFloors: 15,
       exclusiveArea: 84.97,
@@ -94,7 +94,7 @@ describe('checkPublishRequirements (표시·광고 명시사항)', () => {
       property: {
         assetType: 'LAND',
         roadAddress: '순천시 해룡면 1',
-        emdCode: '4615025000',
+        emdCode: '1215025000',
         landArea: 330,
       },
       agency,

@@ -85,16 +85,16 @@ askingMax?, perPyeong? } } | null }`. Drives "단지 확인됨", the 평형 sele
 
 ## Fields the UI collects that the API has no column for
 
-| UI                                                   | Sent as                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 가격 협의 가능 / 날짜 협의 가능 / 즉시 입주          | leading lines of `description` ("· 가격 협의 가능"…; `composeDescription` ↔ `splitDescription`). Dedicated booleans would be cleaner.                                                                                                                                                                                                                                                                                                          |
-| 동 / 호 (complex units)                              | `addressDetail` = "103동 1502호" (private). **`floor` is not sent for 아파트·오피스텔** — derived from 호 it narrows the unit. When the matched complex has `floorsMax`, the class travels as the first `description` line ("· 중층 (총 25층)").                                                                                                                                                                                                |
-| 층 (other assets)                                    | `floor` as typed.                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| 평형 (구하기, 아파트·오피스텔)                       | bands mapped to 전용 ㎡ (10평대 ≤40, 20평대 40–62, 30평대 62–95, 40평대 95–125, 50평 이상 ≥125) → `areaMin`/`areaMax` = hull of the picked bands; the exact bands as "· 희망 평형: 20평대, 30평대". "직접 입력" sends a typed 전용 ㎡ range. Other assets: 평/㎡ 실면적 range.                                                                                                                                                                  |
-| 전세 + 월세 보증금 (구하기)                          | two ranges in the UI; `depositMin`/`depositMax` = their union, the per-type ranges as "· 전세 보증금 2억 이하" / "· 월세 보증금 3,000 이하". Per-deal-type deposit columns would be cleaner.                                                                                                                                                                                                                                                    |
-| 사진                                                 | `photoMediaIds` (see above) — `DealRequestPhoto` exists in Prisma but **not in `dealRequestCreateSchema`, so a backend parsing with it strips the field**. Order = selection order (대표 first). The wizard blocks "다음 단계로" while uploads are in flight.                                                                                                                                                                                   |
-| 약관 동의 (개인정보 수집·이용, 중개사무소 정보 제공) | **not recorded yet** — two separate, unchecked, required checkboxes with the statutory notice inline (수집 항목·목적·보유기간·거부 시 불이익; 제공받는 자·목적·항목·보유기간). `TermsType` has no deal-request document, so nothing can be posted to `POST /me/consents`. Needed: `DEAL_REQUEST_PRIVACY` / `DEAL_REQUEST_PROVIDE` terms documents (then the client posts them right before create), or consent fields on `POST /deal-requests`. |
-| 거래 유형 (내놓기)                                   | single choice → `dealTypes: [x]`; the price fields cannot express two deal types at once.                                                                                                                                                                                                                                                                                                                                                       |
+| UI                                                   | Sent as                                                                                                                                                                                                                                                                                                                                               |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 가격 협의 가능 / 날짜 협의 가능 / 즉시 입주          | leading lines of `description` ("· 가격 협의 가능"…; `composeDescription` ↔ `splitDescription`). Dedicated booleans would be cleaner.                                                                                                                                                                                                                |
+| 동 / 호 (complex units)                              | `addressDetail` = "103동 1502호" (private). **`floor` is not sent for 아파트·오피스텔** — derived from 호 it narrows the unit. When the matched complex has `floorsMax`, the class travels as the first `description` line ("· 중층 (총 25층)").                                                                                                      |
+| 층 (other assets)                                    | `floor` as typed.                                                                                                                                                                                                                                                                                                                                     |
+| 평형 (구하기, 아파트·오피스텔)                       | bands mapped to 전용 ㎡ (10평대 ≤40, 20평대 40–62, 30평대 62–95, 40평대 95–125, 50평 이상 ≥125) → `areaMin`/`areaMax` = hull of the picked bands; the exact bands as "· 희망 평형: 20평대, 30평대". "직접 입력" sends a typed 전용 ㎡ range. Other assets: 평/㎡ 실면적 range.                                                                        |
+| 전세 + 월세 보증금 (구하기)                          | two ranges in the UI; `depositMin`/`depositMax` = their union, the per-type ranges as "· 전세 보증금 2억 이하" / "· 월세 보증금 3,000 이하". Per-deal-type deposit columns would be cleaner.                                                                                                                                                          |
+| 사진                                                 | `photoMediaIds` (see above) — `DealRequestPhoto` exists in Prisma but **not in `dealRequestCreateSchema`, so a backend parsing with it strips the field**. Order = selection order (대표 first). The wizard blocks "다음 단계로" while uploads are in flight.                                                                                         |
+| 약관 동의 (개인정보 수집·이용, 중개사무소 정보 제공) | two separate, unchecked, required checkboxes with the statutory notice inline (수집 항목·목적·보유기간·거부 시 불이익; 제공받는 자·목적·항목·보유기간). **Recorded (D8):** `dealApi.create` reads the current `DEAL_REQUEST_PRIVACY` / `DEAL_REQUEST_PROVIDE` versions from `GET /terms/:type` and sends them as `consents` on `POST /deal-requests`. |
+| 거래 유형 (내놓기)                                   | single choice → `dealTypes: [x]`; the price fields cannot express two deal types at once.                                                                                                                                                                                                                                                             |
 
 Limits used by the UI: photos ≤ 20 × 10MB (JPEG/PNG/WEBP/HEIC), selected agencies ≤ 5 (design; API
 allows 20), regions ≤ 20, description ≤ 2,800 typed characters (3,000 minus the flag lines).
@@ -113,19 +113,20 @@ allows 20), regions ≤ 20, description ≤ 2,800 typed characters (3,000 minus 
   revealed, and the accept dialog's "이 중개사무소에 내 연락처 공개" starts unchecked. A grant can be
   revoked also after the request ended.
 
-## Region codes — 순천시 has two 시군구 codes now
+## Region codes — 순천시 is 12150 (D1)
 
 The live Kakao postcode service returns 순천 addresses with sido **"전남광주통합특별시"**, `sigunguCode`
-**12150** and `bcode` 1215…… (e.g. 왕지동 1215013200, 해룡면 신대리 1215031022), while the backend env
-default `REGION_SGG_CODE`, the seed and `packages/shared` (`DEFAULT_SGG_CODE = '46150'`,
-`DEFAULT_REGION_NAME = '전라남도 순천시'`) still use the old 전라남도 code. **These shared constants are
-stale (backend-owned)** — the integrator has to pick one code space for the Region table, agency
-service areas and `regionCodes`.
+**12150** and `bcode` 1215…… (e.g. 왕지동 1215013200, 해룡면 신대리 1215031022). Since the stage-1
+integration (DECISIONS.md D1) the backend, the seed and `packages/shared` use the same code space
+(`DEFAULT_SGG_CODE = '12150'`, `DEFAULT_REGION_NAME = '전남광주통합특별시 순천시'`) and the mocks
+use 12150 codes too.
 
-Until then the frontend accepts both: `lib/service-area.ts` → `SERVICE_SGG_CODES` =
-`NEXT_PUBLIC_REGION_SGG_CODES` (csv, default `46150,12150`; add it to `.env.example` when settled).
+`lib/daum-postcode.ts` maps `bcode` / `sigunguCode` through shared `canonicalRegionCode`, so a
+legacy 46150…… code (cached postcode data) is turned into its 12150…… code at the boundary.
+`lib/service-area.ts` → `SERVICE_SGG_CODES` = `NEXT_PUBLIC_REGION_SGG_CODES` (csv, default
+`DEFAULT_SGG_CODE`), compared after `canonicalRegionCode`.
 The address dialog accepts an address when `sigungu === BRAND.region` ("순천시") or its code / `bcode`
-starts with a service code; the reach lookup and the picker suggestions send the `bcode` as-is. Cards
+starts with a service code; the reach lookup and the picker suggestions send the canonical `bcode`. Cards
 and summaries drop the long 시·도 prefix (`displayAddress`); the submitted `roadAddress` keeps it.
 
 The 구하기 picker loads its codes from `GET /regions` (above), so it follows whatever the backend is

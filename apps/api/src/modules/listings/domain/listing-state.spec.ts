@@ -15,7 +15,7 @@ const draft = listingDraftSchema.parse({
   moveInDate: '2027-03-01',
   property: {
     assetType: 'APT',
-    roadAddress: '전라남도 순천시 연향로 1',
+    roadAddress: '전남광주통합특별시 순천시 연향로 1',
     lat: 34.95,
     lng: 127.49,
     floor: 14,
@@ -28,7 +28,7 @@ const draft = listingDraftSchema.parse({
 
 describe('listing state', () => {
   it('derives search columns and the price sort key', () => {
-    const p = propertyStateFromInput(draft.property, '46150');
+    const p = propertyStateFromInput(draft.property, '12150');
     const l = listingStateFromInput(draft);
     const cols = listingWriteColumns(l, p, 2010);
     expect(cols).toMatchObject({
@@ -36,7 +36,7 @@ describe('listing state', () => {
       floorClass: 'HIGH',
       builtYear: 2012,
       exclusiveArea: 59.9,
-      sggCode: '46150',
+      sggCode: '12150',
       lat: 34.95,
     });
     expect(cols.moveInDate?.toISOString()).toBe('2027-03-01T00:00:00.000Z');
@@ -44,18 +44,22 @@ describe('listing state', () => {
   });
 
   it('falls back to the complex 준공년도 when the property has no 사용승인일', () => {
-    const p = { ...propertyStateFromInput(draft.property, '46150'), approvalDate: null };
+    const p = { ...propertyStateFromInput(draft.property, '12150'), approvalDate: null };
     expect(listingWriteColumns(listingStateFromInput(draft), p, 2010).builtYear).toBe(2010);
   });
 
   it('patches: undefined keeps, null clears', () => {
-    const p = applyPropertyPatch(propertyStateFromInput(draft.property, '46150'), {
+    const p = applyPropertyPatch(propertyStateFromInput(draft.property, '12150'), {
       ho: null,
       floor: 2,
       approvalDate: '2020-01-02',
       dong: undefined,
     });
-    expect(p).toMatchObject({ ho: null, floor: 2, roadAddress: '전라남도 순천시 연향로 1' });
+    expect(p).toMatchObject({
+      ho: null,
+      floor: 2,
+      roadAddress: '전남광주통합특별시 순천시 연향로 1',
+    });
     expect(p.approvalDate?.toISOString()).toBe('2020-01-02T00:00:00.000Z');
 
     const l = applyListingPatch(listingStateFromInput(draft), {
@@ -72,7 +76,7 @@ describe('listing state', () => {
   });
 
   it('nulls price fields that do not apply to the deal type (incl. after a deal-type patch)', () => {
-    const p = propertyStateFromInput(draft.property, '46150');
+    const p = propertyStateFromInput(draft.property, '12150');
     const monthly = listingStateFromInput(
       listingDraftSchema.parse({
         dealType: 'MONTHLY',

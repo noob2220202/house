@@ -1,4 +1,4 @@
-import { ERROR_MESSAGES, popupInputSchema } from '@house/shared';
+import { ERROR_MESSAGES, popupCreateSchema } from '@house/shared';
 import type { NextRequest } from 'next/server';
 import { mockDelay, mockError, mockJson } from '@/lib/mock';
 import { adminGuard, readJson, validationError } from '../../banners/_guard';
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   return popup ? mockJson(toAdminPopup(popup)) : notFound();
 }
 
-// PATCH /api/v1/admin/popups/:id — partial body; the merged record must satisfy popupInputSchema.
+// PATCH /api/v1/admin/popups/:id — partial body; the merged record must satisfy popupCreateSchema.
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   const denied = adminGuard(req, { mutation: true });
   if (denied) return denied;
@@ -43,7 +43,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       ([, v]) => v !== null,
     ),
   );
-  const parsed = popupInputSchema.safeParse(merged);
+  const parsed = popupCreateSchema.safeParse(merged);
   if (!parsed.success) return validationError(parsed.error);
   const input = parsed.data;
   if (!getMedia(input.mediaId))

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { MAP_MAX_BBOX_SPAN_DEG, MAP_ZOOM } from '../constants/map';
 import { PAGINATION } from '../constants/pagination';
-import { REGION_CODE_PATTERN } from '../constants/region';
+import { canonicalRegionCode, REGION_CODE_PATTERN } from '../constants/region';
 import { KR_CONTACT_PHONE_PATTERN, KR_MOBILE_PATTERN, normalizePhone } from '../utils/phone';
 import { isSafeLinkUrl } from '../utils/url';
 
@@ -19,9 +19,15 @@ export const latSchema = z.number().min(33).max(39);
 export const lngSchema = z.number().min(124).max(132);
 export const latLngSchema = z.object({ lat: latSchema, lng: lngSchema });
 
+/**
+ * 법정동코드 (2/5/8/10 digits). Legacy codes of the service region (전라남도 순천시 46150…, e.g.
+ * from an old URL or a cached Kakao bcode) are mapped to the current code (12150…), so callers
+ * may send either and only current codes reach the database.
+ */
 export const regionCodeSchema = z
   .string()
-  .regex(REGION_CODE_PATTERN, '올바른 지역코드가 아닙니다.');
+  .regex(REGION_CODE_PATTERN, '올바른 지역코드가 아닙니다.')
+  .transform(canonicalRegionCode);
 
 /**
  * Korean mobile number (contact field only — never verified, no SMS is ever sent).

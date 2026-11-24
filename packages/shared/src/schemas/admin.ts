@@ -4,6 +4,7 @@ import { z } from 'zod';
 import {
   AuditActorType,
   FaqCategory,
+  HomeSectionKey,
   ReportAction,
   ReportReason,
   ReportStatus,
@@ -12,7 +13,7 @@ import {
 } from '../enums/admin';
 import { TermsType } from '../enums/user';
 import { canTermsTypeBeRequired, TERMS_OPTIONAL_ONLY_MESSAGE } from '../admin/rules';
-import { parseYoutubeVideoId } from '../utils/url';
+import { isSafeLinkUrl, parseYoutubeVideoId } from '../utils/url';
 import {
   dateTimeSchema,
   idSchema,
@@ -353,6 +354,46 @@ export const footerSettingSchema = z.object({
 });
 export type FooterSetting = z.infer<typeof footerSettingSchema>;
 
+/**
+ * HOME_LAYOUT (D9): home sections in display order with their visibility. Each key at most once.
+ * A key that is not listed (e.g. a section added in a later release) keeps its default position
+ * after the listed ones and stays visible, so the site never loses a section by omission.
+ */
+export const homeLayoutSettingSchema = z.object({
+  sections: z
+    .array(z.object({ key: z.enum(HomeSectionKey), visible: z.boolean() }))
+    .min(1, '메인 화면 구성을 1개 이상 지정해 주세요.')
+    .max(Object.keys(HomeSectionKey).length)
+    .refine((list) => new Set(list.map((s) => s.key)).size === list.length, {
+      message: '같은 영역을 두 번 넣을 수 없습니다.',
+    }),
+});
+export type HomeLayoutSetting = z.infer<typeof homeLayoutSettingSchema>;
+
+/** Store page link: absolute https URL only (no credentials). `null` / omitted = no link. */
+const appStoreUrlSchema = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((v) => {
+    if (!isSafeLinkUrl(v)) return false;
+    try {
+      const u = new URL(v);
+      return u.protocol === 'https:' && !u.username && !u.password;
+    } catch {
+      return false;
+    }
+  }, 'https:// 로 시작하는 앱 스토어 주소를 입력해 주세요.')
+  .nullish()
+  .transform((v) => v ?? undefined);
+
+/** APP_LINKS (D9): App Store / Google Play pages for the home app band. */
+export const appLinksSettingSchema = z.object({
+  iosUrl: appStoreUrlSchema,
+  androidUrl: appStoreUrlSchema,
+});
+export type AppLinksSetting = z.infer<typeof appLinksSettingSchema>;
+
 export const siteSettingSchemas = {
   [SiteSettingKey.BUSINESS_INFO]: businessInfoSchema,
   [SiteSettingKey.CONTACT]: z.object({
@@ -368,6 +409,8 @@ export const siteSettingSchemas = {
   }),
   [SiteSettingKey.FEATURES]: z.record(z.string().regex(/^[a-zA-Z][\w.-]{0,49}$/), z.boolean()),
   [SiteSettingKey.FOOTER]: footerSettingSchema,
+  [SiteSettingKey.HOME_LAYOUT]: homeLayoutSettingSchema,
+  [SiteSettingKey.APP_LINKS]: appLinksSettingSchema,
 } as const satisfies Record<SiteSettingKey, z.ZodType>;
 export type SiteSettingValue<K extends SiteSettingKey> = z.output<(typeof siteSettingSchemas)[K]>;
 

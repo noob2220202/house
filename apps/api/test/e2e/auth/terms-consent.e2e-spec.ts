@@ -1,5 +1,6 @@
 import { AdminRole, ErrorCode, TermsType } from '@house/shared';
 import {
+  createActionConsentTerms,
   createAdmin,
   createUser,
   loginAdmin,
@@ -19,7 +20,10 @@ describe('auth: required terms re-consent is enforced server-side (e2e)', () => 
   beforeAll(async () => {
     ({ t } = await createDealRequestsApp());
   });
-  beforeEach(() => resetAll(t));
+  beforeEach(async () => {
+    await resetAll(t);
+    await createActionConsentTerms(t.prisma);
+  });
   afterAll(() => t?.close());
 
   /** A member who agreed to every current required document. */

@@ -58,6 +58,7 @@ import {
 } from '../ports/agency-membership.port';
 import { LISTING_MEDIA, type ListingMediaPort } from '../ports/listing-media.port';
 import { ListingCountersService } from './listing-counters.service';
+import { ListingRegionNamesService } from './listing-region-names.service';
 import { ListingSummariesService } from './listing-summaries.service';
 
 type ListingWithProperty = Listing & { property: Property };
@@ -106,6 +107,7 @@ export class AgencyListingsService {
     private readonly config: AppConfig,
     private readonly mapper: ListingMapper,
     private readonly summaries: ListingSummariesService,
+    private readonly regionNames: ListingRegionNamesService,
     private readonly counters: ListingCountersService,
     @Inject(LISTING_AGENCY_MEMBERSHIP) private readonly membership: AgencyMembershipPort,
     @Inject(LISTING_MEDIA) private readonly media: ListingMediaPort,
@@ -495,7 +497,11 @@ export class AgencyListingsService {
       where: { id },
       select: LISTING_AGENCY_DETAIL_SELECT,
     });
-    return this.mapper.agencyDetail(row, actor.agencyId);
+    return this.mapper.agencyDetail(
+      row,
+      actor.agencyId,
+      await this.regionNames.nameOf(row.emdCode),
+    );
   }
 
   /**

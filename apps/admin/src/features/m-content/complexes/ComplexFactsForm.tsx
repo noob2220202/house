@@ -210,7 +210,7 @@ export function ComplexFactsForm({
             <Input
               label="국토부 단지 코드"
               maxLength={40}
-              placeholder="예: 46150-0001"
+              placeholder="예: 12150-0001"
               help="실거래가를 이 코드로 단지에 연결해요."
               error={errors.externalCode?.message}
               {...register('externalCode', optionalText)}

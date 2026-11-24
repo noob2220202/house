@@ -74,7 +74,7 @@ function reachesOffice(r: MockDealRequest): boolean {
   return (
     codes.length === 0 ||
     codes.some((c) => office.serviceCodes.includes(c)) ||
-    !codes.some((c) => c.startsWith('46150'))
+    !codes.some((c) => c.startsWith('12150'))
   );
 }
 

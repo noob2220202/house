@@ -7,6 +7,8 @@ import {
   ProposalStatus,
 } from '../enums/deal-request';
 import { AssetType, DealType } from '../enums/listing';
+import { ACTION_CONSENT_TERMS } from '../enums/user';
+import { actionConsentsSchema } from '../schemas/auth';
 import {
   areaSqmSchema,
   csvArray,
@@ -40,6 +42,11 @@ const baseRequest = z.object({
   contactPhone: phoneSchema,
   description: optionalText(L.DESCRIPTION_MAX),
   moveInDate: dateOnlySchema.optional(),
+  /**
+   * 개인정보 수집·이용 + 제3자(중개사무소) 제공 동의 (DEAL_REQUEST_PRIVACY, DEAL_REQUEST_PROVIDE,
+   * current versions) — both required by the server.
+   */
+  consents: actionConsentsSchema(ACTION_CONSENT_TERMS.DEAL_REQUEST),
 });
 
 /** 내놓기: the owner's property and desired terms. */

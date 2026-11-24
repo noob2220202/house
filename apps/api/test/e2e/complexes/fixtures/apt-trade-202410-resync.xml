@@ -4,43 +4,43 @@
   <body>
     <items>
       <item>
-        <aptDong>101</aptDong><aptNm>연향부영3차</aptNm><aptSeq>46150-1001</aptSeq>
+        <aptDong>101</aptDong><aptNm>연향부영3차</aptNm><aptSeq>12150-1001</aptSeq>
         <buildYear>1998</buildYear><cdealDay>24.11.02</cdealDay><cdealType>O</cdealType>
         <dealAmount>18,500</dealAmount><dealDay>3</dealDay><dealMonth>10</dealMonth><dealYear>2024</dealYear>
         <excluUseAr>84.97</excluUseAr><floor>7</floor><jibun>1234-5</jibun><rgstDate>24.11.01</rgstDate>
-        <sggCd>46150</sggCd><umdCd>11400</umdCd><umdNm>연향동</umdNm>
+        <sggCd>12150</sggCd><umdCd>11400</umdCd><umdNm>연향동</umdNm>
       </item>
       <item>
-        <aptDong>102</aptDong><aptNm>연향부영3차</aptNm><aptSeq>46150-1001</aptSeq>
+        <aptDong>102</aptDong><aptNm>연향부영3차</aptNm><aptSeq>12150-1001</aptSeq>
         <buildYear>1998</buildYear><cdealDay>24.10.20</cdealDay><cdealType>O</cdealType>
         <dealAmount>19,000</dealAmount><dealDay>12</dealDay><dealMonth>10</dealMonth><dealYear>2024</dealYear>
         <excluUseAr>84.98</excluUseAr><floor>12</floor><jibun>1234-5</jibun>
-        <sggCd>46150</sggCd><umdCd>11400</umdCd><umdNm>연향동</umdNm>
+        <sggCd>12150</sggCd><umdCd>11400</umdCd><umdNm>연향동</umdNm>
       </item>
       <item>
-        <aptDong>103</aptDong><aptNm>연향부영3차</aptNm><aptSeq>46150-1001</aptSeq>
+        <aptDong>103</aptDong><aptNm>연향부영3차</aptNm><aptSeq>12150-1001</aptSeq>
         <buildYear>1998</buildYear>
         <dealAmount>17,000</dealAmount><dealDay>21</dealDay><dealMonth>10</dealMonth><dealYear>2024</dealYear>
         <excluUseAr>59.84</excluUseAr><floor>3</floor><jibun>1234-5</jibun>
-        <sggCd>46150</sggCd><umdCd>11400</umdCd><umdNm>연향동</umdNm>
+        <sggCd>12150</sggCd><umdCd>11400</umdCd><umdNm>연향동</umdNm>
       </item>
       <item>
-        <aptNm>조례 현대아파트</aptNm><aptSeq>46150-2002</aptSeq><buildYear>2002</buildYear>
+        <aptNm>조례 현대아파트</aptNm><aptSeq>12150-2002</aptSeq><buildYear>2002</buildYear>
         <dealAmount>25,000</dealAmount><dealDay>15</dealDay><dealMonth>10</dealMonth><dealYear>2024</dealYear>
         <excluUseAr>101.9</excluUseAr><floor>15</floor><jibun>1700</jibun>
-        <sggCd>46150</sggCd><umdCd>13300</umdCd><umdNm>조례동</umdNm>
+        <sggCd>12150</sggCd><umdCd>13300</umdCd><umdNm>조례동</umdNm>
       </item>
       <item>
         <aptNm>미등록아파트</aptNm><buildYear>1990</buildYear>
         <dealAmount>9,000</dealAmount><dealDay>9</dealDay><dealMonth>10</dealMonth><dealYear>2024</dealYear>
         <excluUseAr>49.5</excluUseAr><floor>2</floor><jibun>99</jibun>
-        <sggCd>46150</sggCd><umdCd>10100</umdCd><umdNm>삼거동</umdNm>
+        <sggCd>12150</sggCd><umdCd>10100</umdCd><umdNm>삼거동</umdNm>
       </item>
       <item>
-        <aptNm>연향부영3차</aptNm><aptSeq>46150-1001</aptSeq><buildYear>1998</buildYear>
+        <aptNm>연향부영3차</aptNm><aptSeq>12150-1001</aptSeq><buildYear>1998</buildYear>
         <dealAmount>18,800</dealAmount><dealDay>28</dealDay><dealMonth>10</dealMonth><dealYear>2024</dealYear>
         <excluUseAr>84.97</excluUseAr><floor>10</floor><jibun>1234-5</jibun>
-        <sggCd>46150</sggCd><umdCd>11400</umdCd><umdNm>연향동</umdNm>
+        <sggCd>12150</sggCd><umdCd>11400</umdCd><umdNm>연향동</umdNm>
       </item>
     </items>
     <numOfRows>1000</numOfRows><pageNo>1</pageNo><totalCount>6</totalCount>

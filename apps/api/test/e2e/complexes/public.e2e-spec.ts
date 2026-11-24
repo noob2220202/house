@@ -56,8 +56,8 @@ describe('complexes: public read API (e2e)', () => {
     const { complex: buyoung } = await seedBuyoung(t, { viewCount: 50 });
     const ecs = await createComplex(t.prisma, {
       name: 'e편한세상 순천조례',
-      roadAddress: '전라남도 순천시 조례로 10',
-      emdCode: '46150133',
+      roadAddress: '전남광주통합특별시 순천시 조례로 10',
+      emdCode: '12150133',
       emdName: '조례동',
       households: 1200,
       approvalDate: d('2019-03-01'),
@@ -76,7 +76,7 @@ describe('complexes: public read API (e2e)', () => {
       expect(byName.body.items[0]).toMatchObject({
         id: buyoung.id,
         name: '연향부영3차',
-        emdCode: '46150114',
+        emdCode: '12150114',
         households: 600,
         approvalDate: '1998-05-20',
       });
@@ -98,8 +98,10 @@ describe('complexes: public read API (e2e)', () => {
       const { buyoung, ecs } = await seedSearchSet();
       const all = await t.http().get('/api/v1/complexes').expect(200);
       expect((all.body.items as { id: string }[]).map((c) => c.id)).toEqual([buyoung.id, ecs.id]); // by views
-      const emd = await t.http().get('/api/v1/complexes?emdCode=46150133').expect(200);
+      const emd = await t.http().get('/api/v1/complexes?emdCode=12150133').expect(200);
       expect((emd.body.items as { id: string }[]).map((c) => c.id)).toEqual([ecs.id]);
+      const legacyEmd = await t.http().get('/api/v1/complexes?emdCode=46150133').expect(200);
+      expect((legacyEmd.body.items as { id: string }[]).map((c) => c.id)).toEqual([ecs.id]);
       const newest = await t
         .http()
         .get('/api/v1/complexes?sort=newest&pageSize=1&page=1')
@@ -129,7 +131,7 @@ describe('complexes: public read API (e2e)', () => {
         .http()
         .get(`/api/v1/complexes/autocomplete?q=${encodeURIComponent('연향')}`)
         .expect(200);
-      expect(r.body.regions[0]).toMatchObject({ code: '46150114', name: '연향동', level: 'EMD' });
+      expect(r.body.regions[0]).toMatchObject({ code: '12150114', name: '연향동', level: 'EMD' });
       expect(r.body.complexes).toEqual([
         expect.objectContaining({ id: buyoung.id, name: '연향부영3차', emdName: '연향동' }),
       ]);
@@ -144,9 +146,9 @@ describe('complexes: public read API (e2e)', () => {
         .get(`/api/v1/complexes/autocomplete?q=${encodeURIComponent('신대리')}`)
         .expect(200);
       expect(ri.body.regions[0]).toMatchObject({
-        code: '4615031022',
+        code: '1215031022',
         level: 'RI',
-        fullName: '전라남도 순천시 해룡면 신대리',
+        fullName: '전남광주통합특별시 순천시 해룡면 신대리',
       });
     });
 
@@ -296,7 +298,7 @@ describe('complexes: public read API (e2e)', () => {
         name: '연향부영3차',
         approvalYear: 1998,
         households: 600,
-        region: { code: '46150114', name: '연향동', fullName: '전라남도 순천시 연향동' },
+        region: { code: '12150114', name: '연향동', fullName: '전남광주통합특별시 순천시 연향동' },
         isFavorite: false,
         viewCount: 1,
         photos: [
@@ -674,26 +676,34 @@ describe('complexes: public read API (e2e)', () => {
       const emd = await t.http().get('/api/v1/regions').expect(200);
       expect(emd.body).toHaveLength(44);
       expect(emd.body[0]).toMatchObject({
-        code: '46150101',
+        code: '12150101',
         name: '삼거동',
         level: 'EMD',
-        parentCode: '46150',
+        parentCode: '12150',
       });
-      const ri = await t.http().get('/api/v1/regions?parentCode=46150310').expect(200);
+      const ri = await t.http().get('/api/v1/regions?parentCode=12150310').expect(200);
       expect((ri.body as { name: string }[]).map((r) => r.name)).toContain('신대리');
       const sgg = await t.http().get('/api/v1/regions?level=SGG').expect(200);
-      expect(sgg.body).toEqual([expect.objectContaining({ code: '46150', name: '순천시' })]);
-      const one = await t.http().get('/api/v1/regions/46150133').expect(200);
-      expect(one.body).toMatchObject({ name: '조례동', fullName: '전라남도 순천시 조례동' });
+      expect(sgg.body).toEqual([expect.objectContaining({ code: '12150', name: '순천시' })]);
+      const one = await t.http().get('/api/v1/regions/12150133').expect(200);
+      expect(one.body).toMatchObject({
+        name: '조례동',
+        fullName: '전남광주통합특별시 순천시 조례동',
+      });
+      // legacy codes (전라남도 순천시 46150…, e.g. old links) resolve to the current rows
+      const legacy = await t.http().get('/api/v1/regions/46150133').expect(200);
+      expect(legacy.body).toMatchObject({ code: '12150133', name: '조례동' });
+      const legacyChildren = await t.http().get('/api/v1/regions?parentCode=46150').expect(200);
+      expect(legacyChildren.body).toHaveLength(44);
     });
 
     it('hides inactive regions unless asked; 404 unknown code; 400 malformed', async () => {
-      await t.prisma.region.update({ where: { code: '46150101' }, data: { isActive: false } });
+      await t.prisma.region.update({ where: { code: '12150101' }, data: { isActive: false } });
       const active = await t.http().get('/api/v1/regions').expect(200);
       expect(active.body).toHaveLength(43);
       const all = await t.http().get('/api/v1/regions?includeInactive=true').expect(200);
       expect(all.body).toHaveLength(44);
-      expect((await t.http().get('/api/v1/regions/46150999').expect(404)).body.code).toBe(
+      expect((await t.http().get('/api/v1/regions/12150999').expect(404)).body.code).toBe(
         ErrorCode.REGION_NOT_FOUND,
       );
       await t.http().get('/api/v1/regions/abc').expect(400);

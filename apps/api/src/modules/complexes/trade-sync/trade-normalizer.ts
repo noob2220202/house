@@ -1,5 +1,9 @@
 import { createHash } from 'node:crypto';
 import {
+  canonicalAptSeq,
+  canonicalRegionCode,
+  legacyAptSeq,
+  legacyRegionCode,
   normalizeComplexName,
   normalizeEmdName,
   normalizeJibun,
@@ -11,6 +15,12 @@ import type { RawTradeItem } from './trade-api.client';
 /** A 실거래 row in our units: money 만원, area ㎡ (2 decimals), dates at UTC midnight. */
 export interface NormalizedTrade {
   sourceKey: string;
+  /**
+   * Key the same contract had when it was synced under the legacy 시군구 code (46150 before the
+   * 2026-07-01 reorganisation); `null` when the code has no legacy alias. The sync re-keys such
+   * rows instead of inserting the contract a second time.
+   */
+  legacySourceKey: string | null;
   kind: TradeSyncKind;
   sggCode: string;
   emdCode: string | null;
@@ -34,7 +44,13 @@ export interface NormalizedTrade {
 }
 
 export type NormalizeResult =
-  | { ok: true; trade: Omit<NormalizedTrade, 'sourceKey'>; identity: string }
+  | {
+      ok: true;
+      trade: Omit<NormalizedTrade, 'sourceKey' | 'legacySourceKey'>;
+      identity: string;
+      /** Same identity under the legacy 시군구 code, or `null` (see legacySourceKey). */
+      legacyIdentity: string | null;
+    }
   | { ok: false; reason: string };
 
 /** Field aliases: current English tags first, then the pre-2024 Korean tags. */
@@ -106,7 +122,8 @@ function isoDay(d: Date): string {
 /**
  * Raw row → normalized trade + its identity string. The identity holds only fields that never
  * change for the same contract (not 해제 flags, 등기일자, 중개사 소재지), so a later 해제 updates
- * the same row instead of creating a new one.
+ * the same row instead of creating a new one. Region codes are canonicalized: the API answers a
+ * legacy LAWD_CD (46150) with legacy sggCd values, which are stored as the current code (12150).
  */
 export function normalizeTradeItem(
   kind: TradeSyncKind,
@@ -141,33 +158,42 @@ export function normalizeTradeItem(
     dealType = monthlyRent > 0 ? TradeDealType.MONTHLY : TradeDealType.JEONSE;
   }
 
-  const sggCode = pick(raw, F.sggCd) ?? requestedSggCode;
+  const responseSgg = pick(raw, F.sggCd);
+  const sggCode = canonicalRegionCode(
+    responseSgg && /^\d{5}$/.test(responseSgg) ? responseSgg : requestedSggCode,
+  );
   const umdCd = pick(raw, F.umdCd);
   const emdCode = umdCd && /^\d{5}$/.test(umdCd) ? `${sggCode}${umdCd.slice(0, 3)}` : null;
   const emdName = pick(raw, F.umdNm) ?? null;
   const jibun = normalizeJibun(pick(raw, F.jibun));
-  const aptSeq = pick(raw, F.aptSeq) ?? null;
+  const rawAptSeq = pick(raw, F.aptSeq);
+  const aptSeq = rawAptSeq ? canonicalAptSeq(rawAptSeq) : null;
   const floor = parseIntOrNull(pick(raw, F.floor));
   const cancelled = (pick(raw, F.cancelType) ?? '').toUpperCase() === 'O';
   const cancelledAt = cancelled ? parseCancelDay(pick(raw, F.cancelDay)) : null;
 
-  const identity = [
-    kind,
-    sggCode,
-    aptSeq ?? `${normalizeEmdName(emdName) ?? ''}/${normalizeComplexName(aptName)}`,
-    jibun ?? '',
-    pick(raw, F.aptDong) ?? '',
-    isoDay(dealDate),
-    exclusiveArea.toFixed(2),
-    floor ?? '',
-    price ?? '',
-    deposit ?? '',
-    monthlyRent ?? '',
-  ].join('|');
+  const identityOf = (code: string, seq: string | null) =>
+    [
+      kind,
+      code,
+      seq ?? `${normalizeEmdName(emdName) ?? ''}/${normalizeComplexName(aptName)}`,
+      jibun ?? '',
+      pick(raw, F.aptDong) ?? '',
+      isoDay(dealDate),
+      exclusiveArea.toFixed(2),
+      floor ?? '',
+      price ?? '',
+      deposit ?? '',
+      monthlyRent ?? '',
+    ].join('|');
+  // Rows synced before 2026-07-01 were keyed with the legacy codes as the API returned them.
+  const legacySgg = legacyRegionCode(sggCode);
+  const legacySeq = aptSeq ? (legacyAptSeq(aptSeq) ?? aptSeq) : null;
 
   return {
     ok: true,
-    identity,
+    identity: identityOf(sggCode, aptSeq),
+    legacyIdentity: legacySgg ? identityOf(legacySgg, legacySeq) : null,
     trade: {
       kind,
       sggCode,
@@ -193,6 +219,10 @@ export function normalizeTradeItem(
   };
 }
 
+function keyOf(identity: string, occurrence: number): string {
+  return createHash('sha256').update(`${identity}#${occurrence}`).digest('hex');
+}
+
 /**
  * Normalizes a whole month and assigns deterministic source keys. Identical contracts in one
  * month (same unit/day/price — e.g. two units sold together) get an occurrence suffix so each
@@ -214,8 +244,11 @@ export function normalizeTradeBatch(
     }
     const n = seen.get(r.identity) ?? 0;
     seen.set(r.identity, n + 1);
-    const sourceKey = createHash('sha256').update(`${r.identity}#${n}`).digest('hex');
-    trades.push({ ...r.trade, sourceKey });
+    trades.push({
+      ...r.trade,
+      sourceKey: keyOf(r.identity, n),
+      legacySourceKey: r.legacyIdentity === null ? null : keyOf(r.legacyIdentity, n),
+    });
   }
   return { trades, skipped };
 }

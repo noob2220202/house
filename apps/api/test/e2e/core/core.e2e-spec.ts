@@ -300,16 +300,16 @@ describe('core pipeline (e2e)', () => {
     it('keeps location in sync with lat/lng via trigger', async () => {
       await t.prisma.region.create({
         data: {
-          code: '46150',
+          code: '12150',
           name: '순천시',
-          fullName: '전라남도 순천시',
+          fullName: '전남광주통합특별시 순천시',
           level: 'SGG',
           lat: 34.95,
           lng: 127.48,
         },
       });
       const [row] = await t.prisma.$queryRaw<{ wkt: string }[]>`
-        SELECT ST_AsText(location::geometry) AS wkt FROM regions WHERE code = '46150'`;
+        SELECT ST_AsText(location::geometry) AS wkt FROM regions WHERE code = '12150'`;
       expect(row?.wkt).toBe('POINT(127.48 34.95)');
     });
   });

@@ -33,6 +33,9 @@ describe('ads: admin banner slots + popups (e2e)', () => {
         activeCount: 1,
         upcomingCount: 2,
         label: BANNER_SLOT_SPECS.MAIN_HERO.label,
+        // D4: upload sizes of the approved hero design (frames 1240×220 / 358×160).
+        pc: { width: 2480, height: 440 },
+        mobile: { width: 1074, height: 480 },
       });
       expect(bySlot.get('MAP_AD')).toMatchObject({
         maxActive: 2,

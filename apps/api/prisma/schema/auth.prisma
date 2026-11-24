@@ -38,6 +38,8 @@ model User {
   role             UserRole   @default(USER)
   status           UserStatus @default(ACTIVE)
   marketingOptIn   Boolean    @default(false) @map("marketing_opt_in")
+  /// Start of the current marketing opt-in (정보통신망법 제50조 수신동의 일자); null while opted out.
+  marketingOptInAt DateTime?  @map("marketing_opt_in_at") @db.Timestamptz(3)
   /// "만 14세 이상" confirmation given at signup (개인정보 보호법 제22조의2). Null only for rows
   /// created before the check existed.
   ageConfirmedAt   DateTime?  @map("age_confirmed_at") @db.Timestamptz(3)
@@ -170,6 +172,11 @@ enum TermsType {
   PRIVACY
   LOCATION
   MARKETING
+  /// Purpose consents (D8), given with one submission: 중개사무소 등록 신청 / 소속 합류 / 내놓기·구하기.
+  PRIVACY_AGENCY_APPLICATION
+  PRIVACY_AGENCY_JOIN
+  DEAL_REQUEST_PRIVACY
+  DEAL_REQUEST_PROVIDE
 
   @@map("terms_type")
 }

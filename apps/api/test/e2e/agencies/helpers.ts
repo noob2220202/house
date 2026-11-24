@@ -16,7 +16,7 @@ import {
   type BrokerRegistryClient,
 } from '../../../src/modules/agencies/clients/broker-registry.client';
 import type { PrismaService } from '../../../src/prisma/prisma.service';
-import { createAgency, createMedia, createUser } from '../../utils';
+import { actionConsents, createAgency, createMedia, createUser } from '../../utils';
 
 /** A READY private 등록증 upload owned by `userId`. */
 export function createDocumentMedia(
@@ -61,15 +61,16 @@ export function registerBody(mediaId: string, overrides: Record<string, unknown>
     businessNumber: VALID_BUSINESS_NUMBER,
     phone: '061-749-1234',
     mobile: '010-1234-5678',
-    roadAddress: '전라남도 순천시 중앙로 100',
+    roadAddress: '전남광주통합특별시 순천시 중앙로 100',
     addressDetail: '1층',
-    emdCode: '46150101',
+    emdCode: '12150101',
     lat: DEFAULT_MAP_CENTER.lat,
     lng: DEFAULT_MAP_CENTER.lng,
     intro: '순천 아파트 전문',
     businessHours: { mon: { open: '09:00', close: '18:00' }, sun: null },
     specialties: ['APT', 'ONEROOM'],
     documents: [{ type: AgencyDocumentType.REGISTRATION_CERT, mediaId }],
+    consents: actionConsents('AGENCY_APPLICATION'),
     ...overrides,
   };
 }

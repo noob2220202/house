@@ -59,25 +59,25 @@ module READMEs. Each response is parsed by exactly one zod schema in
 
 ## Endpoints used
 
-| Method | Path                                        | Used by                                                   | Backend status                                   |
-| ------ | ------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------ |
-| GET    | `/api/v1/agencies/mine`                     | layout (sidebar + cache seed), apply, profile, dashboard  | README (listed as AGENCY_OWNER) — see BLOCKING 1 |
-| PATCH  | `/api/v1/agencies/mine`                     | profile save                                              | README — body fields see assumption 3            |
-| POST   | `/api/v1/agencies`                          | application submit (`agencyRegisterSchema` + `consents`)  | README — consents see assumption 9               |
-| POST   | `/api/v1/agencies/mine/documents`           | attach uploaded private documents                         | README — body see assumption 4                   |
-| GET    | `/api/v1/agencies/mine/members`             | staff list                                                | README                                           |
-| POST   | `/api/v1/agencies/mine/members`             | staff invite                                              | README — body/response see assumption 5          |
-| DELETE | `/api/v1/agencies/mine/members/:memberId`   | remove member / cancel invitation                         | README                                           |
-| POST   | `/api/v1/media?purpose=` (multipart `file`) | documents (`AGENCY_DOCUMENT`), logo/cover (`AGENCY_LOGO`) | README (media)                                   |
-| GET    | `/api/v1/media/:id/private`                 | "보기" link of a submitted document (new tab)             | README (media)                                   |
-| GET    | `/api/v1/me/notifications` (unread count)   | topbar bell dot (w-me's `useUnreadNotificationCount`)     | w-me                                             |
+| Method | Path                                        | Used by                                                                                              | Backend status                                   |
+| ------ | ------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| GET    | `/api/v1/agencies/mine`                     | layout (sidebar + cache seed), apply, profile, dashboard                                             | README (listed as AGENCY_OWNER) — see BLOCKING 1 |
+| PATCH  | `/api/v1/agencies/mine`                     | profile save                                                                                         | README — body fields see assumption 3            |
+| POST   | `/api/v1/agencies`                          | application submit (`agencyRegisterSchema`: fields + uploaded `documents` incl. 등록증 + `consents`) | README — consents see assumption 9               |
+| POST   | `/api/v1/agencies/mine/documents`           | attach uploaded private documents                                                                    | README — body see assumption 4                   |
+| GET    | `/api/v1/agencies/mine/members`             | staff list                                                                                           | README                                           |
+| POST   | `/api/v1/agencies/mine/members`             | staff invite                                                                                         | README — body/response see assumption 5          |
+| DELETE | `/api/v1/agencies/mine/members/:memberId`   | remove member / cancel invitation                                                                    | README                                           |
+| POST   | `/api/v1/media?purpose=` (multipart `file`) | documents (`AGENCY_DOCUMENT`), logo/cover (`AGENCY_LOGO`)                                            | README (media)                                   |
+| GET    | `/api/v1/media/:id/private`                 | "보기" link of a submitted document (new tab)                                                        | README (media)                                   |
+| GET    | `/api/v1/me/notifications` (unread count)   | topbar bell dot (w-me's `useUnreadNotificationCount`)                                                | w-me                                             |
 
 ## Assumed endpoints (not in any backend README — please confirm or rename)
 
 | Method | Path                              | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ------ | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST   | `/api/v1/agencies/mine/resubmit`  | Owner corrects a REJECTED application → back to PENDING. Body = `agencyRegisterSchema` + `consents` (register is create-only; `agencyUpdateSchema` omits 등록번호/대표자, which are exactly what gets corrected). Also used by the status screen's "다시 신청" after the owner only replaced documents (body = the stored application).                                                                                |
-| POST   | `/api/v1/agencies/join`           | A signed-in USER redeems a staff invite code. Body `{ code, consents? }` (8 chars, A–Z/2–9) → `{ agencyId, agencyName, role }`; member → ACTIVE, user role → AGENT, session `agencyId` updated. Errors: `404 AGENCY_INVITE_INVALID`, `410 AGENCY_INVITE_EXPIRED`, `409 AGENCY_ALREADY_MEMBER` (field path `code` in `details` when possible).                                                                          |
+| POST   | `/api/v1/agencies/mine/resubmit`  | Owner corrects a REJECTED application → back to PENDING. Body = `agencyResubmitSchema` (all fields optional; `documents` = newly uploaded files, added to the attached ones; no `consents`). Also used by the status screen's "다시 신청" after the owner only replaced documents (body = the stored application).                                                                                                     |
+| POST   | `/api/v1/agencies/join`           | A signed-in USER redeems a staff invite code. Body `{ code, consents }` (8 chars, A–Z/2–9; D8 consent required) → `{ agencyId, agencyName, role }`; member → ACTIVE, user role → AGENT, session `agencyId` updated. Errors: `404 AGENCY_INVITE_INVALID`, `410 AGENCY_INVITE_EXPIRED`, `409 AGENCY_ALREADY_MEMBER` (field path `code` in `details` when possible).                                                      |
 | GET    | `/api/v1/agencies/mine/dashboard` | One aggregate for the console home + sidebar badges (shape below). AGENT / AGENCY_OWNER of an APPROVED agency; otherwise `403 AGENCY_NOT_APPROVED`.                                                                                                                                                                                                                                                                    |
 | GET    | `/api/v1/geo/geocode?query=`      | Address search with coordinates for the office location (the API has `NAVER_MAP_CLIENT_ID/SECRET` for server-side geocoding). `{ items: [{ roadAddress, jibunAddress?, zipCode?, buildingName?, lat, lng }] }`, max 10, `query` ≥ 2 chars. If the backend will not expose this, swap `AddressField` for the Daum postcode popup + Naver JS geocoder — the form only needs `roadAddress`, `jibunAddress`, `lat`, `lng`. |
 
@@ -182,10 +182,10 @@ verificationDue: [{ …same, verifiedAt?, verificationDueAt }] }`.
 9. **Consents** — the application form has two separate required checkboxes: a truthfulness
    declaration ("입력 내용과 제출 서류가 사실과 같습니다") and **[필수] 개인정보 수집·이용 동의**
    with an inline notice (items, purpose, retention, right to refuse). The join form has the same
-   privacy consent. The bodies carry
-   `consents: [{ type: 'PRIVACY_AGENCY_APPLICATION' | 'PRIVACY_AGENCY_JOIN', version: '2026-11-01' }]`
-   so the backend can keep a record (who, which text version, when). **Required addition** to
-   `agencyRegisterSchema` and the join body (today the key is stripped). The wording, items and
+   privacy consent. **Implemented (D8, stage-1 gate):** `registerAgency` / `joinAgency` read the
+   current version from `GET /terms/:type` (`fetchActionConsents` in `src/lib/api/consents.ts`) and
+   send `consents: [{ type: 'PRIVACY_AGENCY_APPLICATION' | 'PRIVACY_AGENCY_JOIN', version }]`; the
+   server records it with the application / membership. The resubmit takes no consents. The wording, items and
    retention periods (`APPLICATION_PRIVACY_NOTICE` / `JOIN_PRIVACY_NOTICE` in
    `features/a-agency/lib/application.ts`) need legal review before launch.
 

@@ -1,6 +1,11 @@
-import type { AgencyDocumentType, AgencyRegisterInput, MediaPurpose } from '@house/shared';
+import type {
+  AgencyDocumentType,
+  AgencyRegisterInput,
+  AgencyResubmitInput,
+  MediaPurpose,
+} from '@house/shared';
 import { z } from 'zod';
-import { API_BASE_PATH, ApiError, api, qk } from '@/lib/api';
+import { API_BASE_PATH, ApiError, api, fetchActionConsents, qk } from '@/lib/api';
 import type { BusinessHours } from '../lib/business-hours';
 import {
   agencyDashboardSchema,
@@ -62,22 +67,18 @@ export function geocode(query: string, signal?: AbortSignal) {
 }
 
 /**
- * A consent the applicant gave in the form. ASSUMED addition to the register / join bodies (the
- * shared schemas strip unknown keys today) so the backend can keep a record of it.
+ * Body of POST /agencies without `consents`: `registerAgency` adds the current version of the
+ * 개인정보 수집·이용 동의 the applicant ticked (D8).
  */
-export interface ConsentRecord {
-  type: 'PRIVACY_AGENCY_APPLICATION' | 'PRIVACY_AGENCY_JOIN';
-  version: string;
+export type AgencyRegisterRequest = Omit<AgencyRegisterInput, 'consents'>;
+
+export async function registerAgency(body: AgencyRegisterRequest) {
+  const consents = await fetchActionConsents('AGENCY_APPLICATION');
+  return api.post('/agencies', { ...body, consents }, { schema: myAgencySchema });
 }
 
-/** Body of POST /agencies and POST /agencies/mine/resubmit. */
-export type AgencyRegisterRequest = AgencyRegisterInput & { consents?: ConsentRecord[] };
-
-export function registerAgency(body: AgencyRegisterRequest) {
-  return api.post('/agencies', body, { schema: myAgencySchema });
-}
-
-export function resubmitAgency(body: AgencyRegisterRequest) {
+/** POST /agencies/mine/resubmit — no consents (the application's consent still covers it). */
+export function resubmitAgency(body: AgencyResubmitInput) {
   return api.post('/agencies/mine/resubmit', body, { schema: myAgencySchema });
 }
 
@@ -141,7 +142,9 @@ const joinResultSchema = z.object({
 });
 
 /** POST /agencies/join — redeem a staff invite code (ASSUMED endpoint). */
-export function joinAgency(code: string, consents?: ConsentRecord[]) {
+/** POST /agencies/join with the current version of the 개인정보 수집·이용 동의 the user ticked (D8). */
+export async function joinAgency(code: string) {
+  const consents = await fetchActionConsents('AGENCY_JOIN');
   return api.post('/agencies/join', { code, consents }, { schema: joinResultSchema });
 }
 

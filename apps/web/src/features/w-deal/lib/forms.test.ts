@@ -44,7 +44,7 @@ const sell = (over: Partial<SellFormValues> = {}): SellFormValues => ({
   ...SELL_DEFAULTS,
   assetType: AssetType.APT,
   roadAddress: '전남 순천시 해룡면 신대2로 40',
-  bcode: '4615033028',
+  bcode: '1215033028',
   complexId: '0b6f2c1e-0000-4000-8000-0000000000c1',
   complexName: '신대 레이크파크 1단지',
   dong: '103',
@@ -70,7 +70,7 @@ const find = (over: Partial<FindFormValues> = {}): FindFormValues => ({
   ...FIND_DEFAULTS,
   assetType: AssetType.APT,
   dealTypes: [DealType.SALE],
-  regionCodes: ['4615033028'],
+  regionCodes: ['1215033028'],
   priceMax: '4억 5,000',
   areaBands: ['20', '30'],
   roomsMin: '3',
@@ -236,7 +236,7 @@ describe('구하기 form', () => {
     expect(dealRequestCreateSchema.safeParse(payload).success).toBe(true);
     expect(payload).toMatchObject({
       type: DealRequestType.WANTED,
-      regionCodes: ['4615033028'],
+      regionCodes: ['1215033028'],
       priceMax: 45000,
       // 20평대 + 30평대 (공급 평형) → 전용 40–95㎡, the exact bands travel in the description.
       areaMin: 40,

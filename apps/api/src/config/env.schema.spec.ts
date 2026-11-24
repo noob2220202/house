@@ -20,7 +20,7 @@ describe('parseEnv', () => {
   it('applies defaults and parses lists/booleans', () => {
     const env = parseEnv({ ...base, SWAGGER_ENABLED: 'true', KAKAO_CLIENT_ID: '' });
     expect(env.PORT).toBe(4000);
-    expect(env.REGION_SGG_CODE).toBe('46150');
+    expect(env.REGION_SGG_CODE).toBe('12150');
     expect(env.CORS_ORIGINS).toEqual(['http://localhost:3000', 'http://localhost:3001']);
     expect(env.SWAGGER_ENABLED).toBe(true);
     expect(env.KAKAO_CLIENT_ID).toBeUndefined();
@@ -33,7 +33,14 @@ describe('parseEnv', () => {
       parseEnv({ ...base, COOKIE_SECURE: '', ADMIN_IP_ALLOWLIST: '' }).COOKIE_SECURE,
     ).toBeUndefined();
     const example = parse(readFileSync(path.join(__dirname, '..', '..', '.env.example')));
-    expect(parseEnv(example).REGION_SGG_CODE).toBe('46150');
+    expect(parseEnv(example).REGION_SGG_CODE).toBe('12150');
+  });
+
+  it('maps a legacy REGION_SGG_CODE (46150, before 2026-07-01) to the current code', () => {
+    expect(parseEnv({ ...base, REGION_SGG_CODE: '46150' }).REGION_SGG_CODE).toBe('12150');
+    expect(parseEnv({ ...base, REGION_SGG_CODE: ' 12150 ' }).REGION_SGG_CODE).toBe('12150');
+    expect(parseEnv({ ...base, REGION_SGG_CODE: '11110' }).REGION_SGG_CODE).toBe('11110');
+    expect(() => parseEnv({ ...base, REGION_SGG_CODE: '4615' })).toThrow(/REGION_SGG_CODE/);
   });
 
   it('rejects missing required values', () => {

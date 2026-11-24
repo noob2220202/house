@@ -1,3 +1,5 @@
+import { canonicalRegionCode } from '@house/shared';
+
 /**
  * Kakao(Daum) 우편번호 서비스 loader. The script is fetched on demand (first time the address dialog
  * opens) and never blocks rendering. No API key is required. The default host is t1.kakaocdn.net —
@@ -63,16 +65,20 @@ export interface PickedAddress {
   bname?: string;
 }
 
+/**
+ * Postcode result → picked address. The region codes are canonicalized at this boundary (D1):
+ * cached or not-yet-updated postcode data may still carry the legacy 순천 code 46150….
+ */
 export function toPickedAddress(data: DaumPostcodeData): PickedAddress {
   return {
     roadAddress: data.roadAddress || data.autoRoadAddress || data.jibunAddress,
     jibunAddress: data.jibunAddress || data.autoJibunAddress || '',
     zonecode: data.zonecode,
-    bcode: data.bcode,
+    bcode: data.bcode ? canonicalRegionCode(data.bcode) : '',
     buildingName: data.buildingName ?? '',
     sido: data.sido,
     sigungu: data.sigungu,
-    sigunguCode: data.sigunguCode,
+    sigunguCode: data.sigunguCode ? canonicalRegionCode(data.sigunguCode) : data.sigunguCode,
     bname: data.bname,
   };
 }

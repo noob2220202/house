@@ -12,7 +12,7 @@
  * TOTP for the SUPER_ADMIN is enrolled on the first login (mandatory before any admin route).
  */
 import 'dotenv/config';
-import { DEFAULT_SGG_CODE } from '@house/shared';
+import { canonicalRegionCode, DEFAULT_SGG_CODE } from '@house/shared';
 import { PrismaClient } from '@prisma/client';
 import {
   seedBannerSlots,
@@ -29,7 +29,8 @@ const truthy = (v: string | undefined) => v === 'true' || v === '1' || v === 'ye
 async function main(): Promise<void> {
   const env = process.env;
   const now = new Date();
-  const sggCode = env.REGION_SGG_CODE?.trim() || DEFAULT_SGG_CODE;
+  // Same rule as the API env schema: a legacy 46150 (전라남도 순천시) means 12150.
+  const sggCode = canonicalRegionCode(env.REGION_SGG_CODE?.trim() || DEFAULT_SGG_CODE);
   if (!/^\d{5}$/.test(sggCode)) throw new Error('REGION_SGG_CODE must be 5 digits');
 
   const regions = await seedRegions(prisma, sggCode);

@@ -315,7 +315,7 @@ export function toSellPayload(
     desiredDeposit: need.deposit ? (validMoney(v.deposit) ?? undefined) : undefined,
     desiredMonthlyRent: need.rent ? (validMoney(v.monthlyRent) ?? undefined) : undefined,
     moveInDate: v.moveInNow ? undefined : v.moveInDate || undefined,
-    photoMediaIds: v.photos.length > 0 ? v.photos.map((p) => p.id) : undefined,
+    photoMediaIds: v.photos.map((p) => p.id),
   };
 }
 

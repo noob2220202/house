@@ -1,3 +1,4 @@
+import { TermsType } from '@house/shared';
 import type { NextRequest } from 'next/server';
 import { termsInputSchema } from '@/features/m-content/api/inputs';
 import { isResponse, mockAdmin, mockBody, mockConflict } from '@/features/m-content/mock/http';
@@ -5,7 +6,7 @@ import { newId, nowIso } from '@/features/m-content/mock/ids';
 import { audit, db, termsView } from '@/features/m-content/mock/store';
 import { mockJson, mockPaginate } from '@/lib/mock';
 
-const TYPE_ORDER = ['SERVICE', 'PRIVACY', 'LOCATION', 'MARKETING'];
+const TYPE_ORDER: readonly string[] = Object.values(TermsType);
 
 // GET /api/v1/admin/terms?type&page&pageSize — every version incl. drafts, newest first per type
 export async function GET(req: NextRequest) {

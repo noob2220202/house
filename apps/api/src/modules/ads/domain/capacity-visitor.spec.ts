@@ -13,8 +13,8 @@ const W = { startAt: t('10:00'), endAt: t('12:00') };
 const C1 = '01937a2b-0000-7000-8000-0000000000c1';
 const C2 = '01937a2b-0000-7000-8000-0000000000c2';
 const codes = new Map<string, string[]>([
-  [C1, ['46150', '46150101']],
-  [C2, ['46150', '46150250']],
+  [C1, ['12150', '12150101']],
+  [C2, ['12150', '12150250']],
 ]);
 
 const all = (): PlacedWindow => ({ ...W, targeting: 'ALL', regionCodes: [], complexIds: [] });
@@ -35,11 +35,11 @@ describe('slot capacity per page context', () => {
   it('appearsIn mirrors serving (prefix match for regions, complexes by id + their regions)', () => {
     const c1 = { kind: 'complex' as const, complexId: C1, regionCodes: codes.get(C1)! };
     expect(appearsIn(all(), { kind: 'global' })).toBe(true);
-    expect(appearsIn(regions('46150'), { kind: 'global' })).toBe(false);
-    expect(appearsIn(regions('46150'), { kind: 'region', regionCode: '4615010100' })).toBe(true);
-    expect(appearsIn(regions('46150101'), { kind: 'region', regionCode: '46150' })).toBe(false);
-    expect(appearsIn(regions('46150101'), c1)).toBe(true);
-    expect(appearsIn(regions('46150250'), c1)).toBe(false);
+    expect(appearsIn(regions('12150'), { kind: 'global' })).toBe(false);
+    expect(appearsIn(regions('12150'), { kind: 'region', regionCode: '1215010100' })).toBe(true);
+    expect(appearsIn(regions('12150101'), { kind: 'region', regionCode: '12150' })).toBe(false);
+    expect(appearsIn(regions('12150101'), c1)).toBe(true);
+    expect(appearsIn(regions('12150250'), c1)).toBe(false);
     expect(appearsIn(complexes(C1), c1)).toBe(true);
     expect(appearsIn(complexes(C2), c1)).toBe(false);
   });
@@ -54,11 +54,11 @@ describe('slot capacity per page context', () => {
   });
 
   it('ALL and region banners compete on complex pages under them', () => {
-    const others = [all(), regions('46150101'), complexes(C1), complexes(C2)];
+    const others = [all(), regions('12150101'), complexes(C1), complexes(C2)];
     const r = worstContextConcurrency(W, complexes(C1), others, codes);
     expect(r).toMatchObject({ peak: 3, context: { complexId: C1 } });
-    // A city-wide region banner: worst page is C1 (ALL + 46150101 + C1-targeted).
-    expect(worstContextConcurrency(W, regions('46150'), others, codes)).toMatchObject({
+    // A city-wide region banner: worst page is C1 (ALL + 12150101 + C1-targeted).
+    expect(worstContextConcurrency(W, regions('12150'), others, codes)).toMatchObject({
       peak: 3,
       context: { kind: 'complex', complexId: C1 },
     });
@@ -67,14 +67,14 @@ describe('slot capacity per page context', () => {
   });
 
   it('regions in different 읍면동 do not compete; ancestors do', () => {
-    const others = [regions('46150101'), regions('46150101'), regions('46150')];
-    expect(worstContextConcurrency(W, regions('46150250'), others, codes).peak).toBe(1);
-    expect(worstContextConcurrency(W, regions('4615010100'), others, codes).peak).toBe(3);
+    const others = [regions('12150101'), regions('12150101'), regions('12150')];
+    expect(worstContextConcurrency(W, regions('12150250'), others, codes).peak).toBe(1);
+    expect(worstContextConcurrency(W, regions('1215010100'), others, codes).peak).toBe(3);
     expect(
-      candidateContexts(regions('46150'), others, codes).map((c) =>
+      candidateContexts(regions('12150'), others, codes).map((c) =>
         c.kind === 'region' ? c.regionCode : c.kind,
       ),
-    ).toEqual(['46150', '46150101']);
+    ).toEqual(['12150', '12150101']);
   });
 
   it('uses the time sweep inside each context', () => {
@@ -90,11 +90,11 @@ describe('placementGrows / windowGrows', () => {
     expect(placementGrows(complexes(C1), all())).toBe(true);
     expect(placementGrows(complexes(C1, C2), complexes(C1))).toBe(false);
     expect(placementGrows(complexes(C1), complexes(C1, C2))).toBe(true);
-    expect(placementGrows(regions('46150'), regions('46150101'))).toBe(false);
-    expect(placementGrows(regions('46150101'), regions('46150'))).toBe(true);
-    expect(placementGrows(regions('46150'), complexes(C1))).toBe(true);
+    expect(placementGrows(regions('12150'), regions('12150101'))).toBe(false);
+    expect(placementGrows(regions('12150101'), regions('12150'))).toBe(true);
+    expect(placementGrows(regions('12150'), complexes(C1))).toBe(true);
     expect(placementGrows(all(), all())).toBe(false);
-    expect(placementGrows(regions('46150'), regions('46150'))).toBe(false);
+    expect(placementGrows(regions('12150'), regions('12150'))).toBe(false);
   });
 
   it('only un-pausing, earlier starts and later ends grow the window', () => {

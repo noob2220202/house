@@ -51,6 +51,23 @@ describe('url', () => {
     expect(isSafeLinkUrl('//evil.com')).toBe(false);
     expect(isSafeLinkUrl('javascript:alert(1)')).toBe(false);
   });
+  it('rejects backslashes and control characters (browsers turn them into //host)', () => {
+    expect(isSafeLinkUrl('/\\evil.com')).toBe(false);
+    expect(isSafeLinkUrl('\\\\evil.com')).toBe(false);
+    expect(isSafeLinkUrl('https://example.com\\@evil.com')).toBe(false);
+    expect(isSafeLinkUrl('/\t/evil.com')).toBe(false);
+    expect(isSafeLinkUrl('/\n/evil.com')).toBe(false);
+    expect(isSafeLinkUrl('/\r/evil.com')).toBe(false);
+    expect(isSafeLinkUrl('/\u0000/evil.com')).toBe(false);
+    expect(isSafeLinkUrl('/a\u007fb')).toBe(false);
+    expect(isSafeLinkUrl('/a\u0085b')).toBe(false);
+    expect(isSafeLinkUrl('/a\u2028b')).toBe(false);
+    expect(isSafeLinkUrl('\ufeffhttps://example.com')).toBe(false);
+    expect(isSafeLinkUrl('https://exa\tmple.com/')).toBe(false);
+    // Ordinary links with query strings and non-ASCII text still pass.
+    expect(isSafeLinkUrl('/notices?page=2#top')).toBe(true);
+    expect(isSafeLinkUrl('https://example.com/순천?q=아파트')).toBe(true);
+  });
   it('parses youtube ids', () => {
     expect(parseYoutubeVideoId('https://youtu.be/dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
     expect(parseYoutubeVideoId('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');

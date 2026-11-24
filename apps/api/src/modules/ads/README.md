@@ -6,6 +6,7 @@ Registered in `AppModule` already — do not edit `app.module.ts`. Read `docs/CO
 
 - **Banners** per `BannerSlot`: title, advertiser (agency optional; must be `APPROVED`), pc + mobile image (media ids, `purpose=BANNER`, READY, PUBLIC — checked with `MediaService.assertUsable(…, tx)` inside the write transaction, replaced/removed images are `released()`), link (`adLinkUrlSchema`: `https://` or site-relative `/path` only), newWindow, start/end, paused, priority, reorderable sortOrder, targeting ALL / REGIONS (법정동 code prefix match) / COMPLEXES.
 - **Status** ACTIVE/PAUSED/SCHEDULED/ENDED is computed (`computeScheduleStatus`), never stored; admin filters use `domain/schedule.ts`. Expiry needs no job: serve caches expire at the next start/end boundary.
+- **Image sizes**: `BANNER_SLOT_SPECS.pc` / `.mobile` are the upload sizes the admin form asks for and `GET /admin/banner-slots` returns. `MAIN_HERO` follows the approved design (D4): desktop frame 1240×220 → upload **2480×440**, mobile frame 358×160 → upload **1074×480**; `MOBILE_MAIN` (the mobile hero slot) uses 1074×480 for both. The server does not reject other dimensions (images are cropped to the frame by the site).
 - **Slot rules**: `BANNER_SLOT_SPECS.requiresAgency` / `requiredTargeting` (COMPLEX_FEATURED_AGENCY: agency mandatory, COMPLEXES targeting only), checked on create and on the merged row of a PATCH.
 - **Slot limits**: `BANNER_SLOT_SPECS` defaults, overridable in `banner_slot_configs` (`maxActive`, `isEnabled`). `maxActive` is **per page context**, like serving: per complex page, per 법정동 page, ALL banners compete everywhere (`domain/slot-capacity.ts`: candidate contexts × sweep line, slot advisory lock) → `409 BANNER_SLOT_FULL` with `details.context` (`{ complexId }`, `{ regionCode }` or `{}`). A PATCH re-checks only when the banner becomes live somewhere/somewhen it was not (un-pause, earlier start, later end, wider targeting); shortening, pausing or narrowing always works. Serving also caps to `maxActive` (highest priority wins, displayed in sortOrder).
 - **Popups**: title, image (`purpose=POPUP`), link, target pages (`ALL` = every page), start/end, paused, "N일 동안 보지 않기" (`dismissDays`), order.
@@ -45,6 +46,7 @@ with the `x-csrf-token` header when logged in (`navigator.sendBeacon` cannot set
 - `controllers/` public + admin controllers · `services/` one service per concern · `ads.mapper.ts` row → view
 - `ports/` media (delegates to `MediaService` from `MediaModule`) + agency/complex/region lookups (Prisma-backed)
 - `domain/` pure helpers (schedule where/TTL, per-context slot capacity, region prefixes, visitor identity, Fetch Metadata check) with unit tests
+- Region targeting codes (`targetRegionCodes`, `?regionCode`) follow 법정동코드 prefixes (12150 = 순천시 since 2026-07-01); legacy `46150…` codes are canonicalized on input and in `regionCodePrefixes`, then deduplicated.
 - `jobs/banner-stats.processor.ts` BullMQ worker on `QUEUES.BANNER_STATS`
 - Shared: `packages/shared/src/schemas/ads.ts`, `errors/ads.ts`, `enums/ads.ts`, `constants/ads.ts`, `ads/` (link/bot/stats helpers + view types)
 

@@ -3,6 +3,7 @@ import { COOKIE_NAMES, ErrorCode, TermsType, UserRole, UserStatus } from '@house
 import { SUSPENDED_PII_RETENTION_DAYS } from '../../../src/modules/auth/auth.constants';
 import { PiiScrubService } from '../../../src/modules/auth/jobs/pii-scrub.service';
 import {
+  createActionConsentTerms,
   createAgency,
   createComplex,
   createListing,
@@ -66,6 +67,33 @@ describe('auth: /me account endpoints (e2e)', () => {
         .send({ phone: null })
         .expect(200);
       expect(cleared.body.phone).toBeNull();
+    });
+
+    it('marketingOptInAt: set when opting in, kept while opted in, cleared on opt-out', async () => {
+      await seedTerms(t.prisma);
+      const { s } = await member();
+      const initial = await withSession(t.http().get('/api/v1/auth/me'), s).expect(200);
+      expect(initial.body).toMatchObject({ marketingOptIn: false, marketingOptInAt: null });
+
+      const before = Date.now();
+      const on = await withSession(t.http().patch('/api/v1/me/profile'), s)
+        .send({ marketingOptIn: true })
+        .expect(200);
+      const at = on.body.marketingOptInAt as string;
+      expect(new Date(at).getTime()).toBeGreaterThanOrEqual(before - 1000);
+
+      // Re-saving the same choice (profile or consent screen) keeps the original date.
+      const again = await withSession(t.http().patch('/api/v1/me/profile'), s)
+        .send({ marketingOptIn: true, nickname: '다시저장' })
+        .expect(200);
+      expect(again.body.marketingOptInAt).toBe(at);
+      const me = await withSession(t.http().get('/api/v1/auth/me'), s).expect(200);
+      expect(me.body.marketingOptInAt).toBe(at);
+
+      const off = await withSession(t.http().patch('/api/v1/me/profile'), s)
+        .send({ marketingOptIn: false })
+        .expect(200);
+      expect(off.body).toMatchObject({ marketingOptIn: false, marketingOptInAt: null });
     });
 
     it('401 without a session', async () => {
@@ -160,6 +188,30 @@ describe('auth: /me account endpoints (e2e)', () => {
       expect(
         (await t.prisma.user.findUniqueOrThrow({ where: { id: user.id } })).marketingOptIn,
       ).toBe(false);
+    });
+
+    it('purpose consents (D8) are not account terms: not listed, not decidable here', async () => {
+      await seedTerms(t.prisma);
+      const purpose = await createActionConsentTerms(t.prisma);
+      const { s } = await member();
+      const status = await withSession(t.http().get('/api/v1/me/consents'), s).expect(200);
+      expect((status.body as { terms: { type: string } }[]).map((c) => c.terms.type)).toEqual([
+        TermsType.SERVICE,
+        TermsType.PRIVACY,
+        TermsType.LOCATION,
+        TermsType.MARKETING,
+      ]);
+      const res = await withSession(t.http().post('/api/v1/me/consents'), s)
+        .send({
+          consents: [
+            {
+              termsDocumentId: purpose.find((d) => d.type === TermsType.DEAL_REQUEST_PRIVACY)?.id,
+              agreed: false,
+            },
+          ],
+        })
+        .expect(400);
+      expect(res.body.code).toBe(ErrorCode.AUTH_TERMS_INVALID);
     });
 
     it('400 when revoking a required document or using an unknown one', async () => {
@@ -409,7 +461,7 @@ describe('auth: /me account endpoints (e2e)', () => {
         INSERT INTO deal_requests (id, type, user_id, status, asset_type, visibility, sgg_code,
                                    contact_name, contact_phone, address_detail, updated_at)
         VALUES (${requestId}::uuid, 'SELL_OR_LEASE', ${user.id}::uuid, 'OPEN', 'APT',
-                'ALL_AGENCIES_IN_REGION', '46150', '홍길동', '01012345678', '101동 1001호', now())`;
+                'ALL_AGENCIES_IN_REGION', '12150', '홍길동', '01012345678', '101동 1001호', now())`;
       await t.prisma.$executeRaw`
         INSERT INTO deal_request_contact_grants (deal_request_id, agency_id)
         VALUES (${requestId}::uuid, ${agency.id}::uuid)`;
@@ -600,6 +652,18 @@ describe('auth: /me account endpoints (e2e)', () => {
       ]);
       expect(res.body[0]).not.toHaveProperty('content');
     });
+
+    it('lists account terms only (purpose consents are read per type)', async () => {
+      const terms = await seedTerms(t.prisma);
+      await createActionConsentTerms(t.prisma);
+      const res = await t.http().get('/api/v1/terms').expect(200);
+      expect((res.body as { id: string }[]).map((d) => d.id)).toEqual([
+        terms.service.id,
+        terms.privacy.id,
+        terms.location.id,
+        terms.marketing.id,
+      ]);
+    });
   });
 
   describe('GET /api/v1/terms/:type', () => {
@@ -613,6 +677,26 @@ describe('auth: /me account endpoints (e2e)', () => {
         .query({ version: terms.privacy.version })
         .expect(200);
       expect(v.body.id).toBe(terms.privacy.id);
+    });
+
+    it('serves the purpose-consent documents (D8) by type, in any spelling', async () => {
+      const docs = await createActionConsentTerms(t.prisma);
+      const byType = new Map(docs.map((d) => [d.type, d]));
+      for (const [path, type] of [
+        ['PRIVACY_AGENCY_APPLICATION', TermsType.PRIVACY_AGENCY_APPLICATION],
+        ['privacy_agency_join', TermsType.PRIVACY_AGENCY_JOIN],
+        ['deal-request-privacy', TermsType.DEAL_REQUEST_PRIVACY],
+        ['DEAL-REQUEST-PROVIDE', TermsType.DEAL_REQUEST_PROVIDE],
+      ] as const) {
+        const res = await t.http().get(`/api/v1/terms/${path}`).expect(200);
+        expect(res.body).toMatchObject({
+          id: byType.get(type)?.id,
+          type,
+          version: '1.0',
+          isRequired: true,
+          content: expect.any(String),
+        });
+      }
     });
 
     it('404 when nothing is published; 400 for an unknown type or bad version', async () => {

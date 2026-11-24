@@ -10,7 +10,14 @@ import type { Job } from 'bullmq';
 import { DEAL_REQUEST_JOBS } from '../../../src/modules/deal-requests/constants';
 import { DealRequestsProcessor } from '../../../src/modules/deal-requests/jobs/deal-requests.processor';
 import { DealRequestMaintenanceService } from '../../../src/modules/deal-requests/services/deal-request-maintenance.service';
-import { createAgency, createMedia, resetAll, withSession, type TestApp } from '../../utils';
+import {
+  createActionConsentTerms,
+  createAgency,
+  createMedia,
+  resetAll,
+  withSession,
+  type TestApp,
+} from '../../utils';
 import {
   agent,
   broker,
@@ -29,7 +36,10 @@ describe('deal-requests: jobs (e2e)', () => {
     ({ t } = await createDealRequestsApp());
     jobs = t.app.get(DealRequestMaintenanceService);
   });
-  beforeEach(() => resetAll(t));
+  beforeEach(async () => {
+    await resetAll(t);
+    await createActionConsentTerms(t.prisma);
+  });
   afterAll(() => t?.close());
 
   const received = (userId: string) =>

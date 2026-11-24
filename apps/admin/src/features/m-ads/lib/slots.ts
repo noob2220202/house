@@ -102,7 +102,7 @@ export const slotLabel = (slot: BannerSlot, slots?: readonly BannerSlotInfo[]) =
 /** True when the slot shows the same creative on phones only (pc spec === mobile spec). */
 export const isMobileOnlySlot = (slot: BannerSlot) => SLOT_META[slot].preview === 'mobile';
 
-/** "PC 1920×520 / 모바일 750×560" */
+/** "PC 2480×440 / 모바일 1074×480" */
 export function slotSpecText(info: Pick<BannerSlotInfo, 'slot' | 'pc' | 'mobile'>): string {
   if (isMobileOnlySlot(info.slot)) return `모바일 ${formatSize(info.pc, '×')}`;
   const pc = `PC ${formatSize(info.pc, '×')}`;

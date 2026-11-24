@@ -136,7 +136,7 @@ export function duplicatePopupToForm(popup: AdminPopup): PopupFormValues {
   };
 }
 
-/** Form values → request body (`popupInputSchema`); see `toBannerInput` for `clear`. */
+/** Form values → request body (`popupCreateSchema` / `popupUpdateSchema`); see `toBannerInput` for `clear`. */
 export function toPopupInput(
   values: PopupFormValues,
   options: { clear?: boolean } = {},

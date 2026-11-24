@@ -2,10 +2,12 @@ import {
   AgencyDocumentType,
   AgencyStatus,
   agencyRegisterSchema,
-  type AgencyRegisterInput,
+  agencyResubmitSchema,
+  type AgencyDocumentInput,
+  type AgencyResubmitInput,
 } from '@house/shared';
 import type { StatusTone } from '@house/ui';
-import type { AgencyRegisterRequest, ConsentRecord } from '../api/queries';
+import type { AgencyRegisterRequest } from '../api/queries';
 import type { AgencyDocument, ApplyFormInput, ApplyFormValues, MyAgency } from '../api/schemas';
 import { businessNumberDigits, formatBusinessNumber } from './registration';
 
@@ -239,12 +241,6 @@ export function applyFormFromAgency(agency: MyAgency): Partial<ApplyFormInput> {
   };
 }
 
-/**
- * Version of the 개인정보 수집·이용 notice shown in the application / join forms. Bump it when
- * the wording of PRIVACY_NOTICE changes so the backend can tell which text was agreed to.
- */
-export const PRIVACY_CONSENT_VERSION = '2026-11-01';
-
 /** Items · purpose · retention of the application privacy notice (shown inline in the form). */
 export const APPLICATION_PRIVACY_NOTICE = {
   items: '대표 공인중개사 성명, 연락처(대표·휴대폰), 사무소 주소, 사업자등록번호, 제출 서류',
@@ -259,17 +255,13 @@ export const JOIN_PRIVACY_NOTICE = {
   retention: '소속 해지 후 5년',
 } as const;
 
-function applicationConsents(): ConsentRecord[] {
-  return [{ type: 'PRIVACY_AGENCY_APPLICATION', version: PRIVACY_CONSENT_VERSION }];
-}
+/** The application body without the consents `registerAgency` adds (D8). */
+const registerBodySchema = agencyRegisterSchema.omit({ consents: true });
 
-/**
- * Form values → request body of POST /agencies (validated by the shared schema; throws ZodError),
- * plus the privacy consent record (ASSUMED addition, see the integration doc).
- */
-export function toRegisterPayload(values: ApplyFormValues): AgencyRegisterRequest {
+/** Shared fields of the register / resubmit bodies, from the form values. */
+function applicationFields(values: ApplyFormValues) {
   const optional = (v: string) => (v.trim() === '' ? undefined : v.trim());
-  const body: AgencyRegisterInput = agencyRegisterSchema.parse({
+  return {
     name: values.name,
     representativeName: values.representativeName,
     registrationNumber: values.registrationNumber,
@@ -283,17 +275,49 @@ export function toRegisterPayload(values: ApplyFormValues): AgencyRegisterReques
     lng: values.lng,
     intro: optional(values.intro),
     specialties: values.specialties,
+  };
+}
+
+const documentRefs = (documents: readonly AgencyDocumentInput[]): AgencyDocumentInput[] =>
+  documents.map((d) => ({ type: d.type, mediaId: d.mediaId }));
+
+/**
+ * Form values + the uploaded documents → request body of POST /agencies (validated by the shared
+ * schema; throws ZodError). The documents go with the application — the server requires the
+ * 중개사무소 등록증 up front. `registerAgency` adds the privacy consent.
+ */
+export function toRegisterPayload(
+  values: ApplyFormValues,
+  documents: readonly AgencyDocumentInput[],
+): AgencyRegisterRequest {
+  return registerBodySchema.parse({
+    ...applicationFields(values),
+    documents: documentRefs(documents),
   });
-  return { ...body, consents: applicationConsents() };
+}
+
+/**
+ * Corrected form values (+ newly uploaded documents, kept next to the attached ones) → request
+ * body of POST /agencies/mine/resubmit (shared `agencyResubmitSchema`; throws ZodError).
+ */
+export function toResubmitPayload(
+  values: ApplyFormValues,
+  documents: readonly AgencyDocumentInput[],
+): AgencyResubmitInput {
+  return agencyResubmitSchema.parse({
+    ...applicationFields(values),
+    documents: documents.length > 0 ? documentRefs(documents) : undefined,
+  });
 }
 
 /**
  * The stored application → resubmit body (the "다시 신청" action of the status screen, after the
- * owner only replaced documents). The owner re-confirms in a dialog before it is sent.
+ * owner only replaced documents — those are attached already). The owner re-confirms in a dialog
+ * before it is sent.
  */
-export function registerPayloadFromAgency(agency: MyAgency): AgencyRegisterRequest {
+export function resubmitPayloadFromAgency(agency: MyAgency): AgencyResubmitInput {
   const optional = (v: string | null | undefined) => (v && v.trim() !== '' ? v.trim() : undefined);
-  const body: AgencyRegisterInput = agencyRegisterSchema.parse({
+  return agencyResubmitSchema.parse({
     name: agency.name,
     representativeName: agency.representativeName,
     registrationNumber: agency.registrationNumber,
@@ -308,7 +332,6 @@ export function registerPayloadFromAgency(agency: MyAgency): AgencyRegisterReque
     intro: optional(agency.intro),
     specialties: agency.specialties,
   });
-  return { ...body, consents: applicationConsents() };
 }
 
 /** Profile completeness for the dashboard nudge: filled items / total, plus what is missing. */

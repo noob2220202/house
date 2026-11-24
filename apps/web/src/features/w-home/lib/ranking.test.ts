@@ -87,7 +87,7 @@ describe('regionRankRow', () => {
   it('links to the map of the category centred on the district', () => {
     const row = regionRankRow(
       popularRegionSchema.parse({
-        code: '4615011500',
+        code: '1215011500',
         name: '석현동',
         emdName: '석현동',
         lat: 34.969,

@@ -52,7 +52,7 @@ Query conventions: `bbox=swLng,swLat,neLng,neLat` (rounded to 4 decimals, span c
 
 ## Assumed endpoints
 
-### `GET /api/v1/regions?sggCode=46150` (new)
+### `GET /api/v1/regions?sggCode=12150` (new)
 
 읍면동 / 지구 of the city with a representative point. Used by the map breadcrumb (the "current"
 region is the closest centre within 2.5 km when zoom ≥ 14) and its picker.
@@ -61,7 +61,7 @@ region is the closest centre within 2.5 km when zoom ≥ 14) and its picker.
 {
   "items": [
     {
-      "code": "4615033028",
+      "code": "1215033028",
       "name": "신대지구",
       "parentName": "해룡면",
       "lat": 34.9215,
@@ -122,9 +122,9 @@ each of its fields) are parsed leniently: an unknown value (`'TWOROOM'`, a Korea
   "kind": "REGION_CLUSTERS | GRID_CLUSTERS | MARKERS", // mapResultKindForZoom(zoom)
   "clusters": [
     {
-      "id": "4615012100",
+      "id": "1215012100",
       "name": "연향동",
-      "regionCode": "4615012100",
+      "regionCode": "1215012100",
       "lat": 34.947,
       "lng": 127.53,
       "count": 412,

@@ -1,3 +1,4 @@
+import type { TermsType } from '@house/shared';
 import { mockUuid } from '@/lib/mock';
 
 /**
@@ -8,7 +9,7 @@ import { mockUuid } from '@/lib/mock';
  */
 export interface MockTermsDocument {
   id: string;
-  type: 'SERVICE' | 'PRIVACY' | 'LOCATION' | 'MARKETING';
+  type: TermsType;
   version: string;
   title: string;
   isRequired: boolean;
@@ -82,3 +83,41 @@ export const MOCK_TERMS: readonly MockTermsDocument[] = [
     ].join('\n\n'),
   },
 ];
+
+/**
+ * Purpose consents (D8) — given with one submission (등록 신청, 합류, 내놓기·구하기), never on the
+ * signup screen, so they are not part of MOCK_TERMS (GET /terms, /me/consents). Served by
+ * GET /terms/:type like the seeded sample documents of the real API (version 1.0).
+ */
+export const MOCK_ACTION_CONSENT_TERMS: readonly MockTermsDocument[] = (
+  [
+    [
+      'PRIVACY_AGENCY_APPLICATION',
+      '중개사무소 등록 신청 개인정보 수집·이용 동의',
+      '1. 수집 항목\n대표 공인중개사 성명, 연락처(대표·휴대폰), 사무소 주소, 사업자등록번호, 제출 서류\n\n2. 수집·이용 목적\n중개사무소 등록 심사, 심사 결과 안내, 중개사 회원 관리\n\n3. 보유 기간\n회원 탈퇴 또는 등록 해지 후 5년 (반려된 신청은 반려 후 1년)',
+    ],
+    [
+      'PRIVACY_AGENCY_JOIN',
+      '소속 중개사 합류 개인정보 수집·이용 동의',
+      '1. 수집 항목\n이름, 휴대폰 번호, 공인중개사 자격 정보\n\n2. 수집·이용 목적\n소속 중개사 등록, 매물 표시, 고용 신고 안내\n\n3. 보유 기간\n소속 해지 후 5년',
+    ],
+    [
+      'DEAL_REQUEST_PRIVACY',
+      '내놓기·구하기 개인정보 수집·이용 동의',
+      '1. 수집 항목\n이름, 연락처, 매물 주소·조건\n\n2. 수집·이용 목적\n내놓기·구하기 요청 접수와 중개사무소 연결\n\n3. 보유 기간\n요청 종료 후 1년',
+    ],
+    [
+      'DEAL_REQUEST_PROVIDE',
+      '내놓기·구하기 개인정보 제3자 제공 동의',
+      '1. 제공받는 자\n요청을 받는 순천시 중개사무소\n\n2. 제공 항목\n이름, 연락처, 매물 주소·조건\n\n3. 이용 목적·보유 기간\n중개 상담, 요청 종료 후 1년',
+    ],
+  ] as const
+).map(([type, title, body]) => ({
+  id: mockUuid(`terms-${type.toLowerCase()}-1.0`),
+  type,
+  version: '1.0',
+  title,
+  isRequired: true,
+  effectiveAt: '2026-11-24T00:00:00+09:00',
+  content: [NOTICE, body].join('\n\n'),
+}));

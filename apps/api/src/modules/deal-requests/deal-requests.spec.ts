@@ -36,9 +36,9 @@ function baseRow(over: Partial<DealRequestBaseRow> = {}): DealRequestBaseRow {
     assetType: AssetType.APT,
     dealTypes: [DealType.SALE],
     visibility: DealRequestVisibility.ALL_AGENCIES_IN_REGION,
-    sggCode: '46150',
-    emdCode: '4615010100',
-    roadAddress: '전라남도 순천시 중앙로 1',
+    sggCode: '12150',
+    emdCode: '1215010100',
+    roadAddress: '전남광주통합특별시 순천시 중앙로 1',
     complex: null,
     lat: 34.95,
     lng: 127.48,
@@ -177,13 +177,13 @@ describe('maskName', () => {
 });
 
 describe('agency visibility', () => {
-  const scope = { agencyId: AGENCY, sggCode: '46150' };
+  const scope = { agencyId: AGENCY, sggCode: '12150' };
 
   it('covers proposed requests and open region/targeted requests, never deleted ones', () => {
     const w = agencyVisibleWhere(scope, NOW);
     expect(w.deletedAt).toBeNull();
     expect(w.OR).toHaveLength(2);
-    expect(JSON.stringify(w)).toContain('"sggCode":"46150"');
+    expect(JSON.stringify(w)).toContain('"sggCode":"12150"');
     expect(JSON.stringify(w)).toContain(`"targets":{"some":{"agencyId":"${AGENCY}"}}`);
     expect(JSON.stringify(w)).toContain(NOW.toISOString());
   });

@@ -2,6 +2,8 @@
 import { z } from 'zod';
 import { AgencyDocumentType, AgencyStatus } from '../enums/agency';
 import { AssetType } from '../enums/listing';
+import { ACTION_CONSENT_TERMS } from '../enums/user';
+import { actionConsentsSchema } from '../schemas/auth';
 import {
   bboxSchema,
   contactPhoneSchema,
@@ -126,6 +128,8 @@ export const agencyRegisterSchema = z.object({
     (docs) => docs.some((d) => d.type === AgencyDocumentType.REGISTRATION_CERT),
     { message: '중개사무소 등록증을 첨부해 주세요.' },
   ),
+  /** 개인정보 수집·이용 동의 (PRIVACY_AGENCY_APPLICATION, current version) — required by the server. */
+  consents: actionConsentsSchema(ACTION_CONSENT_TERMS.AGENCY_APPLICATION),
 });
 export type AgencyRegisterInput = z.infer<typeof agencyRegisterSchema>;
 
@@ -265,6 +269,8 @@ export const agencyJoinSchema = z.object({
         ),
     ),
   ...memberProfileFields,
+  /** 개인정보 수집·이용 동의 (PRIVACY_AGENCY_JOIN, current version) — required by the server. */
+  consents: actionConsentsSchema(ACTION_CONSENT_TERMS.AGENCY_JOIN),
 });
 export type AgencyJoinInput = z.infer<typeof agencyJoinSchema>;
 

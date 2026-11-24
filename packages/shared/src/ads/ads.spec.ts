@@ -1,3 +1,4 @@
+import { BANNER_SLOT_SPECS } from '../constants/ads';
 import { bannerCreateSchema, bannerUpdateSchema, popupCreateSchema } from '../schemas/ads';
 import { isBotUserAgent } from './bot';
 import { isSafeAdLinkUrl, resolveAdLink } from './link';
@@ -11,7 +12,7 @@ describe('isSafeAdLinkUrl', () => {
     'https://example.com',
     'https://example.com/path?q=1#x',
     '/listings/123',
-    '/complexes?region=46150',
+    '/complexes?region=12150',
   ])('accepts %s', (url) => expect(isSafeAdLinkUrl(url)).toBe(true));
 
   it.each([
@@ -139,9 +140,10 @@ describe('ad schemas', () => {
     const r = bannerCreateSchema.parse({
       ...base,
       targeting: 'REGIONS',
-      targetRegionCodes: ['46150', '46150'],
+      targetRegionCodes: ['12150', '46150', '4615031022'],
     });
-    expect(r.targetRegionCodes).toEqual(['46150']);
+    // Legacy 46150… codes are canonicalized first, then deduplicated.
+    expect(r.targetRegionCodes).toEqual(['12150', '1215031022']);
   });
 
   it('update requires at least one known field and allows null to clear', () => {
@@ -156,5 +158,14 @@ describe('ad schemas', () => {
     expect(popupCreateSchema.parse({ ...p, targetPages: ['MAIN', 'MAIN'] }).targetPages).toEqual([
       'MAIN',
     ]);
+  });
+});
+
+describe('BANNER_SLOT_SPECS', () => {
+  it('uses the approved hero sizes (D4): 2× the 1240×220 desktop frame, 3× the 358×160 mobile frame', () => {
+    expect(BANNER_SLOT_SPECS.MAIN_HERO.pc).toEqual({ width: 2480, height: 440 });
+    expect(BANNER_SLOT_SPECS.MAIN_HERO.mobile).toEqual({ width: 1074, height: 480 });
+    expect(BANNER_SLOT_SPECS.MOBILE_MAIN.pc).toEqual({ width: 1074, height: 480 });
+    expect(BANNER_SLOT_SPECS.MOBILE_MAIN.mobile).toEqual({ width: 1074, height: 480 });
   });
 });

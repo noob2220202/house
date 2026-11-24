@@ -306,7 +306,7 @@ describe('content: notices / FAQ / videos / site settings (e2e)', () => {
       ceoName: '홍길동',
       businessNumber: '123-45-67890',
       mailOrderNumber: '제2026-전남순천-0001호',
-      address: '전라남도 순천시 중앙로 1',
+      address: '전남광주통합특별시 순천시 중앙로 1',
       privacyOfficer: '김개인',
       phone: '061-123-4567',
       email: 'help@example.com',
@@ -347,6 +347,66 @@ describe('content: notices / FAQ / videos / site settings (e2e)', () => {
       expect(audits[0]?.before).toMatchObject({ value: null });
     });
 
+    it('HOME_LAYOUT and APP_LINKS (D9) are validated and served publicly', async () => {
+      const { session } = await adminActor(t, AdminRole.ADMIN);
+      const layout = {
+        sections: [
+          { key: 'HERO_SEARCH', visible: true },
+          { key: 'MAIN_BANNER', visible: true },
+          { key: 'CATEGORY_TILES', visible: true },
+          { key: 'POPULAR_COMPLEXES', visible: false },
+          { key: 'NEW_LISTINGS', visible: true },
+          { key: 'DEAL_REQUEST_CTA', visible: true },
+          { key: 'FEATURED_AGENCIES', visible: true },
+          { key: 'LOCAL_VIDEOS', visible: true },
+          { key: 'NOTICES', visible: true },
+          { key: 'APP_BAND', visible: true },
+        ],
+      };
+      await as(t, session, 'put', '/admin/site-settings/HOME_LAYOUT').send(layout).expect(200);
+      const links = {
+        iosUrl: 'https://apps.apple.com/kr/app/id0000000000',
+        androidUrl: null,
+      };
+      const put = await as(t, session, 'put', '/admin/site-settings/APP_LINKS')
+        .send(links)
+        .expect(200);
+      // null clears a link (stored without the key).
+      expect(put.body.value).toEqual({ iosUrl: links.iosUrl });
+      const pub = await t.http().get(api('/site-settings/public')).expect(200);
+      expect(pub.body).toEqual({ HOME_LAYOUT: layout, APP_LINKS: { iosUrl: links.iosUrl } });
+
+      for (const bad of [
+        { sections: [] },
+        { sections: [{ key: 'UNKNOWN', visible: true }] },
+        {
+          sections: [
+            { key: 'NOTICES', visible: true },
+            { key: 'NOTICES', visible: false },
+          ],
+        },
+        { sections: [{ key: 'NOTICES', visible: 'yes' }] },
+      ]) {
+        const res = await as(t, session, 'put', '/admin/site-settings/HOME_LAYOUT')
+          .send(bad)
+          .expect(400);
+        expectCode(res, ErrorCode.SETTING_INVALID);
+      }
+      for (const iosUrl of [
+        'http://apps.apple.com/app',
+        'javascript:alert(1)',
+        '/relative/path',
+        'https://user:pw@apps.apple.com/app',
+        'https://apps.apple.com\\@evil.example/app',
+      ]) {
+        const res = await as(t, session, 'put', '/admin/site-settings/APP_LINKS')
+          .send({ iosUrl })
+          .expect(400);
+        expectCode(res, ErrorCode.SETTING_INVALID);
+        expect(res.body.details[0].path).toBe('iosUrl');
+      }
+    });
+
     it('validation failures (400)', async () => {
       const { session } = await adminActor(t, AdminRole.ADMIN);
       const bad = await as(t, session, 'put', '/admin/site-settings/BUSINESS_INFO')
@@ -359,6 +419,13 @@ describe('content: notices / FAQ / videos / site settings (e2e)', () => {
       await as(t, session, 'put', '/admin/site-settings/CONTACT')
         .send({ phone: '1588-0000', email: 'a@b.co', kakaoChannelUrl: 'javascript:x' })
         .expect(400);
+      // Backslashes / control characters would turn a site path into an off-site link.
+      for (const url of ['/\\evil.example', '/\t/evil.example']) {
+        const footer = await as(t, session, 'put', '/admin/site-settings/FOOTER')
+          .send({ links: [{ label: '이용약관', url }] })
+          .expect(400);
+        expectCode(footer, ErrorCode.SETTING_INVALID);
+      }
     });
 
     it('authz: ADMIN+ only (operators get 403)', async () => {

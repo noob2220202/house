@@ -25,6 +25,7 @@ import {
 } from '../listing.selects';
 import { FavoritesService } from './favorites.service';
 import { ListingViewsService } from './listing-views.service';
+import { ListingRegionNamesService } from './listing-region-names.service';
 import { ListingSummariesService } from './listing-summaries.service';
 import { RecentViewsService } from './recent-views.service';
 
@@ -39,6 +40,7 @@ export class ListingQueryService {
     private readonly recent: RecentViewsService,
     private readonly favorites: FavoritesService,
     private readonly summaries: ListingSummariesService,
+    private readonly regionNames: ListingRegionNamesService,
     private readonly cache: CacheService,
   ) {}
 
@@ -94,11 +96,12 @@ export class ListingQueryService {
     });
     if (!row) throw AppException.notFound(ErrorCode.LISTING_NOT_FOUND);
     const userId = principal?.kind === 'USER' ? principal.userId : null;
-    const [viewCount, isFavorite] = await Promise.all([
+    const [viewCount, isFavorite, emdName] = await Promise.all([
       this.views.record(row.id, this.views.viewerKey(principal), row.viewCount),
       userId ? this.favorites.isFavorite(userId, row.id) : Promise.resolve(false),
+      this.regionNames.nameOf(row.emdCode),
       userId ? this.recent.record(userId, RecentViewTarget.LISTING, row.id) : Promise.resolve(),
     ]);
-    return { ...this.mapper.publicDetail(row, isFavorite), viewCount };
+    return { ...this.mapper.publicDetail(row, isFavorite, emdName), viewCount };
   }
 }

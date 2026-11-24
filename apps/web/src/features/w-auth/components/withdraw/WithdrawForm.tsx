@@ -80,7 +80,7 @@ export function WithdrawForm({ user }: WithdrawFormProps) {
 
   const withdraw = useMutation({
     mutationFn: (values: WithdrawFormValues) =>
-      withdrawAccount({ reason: buildWithdrawReason(values.reason, values.detail) }),
+      withdrawAccount({ confirm: true, reason: buildWithdrawReason(values.reason, values.detail) }),
     onSuccess: () => {
       clearRecentProvider();
       queryClient.clear();

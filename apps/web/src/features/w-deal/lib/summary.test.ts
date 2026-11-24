@@ -43,7 +43,7 @@ const sell = parse({
 const wanted = parse({
   type: 'WANTED',
   dealTypes: ['JEONSE', 'MONTHLY'],
-  regionCodes: ['4615012000', '4615012100', '4615033028'],
+  regionCodes: ['1215012000', '1215012100', '1215033028'],
   depositMax: 20000,
   rentMin: 40,
   rentMax: 60,
@@ -103,11 +103,11 @@ describe('regions', () => {
   it('has unique 10-digit codes inside 순천시 and resolves names', () => {
     const codes = SUNCHEON_REGIONS.map((r) => r.code);
     expect(new Set(codes).size).toBe(codes.length);
-    expect(codes.every((c) => /^46150\d{5}$/.test(c))).toBe(true);
-    expect(regionName('4615012100')).toBe('연향동');
+    expect(codes.every((c) => /^12150\d{5}$/.test(c))).toBe(true);
+    expect(regionName('1215012100')).toBe('연향동');
     expect(regionName('9999999999')).toBe('9999999999');
     expect(regionSummary([])).toBe('');
-    expect(regionSummary(['4615033028', '4615033029'])).toBe('신대지구 · 선월지구');
+    expect(regionSummary(['1215033028', '1215033029'])).toBe('신대지구 · 선월지구');
   });
 
   it('builds picker options from the backend regions with the preset presentation', () => {
@@ -126,7 +126,7 @@ describe('regions', () => {
     expect(options[2]?.hint).toBe('해룡면');
     const nameOf = regionNamer(options);
     expect(nameOf('1215013200')).toBe('왕지동');
-    expect(nameOf('4615012100')).toBe('연향동');
+    expect(nameOf('1215012100')).toBe('연향동');
     expect(regionSummary(['1215013200', '1215099900'], 2, nameOf)).toBe('왕지동 · 새동네');
   });
 });
@@ -150,7 +150,7 @@ describe('postcode helpers', () => {
         roadAddress: '',
         autoRoadAddress: '전남 순천시 해룡면 신대2로 40',
         jibunAddress: '전남 순천시 해룡면 신대리 1970',
-        bcode: '4615031028',
+        bcode: '1215031028',
         buildingName: '레이크파크',
         apartment: 'Y',
         userSelectedType: 'J',
@@ -159,12 +159,29 @@ describe('postcode helpers', () => {
       roadAddress: '전남 순천시 해룡면 신대2로 40',
       jibunAddress: '전남 순천시 해룡면 신대리 1970',
       zonecode: '58023',
-      bcode: '4615031028',
+      bcode: '1215031028',
       buildingName: '레이크파크',
     });
   });
-  it('accepts 순천 addresses with the old (46150) and the new (12150) 시군구 codes', () => {
+  it('canonicalizes a legacy 46150 postcode result to the 12150 code space (D1)', () => {
+    expect(
+      toPickedAddress({
+        zonecode: '58023',
+        roadAddress: '전남 순천시 해룡면 신대2로 40',
+        jibunAddress: '',
+        bcode: '4615031028',
+        sigunguCode: '46150',
+        buildingName: '',
+        apartment: 'N',
+        userSelectedType: 'R',
+      }),
+    ).toMatchObject({ bcode: '1215031028', sigunguCode: '12150' });
     expect(inServiceArea({ bcode: '4615031028' })).toBe(true);
+    expect(serviceRegionCodesOf('4615031028')).toEqual(['1215031028']);
+    expect(serviceRegionCodesOf('4613010100')).toEqual([]);
+  });
+  it('accepts 순천 addresses with the 12150 시군구 code', () => {
+    expect(inServiceArea({ bcode: '1215031028' })).toBe(true);
     // Kakao postcode since the 전남·광주 통합: sido "전남광주통합특별시", sigunguCode 12150.
     expect(inServiceArea({ bcode: '1215013200', sigungu: '순천시', sigunguCode: '12150' })).toBe(
       true,

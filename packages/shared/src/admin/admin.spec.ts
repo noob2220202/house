@@ -1,4 +1,5 @@
 import {
+  HomeSectionKey,
   ReportAction,
   ReportReason,
   ReportStatus,
@@ -202,6 +203,55 @@ describe('admin schemas', () => {
         links: [{ label: 'x', url: 'javascript:alert(1)' }],
       }).success,
     ).toBe(false);
+  });
+
+  it('HOME_LAYOUT (D9): known section keys, each once, at least one', () => {
+    const layout = siteSettingSchemas[SiteSettingKey.HOME_LAYOUT];
+    const all = Object.values(HomeSectionKey).map((key) => ({ key, visible: true }));
+    expect(layout.parse({ sections: all }).sections).toHaveLength(10);
+    // A subset is fine: unlisted sections keep their default place.
+    expect(layout.safeParse({ sections: [{ key: 'NOTICES', visible: false }] }).success).toBe(true);
+    for (const sections of [
+      [],
+      [{ key: 'UNKNOWN', visible: true }],
+      [
+        { key: 'NOTICES', visible: true },
+        { key: 'NOTICES', visible: false },
+      ],
+      [{ key: 'NOTICES' }],
+    ]) {
+      expect(layout.safeParse({ sections }).success).toBe(false);
+    }
+    // The admin editor's keys (apps/admin m-content HOME_SECTION_KEYS) in the default order.
+    expect(Object.values(HomeSectionKey)).toEqual([
+      'HERO_SEARCH',
+      'CATEGORY_TILES',
+      'MAIN_BANNER',
+      'POPULAR_COMPLEXES',
+      'NEW_LISTINGS',
+      'DEAL_REQUEST_CTA',
+      'FEATURED_AGENCIES',
+      'LOCAL_VIDEOS',
+      'NOTICES',
+      'APP_BAND',
+    ]);
+  });
+
+  it('APP_LINKS (D9): optional https store links; null clears one', () => {
+    const links = siteSettingSchemas[SiteSettingKey.APP_LINKS];
+    expect(links.parse({})).toEqual({});
+    expect(
+      links.parse({ iosUrl: ' https://apps.apple.com/kr/app/id1 ', androidUrl: null }),
+    ).toEqual({ iosUrl: 'https://apps.apple.com/kr/app/id1' });
+    for (const url of [
+      'http://play.google.com/store/apps/details?id=x',
+      '/app',
+      'javascript:alert(1)',
+      'https://u:p@apps.apple.com/app',
+      'https://apps.apple.com\\@evil.example',
+    ]) {
+      expect(links.safeParse({ androidUrl: url }).success).toBe(false);
+    }
   });
 });
 

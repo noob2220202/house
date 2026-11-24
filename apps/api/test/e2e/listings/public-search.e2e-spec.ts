@@ -64,6 +64,62 @@ describe('public listing search (e2e)', () => {
       expect(p2.body).toMatchObject({ total: 2, totalPages: 2, items: [{ id: older.listing.id }] });
     });
 
+    it("names each listing's 법정동 (emdName) from the regions table", async () => {
+      const { agency } = await agencyWithOwner(t);
+      // 읍면동 as the 8-digit 행안부 code (the listing carries the 10-digit form), and a 리 row.
+      await t.prisma.region.create({
+        data: {
+          code: EMD_CODE.slice(0, 8),
+          name: '남내동',
+          fullName: '전남광주통합특별시 순천시 남내동',
+          level: RegionLevel.EMD,
+        },
+      });
+      await t.prisma.region.create({
+        data: {
+          code: '12150310',
+          name: '해룡면',
+          fullName: '전남광주통합특별시 순천시 해룡면',
+          level: RegionLevel.EMD,
+        },
+      });
+      await t.prisma.region.create({
+        data: {
+          code: '1215031022',
+          name: '신대리',
+          fullName: '전남광주통합특별시 순천시 해룡면 신대리',
+          level: RegionLevel.RI,
+          parentCode: '12150310',
+        },
+      });
+      const emd = await seedListing(t, agency.id, {
+        listing: { publishedAt: new Date('2026-03-03T00:00:00Z') },
+      });
+      const ri = await seedListing(t, agency.id, {
+        property: { emdCode: '1215031022' },
+        listing: { emdCode: '1215031022', publishedAt: new Date('2026-03-02T00:00:00Z') },
+      });
+      const unknown = await seedListing(t, agency.id, {
+        property: { emdCode: OTHER_EMD_CODE },
+        listing: { emdCode: OTHER_EMD_CODE, publishedAt: new Date('2026-03-01T00:00:00Z') },
+      });
+
+      const res = await t.http().get('/api/v1/listings').expect(200);
+      expect(
+        (res.body.items as { id: string; emdCode: string; emdName: string | null }[]).map((i) => [
+          i.id,
+          i.emdCode,
+          i.emdName,
+        ]),
+      ).toEqual([
+        [emd.listing.id, EMD_CODE, '남내동'],
+        [ri.listing.id, '1215031022', '해룡면 신대리'],
+        [unknown.listing.id, OTHER_EMD_CODE, null],
+      ]);
+      const detail = await t.http().get(`/api/v1/listings/${ri.listing.id}`).expect(200);
+      expect(detail.body.emdName).toBe('해룡면 신대리');
+    });
+
     it('applies filters and every sort (nulls last)', async () => {
       const { agency } = await agencyWithOwner(t);
       const cheap = await seedListing(t, agency.id, {
@@ -223,7 +279,7 @@ describe('public listing search (e2e)', () => {
         data: {
           code: EMD_CODE,
           name: '연향동',
-          fullName: '전라남도 순천시 연향동',
+          fullName: '전남광주통합특별시 순천시 연향동',
           level: RegionLevel.EMD,
           lat: 34.951,
           lng: 127.512,

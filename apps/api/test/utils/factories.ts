@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
+  ACTION_CONSENT_TERMS,
   AdminRole,
   AgencyMemberRole,
   AgencyStatus,
@@ -10,8 +11,18 @@ import {
   ListingStatus,
   MediaPurpose,
   UserRole,
+  type ConsentAction,
 } from '@house/shared';
-import type { Agency, AdminUser, Complex, Listing, Media, Property, User } from '@prisma/client';
+import type {
+  Agency,
+  AdminUser,
+  Complex,
+  Listing,
+  Media,
+  Property,
+  TermsDocument,
+  User,
+} from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import type { PrismaService } from '../../src/prisma/prisma.service';
 
@@ -71,7 +82,7 @@ export async function createAgency(
       representativeName: `대표${n}`,
       registrationNumber: `${DEFAULT_SGG_CODE}-2026-${String(n).padStart(5, '0')}-${suffix()}`,
       phone: '0617491234',
-      roadAddress: `전라남도 순천시 테스트로 ${n}`,
+      roadAddress: `전남광주통합특별시 순천시 테스트로 ${n}`,
       sggCode: DEFAULT_SGG_CODE,
       lat: DEFAULT_MAP_CENTER.lat,
       lng: DEFAULT_MAP_CENTER.lng,
@@ -101,7 +112,7 @@ export async function createComplex(
   return prisma.complex.create({
     data: {
       name: `테스트아파트${n}`,
-      roadAddress: `전라남도 순천시 단지로 ${n}`,
+      roadAddress: `전남광주통합특별시 순천시 단지로 ${n}`,
       sggCode: DEFAULT_SGG_CODE,
       lat: DEFAULT_MAP_CENTER.lat,
       lng: DEFAULT_MAP_CENTER.lng,
@@ -124,7 +135,7 @@ export async function createListing(
     const property = await tx.property.create({
       data: {
         assetType: AssetType.APT,
-        roadAddress: `전라남도 순천시 매물로 ${n}`,
+        roadAddress: `전남광주통합특별시 순천시 매물로 ${n}`,
         sggCode: DEFAULT_SGG_CODE,
         lat: DEFAULT_MAP_CENTER.lat,
         lng: DEFAULT_MAP_CENTER.lng,
@@ -182,4 +193,44 @@ export async function createMedia(
       ...data,
     },
   });
+}
+
+/** Version of the purpose-consent documents created by createActionConsentTerms. */
+export const ACTION_CONSENT_VERSION = '1.0';
+
+/**
+ * Published, effective purpose-consent documents (D8) for every action: POST /agencies,
+ * /agencies/join and /deal-requests refuse to run without them (503 AUTH_CONSENT_UNAVAILABLE).
+ */
+export async function createActionConsentTerms(
+  prisma: PrismaService,
+  version: string = ACTION_CONSENT_VERSION,
+): Promise<TermsDocument[]> {
+  const past = new Date(Date.now() - 86_400_000);
+  const types = [...new Set(Object.values(ACTION_CONSENT_TERMS).flat())];
+  const docs: TermsDocument[] = [];
+  for (const type of types) {
+    docs.push(
+      await prisma.termsDocument.create({
+        data: {
+          type,
+          version,
+          title: `${type} 동의`,
+          content: `${type} 견본`,
+          isRequired: true,
+          effectiveAt: past,
+          publishedAt: past,
+        },
+      }),
+    );
+  }
+  return docs;
+}
+
+/** `consents` body field agreeing to the given action's documents at `version`. */
+export function actionConsents(
+  action: ConsentAction,
+  version: string = ACTION_CONSENT_VERSION,
+): { type: string; version: string }[] {
+  return ACTION_CONSENT_TERMS[action].map((type) => ({ type, version }));
 }

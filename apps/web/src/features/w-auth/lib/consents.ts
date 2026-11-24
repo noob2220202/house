@@ -18,6 +18,11 @@ export const CONSENT_COPY: Record<TermsType, { label: string; hint?: string }> =
     label: '마케팅 정보 수신',
     hint: '새 분양 소식, 이벤트 안내 · 동의하지 않아도 가입할 수 있어요',
   },
+  // Purpose consents (D8): given with one submission, never on the signup screen.
+  PRIVACY_AGENCY_APPLICATION: { label: '중개사무소 등록 신청 개인정보 수집·이용' },
+  PRIVACY_AGENCY_JOIN: { label: '소속 중개사 합류 개인정보 수집·이용' },
+  DEAL_REQUEST_PRIVACY: { label: '내놓기·구하기 개인정보 수집·이용' },
+  DEAL_REQUEST_PROVIDE: { label: '개인정보 제3자(중개사무소) 제공' },
 };
 
 export type ConsentState = Partial<Record<TermsType, boolean>>;

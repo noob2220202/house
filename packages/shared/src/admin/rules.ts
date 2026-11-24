@@ -11,6 +11,8 @@ export const PUBLIC_SITE_SETTING_KEYS: readonly SiteSettingKey[] = [
   SiteSettingKey.SEO,
   SiteSettingKey.FEATURES,
   SiteSettingKey.FOOTER,
+  SiteSettingKey.HOME_LAYOUT,
+  SiteSettingKey.APP_LINKS,
 ];
 
 /** Reports in these states still wait for a decision. */

@@ -1,4 +1,9 @@
-import { registrationNumberKey, type BrokerRegistryRecord } from '@house/shared';
+import {
+  canonicalRegionCode,
+  legacyRegionCode,
+  registrationNumberKey,
+  type BrokerRegistryRecord,
+} from '@house/shared';
 import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { AppConfig } from '../../../config/app-config.service';
@@ -104,15 +109,37 @@ export class VworldBrokerRegistryClient implements BrokerRegistryClient {
     return Boolean(this.apiKey);
   }
 
+  /**
+   * Looks the office up under the current 시군구 code (12150) first. Whether 브이월드 already files
+   * offices registered before the 2026-07-01 reorganisation under the new code is not documented,
+   * so when no office matches, the legacy code (46150) is asked once more.
+   */
   async findByRegistrationNumber(
     registrationNumber: string,
     sggCode: string,
   ): Promise<BrokerRegistryRecord | null> {
     if (!this.apiKey) throw new BrokerRegistryUnavailableError('registry lookup not configured');
+    const ldCode = canonicalRegionCode(sggCode);
+    const found = await this.lookup(this.apiKey, registrationNumber, ldCode);
+    const legacy = found ? null : legacyRegionCode(ldCode);
+    if (!legacy) return found;
+    const retried = await this.lookup(this.apiKey, registrationNumber, legacy);
+    this.logger.warn(
+      { ldCode, legacyLdCode: legacy, found: retried !== null },
+      'broker registry had no office under the current 시군구 code; retried with the legacy code',
+    );
+    return retried;
+  }
+
+  private async lookup(
+    apiKey: string,
+    registrationNumber: string,
+    ldCode: string,
+  ): Promise<BrokerRegistryRecord | null> {
     const url = new URL(ENDPOINT);
-    url.searchParams.set('key', this.apiKey);
+    url.searchParams.set('key', apiKey);
     url.searchParams.set('domain', this.domain);
-    url.searchParams.set('ldCode', sggCode);
+    url.searchParams.set('ldCode', ldCode);
     url.searchParams.set('jurirno', registrationNumber);
     url.searchParams.set('format', 'json');
     url.searchParams.set('numOfRows', '10');

@@ -27,7 +27,7 @@ const validRegistration = {
   registrationNumber: '제46150-2020-00012호',
   businessNumber: '220-81-62517',
   phone: '061-749-1234',
-  roadAddress: '전라남도 순천시 중앙로 100',
+  roadAddress: '전남광주통합특별시 순천시 중앙로 100',
   lat: 34.95,
   lng: 127.48,
   documents: [{ type: 'REGISTRATION_CERT', mediaId: MEDIA_ID }],
@@ -97,6 +97,38 @@ describe('agency schemas', () => {
     expect(r.registrationNumber).toBe('46150-2020-00012');
     expect(r.businessNumber).toBe('2208162517');
     expect(r.phone).toBe('0617491234');
+  });
+
+  it('takes the 개인정보 동의 as consents [{ type, version }] (D8; presence is checked by the API)', () => {
+    expect(agencyRegisterSchema.parse(validRegistration).consents).toEqual([]);
+    const consents = [{ type: 'PRIVACY_AGENCY_APPLICATION', version: '1.0' }];
+    expect(agencyRegisterSchema.parse({ ...validRegistration, consents }).consents).toEqual(
+      consents,
+    );
+    for (const bad of [
+      [{ type: 'PRIVACY_AGENCY_JOIN', version: '1.0' }],
+      [{ type: 'PRIVACY_AGENCY_APPLICATION', version: '' }],
+      [{ type: 'PRIVACY_AGENCY_APPLICATION', version: "1' OR 1=1" }],
+      [...consents, ...consents],
+    ]) {
+      expect(agencyRegisterSchema.safeParse({ ...validRegistration, consents: bad }).success).toBe(
+        false,
+      );
+    }
+    expect(
+      agencyJoinSchema.parse({
+        code: 'ABCDEFGHJK',
+        displayName: '김실장',
+        consents: [{ type: 'PRIVACY_AGENCY_JOIN', version: '2026-11-01' }],
+      }).consents,
+    ).toEqual([{ type: 'PRIVACY_AGENCY_JOIN', version: '2026-11-01' }]);
+    expect(
+      agencyJoinSchema.safeParse({
+        code: 'ABCDEFGHJK',
+        displayName: '김실장',
+        consents: [{ type: 'PRIVACY_AGENCY_APPLICATION', version: '1.0' }],
+      }).success,
+    ).toBe(false);
   });
 
   it('requires a 등록증 and rejects duplicate files', () => {
@@ -205,18 +237,18 @@ describe('disclosure', () => {
     const d = toAgencyDisclosure({
       id: 'a1',
       name: '순천공인중개사',
-      roadAddress: '전라남도 순천시 중앙로 1',
+      roadAddress: '전남광주통합특별시 순천시 중앙로 1',
       addressDetail: '2층',
       phone: '0617491234',
       registrationNumber: '46150-2020-00012',
       representativeName: '홍길동',
     });
-    expect(d.address).toBe('전라남도 순천시 중앙로 1 2층');
+    expect(d.address).toBe('전남광주통합특별시 순천시 중앙로 1 2층');
     expect(d.roadAddress).toBe(d.address);
     expect(agencyDisclosureLines(d).map((l) => l.value)).toEqual([
       '순천공인중개사',
       '홍길동',
-      '전라남도 순천시 중앙로 1 2층',
+      '전남광주통합특별시 순천시 중앙로 1 2층',
       '46150-2020-00012',
       '061-749-1234',
     ]);

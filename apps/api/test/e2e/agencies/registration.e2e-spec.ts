@@ -1,12 +1,16 @@
 import {
   AgencyDocumentType,
   AgencyStatus,
+  ErrorCode,
   MediaPurpose,
   MediaVisibility,
+  TermsType,
   UserRole,
 } from '@house/shared';
 import { SessionService } from '../../../src/modules/auth/session/session.service';
 import {
+  actionConsents,
+  createActionConsentTerms,
   createAgency,
   createMedia,
   createTestApp,
@@ -24,7 +28,10 @@ describe('agencies: registration & my agency (e2e)', () => {
   beforeAll(async () => {
     t = await createTestApp();
   });
-  beforeEach(() => resetAll(t));
+  beforeEach(async () => {
+    await resetAll(t);
+    await createActionConsentTerms(t.prisma);
+  });
   afterAll(() => t?.close());
 
   it('runs against its own database and Redis index', async () => {
@@ -49,7 +56,7 @@ describe('agencies: registration & my agency (e2e)', () => {
         phone: '0617491234',
         mobile: '01012345678',
         status: AgencyStatus.PENDING,
-        emdCode: '46150101',
+        emdCode: '12150101',
         memberCount: 1,
         specialties: ['APT', 'ONEROOM'],
         businessHours: { mon: { open: '09:00', close: '18:00' }, sun: null },
@@ -60,7 +67,7 @@ describe('agencies: registration & my agency (e2e)', () => {
       expect(res.body.statusHistory[0]).toMatchObject({ fromStatus: null, toStatus: 'PENDING' });
 
       const agency = await t.prisma.agency.findUniqueOrThrow({ where: { id: res.body.id } });
-      expect(agency.sggCode).toBe('46150');
+      expect(agency.sggCode).toBe('12150');
       const member = await t.prisma.agencyMember.findFirstOrThrow({
         where: { agencyId: agency.id },
       });
@@ -69,6 +76,111 @@ describe('agencies: registration & my agency (e2e)', () => {
       expect((await t.prisma.user.findUniqueOrThrow({ where: { id: user.id } })).role).toBe('USER');
       const [session] = await t.app.get(SessionService).listForSubject('USER', user.id);
       expect(session?.agencyId).toBe(agency.id);
+    });
+
+    describe('개인정보 수집·이용 동의 (D8)', () => {
+      const applicationConsents = () =>
+        t.prisma.userConsent.findMany({
+          where: { termsDocument: { type: TermsType.PRIVACY_AGENCY_APPLICATION } },
+          include: { termsDocument: true },
+        });
+
+      it('records the agreed current version with the application', async () => {
+        const user = await createUser(t.prisma);
+        const doc = await createDocumentMedia(t.prisma, user.id);
+        const s = await loginUser(t.app, user);
+        await withSession(t.http().post('/api/v1/agencies'), s)
+          .set('User-Agent', 'consent-test')
+          .send(registerBody(doc.id))
+          .expect(201);
+        const rows = await applicationConsents();
+        expect(rows).toHaveLength(1);
+        expect(rows[0]).toMatchObject({
+          userId: user.id,
+          agreed: true,
+          userAgent: 'consent-test',
+          termsDocument: { version: '1.0' },
+        });
+      });
+
+      it('400 AUTH_CONSENT_REQUIRED without the consent; nothing is created', async () => {
+        const user = await createUser(t.prisma);
+        const doc = await createDocumentMedia(t.prisma, user.id);
+        const s = await loginUser(t.app, user);
+        const { consents: _omitted, ...withoutConsents } = registerBody(doc.id);
+        const res = await withSession(t.http().post('/api/v1/agencies'), s)
+          .send(withoutConsents)
+          .expect(400);
+        expect(res.body).toMatchObject({
+          code: ErrorCode.AUTH_CONSENT_REQUIRED,
+          message: '필수 동의 항목에 동의해 주세요.',
+          details: { missing: [TermsType.PRIVACY_AGENCY_APPLICATION] },
+        });
+        expect(await t.prisma.agency.count()).toBe(0);
+        expect(await t.prisma.userConsent.count()).toBe(0);
+      });
+
+      it('400 AUTH_CONSENT_OUTDATED once a newer version took effect, then accepts the new one', async () => {
+        const user = await createUser(t.prisma);
+        const doc = await createDocumentMedia(t.prisma, user.id);
+        const s = await loginUser(t.app, user);
+        const past = new Date(Date.now() - 1000);
+        await t.prisma.termsDocument.create({
+          data: {
+            type: TermsType.PRIVACY_AGENCY_APPLICATION,
+            version: '1.1',
+            title: '등록 신청 개인정보 동의 1.1',
+            content: '견본',
+            isRequired: true,
+            effectiveAt: past,
+            publishedAt: past,
+          },
+        });
+        const res = await withSession(t.http().post('/api/v1/agencies'), s)
+          .send(registerBody(doc.id))
+          .expect(400);
+        expect(res.body).toMatchObject({
+          code: ErrorCode.AUTH_CONSENT_OUTDATED,
+          details: {
+            outdated: [
+              {
+                type: TermsType.PRIVACY_AGENCY_APPLICATION,
+                version: '1.0',
+                currentVersion: '1.1',
+              },
+            ],
+          },
+        });
+        expect(await t.prisma.agency.count()).toBe(0);
+        await withSession(t.http().post('/api/v1/agencies'), s)
+          .send(registerBody(doc.id, { consents: actionConsents('AGENCY_APPLICATION', '1.1') }))
+          .expect(201);
+        expect((await applicationConsents()).map((c) => c.termsDocument.version)).toEqual(['1.1']);
+      });
+
+      it('503 AUTH_CONSENT_UNAVAILABLE while no consent document is published', async () => {
+        await t.prisma.termsDocument.deleteMany({
+          where: { type: TermsType.PRIVACY_AGENCY_APPLICATION },
+        });
+        const user = await createUser(t.prisma);
+        const doc = await createDocumentMedia(t.prisma, user.id);
+        const s = await loginUser(t.app, user);
+        const res = await withSession(t.http().post('/api/v1/agencies'), s)
+          .send(registerBody(doc.id))
+          .expect(503);
+        expect(res.body.code).toBe(ErrorCode.AUTH_CONSENT_UNAVAILABLE);
+        expect(await t.prisma.agency.count()).toBe(0);
+      });
+
+      it('400 VALIDATION_FAILED for a consent type the application does not take', async () => {
+        const user = await createUser(t.prisma);
+        const doc = await createDocumentMedia(t.prisma, user.id);
+        const s = await loginUser(t.app, user);
+        const res = await withSession(t.http().post('/api/v1/agencies'), s)
+          .send(registerBody(doc.id, { consents: actionConsents('DEAL_REQUEST') }))
+          .expect(400);
+        expect(res.body.code).toBe(ErrorCode.VALIDATION_FAILED);
+      });
     });
 
     it('401 without a session, 403 without CSRF token', async () => {
@@ -278,7 +390,7 @@ describe('agencies: registration & my agency (e2e)', () => {
         .send({
           intro: '새 소개',
           phone: '1588-1234',
-          emdCode: '4615025300',
+          emdCode: '1215025300',
           logoMediaId: logo.id,
           businessHours: null,
           specialties: ['LAND', 'LAND'],
@@ -287,7 +399,7 @@ describe('agencies: registration & my agency (e2e)', () => {
       expect(res.body).toMatchObject({
         intro: '새 소개',
         phone: '15881234',
-        emdCode: '4615025300',
+        emdCode: '1215025300',
         logoMediaId: logo.id,
         logoUrl: '/media/logos/a.thumb.webp',
         businessHours: null,
@@ -296,14 +408,19 @@ describe('agencies: registration & my agency (e2e)', () => {
         name: agency.name,
       });
       const row = await t.prisma.agency.findUniqueOrThrow({ where: { id: agency.id } });
-      expect(row.sggCode).toBe('46150');
+      expect(row.sggCode).toBe('12150');
     });
 
     it('approved office: 소재지 changes need admin review (400 with fields); 연락처 changes are audited', async () => {
       const { agency, owner } = await createAgency(t.prisma);
       const s = await loginUser(t.app, owner, { agencyId: agency.id });
       const refused = await withSession(t.http().patch('/api/v1/agencies/mine'), s)
-        .send({ intro: '이전', roadAddress: '전라남도 순천시 다른로 1', lat: 34.95, lng: 127.49 })
+        .send({
+          intro: '이전',
+          roadAddress: '전남광주통합특별시 순천시 다른로 1',
+          lat: 34.95,
+          lng: 127.49,
+        })
         .expect(400);
       expect(refused.body.code).toBe('AGENCY_NOT_EDITABLE');
       expect(refused.body.details).toMatchObject({
@@ -417,7 +534,11 @@ describe('agencies: registration & my agency (e2e)', () => {
         .send({})
         .expect(201);
       await withSession(t.http().post('/api/v1/agencies/join'), s)
-        .send({ code: invite.body.code, displayName: '홍실장' })
+        .send({
+          code: invite.body.code,
+          displayName: '홍실장',
+          consents: actionConsents('AGENCY_JOIN'),
+        })
         .expect(201);
       // ...but then cannot revive the application while acting for that office.
       const res = await withSession(t.http().post('/api/v1/agencies/mine/resubmit'), s)

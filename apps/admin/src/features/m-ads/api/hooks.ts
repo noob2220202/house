@@ -123,9 +123,9 @@ function invalidateBanners(client: QueryClient) {
   void client.invalidateQueries({ queryKey: [SLOTS] });
 }
 
-/** PUT /admin/banners/reorder with the complete id order of one slot. */
-async function putSlotOrder(ids: string[]) {
-  await api.put('/admin/banners/reorder', { ids });
+/** PUT /admin/banners/reorder (`bannerReorderSchema`) with the complete id order of one slot. */
+async function putSlotOrder(slot: BannerSlot, ids: string[]) {
+  await api.put('/admin/banners/reorder', { slot, ids });
 }
 
 /**
@@ -148,7 +148,7 @@ export function useSaveBanner() {
         const all = await fetchSlotBanners(saved.slot);
         const current = all.items.map((b) => b.id);
         const next = placeAt(current, saved.id, vars.position);
-        if (!sameOrder(current, next)) await putSlotOrder(next);
+        if (!sameOrder(current, next)) await putSlotOrder(saved.slot, next);
       }
       return saved;
     },
@@ -213,7 +213,7 @@ export function useReorderBanners() {
       const all = await fetchSlotBanners(vars.slot);
       const current = all.items.map((b) => b.id);
       const next = mergeVisibleOrder(current, vars.visibleIds);
-      if (!sameOrder(current, next)) await putSlotOrder(next);
+      if (!sameOrder(current, next)) await putSlotOrder(vars.slot, next);
     },
     onSettled: () => {
       // This mutation still counts as pending here: 1 = nothing else is queued behind it.
