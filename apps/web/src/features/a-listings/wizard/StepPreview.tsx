@@ -36,9 +36,10 @@ import styles from './wizard.module.css';
  */
 export function StepPreview() {
   const { listing, complex, photos, verifications, agencies, goToField, goToStep } = useWizard();
-  const { payload, requirements, done, total } = useRequirements();
+  const { payload, requirements, searchInfo, done, total } = useRequirements();
   const { toast } = useToast();
   const missing = requirements.filter((r) => !r.done);
+  const searchMissing = searchInfo.filter((r) => !r.done);
 
   const detail = useMemo(
     () =>
@@ -116,6 +117,22 @@ export function StepPreview() {
                 사진이 없어요.{' '}
                 <button type="button" className="link" onClick={() => goToStep(3)}>
                   사진 올리기
+                </button>
+              </span>
+            </p>
+          )}
+          {searchMissing.length > 0 && (
+            <p className={cx(styles.readyOk, styles.readyWarn)}>
+              <Icon name="info" size={18} />
+              <span>
+                {searchMissing.map((r) => r.label).join('·')} 정보가 없으면 지도 검색 필터에서 이
+                매물이 빠져요.{' '}
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => goToField(searchMissing[0]!.formField)}
+                >
+                  입력하기
                 </button>
               </span>
             </p>

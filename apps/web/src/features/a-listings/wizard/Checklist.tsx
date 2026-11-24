@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useWatch } from 'react-hook-form';
 import { STEPS, toDraftPayload, type ListingFormValues } from '../lib/form';
 import { publishRequirements, requirementProgress } from '../lib/requirements';
+import { searchInfoItems } from '../lib/search-info';
 import { useWizard } from './context';
 import styles from './wizard.module.css';
 
@@ -13,14 +14,16 @@ export function useRequirements() {
   return useMemo(() => {
     const { payload } = toDraftPayload(values);
     const requirements = publishRequirements(payload);
-    return { payload, requirements, ...requirementProgress(requirements) };
+    // 방 구성 / 지목 / 용도지역: search info, not 명시사항 — listed apart and not counted.
+    const searchInfo = searchInfoItems(payload);
+    return { payload, requirements, searchInfo, ...requirementProgress(requirements) };
   }, [values]);
 }
 
 /** Sticky aside: 표시·광고 명시사항 checklist grouped by step; each row jumps to its field. */
 export function Checklist() {
   const { goToField } = useWizard();
-  const { requirements, done, total } = useRequirements();
+  const { requirements, searchInfo, done, total } = useRequirements();
   const [open, setOpen] = useState(false);
   const complete = done === total;
 
@@ -88,6 +91,29 @@ export function Checklist() {
             </ul>
           </div>
         ))}
+        {searchInfo.length > 0 && (
+          <div>
+            <p className={styles.checkStep}>검색 정보 (선택)</p>
+            <ul>
+              {searchInfo.map((r) => (
+                <li key={r.field}>
+                  <button
+                    type="button"
+                    className={cx(styles.checkItem, r.done && styles.ok)}
+                    onClick={() => goToField(r.formField)}
+                    aria-label={`${r.label} ${r.done ? `입력 완료 (${r.group})` : '선택 입력'} — 해당 항목으로 이동`}
+                  >
+                    <span className={styles.box} aria-hidden="true">
+                      <Icon name="check" size={14} strokeWidth={3} />
+                    </span>
+                    {r.label}
+                    <span className={styles.go}>{r.done ? r.group : '입력'}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
       <p className={cx(styles.checkFt, !open && styles.closed)}>
         <Icon name="shield" size={16} />

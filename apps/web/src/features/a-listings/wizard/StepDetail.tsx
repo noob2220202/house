@@ -385,7 +385,11 @@ function RoomTypeRow() {
   const { setValue } = useFormContext<ListingFormValues>();
   const v = useWatch<ListingFormValues>() as ListingFormValues;
   const rooms = parseCount(v.rooms);
-  const derived = effectiveRoomType(AssetType.ONEROOM, null, typeof rooms === 'number' ? rooms : null);
+  const derived = effectiveRoomType(
+    AssetType.ONEROOM,
+    null,
+    typeof rooms === 'number' ? rooms : null,
+  );
   const set = (value: RoomType | '') => setValue('roomType', value, { shouldDirty: true });
 
   return (

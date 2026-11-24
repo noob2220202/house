@@ -7,6 +7,7 @@ import {
   isPrimaryMine,
   listingsState,
   mergeUpdate,
+  nextListingNo,
   publishRequirementsError,
   summarize,
   toCandidate,
@@ -157,5 +158,56 @@ describe('mock applyDraft (PATCH semantics)', () => {
     expect(listing.title).toBeNull();
     // Still a valid editor payload afterwards.
     expect(agencyListingSchema.safeParse(toView(listing)).success).toBe(true);
+  });
+});
+
+describe('mock 매물번호 (API format)', () => {
+  it('every seeded listing — drafts included — has a plain sequential number from 100001', () => {
+    const numbers = seeds.map((s) => s.listingNo);
+    for (const [i, no] of numbers.entries()) {
+      expect(no, seeds[i]!.code).toMatch(/^\d{6,}$/);
+      expect(Number(no)).toBeGreaterThanOrEqual(100001);
+    }
+    expect(new Set(numbers).size).toBe(numbers.length);
+  });
+
+  it('hands out the next number above every seeded one', () => {
+    const state = { listings: seeds, seq: 100430 };
+    const next = nextListingNo(state);
+    expect(next).toBe('100431');
+    expect(seeds.every((s) => Number(s.listingNo) < Number(next))).toBe(true);
+  });
+});
+
+describe('mock applyDraft — 방 구성 / 지목 / 용도지역', () => {
+  it('stores and returns what the wizard sends (and clears it when omitted)', () => {
+    const land = structuredClone(seed('T01'));
+    const draft = draftOfListing(toView(land));
+    applyDraft(
+      land,
+      listingDraftSchema.parse({
+        ...draft,
+        property: { ...draft.property, zoning: '계획관리지역', landCategory: '임야' },
+      }),
+    );
+    const view = agencyListingSchema.parse(toView(land));
+    expect(view.property).toMatchObject({ zoning: '계획관리지역', landCategory: '임야' });
+    expect(draftOfListing(view).property).toMatchObject({
+      zoning: '계획관리지역',
+      landCategory: '임야',
+    });
+
+    const room = structuredClone(seed('D02'));
+    const roomDraft = draftOfListing(toView(room));
+    applyDraft(
+      room,
+      listingDraftSchema.parse({
+        ...roomDraft,
+        property: { ...roomDraft.property, roomType: 'ONE_HALF_ROOM' },
+      }),
+    );
+    expect(agencyListingSchema.parse(toView(room)).property.roomType).toBe('ONE_HALF_ROOM');
+    applyDraft(room, listingDraftSchema.parse(roomDraft));
+    expect(room.property.roomType).toBeNull();
   });
 });

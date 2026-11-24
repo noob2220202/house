@@ -22,6 +22,7 @@ import { RowMenu } from './list/RowMenu';
 import { Checklist } from './wizard/Checklist';
 import { WizardContext, type WizardContextValue } from './wizard/context';
 import { StepDeal } from './wizard/StepDeal';
+import { StepDetail } from './wizard/StepDetail';
 
 const row = (patch: Partial<AgencyListingItem> = {}): AgencyListingItem => ({
   id: 'l1',
@@ -259,6 +260,102 @@ describe('Checklist (표시·광고 명시사항)', () => {
     expect(screen.getByText('18 / 18')).toBeInTheDocument();
     expect(screen.getByText(/필수 표시사항을 모두 입력했어요/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /입력 필요/ })).not.toBeInTheDocument();
+    // An 아파트 has no 검색 정보 group.
+    expect(screen.queryByText('검색 정보 (선택)')).not.toBeInTheDocument();
+  });
+
+  it('lists 지목 / 용도지역 of a land listing as search info, apart from the counted 명시사항', async () => {
+    const goToField = vi.fn();
+    const user = userEvent.setup();
+    const land: ListingFormValues = {
+      ...FORM_DEFAULTS,
+      assetType: AssetType.LAND,
+      roadAddress: '전라남도 순천시 해룡면 신대3길 9',
+      lat: 34.93,
+      lng: 127.55,
+      emdCode: '1215033028',
+      landArea: '512',
+      salePrice: '18,500',
+      landCategory: '임야',
+    };
+    render(
+      <Harness values={land} goToField={goToField}>
+        <Checklist />
+      </Harness>,
+    );
+    // Land 명시사항 only (소재지·법정동·면적·가격·종류·거래형태) — the search info is not counted.
+    expect(screen.getByText('6 / 6')).toBeInTheDocument();
+    expect(screen.getByText('검색 정보 (선택)')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^지목 입력 완료 \(임야\)/ })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^용도지역 선택 입력/ }));
+    expect(goToField).toHaveBeenCalledWith('zoning');
+  });
+});
+
+describe('StepDetail — 방 구성 / 토지 정보', () => {
+  const ctx = {
+    listing: null,
+    complex: null,
+    setComplex: vi.fn(),
+    photos: [],
+    setPhotos: vi.fn(),
+    setUploading: vi.fn(),
+    verifications: [],
+    addVerification: vi.fn(),
+    agencies: [],
+    goToStep: vi.fn(),
+    goToField: vi.fn(),
+    assetLocked: false,
+    busy: false,
+  } satisfies WizardContextValue;
+
+  function DetailHarness({
+    values,
+    onValues,
+  }: {
+    values: Partial<ListingFormValues>;
+    onValues: (get: () => ListingFormValues) => void;
+  }) {
+    const form = useForm<ListingFormValues>({ defaultValues: { ...FORM_DEFAULTS, ...values } });
+    onValues(form.getValues);
+    return (
+      <WizardContext.Provider value={ctx}>
+        <FormProvider {...form}>
+          <StepDetail />
+        </FormProvider>
+      </WizardContext.Provider>
+    );
+  }
+
+  it('lets a 원룸·투룸 state 1.5룸 (default: from the room count)', async () => {
+    let getValues: () => ListingFormValues = () => FORM_DEFAULTS;
+    const user = userEvent.setup();
+    render(
+      <DetailHarness
+        values={{ assetType: AssetType.ONEROOM, rooms: '1' }}
+        onValues={(g) => (getValues = g)}
+      />,
+    );
+    const group = screen.getByRole('radiogroup', { name: '방 구성' });
+    expect(within(group).getByRole('radio', { name: /방 수로 자동/ })).toBeChecked();
+    await user.click(within(group).getByRole('radio', { name: '1.5룸' }));
+    expect(getValues().roomType).toBe('ONE_HALF_ROOM');
+    expect(screen.queryByLabelText('지목')).not.toBeInTheDocument();
+  });
+
+  it('collects 지목 and 용도지역 for 토지 and shows their search groups', async () => {
+    let getValues: () => ListingFormValues = () => FORM_DEFAULTS;
+    const user = userEvent.setup();
+    render(
+      <DetailHarness values={{ assetType: AssetType.LAND }} onValues={(g) => (getValues = g)} />,
+    );
+    expect(screen.queryByRole('radiogroup', { name: '방 구성' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: '임야' }));
+    expect(getValues().landCategory).toBe('임야');
+    await user.type(screen.getByLabelText('용도지역'), '계획관리지역');
+    expect(getValues().zoning).toBe('계획관리지역');
+    expect(screen.getByText('검색 분류 관리지역')).toBeInTheDocument();
+    expect(screen.getByText('검색 분류 임야')).toBeInTheDocument();
   });
 });
 

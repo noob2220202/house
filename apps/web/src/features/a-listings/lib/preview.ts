@@ -108,8 +108,8 @@ export function buildPreviewDetail(draft: DraftPayload, ctx: PreviewContext): Li
       approvalDate: p.approvalDate ?? null,
       parkingSpaces: p.parkingSpaces ?? null,
       heatingType: ctx.complex?.heatingType ?? null,
-      zoning: null,
-      landCategory: null,
+      zoning: p.zoning ?? null,
+      landCategory: p.landCategory ?? null,
       buildingUse: buildingUseLabel(p.assetType, p.buildingUse),
     },
     complex: ctx.complex

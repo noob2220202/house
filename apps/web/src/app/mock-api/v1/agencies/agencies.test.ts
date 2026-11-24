@@ -17,8 +17,8 @@ import { GET as getListings } from '../listings/route';
 import { searchAgencies } from './_search';
 
 /**
- * Contract of the office search as the UI uses it. `sort` is a backend param; `openNow` and
- * `handlesPresale` are mock-only (the UI hides them against the real API, api/capabilities.ts).
+ * Contract of the office search as the UI uses it — `sort`, `openNow` and `handlesPresale` are all
+ * backend params (`agencySearchQuerySchema`), the mock applies them the same way.
  */
 const req = (path: string) => new NextRequest(`http://localhost/mock-api/v1${path}&_delay=1`);
 const json = async (res: Response) => (await res.json()) as unknown;

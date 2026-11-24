@@ -40,23 +40,20 @@ profile sheet → list.
 | GET        | `/api/v1/agencies/:id`                                                 | profile drawer, agency page                   | listed in agencies README — **response shape assumed** (2)        |
 | GET        | `/api/v1/listings?agencyId&assetTypes&dealTypes&sort&page&pageSize=12` | agency page listing grid                      | listed in listings README (`listingListQuerySchema.agencyId`) (3) |
 | GET        | `/api/v1/agencies/regions`                                             | 지역 filter (읍면동 + office counts)          | **assumed** (4) — the filter is hidden when it fails              |
-| GET        | `/api/v1/me/favorites/agencies?page&pageSize`                          | 관심 button state                             | **assumed** (5) — behind `AGENCY_API_EXTRAS`                      |
-| PUT/DELETE | `/api/v1/me/favorites/agencies/:id`                                    | 관심 toggle (CSRF header)                     | **assumed** (5) — behind `AGENCY_API_EXTRAS`                      |
+| GET        | `/api/v1/me/favorites/agencies?page&pageSize`                          | 관심 button state                             | **assumed** (5)                                                   |
+| PUT/DELETE | `/api/v1/me/favorites/agencies/:id`                                    | 관심 toggle (CSRF header)                     | **assumed** (5)                                                   |
 
 All responses are parsed by the zod schemas in
 `apps/web/src/features/w-agencies/api/schemas.ts` — fix the schema and the mock fixture together.
 
 ## Blocking integration items
 
-1. **`GET /agencies` extra params** — `openNow=true` (open at request time, Asia/Seoul),
-   `handlesPresale=true` (has an active 분양권 listing) and `sort=RECENT|NAME` (default = active
-   listing count desc) are **not in `agencySearchQuerySchema`**, so zod would strip them and the real
-   API would silently ignore them. Until the backend adds them, the UI hides 지금 영업 중 / 분양권 취급,
-   the sort menu and the 관심 button and never sends those params: one flag,
-   `features/w-agencies/api/capabilities.ts#AGENCY_API_EXTRAS` (on in mock mode only). Flip it to
-   `true` once the params and the favourite endpoints ship. The expected behaviour is pinned by
-   `apps/web/src/app/mock-api/v1/agencies/agencies.test.ts` (run the same expectations against the
-   real API as a contract test).
+1. **`GET /agencies` extra params** — resolved: `agencySearchQuerySchema` takes `openNow=true`
+   (open at request time, Asia/Seoul) and `handlesPresale=true` (has a public 분양권 listing), and
+   rows carry `businessHours` + `handlesPresale`. The 지금 영업 중 / 분양권 취급 toggles are always shown
+   and sent (the former `AGENCY_API_EXTRAS` flag is gone). The expected behaviour is pinned by
+   `apps/web/src/app/mock-api/v1/agencies/agencies.test.ts` and the API e2e
+   `apps/api/test/e2e/agencies/search-cover.e2e-spec.ts`.
 2. **`/agencies/regions` and `/me/favorites/agencies`** are not in the agencies README — add them
    to the backend plan (or drop 관심 for agencies: only `ProfileActions` depends on it).
 3. **문의하기 → this office.** 문의하기 (drawer, agency page, mobile CTA) links to

@@ -73,7 +73,7 @@ silently dropped on the server. Each row says what the UI already sends or expec
 | `dealRequestCreateSchema`                        | add `photoMediaIds?: string[]` (`DealRequestPhoto` exists in Prisma; today stripped); consent fields (B8).                                                                                                                                                                                                          | w-deal                               |
 | `listingFilterSchema` / `listingListQuerySchema` | add `roomTypes` (`ONE_ROOM, ONE_HALF_ROOM, TWO_ROOM, THREE_ROOM_PLUS`), `landZones` (`RESIDENTIAL, COMMERCIAL, INDUSTRIAL, GREEN, MANAGEMENT, AGRICULTURAL, CONSERVATION`), `landCategories` (`DAE, JEON, DAP, GWASUWON, IMYA, JAPJONGJI, ETC`); move the enums (now in `features/w-map/api/schemas.ts`) to shared. | w-map § Assumed filter parameters    |
 | `popularComplexesQuerySchema`                    | add `assetTypes` (CSV) — or ignore unknown params.                                                                                                                                                                                                                                                                  | w-home 5                             |
-| `agencySearchQuerySchema`                        | add `openNow`, `handlesPresale`, `sort=RECENT\|NAME`. The UI hides those controls until `AGENCY_API_EXTRAS` is flipped.                                                                                                                                                                                             | w-agencies § Blocking 1              |
+| `agencySearchQuerySchema`                        | add `openNow`, `handlesPresale`, `sort=RECENT\|NAME` (done; the UI sends them).                                                                                                                                                                                                                                     | w-agencies § Blocking 1              |
 | `reportListQuerySchema`                          | add `q` (free-text filter of the admin reports list; today stripped → search does not narrow).                                                                                                                                                                                                                      | m-moderation 3                       |
 | `reportCreateSchema`                             | evidence `attachments` (optional).                                                                                                                                                                                                                                                                                  | m-moderation 3                       |
 | `localVideoInputSchema` (update)                 | `regionCode` / `complexId` nullable on PATCH (unlink).                                                                                                                                                                                                                                                              | m-content § Notes                    |
@@ -83,7 +83,7 @@ silently dropped on the server. Each row says what the UI already sends or expec
 | `ListingsErrorCode`                              | add `LISTING_ALREADY_CO_BROKER`, `LISTING_PRIMARY_CANNOT_WITHDRAW` (and confirm `LISTING_PUBLISH_REQUIREMENTS`, `LISTING_PHOTO_LIMIT`, `LISTING_NOT_AGENCY_MEMBER`, `LISTING_INVALID_STATUS_TRANSITION`).                                                                                                           | a-listings 3, 7, 8                   |
 | Media error codes                                | `MEDIA_NOT_READY` (photo attached before processing finished) is assumed.                                                                                                                                                                                                                                           | w-deal                               |
 | `NotificationType`                               | B5; optional `FAVORITE_PRICE_CHANGED`, `FAVORITE_CLOSED` (+ `previousPrice`, `priceChangedAt` on favourites) if price alerts are wanted.                                                                                                                                                                            | w-me § Not covered                   |
-| Media purposes / presets                         | `AGENCY_COVER` purpose (covers are uploaded as `AGENCY_LOGO` today); square `fit: inside` preset for `AGENCY_LOGO`; `BANNER` / `POPUP` media must get `large` / `medium` variants (the 320×240 `thumb` crop is unusable).                                                                                           | a-agency 3, m-ads 1                  |
+| Media purposes / presets                         | `AGENCY_COVER` purpose (done: covers are uploaded as `AGENCY_COVER`); square `fit: inside` preset for `AGENCY_LOGO`; `BANNER` / `POPUP` media must get `large` / `medium` variants (the 320×240 `thumb` crop is unusable).                                                                                          | a-agency 3, m-ads 1                  |
 
 ## 3. Prisma / model gaps
 
@@ -394,7 +394,6 @@ Checked against the code at the gate; each is small and owned by the named group
 | Item                                                                                                                                                                                                                                                      | Owner             |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
 | `/deal?agencyId=<id>` (문의하기 from agency pages) is **not read** by w-deal yet: validate, show the target office, default `visibility=SELECTED_AGENCIES` + `targetAgencyIds=[id]`, carry it through login.                                              | w-deal            |
-| Flip `AGENCY_API_EXTRAS` (`features/w-agencies/api/capabilities.ts`, mock-only today) when `openNow` / `handlesPresale` / `sort` and agency favourites ship.                                                                                              | w-agencies        |
 | Office marker kinds (`office`, `officeDot`, `+n` cluster label) in the shared map markers; `/agencies` uses complex markers meanwhile.                                                                                                                    | foundation (map)  |
 | `getServerSession()` is not wrapped in React `cache()` → console pages request `/auth/me` twice per render.                                                                                                                                               | foundation        |
 | `suggestResponseSchema` is still duplicated in `w-home` and `w-map`; import the w-content `searchSuggestSchema`.                                                                                                                                          | w-home, w-map     |
@@ -427,12 +426,13 @@ Verified in the code at the gate — the corresponding passages in the group not
   and `/listings` with `roomType` / `landZone` / `landCategory` on summaries (enums + `effectiveRoomType`,
   `landZoneOf`, `landCategoryOf` in shared; `property.roomType` states 1.5룸); `GET /agencies` takes
   `openNow` / `handlesPresale` and returns `businessHours` + `handlesPresale`; `coverMediaId` in
-  `agencyUpdateSchema` (media purpose `AGENCY_COVER`; `AGENCY_LOGO` uploads accepted too), `coverMediaId`
-  - `coverUrl` on `MyAgency`, `coverUrl` on the public profile. Frontend follow-ups: flip
-    `AGENCY_API_EXTRAS`; upload covers with `AGENCY_COVER` (`a-agency/profile/ProfileView.tsx`); use the
-    shared `RoomType` / `LandZone` / `LandCategory` instead of the copies in `lib/api/schemas/listing.ts`;
-    send `property.roomType` from the wizard for 1.5룸; drop the "API ignores" note in
-    `a-listings/lib/list-params.ts`.
+  `agencyUpdateSchema` (media purpose `AGENCY_COVER` only), `coverMediaId`
+  - `coverUrl` on `MyAgency`, `coverUrl` on the public profile. Frontend follow-ups (done, FE-followups):
+    the 지금 영업 중 / 분양권 취급 toggles are always on (`AGENCY_API_EXTRAS` removed); the console uploads
+    covers with `AGENCY_COVER` and the API no longer accepts an `AGENCY_LOGO` upload as cover;
+    `lib/api/schemas/listing.ts` re-exports the shared `RoomType` / `LandZone` / `LandCategory`; the
+    wizard sends `property.roomType` (원룸·투룸) and `property.zoning` / `property.landCategory` (토지);
+    mocks number listings like the API (`"100412"`, assigned on create).
 
 ## 12. Per-group notes
 

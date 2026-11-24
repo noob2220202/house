@@ -74,7 +74,20 @@ describe('buildPreviewDetail', () => {
     const detail = buildPreviewDetail(draftOfListing(draft), context(draft));
     expect(detail.status).toBe(ListingStatus.ACTIVE);
     expect(detail.publishedAt).toBe('2026-11-24');
-    expect(detail.listingNo).toBe('저장 후 부여');
+    // Like the API, a saved draft already has its 매물번호 (sequential, from 100001).
+    expect(detail.listingNo).toMatch(/^1\d{5,}$/);
+    expect(detail.listingNo).toBe(draft.listingNo);
+    // Never saved: no number yet.
+    expect(
+      buildPreviewDetail(draftOfListing(draft), context(draft, { listing: null })).listingNo,
+    ).toBe('저장 후 부여');
+  });
+
+  it('shows the 지목 / 용도지역 of a land listing as written', () => {
+    const land = view('T01');
+    const detail = buildPreviewDetail(draftOfListing(land), context(land));
+    expect(detail.property).toMatchObject({ landCategory: '대', zoning: '제2종일반주거지역' });
+    expect(listingDetailSchema.parse(detail).property.zoning).toBe('제2종일반주거지역');
   });
 
   it('keeps 계약중 for reserved listings', () => {
