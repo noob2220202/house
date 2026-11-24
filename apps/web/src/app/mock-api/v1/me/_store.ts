@@ -7,7 +7,7 @@ import {
   mockUnauthenticated,
   type MockRole,
 } from '@/lib/mock';
-import type { Identity, Notification, Profile } from '@/features/w-me/schemas';
+import type { Notification, Profile } from '@/features/w-me/schemas';
 import { MOCK_USERS } from '../auth/_fixtures';
 import {
   SEED_OFFSETS,
@@ -16,6 +16,7 @@ import {
   seedIdentities,
   seedNotifications,
   seedRecentViews,
+  type MockIdentity,
   type MockStamp,
 } from './_fixtures';
 
@@ -29,7 +30,7 @@ export interface MeMockState {
   favoriteComplexes: MockStamp[];
   recentViews: MockStamp[];
   notifications: Notification[];
-  identities: Identity[];
+  identities: MockIdentity[];
   profile: Profile;
 }
 
@@ -58,7 +59,6 @@ function seed(role: MockRole): MeMockState {
       marketingOptIn: optIn,
       marketingOptInAt: new Date(now - SEED_OFFSETS.marketingChanged).toISOString(),
       createdAt: new Date(now - SEED_OFFSETS.accountAge).toISOString(),
-      lastLoginAt: new Date(now - 2 * 3_600_000).toISOString(),
     },
   };
 }

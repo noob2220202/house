@@ -25,13 +25,13 @@ scripts/e2e-stack.sh down
 
 그 밖의 명령 · Other commands:
 
-| 명령 · Command                                       | 설명 · What                                                                   |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 명령 · Command                                       | 설명 · What                                                                     |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------- |
 | `scripts/e2e-stack.sh up --skip-build`               | 직전 e2e 빌드 재사용 (DB는 초기화) · reuse the previous build, still reset data |
-| `scripts/e2e-stack.sh up --skip-build --keep-data`   | 빌드·데이터 모두 재사용 · reuse build and data (just restart processes)          |
+| `scripts/e2e-stack.sh up --skip-build --keep-data`   | 빌드·데이터 모두 재사용 · reuse build and data (just restart processes)         |
 | `scripts/e2e-stack.sh status`                        | 프로세스·헬스 · pids + health                                                   |
-| `scripts/e2e-stack.sh logs api` (`worker`, `web`, …) | 로그 tail · tail a log (`.tmp/e2e/logs/*.log`)                                |
-| `scripts/e2e-stack.sh reset-limits`                  | 레이트리밋·일일 한도 카운터 초기화 · clear throttle / daily-cap counters          |
+| `scripts/e2e-stack.sh logs api` (`worker`, `web`, …) | 로그 tail · tail a log (`.tmp/e2e/logs/*.log`)                                  |
+| `scripts/e2e-stack.sh reset-limits`                  | 레이트리밋·일일 한도 카운터 초기화 · clear throttle / daily-cap counters        |
 | `scripts/e2e-stack.sh down --keep-builds`            | 빌드는 남기고 정지 · stop, keep builds                                          |
 
 프런트엔드가 계속 바뀌는 중이라 `up`은 매번 `next build`를 새로 합니다(`NEXT_DIST_DIR=.next-e2e`,
@@ -39,13 +39,13 @@ web과 admin 병렬). 루트 `package.json` 스크립트는 건드리지 않았�
 
 ## 스택 구성 · What the script starts
 
-| 서비스 · Service | 주소 · Address          | 비고 · Notes                                                                                |
-| ---------------- | ----------------------- | ------------------------------------------------------------------------------------------- |
-| api              | `http://127.0.0.1:4100` | `apps/api/.tmp/e2e-dist/main.js`, `NODE_ENV=test`, `E2E_FAKE_OAUTH=1`, `COOKIE_SECURE=false` |
-| worker           | —                       | `apps/api/.tmp/e2e-dist/worker.js` (미디어 처리 등 BullMQ 잡) · media processing etc.        |
-| media            | `http://127.0.0.1:4101` | `scripts/e2e/media-server.mjs` — nginx 대신 `UPLOAD_DIR`를 `/media/*`로 제공                 |
+| 서비스 · Service | 주소 · Address          | 비고 · Notes                                                                                  |
+| ---------------- | ----------------------- | --------------------------------------------------------------------------------------------- |
+| api              | `http://127.0.0.1:4100` | `apps/api/.tmp/e2e-dist/main.js`, `NODE_ENV=test`, `E2E_FAKE_OAUTH=1`, `COOKIE_SECURE=false`  |
+| worker           | —                       | `apps/api/.tmp/e2e-dist/worker.js` (미디어 처리 등 BullMQ 잡) · media processing etc.         |
+| media            | `http://127.0.0.1:4101` | `scripts/e2e/media-server.mjs` — nginx 대신 `UPLOAD_DIR`를 `/media/*`로 제공                  |
 | web              | `http://localhost:3200` | `next start`, rewrites `/api/v1` → api, `/media` → media (`INTERNAL_API_URL`, `MEDIA_ORIGIN`) |
-| admin            | `http://localhost:3201` | 동일 · same                                                                                  |
+| admin            | `http://localhost:3201` | 동일 · same                                                                                   |
 
 격리 · Isolation: DB `house_e2e` (매 `up`마다 DROP/CREATE), Redis DB **14** (`house-e2e:` 접두어;
 `apps/api/test/env/*.env`가 쓰는 1–9, 12와 겹치지 않음 — 스크립트가 확인), 업로드는 `.tmp/e2e/uploads`.
@@ -88,15 +88,15 @@ web과 admin 병렬). 루트 `package.json` 스크립트는 건드리지 않았�
 
 ## 테스트 목록 · Flows (`e2e/tests`)
 
-| 파일 · File                 | 흐름 · Flow                                                                                                 |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `web/smoke.spec.ts`         | `@smoke` 비로그인 홈이 실제 API로 렌더, `/mock-api` 호출 없음                                                   |
-| `web/browse.spec.ts`        | 홈 → 지도 → 단지 → 매물 상세 (표시·광고 명시사항 블록, 공개 API·화면에 호수 없음) · 히어로 검색 자동완성 → 단지        |
-| `web/member.spec.ts`        | 관심 매물 → `/me/favorites` · 내놓기(원룸, 가짜 우편번호 위젯, 동의 2종 포함 제출) → `/me/requests`                |
-| `web/broker.spec.ts`        | 대표 `/agent` 대시보드(D5: 문의 메뉴 없음) · 등록 마법사로 아파트·원룸 게시(공용 게시 규칙, emdCode·buildingUse) → 공개 목록·상세 · 공동중개 요청 |
-| `admin/admin.setup.ts`      | 관리자 이메일·비밀번호·TOTP 로그인                                                                              |
-| `admin/content.spec.ts`     | MAIN_HERO 배너(2480×440 / 1074×480 업로드) → 홈 캐러셀 · 팝업 → 홈 노출                                        |
-| `admin/moderation.spec.ts`  | 중개사무소 신청(API: 서류 업로드 + PRIVACY_AGENCY_APPLICATION 동의) → 관리자 승인 → AGENCY_OWNER · 허위매물 신고 → 매물 숨김 조치 → 공개 매물에서 사라짐 |
+| 파일 · File                | 흐름 · Flow                                                                                                                                              |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `web/smoke.spec.ts`        | `@smoke` 비로그인 홈이 실제 API로 렌더, `/mock-api` 호출 없음                                                                                            |
+| `web/browse.spec.ts`       | 홈 → 지도 → 단지 → 매물 상세 (표시·광고 명시사항 블록, 공개 API·화면에 호수 없음) · 히어로 검색 자동완성 → 단지                                          |
+| `web/member.spec.ts`       | 관심 매물 → `/me/favorites` · 내놓기(원룸, 가짜 우편번호 위젯, 동의 2종 포함 제출) → `/me/requests`                                                      |
+| `web/broker.spec.ts`       | 대표 `/agent` 대시보드(D5: 문의 메뉴 없음) · 등록 마법사로 아파트·원룸 게시(공용 게시 규칙, emdCode·buildingUse) → 공개 목록·상세 · 공동중개 요청        |
+| `admin/admin.setup.ts`     | 관리자 이메일·비밀번호·TOTP 로그인                                                                                                                       |
+| `admin/content.spec.ts`    | MAIN_HERO 배너(2480×440 / 1074×480 업로드) → 홈 캐러셀 · 팝업 → 홈 노출                                                                                  |
+| `admin/moderation.spec.ts` | 중개사무소 신청(API: 서류 업로드 + PRIVACY_AGENCY_APPLICATION 동의) → 관리자 승인 → AGENCY_OWNER · 허위매물 신고 → 매물 숨김 조치 → 공개 매물에서 사라짐 |
 
 원칙 · Rules: 테스트마다 자기 데이터를 만듭니다(고유 이메일·이름, 서로 다른 시드 사무소). 고정 sleep 없이
 응답 대기(`waitForResponse`)와 조건 폴링(`expect.poll`)만 씁니다 — 예: 홈 배너는 Next ISR

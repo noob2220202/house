@@ -12,7 +12,7 @@ import { useMounted } from '@house/ui';
 import type { z } from 'zod';
 import { api } from '@/lib/api';
 import { useFavoriteToggle } from '@/lib/favorites/useFavorite';
-import { SESSION_QUERY_KEY, type SessionUser } from '@/lib/auth';
+import { FALLBACK_NICKNAME, SESSION_QUERY_KEY, type SessionUser } from '@/lib/auth';
 import type { ProfilePatch } from './lib/profile';
 import {
   FAVORITES_PAGE_SIZE,
@@ -341,7 +341,8 @@ export function useUpdateProfile() {
         (old) =>
           old && {
             ...old,
-            nickname: profile.nickname,
+            nickname: profile.nickname?.trim() || FALLBACK_NICKNAME,
+            hasNickname: Boolean(profile.nickname?.trim()),
             phone: profile.phone,
             marketingOptIn: profile.marketingOptIn,
           },

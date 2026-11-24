@@ -166,7 +166,8 @@ export function requestFromWire(v: unknown): unknown {
   }
   if (out.pendingProposalCount === undefined && Array.isArray(v.proposals)) {
     out.pendingProposalCount = v.proposals.filter(
-      (p) => isObject(p) && (p.status === ProposalStatus.SENT || p.status === ProposalStatus.VIEWED),
+      (p) =>
+        isObject(p) && (p.status === ProposalStatus.SENT || p.status === ProposalStatus.VIEWED),
     ).length;
   }
   if (out.updatedAt === undefined) out.updatedAt = v.createdAt;

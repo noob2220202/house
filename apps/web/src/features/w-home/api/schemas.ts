@@ -128,7 +128,12 @@ function popularFromWire(v: unknown): unknown {
   const n = (k: string) => (typeof by[k] === 'number' ? by[k] : 0);
   return {
     ...raw,
-    dealCounts: { presale: n('PRESALE'), sale: n('SALE'), jeonse: n('JEONSE'), monthly: n('MONTHLY') },
+    dealCounts: {
+      presale: n('PRESALE'),
+      sale: n('SALE'),
+      jeonse: n('JEONSE'),
+      monthly: n('MONTHLY'),
+    },
   };
 }
 

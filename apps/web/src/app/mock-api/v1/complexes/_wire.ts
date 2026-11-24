@@ -57,7 +57,9 @@ export function toListingsSummary(spec: MockComplexSpec): ComplexListingsSummary
       const [minMonthlyRent, maxMonthlyRent] = minMax(
         group.flatMap((l) => (l.monthlyRent === null ? [] : [l.monthlyRent])),
       );
-      return [{ dealType, count: group.length, minPrice, maxPrice, minMonthlyRent, maxMonthlyRent }];
+      return [
+        { dealType, count: group.length, minPrice, maxPrice, minMonthlyRent, maxMonthlyRent },
+      ];
     }),
   };
 }
@@ -100,7 +102,9 @@ export function toComplexDetailWire(spec: MockComplexSpec): WireComplexDetail {
     buildingCoverageRatio: d.buildingCoverageRatio,
     heatingType: d.heatingType,
     builder: d.builder,
-    region: d.emdCode ? { code: d.emdCode, name: d.emdName ?? '', fullName: d.emdName ?? '' } : null,
+    region: d.emdCode
+      ? { code: d.emdCode, name: d.emdName ?? '', fullName: d.emdName ?? '' }
+      : null,
     areaTypes: d.areaTypes.map((a) => ({
       id: a.id,
       exclusiveArea: a.exclusiveArea,

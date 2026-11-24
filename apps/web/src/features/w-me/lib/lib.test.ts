@@ -340,7 +340,11 @@ describe('profile form', () => {
     expect(ok({ nickname: '순천살이', phone: '010-1234-5678', marketingOptIn: false })).toBe(true);
     expect(ok({ nickname: '순천살이', phone: '', marketingOptIn: true })).toBe(true); // phone optional
     expect(ok({ nickname: '  ', phone: '', marketingOptIn: true })).toBe(false);
-    expect(ok({ nickname: 'a'.repeat(31), phone: '', marketingOptIn: true })).toBe(false);
+    expect(ok({ nickname: 'a'.repeat(21), phone: '', marketingOptIn: true })).toBe(false);
+    // The backend's nicknameSchema: 2–20 characters, no spaces or symbols beyond _ . -
+    expect(ok({ nickname: '순', phone: '', marketingOptIn: true })).toBe(false);
+    expect(ok({ nickname: '순천 살이', phone: '', marketingOptIn: true })).toBe(false);
+    expect(ok({ nickname: 'sun_cheon.1', phone: '', marketingOptIn: true })).toBe(true);
     expect(ok({ nickname: '순천살이', phone: '061-000-0000', marketingOptIn: true })).toBe(false); // mobile only
     expect(ok({ nickname: '순천살이', phone: '010-12', marketingOptIn: true })).toBe(false);
   });
@@ -351,6 +355,10 @@ describe('profile form', () => {
       marketingOptIn: false,
     });
     expect(profileFormDefaults({ ...profile, phone: null }).phone).toBe('');
+    // A scrubbed profile (nickname null) starts with an empty field, and the empty value is no change.
+    const scrubbed = { ...profile, nickname: null };
+    expect(profileFormDefaults(scrubbed).nickname).toBe('');
+    expect(toProfilePatch(profileFormDefaults(scrubbed), scrubbed)).toEqual({});
   });
   it('sends only changed fields, with the phone normalised and "" → null', () => {
     const base = profileFormDefaults(profile);

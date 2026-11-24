@@ -20,6 +20,9 @@ export async function GET(req: NextRequest) {
   if (!parsed.success) return validationError(parsed.error);
   const { bbox, zoom, ...filter } = parsed.data;
   return mockJson(
-    searchMapWire(LISTINGS, bbox, zoom, { ...filter, ...parseExtraFilters(req.nextUrl.searchParams) }),
+    searchMapWire(LISTINGS, bbox, zoom, {
+      ...filter,
+      ...parseExtraFilters(req.nextUrl.searchParams),
+    }),
   );
 }

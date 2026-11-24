@@ -22,9 +22,7 @@ export async function GET(req: NextRequest) {
             targetType: 'LISTING' as const,
             targetId: view.id,
             viewedAt: view.at,
-            ...(listing
-              ? { listing: toListingWire(listing) }
-              : {}),
+            ...(listing ? { listing: toListingWire(listing) } : {}),
           };
         })
       : [];

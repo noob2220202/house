@@ -699,7 +699,10 @@ const isSaleLike = (l: MockListing) =>
  * `listingListQuerySchema`. 매매가 filters (priceMin/Max) apply to 매매·분양권, 보증금 filters
  * (depositMin/Max) to 전세·월세 — like the listings search.
  */
-export function complexListingRows(spec: MockComplexSpec, q: ListingListQuery): ComplexListingItem[] {
+export function complexListingRows(
+  spec: MockComplexSpec,
+  q: ListingListQuery,
+): ComplexListingItem[] {
   const hasPrice = q.priceMin !== undefined || q.priceMax !== undefined;
   const hasDeposit = q.depositMin !== undefined || q.depositMax !== undefined;
   const hasRent = q.rentMin !== undefined || q.rentMax !== undefined;

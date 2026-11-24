@@ -107,7 +107,12 @@ function normalizeComplex(value: unknown): unknown {
   if (out.counts === undefined && typeof lc === 'object' && lc !== null) {
     const by = ((lc as Record<string, unknown>).byDealType ?? {}) as Record<string, unknown>;
     const n = (k: string) => (typeof by[k] === 'number' ? by[k] : 0);
-    out.counts = { presale: n('PRESALE'), sale: n('SALE'), jeonse: n('JEONSE'), monthly: n('MONTHLY') };
+    out.counts = {
+      presale: n('PRESALE'),
+      sale: n('SALE'),
+      jeonse: n('JEONSE'),
+      monthly: n('MONTHLY'),
+    };
   }
   if (out.counts === undefined && raw.dealCounts !== undefined) out.counts = raw.dealCounts;
   if (
@@ -270,10 +275,12 @@ function listingMarkersFromWire(listings: unknown[]): Raw[] {
 export function mapSearchFromWire(value: unknown): unknown {
   if (!isObject(value) || Array.isArray(value.markers)) return value;
   const clusters = Array.isArray(value.clusters)
-    ? value.clusters.map((c) => (isObject(c) && c.id === undefined ? { ...c, id: c.key } : c))
+    ? (value.clusters as unknown[]).map((c): unknown =>
+        isObject(c) && c.id === undefined ? { ...c, id: c.key } : c,
+      )
     : [];
   const complexes = Array.isArray(value.complexes) ? value.complexes.filter(isObject) : [];
-  const listings = Array.isArray(value.listings) ? value.listings : [];
+  const listings: unknown[] = Array.isArray(value.listings) ? value.listings : [];
   return {
     ...value,
     clusters,
@@ -328,7 +335,9 @@ export const regionListSchema = z
   .union([z.array(regionRowSchema), z.object({ items: z.array(regionRowSchema) })])
   .transform((v): Region[] =>
     (Array.isArray(v) ? v : v.items).flatMap((r) =>
-      typeof r.lat === 'number' && typeof r.lng === 'number' ? [{ ...r, lat: r.lat, lng: r.lng }] : [],
+      typeof r.lat === 'number' && typeof r.lng === 'number'
+        ? [{ ...r, lat: r.lat, lng: r.lng }]
+        : [],
     ),
   );
 

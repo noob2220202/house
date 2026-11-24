@@ -3,7 +3,6 @@ import {
   AuthProvider,
   type TermsType,
   type signupSchema,
-  type updateProfileSchema,
   type withdrawSchema,
 } from '@house/shared';
 import { z } from 'zod';
@@ -121,13 +120,6 @@ export const fetchConsents = (signal?: AbortSignal) =>
 export const submitConsents = (body: {
   consents: { termsDocumentId: string; agreed: boolean }[];
 }) => api.post('/me/consents', body, { schema: consentListSchema });
-
-// ---- profile -------------------------------------------------------------------------------------
-
-export type UpdateProfileInput = z.input<typeof updateProfileSchema>;
-/** PATCH /me/profile (nickname, phone, marketingOptIn) → the updated `MeResponse`. */
-export const updateProfile = (body: UpdateProfileInput) =>
-  api.patch('/me/profile', body, { schema: sessionUserSchema });
 
 // ---- interest regions (frontend contract, implemented by the backend to this shape) --------------
 

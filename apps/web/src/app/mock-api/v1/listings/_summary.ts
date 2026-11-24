@@ -99,7 +99,10 @@ export function toListingSummary(l: MockSummarySource): ListingSummary {
 // ---- wire --------------------------------------------------------------------------------------
 
 const FLOOR_SHORT: Record<string, string> = { LOW: '저', MID: '중', HIGH: '고' };
-const DEFAULT_PRIMARY_AGENCY = { id: '00000000-0000-4000-8000-0000000000a1', name: '순천중앙공인중개사사무소' };
+const DEFAULT_PRIMARY_AGENCY = {
+  id: '00000000-0000-4000-8000-0000000000a1',
+  name: '순천중앙공인중개사사무소',
+};
 
 function wireFloorLabel(l: ListingSummary): string | null {
   if (l.floor !== null && l.floor !== undefined) {

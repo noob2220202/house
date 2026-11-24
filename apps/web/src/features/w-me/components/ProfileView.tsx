@@ -119,9 +119,9 @@ function BasicInfoCard({ profile }: { profile: Profile }) {
         <Input
           label="닉네임"
           required
-          maxLength={30}
+          maxLength={20}
           autoComplete="nickname"
-          help="문의나 요청을 보낼 때 중개사무소에 보이는 이름이에요. 30자까지 쓸 수 있어요."
+          help="문의나 요청을 보낼 때 중개사무소에 보이는 이름이에요. 2~20자, 띄어쓰기 없이 써 주세요."
           error={errors.nickname?.message}
           {...form.register('nickname')}
         />

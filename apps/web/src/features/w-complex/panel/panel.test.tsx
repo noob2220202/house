@@ -142,7 +142,11 @@ describe('ListingRow (backend list row)', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('parses the wire row (floor from floorLabel, complex name)', () => {
-    expect(wire).toMatchObject({ complexId: 'C01', complexName: '신대 레이크파크', totalFloors: 25 });
+    expect(wire).toMatchObject({
+      complexId: 'C01',
+      complexName: '신대 레이크파크',
+      totalFloors: 25,
+    });
     expect(wire.agencies).toEqual([]);
   });
 

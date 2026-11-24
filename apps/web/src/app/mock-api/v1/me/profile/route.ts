@@ -3,21 +3,11 @@ import type { NextRequest } from 'next/server';
 import { mockDelay, mockError, mockJson } from '@/lib/mock';
 import { authState, mockMe } from '../../auth/_state';
 import { MOCK_TERMS } from '../../terms/_fixtures';
-import { meGuard, mockForcedFailure } from '../_store';
-
-// GET /api/v1/me/profile — mock only: the backend has no GET here (the profile is GET /auth/me).
-// Kept until the w-me profile query reads /auth/me.
-export async function GET(req: NextRequest) {
-  const g = meGuard(req);
-  if (g.fail) return g.fail;
-  await mockDelay(req);
-  const forced = mockForcedFailure(req);
-  if (forced) return forced;
-  return mockJson(g.state.profile);
-}
+import { meGuard } from '../_store';
 
 const TAKEN_NICKNAMES = ['관리자', '운영자', 'admin'];
 
+// The profile is read from GET /auth/me (like the backend, there is no GET here).
 // PATCH /api/v1/me/profile — nickname, phone (plain contact field, never verified), marketingOptIn
 // → the updated `MeResponse` (like the backend). Opting in starts `marketingOptInAt`, opting out
 // clears it.

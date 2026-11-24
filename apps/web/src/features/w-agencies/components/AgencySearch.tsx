@@ -409,36 +409,36 @@ export function AgencySearch({
         )}
       </p>
       <Popover
-          placement="bottom-end"
-          label="정렬"
-          flush
-          trigger={(p) => (
-            <button type="button" className={styles.sortBtn} {...p}>
-              <Icon name="sort" size={16} />
-              {AGENCY_SORT_LABEL[sort]}
-            </button>
-          )}
-        >
-          {(closeMenu) => (
-            <div className={styles.menu} role="radiogroup" aria-label="정렬 기준">
-              {AGENCY_SORTS.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  role="radio"
-                  aria-checked={s === sort}
-                  onClick={() => {
-                    if (s !== sort) setFilters({ sort: s });
-                    closeMenu();
-                  }}
-                >
-                  {AGENCY_SORT_LABEL[s]}
-                  {s === sort && <Icon name="check" size={16} />}
-                </button>
-              ))}
-            </div>
-          )}
-        </Popover>
+        placement="bottom-end"
+        label="정렬"
+        flush
+        trigger={(p) => (
+          <button type="button" className={styles.sortBtn} {...p}>
+            <Icon name="sort" size={16} />
+            {AGENCY_SORT_LABEL[sort]}
+          </button>
+        )}
+      >
+        {(closeMenu) => (
+          <div className={styles.menu} role="radiogroup" aria-label="정렬 기준">
+            {AGENCY_SORTS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                role="radio"
+                aria-checked={s === sort}
+                onClick={() => {
+                  if (s !== sort) setFilters({ sort: s });
+                  closeMenu();
+                }}
+              >
+                {AGENCY_SORT_LABEL[s]}
+                {s === sort && <Icon name="check" size={16} />}
+              </button>
+            ))}
+          </div>
+        )}
+      </Popover>
     </div>
   );
 

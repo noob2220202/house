@@ -65,7 +65,12 @@ describe('buildAgencyMarkers', () => {
 
   it('dissolves a cluster next to the selected office so it cannot cover it', () => {
     const near = dense().map((o, i) => ({ ...o, id: `n${i}` }));
-    const selected: Office = { ...far()[0]!, id: 'sel', lat: near[0]!.lat + 0.0005, lng: near[0]!.lng };
+    const selected: Office = {
+      ...far()[0]!,
+      id: 'sel',
+      lat: near[0]!.lat + 0.0005,
+      lng: near[0]!.lng,
+    };
     const markers = buildAgencyMarkers([...near, selected], { zoom: 13, selectedId: 'sel' });
     expect(markers.some((m) => m.kind === 'cluster')).toBe(false);
     expect(markers.at(-1)).toMatchObject({ id: 'sel', kind: 'complex' });

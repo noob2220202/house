@@ -115,10 +115,10 @@ export async function GET(req: NextRequest) {
   const rows: ListingSummary[] = complex
     ? complexListingRows(complex, query)
     : agencyId
-    ? agencyListings({ ...query, agencyId })
-    : query.bbox
-      ? mapListings(query, sp)
-      : sampleListings(query);
+      ? agencyListings({ ...query, agencyId })
+      : query.bbox
+        ? mapListings(query, sp)
+        : sampleListings(query);
   const page = mockPaginate(rows, req, { pageSize: agencyId ? 12 : 20 });
   return mockJson({ ...page, items: page.items.map((l) => toListingWire(l)) });
 }

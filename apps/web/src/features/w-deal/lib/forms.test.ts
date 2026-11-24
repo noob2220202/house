@@ -321,6 +321,82 @@ describe('구하기 form', () => {
   });
 });
 
+describe('sane upper bounds (review: 30000평 · 30000동 · 월세 3억)', () => {
+  const message = (issues: FieldIssue[], path: string) =>
+    issues.find((i) => i.path === path)?.message;
+
+  it('rejects an oversized 전용면적 per asset type', () => {
+    const issues = validateSell(
+      sell({ areaTypeId: '', areaTypeSqm: '', area: '30000', areaUnit: 'pyeong' }),
+      TODAY,
+    );
+    expect(message(issues, 'area')).toBe('면적이 너무 커요. 600㎡(181평) 이하로 입력해 주세요.');
+    expect(
+      paths(
+        validateSell(
+          sell({ areaTypeId: '', areaTypeSqm: '', area: '59', areaUnit: 'pyeong' }),
+          TODAY,
+        ),
+      ),
+    ).not.toContain('area');
+    const land = sell({
+      assetType: AssetType.LAND,
+      complexId: '',
+      complexName: '',
+      dong: '',
+      ho: '',
+      areaTypeId: '',
+      areaTypeSqm: '',
+      area: '30000',
+      areaUnit: 'pyeong',
+    });
+    expect(paths(validateSell(land, TODAY))).not.toContain('area');
+  });
+
+  it('limits 동 / 호 to 1–9999 or a short name', () => {
+    expect(message(validateSell(sell({ dong: '30000' }), TODAY), 'dong')).toBe(
+      '동은 1~9999 사이 숫자로 입력해 주세요. (예: 103)',
+    );
+    expect(message(validateSell(sell({ ho: '30000호' }), TODAY), 'ho')).toBe(
+      '호수는 1~9999 사이 숫자로 입력해 주세요. (예: 1502)',
+    );
+    for (const ok of [{ dong: '103동' }, { dong: 'A' }, { ho: 'B101' }, { ho: '1502호' }]) {
+      expect(paths(validateSell(sell(ok), TODAY)), JSON.stringify(ok)).toEqual([]);
+    }
+    expect(message(validateSell(sell({ dong: '' }), TODAY), 'dong')).toBe('동을 입력해 주세요.');
+  });
+
+  it('caps 매매가 / 보증금 / 월세 with a Korean message', () => {
+    const monthly = sell({ dealType: DealType.MONTHLY, deposit: '1,000', monthlyRent: '30,000' });
+    expect(message(validateSell(monthly, TODAY), 'monthlyRent')).toBe(
+      '금액이 너무 커요. 1억원 이하로 입력해 주세요. (만원 단위)',
+    );
+    expect(
+      paths(
+        validateSell(
+          sell({ dealType: DealType.MONTHLY, deposit: '1,000', monthlyRent: '65' }),
+          TODAY,
+        ),
+      ),
+    ).toEqual([]);
+    expect(message(validateSell(sell({ salePrice: '600억' }), TODAY), 'salePrice')).toBe(
+      '금액이 너무 커요. 500억원 이하로 입력해 주세요. (만원 단위)',
+    );
+    const wanted = find({
+      dealTypes: [DealType.MONTHLY],
+      priceMax: '',
+      depositMax: '500',
+      rentMax: '20억',
+    });
+    expect(paths(validateFind(wanted, TODAY))).toContain('rentMax');
+  });
+
+  it('caps the 구하기 area range', () => {
+    const issues = validateFind(find({ areaCustom: true, areaMin: '59', areaMax: '99999' }), TODAY);
+    expect(message(issues, 'areaMax')).toMatch(/^면적이 너무 커요/);
+  });
+});
+
 describe('deal types per asset type', () => {
   it('offers 분양권 only for 아파트·오피스텔 and no 전세 for 토지', () => {
     expect(dealTypesFor(AssetType.APT)).toContain(DealType.PRESALE);

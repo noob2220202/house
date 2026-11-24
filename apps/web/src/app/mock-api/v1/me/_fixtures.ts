@@ -1,11 +1,7 @@
+import type { AuthProvider } from '@house/shared';
 import { mockUuid } from '@/lib/mock';
 import { toListingSummary, type MockSummarySource } from '../listings/_summary';
-import type {
-  FavoriteComplex,
-  Identity,
-  ListingSummary,
-  Notification,
-} from '@/features/w-me/schemas';
+import type { FavoriteComplex, ListingSummary, Notification } from '@/features/w-me/schemas';
 
 /**
  * Fixtures for the my-page mock resources (all fictional, from design/drafts/system/mockdata.md).
@@ -520,7 +516,20 @@ export function seedNotifications(now: number): Notification[] {
   }));
 }
 
-export function seedIdentities(now: number): Identity[] {
+/**
+ * A linked social account as the mocks store it (the `Identity` model's columns). Served as the
+ * backend's `IdentitySummary` (`createdAt` → `linkedAt`) by `identitySummaries` in ../auth/_state.
+ */
+export interface MockIdentity {
+  id: string;
+  provider: AuthProvider;
+  email?: string | null;
+  lastUsedAt?: string | null;
+  /** When the account was linked. */
+  createdAt?: string | null;
+}
+
+export function seedIdentities(now: number): MockIdentity[] {
   return [
     {
       id: mockUuid('identity-kakao'),
@@ -540,7 +549,7 @@ export function seedIdentities(now: number): Identity[] {
 }
 
 /** The one identity of a member who just signed up with `provider` (mock signup). */
-export function seedIdentityFor(provider: Identity['provider'], now: number): Identity {
+export function seedIdentityFor(provider: AuthProvider, now: number): MockIdentity {
   const slug = provider.toLowerCase();
   return {
     id: mockUuid(`identity-${slug}`),

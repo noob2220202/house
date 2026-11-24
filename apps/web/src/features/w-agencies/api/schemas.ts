@@ -189,7 +189,11 @@ export const agencyRegionsSchema = z.object({
 export type AgencyRegions = z.infer<typeof agencyRegionsSchema>;
 
 /** Sort of the office list (`AgencySearchSort` of the agencies module, minus RELEVANCE). */
-export const AGENCY_SORTS = ['LISTINGS', 'NEWEST', 'NAME'] as const satisfies readonly AgencySearchSort[];
+export const AGENCY_SORTS = [
+  'LISTINGS',
+  'NEWEST',
+  'NAME',
+] as const satisfies readonly AgencySearchSort[];
 export type AgencySort = (typeof AGENCY_SORTS)[number];
 export const AGENCY_SORT_LABEL: Record<AgencySort, string> = {
   LISTINGS: '보유 매물순',

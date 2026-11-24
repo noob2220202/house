@@ -1,21 +1,22 @@
+import { nicknameSchema } from '@house/shared';
 import { describe, expect, it } from 'vitest';
 import {
   COMPLEXES,
   LISTINGS,
   seedFavoriteComplexes,
   seedFavoriteListings,
-  seedIdentities,
   seedNotifications,
   seedRecentViews,
 } from '@/app/mock-api/v1/me/_fixtures';
+import { mockMe } from '@/app/mock-api/v1/auth/_state';
 import { dealStore } from '@/app/mock-api/v1/deal-requests/_store';
 import { isAgencyNotification, notificationHref } from './lib/notifications';
 import {
   favoriteComplexSchema,
-  identityListSchema,
   listingSummarySchema,
   notificationPageSchema,
   notificationSchema,
+  profileSchema,
 } from './schemas';
 
 /** The mock fixtures are the contract examples — they must satisfy the response schemas. */
@@ -93,9 +94,18 @@ describe('w-me schemas ↔ mock fixtures', () => {
     expect(parsed.type).toBe('SYSTEM');
   });
 
-  it('accepts the identity list bare or wrapped', () => {
-    const items = seedIdentities(now);
-    expect(identityListSchema.parse({ items })).toHaveLength(2);
-    expect(identityListSchema.parse(items)).toHaveLength(2);
+  it('reads the profile from the MeResponse of GET /auth/me (agencyId ← agency.agencyId)', () => {
+    const agent = profileSchema.parse(mockMe('AGENCY_OWNER'));
+    expect(agent.agencyId).toBe(mockMe('AGENCY_OWNER').agency?.agencyId);
+    expect(agent.agencyId).toBeTruthy();
+    expect(profileSchema.parse(mockMe('USER')).agencyId ?? null).toBeNull();
+    // The backend may send a null nickname (PII scrub) — the profile still parses.
+    const scrubbed = profileSchema.parse({ ...mockMe('USER'), nickname: null });
+    expect(scrubbed.nickname).toBeNull();
+  });
+
+  it('mock members have nicknames the backend accepts (the profile form re-validates them)', () => {
+    for (const role of ['USER', 'AGENT', 'AGENCY_OWNER'] as const)
+      expect(nicknameSchema.safeParse(mockMe(role).nickname).success, role).toBe(true);
   });
 });

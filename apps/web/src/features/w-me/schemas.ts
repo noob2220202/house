@@ -1,10 +1,4 @@
-import {
-  AuthProvider,
-  NotificationType,
-  RecentViewTarget,
-  UserRole,
-  UserStatus,
-} from '@house/shared';
+import { NotificationType, RecentViewTarget, UserRole, UserStatus } from '@house/shared';
 import { z } from 'zod';
 import {
   listingFromWire,
@@ -168,37 +162,35 @@ export const notificationUnreadSchema = z.object({ unread: z.number().int() });
 
 // ---------- profile ----------
 
-export const profileSchema = z.object({
-  id: z.string(),
-  role: z.enum(UserRole),
-  status: z.enum(UserStatus).default(UserStatus.ACTIVE),
-  nickname: z.string(),
-  name: nullish(z.string()),
-  email: nullish(z.string()),
-  /** Plain contact number, digits only. Never verified. */
-  phone: nullish(z.string()),
-  profileImageUrl: nullish(z.string()),
-  agencyId: nullish(z.string()),
-  marketingOptIn: z.boolean().default(false),
-  /** When the marketing consent was last changed (latest MARKETING UserConsent.createdAt). */
-  marketingOptInAt: nullish(z.string()),
-  createdAt: nullish(z.string()),
-  lastLoginAt: nullish(z.string()),
-});
+/**
+ * The member's own profile = `MeResponse` (GET /auth/me; the backend has no GET /me/profile, and
+ * PATCH /me/profile answers the same shape). `nickname` is nullable in the backend (PII scrub or
+ * an admin cleared it); `agencyId` mirrors `agency.agencyId`.
+ */
+export const profileSchema = z.preprocess(
+  (value) => {
+    if (typeof value !== 'object' || value === null) return value;
+    const raw = value as Record<string, unknown>;
+    const agency = raw.agency as { agencyId?: unknown } | null | undefined;
+    if (raw.agencyId === undefined && typeof agency?.agencyId === 'string')
+      return { ...raw, agencyId: agency.agencyId };
+    return raw;
+  },
+  z.object({
+    id: z.string(),
+    role: z.enum(UserRole),
+    status: z.enum(UserStatus).default(UserStatus.ACTIVE),
+    nickname: nullish(z.string()),
+    name: nullish(z.string()),
+    email: nullish(z.string()),
+    /** Plain contact number, digits only. Never verified. */
+    phone: nullish(z.string()),
+    profileImageUrl: nullish(z.string()),
+    agencyId: nullish(z.string()),
+    marketingOptIn: z.boolean().default(false),
+    /** Start of the current marketing opt-in (정보통신망법 제50조 수신동의 일자); null while opted out. */
+    marketingOptInAt: nullish(z.string()),
+    createdAt: nullish(z.string()),
+  }),
+);
 export type Profile = z.infer<typeof profileSchema>;
-
-/** Same shape as the w-auth group's identity schema (Identity model columns). */
-export const identitySchema = z.object({
-  id: z.string().optional(),
-  provider: z.enum(AuthProvider),
-  /** Provider account e-mail (may be hidden by the user at the provider). */
-  email: nullish(z.string()),
-  lastUsedAt: nullish(z.string()),
-  /** Identity.createdAt — when the account was linked. */
-  createdAt: nullish(z.string()),
-});
-export type Identity = z.infer<typeof identitySchema>;
-/** The list may arrive bare or wrapped in `{ items }`. */
-export const identityListSchema = z
-  .union([z.array(identitySchema), z.object({ items: z.array(identitySchema) })])
-  .transform((v) => (Array.isArray(v) ? v : v.items));

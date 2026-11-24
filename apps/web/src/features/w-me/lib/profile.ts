@@ -1,6 +1,7 @@
 import { ROLE_LABEL, UserRole, formatPhone, phoneSchema } from '@house/shared';
 import { z } from 'zod';
 import { formatDateTime } from '@/lib/format';
+import { nicknameSchema } from '@/features/w-auth/lib/signup-schema';
 import type { Profile } from '../schemas';
 
 /** "일반회원" / "중개사 회원" style caption for the profile card. */
@@ -23,11 +24,8 @@ export function marketingConsentCaption(optIn: boolean, changedAt?: string | nul
  * verification anywhere); an empty value clears it.
  */
 export const profileFormSchema = z.object({
-  nickname: z
-    .string()
-    .trim()
-    .min(1, '닉네임을 입력해 주세요.')
-    .max(30, '닉네임은 30자까지 입력할 수 있어요.'),
+  /** Same rule as the backend's `nicknameSchema` (PATCH /me/profile) and the signup form. */
+  nickname: nicknameSchema,
   phone: z
     .string()
     .trim()
@@ -39,7 +37,7 @@ export type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 export function profileFormDefaults(profile: Profile): ProfileFormValues {
   return {
-    nickname: profile.nickname,
+    nickname: profile.nickname ?? '',
     phone: profile.phone ? formatPhone(profile.phone) : '',
     marketingOptIn: profile.marketingOptIn,
   };
@@ -55,7 +53,7 @@ export interface ProfilePatch {
 export function toProfilePatch(values: ProfileFormValues, profile: Profile): ProfilePatch {
   const patch: ProfilePatch = {};
   const nickname = values.nickname.trim();
-  if (nickname !== profile.nickname) patch.nickname = nickname;
+  if (nickname !== (profile.nickname ?? '')) patch.nickname = nickname;
   const parsed = values.phone.trim() === '' ? null : phoneSchema.safeParse(values.phone);
   const phone = parsed === null ? null : parsed.success ? parsed.data : values.phone.trim();
   if (phone !== (profile.phone ?? null)) patch.phone = phone;

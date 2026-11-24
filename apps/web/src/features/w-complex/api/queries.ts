@@ -1,6 +1,6 @@
 import { BannerSlot, type ListingSort, type TradeDealType } from '@house/shared';
 import { servedBannersQuery } from '@/lib/ads/query';
-import { api, qk, type QueryParams } from '@/lib/api';
+import { api, qk } from '@/lib/api';
 import {
   complexAgenciesSchema,
   complexDetailSchema,

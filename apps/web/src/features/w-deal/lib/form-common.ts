@@ -90,7 +90,8 @@ export type MoneyKind = keyof typeof MONEY_LIMITS;
 
 /** "500억" / "1억" / "9,000만" — the limit as the user reads it. */
 export function moneyLimitText(manwon: number): string {
-  if (manwon >= 10_000 && manwon % 10_000 === 0) return `${(manwon / 10_000).toLocaleString('ko-KR')}억`;
+  if (manwon >= 10_000 && manwon % 10_000 === 0)
+    return `${(manwon / 10_000).toLocaleString('ko-KR')}억`;
   return `${manwon.toLocaleString('ko-KR')}만`;
 }
 
@@ -107,7 +108,7 @@ export const AREA_LIMIT_SQM: Record<AssetType, number> = {
 /** Issue text when an area exceeds `AREA_LIMIT_SQM` ("600㎡(181평) 이하로 입력해 주세요."). */
 export function areaLimitMessage(assetType: AssetType): string {
   const max = AREA_LIMIT_SQM[assetType];
-  return `면적이 너무 커요. ${max.toLocaleString('ko-KR')}㎡(${Math.floor(sqmToPyeong(max, 0)).toLocaleString('ko-KR')}평) 이하로 입력해 주세요.`;
+  return `면적이 너무 커요. ${max.toLocaleString('ko-KR')}㎡(${Math.floor(sqmToPyeong(max, 1)).toLocaleString('ko-KR')}평) 이하로 입력해 주세요.`;
 }
 
 export function validateMoney(

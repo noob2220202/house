@@ -146,9 +146,10 @@ export const meQueries = {
       },
       staleTime: 60_000,
     }),
+  /** The member's profile = `MeResponse` of GET /auth/me (the backend has no GET /me/profile). */
   profile: (fetcher: MeFetcher) =>
     queryOptions({
       queryKey: meKeys.profile,
-      queryFn: ({ signal }) => fetcher('/me/profile', { schema: profileSchema, signal }),
+      queryFn: ({ signal }) => fetcher('/auth/me', { schema: profileSchema, signal }),
     }),
 };

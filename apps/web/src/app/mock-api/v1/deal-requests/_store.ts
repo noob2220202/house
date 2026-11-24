@@ -386,11 +386,11 @@ function disclosureOf(a: MockAgency): AgencyDisclosure {
 /** Proposal listing fixture → `ProposalListingView`. */
 function proposalListingOf(l: Record<string, unknown>): ProposalListingView {
   const price = typeof l.price === 'number' ? l.price : null;
-  const dealType = String(l.dealType) as DealType;
+  const dealType = (typeof l.dealType === 'string' ? l.dealType : 'SALE') as DealType;
   return {
-    id: String(l.id),
+    id: typeof l.id === 'string' ? l.id : '',
     title: typeof l.title === 'string' ? l.title : null,
-    assetType: String(l.assetType ?? 'APT') as AssetType,
+    assetType: (typeof l.assetType === 'string' ? l.assetType : 'APT') as AssetType,
     dealType,
     status: ListingStatus.ACTIVE,
     salePrice: dealType === 'SALE' ? price : null,

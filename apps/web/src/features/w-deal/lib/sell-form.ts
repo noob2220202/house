@@ -177,8 +177,16 @@ export function sellFloor(v: SellFormValues): number | undefined {
  * short name ("A", "가", "B1"). null = valid.
  */
 const UNIT_PART_TEXT = {
-  동: { empty: '동을 입력해 주세요.', range: '동은 1~9999 사이 숫자로 입력해 주세요. (예: 103)', name: '동은 6자 이내의 숫자·한글·영문으로 입력해 주세요.' },
-  호: { empty: '호수를 입력해 주세요.', range: '호수는 1~9999 사이 숫자로 입력해 주세요. (예: 1502)', name: '호수는 6자 이내의 숫자·한글·영문으로 입력해 주세요.' },
+  동: {
+    empty: '동을 입력해 주세요.',
+    range: '동은 1~9999 사이 숫자로 입력해 주세요. (예: 103)',
+    name: '동은 6자 이내의 숫자·한글·영문으로 입력해 주세요.',
+  },
+  호: {
+    empty: '호수를 입력해 주세요.',
+    range: '호수는 1~9999 사이 숫자로 입력해 주세요. (예: 1502)',
+    name: '호수는 6자 이내의 숫자·한글·영문으로 입력해 주세요.',
+  },
 } as const;
 
 export function unitPartIssue(input: string, part: '동' | '호'): string | null {
