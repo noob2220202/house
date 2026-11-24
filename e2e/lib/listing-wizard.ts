@@ -28,8 +28,21 @@ export class ListingWizard {
       .click();
   }
 
+  /** The highlighted step of the stepper ("3 면적·상세"). */
+  currentStep(): Locator {
+    return this.page
+      .getByRole('list', { name: '매물 등록 단계' })
+      .locator('li[aria-current="step"]');
+  }
+
+  /**
+   * "다음 단계로" saves the draft first (POST/PATCH) and only then moves on, so wait for the
+   * stepper to advance — a validation error keeps the step and fails here with its name.
+   */
   async next(): Promise<void> {
+    const before = ((await this.currentStep().textContent()) ?? '').trim();
     await this.page.getByRole('button', { name: '다음 단계로' }).click();
+    await expect(this.currentStep(), `stayed on "${before}"`).not.toHaveText(before);
   }
 
   async fillIfEmpty(locator: Locator, value: string): Promise<void> {
@@ -105,10 +118,14 @@ export class ListingWizard {
 
   /** 면적·상세: 평형 (단지) or 전용면적, 방/욕실, 방향 + 기준, 사용승인일, 주차. */
   async detail(opts: { area?: string; approvalDate?: string } = {}) {
-    const areaType = this.field('평형');
-    if ((await areaType.isVisible()) && (await areaType.inputValue()) === '') {
-      const first = areaType.locator('option:not([value=""])').first();
-      await areaType.selectOption((await first.getAttribute('value')) ?? '');
+    // 단지 매물: pick the first 평형 (fills 전용·공급면적 and 방/욕실 from the area type).
+    const areaTypes = this.radioGroup('평형');
+    if (
+      (await areaTypes.count()) > 0 &&
+      !(await areaTypes.getByRole('radio', { checked: true }).count())
+    ) {
+      // The radio is visually hidden inside its chip <label>: click the chip.
+      await areaTypes.locator('label').first().click();
     }
     await this.fillIfEmpty(this.page.getByLabel(/^전용면적 \(제곱미터\)/), opts.area ?? '23.14');
     await this.fillIfEmpty(this.field('방 수'), '1');

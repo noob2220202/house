@@ -5,6 +5,8 @@ import { FIXTURES_DIR, uniq, WEB_URL } from '../../lib/env';
 
 /** 광고: MAIN_HERO banner and a popup created in the admin, then visible on the user site. */
 test.describe('admin ads → user site', () => {
+  // The home page is ISR (revalidate 60 s): allow the 120 s polls below plus the admin steps.
+  test.describe.configure({ timeout: 180_000 });
   test('MAIN_HERO banner with uploaded images shows on the home carousel', async ({
     page,
     browser,

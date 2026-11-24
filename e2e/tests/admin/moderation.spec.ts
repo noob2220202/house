@@ -127,7 +127,8 @@ test.describe('admin moderation', () => {
     await page.getByRole('button', { name: '조치하기' }).click();
     const dialog = page.getByRole('dialog', { name: '신고 조치' });
     await expect(dialog).toBeVisible();
-    await dialog.getByText('매물 숨김', { exact: true }).click();
+    // 매물 숨김 is preselected for a live listing; make sure it stays checked.
+    await dialog.getByRole('checkbox', { name: '매물 숨김' }).check();
     await dialog
       .getByLabel('처리 내용')
       .fill('e2e: 중개사무소 확인 결과 거래 완료된 매물이라 숨김 처리');
