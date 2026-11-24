@@ -39,3 +39,5 @@ logs/
 # Next: per-dist-dir derived tsconfig + generated env types (see apps/*/next.config.mjs)
 tsconfig.next*.json
 next-env.d.ts
+test-results/
+playwright-report/
