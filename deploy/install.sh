@@ -104,7 +104,7 @@ load_conf
 # the service user's mirror is not trusted).
 install_kit_links() {
   local s
-  for s in deploy rollback status backup restore create-admin db-shell; do
+  for s in deploy rollback status backup restore create-admin db-shell set-keys; do
     [[ -f "$BIN_DIR/$s.sh" ]] && ln -sfn "$BIN_DIR/$s.sh" "$HOUSE_ROOT/$s.sh"
   done
   return 0
@@ -762,7 +762,7 @@ else
   note_warn "$BIN_DIR 에서 실행했습니다. 이전 설치에서 서비스 사용자 소유였다면 신뢰할 수 있는 체크아웃으로 --kit-only 를 다시 실행하세요."
 fi
 install_kit_links
-ok "$HOUSE_ROOT/deploy.sh, rollback.sh, status.sh, backup.sh, restore.sh, create-admin.sh, db-shell.sh"
+ok "$HOUSE_ROOT/deploy.sh, rollback.sh, status.sh, backup.sh, restore.sh, create-admin.sh, db-shell.sh, set-keys.sh"
 
 # ─── 9. Git mirror ──────────────────────────────────────────────────────────────────────────
 step "Git 저장소 미러"
@@ -955,13 +955,8 @@ ${C_GRN}════════════════════════
  로그         ${LOG_DIR}
 
 ${C_BLU}▶ 다음 할 일${C_RST}
- 1) .env 에 외부 서비스 키를 넣으세요:   sudo nano ${ENV_FILE}
-    - KAKAO_CLIENT_ID / KAKAO_CLIENT_SECRET     (카카오 developers.kakao.com)
-    - NAVER_CLIENT_ID / NAVER_CLIENT_SECRET     (네이버 developers.naver.com)
-    - GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET   (console.cloud.google.com)
-    - NAVER_MAP_CLIENT_ID / NAVER_MAP_CLIENT_SECRET (네이버 클라우드 플랫폼 Maps)
-    - DATA_GO_KR_SERVICE_KEY                    (공공데이터포털 data.go.kr, 실거래가)
-    - VWORLD_API_KEY / VWORLD_DOMAIN            (브이월드 vworld.kr, 중개사무소 등록번호 대조, 선택)
+ 1) 외부 서비스 키 입력 (하나씩 물어봅니다):   sudo ${HOUSE_ROOT}/set-keys.sh
+    카카오 · 네이버 로그인 · Google · 네이버 클라우드 지도 · 공공데이터포털 · 브이월드(선택)
     각 콘솔에 등록할 로그인 Redirect URI:
       ${SCHEME}://${DOMAIN}/api/v1/auth/oauth/kakao/callback
       ${SCHEME}://${DOMAIN}/api/v1/auth/oauth/naver/callback
