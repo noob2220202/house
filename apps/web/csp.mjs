@@ -32,7 +32,11 @@ function originOf(url) {
   }
 }
 
-const NAVER_SCRIPT = ['https://oapi.map.naver.com', 'https://*.map.naver.net', 'https://*.pstatic.net'];
+const NAVER_SCRIPT = [
+  'https://oapi.map.naver.com',
+  'https://*.map.naver.net',
+  'https://*.pstatic.net',
+];
 const POSTCODE_SCRIPT = ['https://t1.kakaocdn.net', 'https://t1.daumcdn.net'];
 const POSTCODE_FRAME = ['https://postcode.map.kakao.com', 'https://postcode.map.daum.net'];
 const YOUTUBE_FRAME = ['https://www.youtube-nocookie.com', 'https://www.youtube.com'];

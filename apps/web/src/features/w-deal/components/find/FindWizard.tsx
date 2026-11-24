@@ -28,7 +28,13 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState, type FormEvent } from 'react';
 import { useForm, type UseFormReturn } from 'react-hook-form';
 import { ROUTES } from '@/config/nav';
-import { ApiError, errorMessage } from '@/lib/api';
+import {
+  ApiError,
+  CONSENT_OUTDATED_MESSAGE,
+  errorMessage,
+  isConsentOutdatedError,
+} from '@/lib/api';
+import { useActionTerms } from '@/lib/api/useActionTerms';
 import {
   formatDateKorean,
   formatPhone,
@@ -38,7 +44,7 @@ import {
   toKstDateString,
   type AreaUnit,
 } from '@/lib/format';
-import { dealApi, dealKeys } from '../../api/client';
+import { dealApi, dealKeys, type DealRequestCreatePayload } from '../../api/client';
 import {
   AREA_BANDS,
   bandRangeText,
@@ -66,6 +72,7 @@ import {
   ScopeFields,
   type ContactScopeSetter,
 } from '../form/ContactScopeFields';
+import { shownDealConsents } from '../form/consent-submit';
 import styles from '../form/form.module.css';
 import { MoneyInput } from '../form/MoneyInput';
 import { AssetTypeTiles } from '../form/parts';
@@ -75,6 +82,8 @@ import { ReachCard, useReach } from '../ReachCard';
 import { PrivateTag, ReviewItem, ReviewSection } from '../sell/SellReview';
 
 const ID = 'find';
+/** Step with the 개인정보 consents (back to it when a consent document changed). */
+const CONSENT_STEP = FIND_STEP_FIELDS.findIndex((f) => f.includes('agreePrivacy'));
 const TITLES = [
   '어떤 집을 찾으세요?',
   '예산과 면적을 알려주세요',
@@ -725,14 +734,25 @@ export function FindWizard({ user }: { user: WizardUser }) {
   const selected = v.visibility === DealRequestVisibility.SELECTED_AGENCIES;
   const regions = useRegionOptions();
 
+  const terms = useActionTerms('DEAL_REQUEST');
   const create = useMutation({
-    mutationFn: dealApi.create,
+    mutationFn: (payload: DealRequestCreatePayload) =>
+      dealApi.create(payload, shownDealConsents(terms.data)),
     onSuccess: (created) => {
       wizard.finish();
       void queryClient.invalidateQueries({ queryKey: dealKeys.all });
       router.replace(`${ROUTES.dealFind}/complete?id=${encodeURIComponent(created.id)}`);
     },
     onError: (e) => {
+      if (isConsentOutdatedError(e)) {
+        // A consent document changed since the user read it: show the new text, ask again.
+        setContact('agreePrivacy', false);
+        setContact('agreeProvide', false);
+        void terms.refetch();
+        form.setError('agreePrivacy', { type: 'server', message: CONSENT_OUTDATED_MESSAGE });
+        wizard.goTo(CONSENT_STEP);
+        return;
+      }
       if (e instanceof ApiError && e.isValidation) {
         const fields = e.fieldErrors();
         const known = (Object.keys(FIND_DEFAULTS) as (keyof FindFormValues)[]).filter(
@@ -829,10 +849,10 @@ export function FindWizard({ user }: { user: WizardUser }) {
             />
             <ConsentFields
               idPrefix={ID}
-              kind="find"
               values={v}
               errors={contactErrors}
               set={setContact}
+              terms={terms}
               recipients={recipientsText({
                 values: v,
                 nearLabel: '희망 지역',

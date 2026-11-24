@@ -7,8 +7,14 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { ROUTES } from '@/config/nav';
-import { ApiError, errorMessage } from '@/lib/api';
-import { dealApi, dealKeys } from '../../api/client';
+import {
+  ApiError,
+  CONSENT_OUTDATED_MESSAGE,
+  errorMessage,
+  isConsentOutdatedError,
+} from '@/lib/api';
+import { useActionTerms } from '@/lib/api/useActionTerms';
+import { dealApi, dealKeys, type DealRequestCreatePayload } from '../../api/client';
 import type { PickedAddress } from '../../lib/daum-postcode';
 import { dealTypesFor } from '../../lib/labels';
 import {
@@ -28,6 +34,7 @@ import {
   ScopeFields,
   type ContactScopeSetter,
 } from '../form/ContactScopeFields';
+import { shownDealConsents } from '../form/consent-submit';
 import { focusFirstError, setField, useWizard, type WizardUser } from '../form/useWizard';
 import { WizardShell } from '../form/WizardShell';
 import { ReachCard, useReach } from '../ReachCard';
@@ -54,6 +61,8 @@ function normalizeSell(values: SellFormValues): SellFormValues {
 /** Media errors the create endpoint may answer for `photoMediaIds` (MEDIA_NOT_READY is assumed). */
 const PHOTO_ERROR_CODES: readonly string[] = [MediaErrorCode.MEDIA_NOT_FOUND, 'MEDIA_NOT_READY'];
 const PHOTO_STEP = SELL_STEP_FIELDS.findIndex((f) => f.includes('photos'));
+/** Step with the 개인정보 consents (back to it when a consent document changed). */
+const CONSENT_STEP = SELL_STEP_FIELDS.findIndex((f) => f.includes('agreePrivacy'));
 
 /** 내놓기 wizard: 매물 정보 → 거래 조건 → 사진·연락처 → 확인·전달. */
 export function SellWizard({ user }: { user: WizardUser }) {
@@ -141,14 +150,25 @@ export function SellWizard({ user }: { user: WizardUser }) {
     form.clearErrors('roadAddress');
   };
 
+  const terms = useActionTerms('DEAL_REQUEST');
   const create = useMutation({
-    mutationFn: dealApi.create,
+    mutationFn: (payload: DealRequestCreatePayload) =>
+      dealApi.create(payload, shownDealConsents(terms.data)),
     onSuccess: (created) => {
       wizard.finish();
       void queryClient.invalidateQueries({ queryKey: dealKeys.all });
       router.replace(`${ROUTES.dealSell}/complete?id=${encodeURIComponent(created.id)}`);
     },
     onError: (e) => {
+      if (isConsentOutdatedError(e)) {
+        // A consent document changed since the user read it: show the new text, ask again.
+        setContact('agreePrivacy', false);
+        setContact('agreeProvide', false);
+        void terms.refetch();
+        form.setError('agreePrivacy', { type: 'server', message: CONSENT_OUTDATED_MESSAGE });
+        wizard.goTo(CONSENT_STEP);
+        return;
+      }
       if (e instanceof ApiError && PHOTO_ERROR_CODES.includes(e.code)) {
         // A photo was deleted or is still being processed: back to the photo step.
         form.setError('photos', {
@@ -269,10 +289,10 @@ export function SellWizard({ user }: { user: WizardUser }) {
             />
             <ConsentFields
               idPrefix="sell"
-              kind="sell"
               values={v}
               errors={contactErrors(err)}
               set={setContact}
+              terms={terms}
               recipients={recipientsText({
                 values: v,
                 nearLabel: '매물 근처',

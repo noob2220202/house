@@ -14,6 +14,10 @@ const notoSansKr = Noto_Sans_KR({
   preload: false,
 });
 
+// Every page is rendered per request: its scripts carry the per-request CSP nonce that
+// src/middleware.ts generates (a prerendered page would ship without it and not hydrate).
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: {
     default: `${BRAND.name} ${BRAND.consoleLabel}`,

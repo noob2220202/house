@@ -14,6 +14,12 @@ export interface Draft<T> {
 }
 
 export const DRAFT_VERSION = 1;
+
+/**
+ * Never restored from a draft: a consent is given in the session, against the document text shown
+ * then (the version a restored tick would record may not be the one the user read).
+ */
+const NEVER_RESTORED: ReadonlySet<string> = new Set(['agreePrivacy', 'agreeProvide']);
 export const DRAFT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function draftKey(kind: DraftKind, userId: string): string {
@@ -59,6 +65,7 @@ export function readDraft<T extends object>(
     }
     const values = { ...defaults } as Record<string, unknown>;
     for (const k of Object.keys(defaults)) {
+      if (NEVER_RESTORED.has(k)) continue;
       const incoming = parsed.values[k];
       const base = (defaults as Record<string, unknown>)[k];
       if (incoming === undefined || incoming === null) continue;

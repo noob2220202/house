@@ -1,6 +1,6 @@
 import { MediaPurpose, type DealRequestType, type DealRequestCreateInput } from '@house/shared';
 import { z } from 'zod';
-import { api, fetchActionConsents, qk } from '@/lib/api';
+import { api, qk, type ActionConsent } from '@/lib/api';
 import {
   addressMatchSchema,
   contactGrantResultSchema,
@@ -29,7 +29,8 @@ type WithoutConsents<T> = T extends unknown ? Omit<T, 'consents'> : never;
 
 /**
  * Create payload = the shared `dealRequestCreateSchema` (SELL_OR_LEASE carries `photoMediaIds`)
- * without `consents`: `dealApi.create` adds the current consent versions itself (D8).
+ * without `consents`: `dealApi.create` takes them separately (D8) — the versions of the documents
+ * the consent step showed (`useActionTerms('DEAL_REQUEST')` + `actionConsentsOf`).
  */
 export type DealRequestCreatePayload = WithoutConsents<DealRequestCreateInput>;
 
@@ -60,13 +61,12 @@ export const dealKeys = {
 
 export const dealApi = {
   /**
-   * POST /deal-requests with the 개인정보 수집·이용 / 제3자 제공 consents (D8) the user ticked on
-   * the last step, at the current published versions (GET /terms/:type).
+   * POST /deal-requests with the 개인정보 수집·이용 / 제3자 제공 consents (D8) the user ticked, at
+   * the versions of the texts they were shown. A document changed since then answers
+   * AUTH_CONSENT_OUTDATED (`isConsentOutdatedError`): show the new text and ask again.
    */
-  create: async (payload: DealRequestCreatePayload) => {
-    const consents = await fetchActionConsents('DEAL_REQUEST');
-    return api.post('/deal-requests', { ...payload, consents }, { schema: createdSchema });
-  },
+  create: (payload: DealRequestCreatePayload, consents: ActionConsent<'DEAL_REQUEST'>[]) =>
+    api.post('/deal-requests', { ...payload, consents }, { schema: createdSchema }),
 
   listMine: (query: MyRequestsQuery, signal?: AbortSignal) =>
     api.get('/me/deal-requests', { query: { ...query }, schema: dealRequestPageSchema, signal }),

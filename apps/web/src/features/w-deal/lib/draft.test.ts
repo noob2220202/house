@@ -58,6 +58,17 @@ describe('draft storage', () => {
     });
   });
 
+  it('never restores the consent ticks (they are given against the text shown in the session)', () => {
+    const defaults = { name: '', agreePrivacy: false, agreeProvide: false };
+    const store = memoryStorage();
+    writeDraft(KEY, 2, { name: '김하늘', agreePrivacy: true, agreeProvide: true }, NOW, store);
+    expect(readDraft(KEY, defaults, NOW.getTime(), store)?.values).toEqual({
+      name: '김하늘',
+      agreePrivacy: false,
+      agreeProvide: false,
+    });
+  });
+
   it('ignores missing, corrupt, outdated and expired drafts', () => {
     expect(readDraft(KEY, DEFAULTS, NOW.getTime(), memoryStorage())).toBeNull();
     expect(readDraft(KEY, DEFAULTS, NOW.getTime(), memoryStorage({ [KEY]: '{oops' }))).toBeNull();
