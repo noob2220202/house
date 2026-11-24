@@ -1,28 +1,53 @@
 import 'server-only';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import type { z } from 'zod';
 import { apiFetch, type ApiRequestOptions } from './client';
 import { ApiError } from './errors';
+import { SSR_MARKER, visitorHeaders } from './forward';
 
 type ServerOptions<S extends z.ZodType | undefined> = Omit<
   ApiRequestOptions<S>,
   'method' | 'body' | 'next' | 'cache'
 > & {
-  /** ISR window in seconds for public data (default 60). */
+  /**
+   * Data-cache window in seconds for public data (default 60). `0` = not cached: fetched per
+   * request (`no-store`) on behalf of the visitor — use it for unbounded inputs such as free text.
+   */
   revalidate?: number | false;
   tags?: string[];
 };
 
+/** Visitor headers of the request being rendered (makes the route dynamic, like `cookies()`). */
+async function requestVisitorHeaders(): Promise<Record<string, string>> {
+  return visitorHeaders(await headers());
+}
+
 /**
- * Public (anonymous) GET from a server component, cached with `revalidate` — use for SEO pages.
- * Does NOT forward cookies, so the page stays statically renderable.
+ * Public (anonymous) GET from a server component.
+ * Does NOT forward cookies. Cached reads (`revalidate` > 0 or false) are shared by every visitor:
+ * they carry only the `x-house-ssr` marker, so the page stays statically renderable and the fetch
+ * cache has one entry per URL. `revalidate: 0` reads are per request and forward the visitor's IP
+ * and User-Agent (see ./forward).
  */
-export function serverGet<T = unknown, S extends z.ZodType | undefined = undefined>(
+export async function serverGet<T = unknown, S extends z.ZodType | undefined = undefined>(
   path: string,
   options: ServerOptions<S> = {},
 ) {
-  const { revalidate = 60, tags, ...rest } = options;
-  return apiFetch<T, S>(path, { ...rest, method: 'GET', next: { revalidate, tags } });
+  const { revalidate = 60, tags, headers: extra, ...rest } = options;
+  if (revalidate === 0) {
+    return apiFetch<T, S>(path, {
+      ...rest,
+      method: 'GET',
+      cache: 'no-store',
+      headers: { ...extra, ...(await requestVisitorHeaders()) },
+    });
+  }
+  return apiFetch<T, S>(path, {
+    ...rest,
+    method: 'GET',
+    next: { revalidate, tags },
+    headers: { ...extra, ...SSR_MARKER },
+  });
 }
 
 /**
@@ -44,8 +69,8 @@ export async function serverGetOr<T, S extends z.ZodType | undefined = undefined
 }
 
 /**
- * Authenticated GET from a server component: forwards the request cookies and disables caching.
- * Makes the route dynamic — use only on personalised pages (/me, /agent).
+ * Authenticated GET from a server component: forwards the request cookies and the visitor's IP /
+ * User-Agent, and disables caching. Makes the route dynamic (every console page is).
  */
 export async function serverGetAuthed<T = unknown, S extends z.ZodType | undefined = undefined>(
   path: string,
@@ -60,6 +85,10 @@ export async function serverGetAuthed<T = unknown, S extends z.ZodType | undefin
     ...options,
     method: 'GET',
     cache: 'no-store',
-    headers: { ...options.headers, ...(cookie ? { cookie } : {}) },
+    headers: {
+      ...options.headers,
+      ...(await requestVisitorHeaders()),
+      ...(cookie ? { cookie } : {}),
+    },
   });
 }

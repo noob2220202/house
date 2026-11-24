@@ -91,7 +91,9 @@ ADMIN_BASE_URL=$ADMIN_URL
 # Same origin as the site, as in production (deploy/install.sh: API_BASE_URL = site URL):
 # banner click URLs and OAuth callbacks go through the web rewrite.
 API_BASE_URL=$WEB_URL
-CORS_ORIGINS=$WEB_URL,$ADMIN_URL,http://127.0.0.1:$E2E_WEB_PORT,http://127.0.0.1:$E2E_ADMIN_PORT
+# Per surface (common/auth/origin-policy.ts): user routes ← site aliases, /api/v1/admin/** ← admin aliases.
+CORS_ORIGINS=http://127.0.0.1:$E2E_WEB_PORT
+ADMIN_CORS_ORIGINS=http://127.0.0.1:$E2E_ADMIN_PORT
 DATABASE_URL=$E2E_PG_URL/$E2E_DB_NAME?schema=public
 REDIS_URL=$E2E_REDIS_HOST_URL/$E2E_REDIS_DB
 REDIS_KEY_PREFIX=house-e2e:

@@ -25,9 +25,14 @@ export function principalTracker(principal: Principal): string {
  *
  * Per-IP-only keys punish users behind CGNAT (mobile carriers put many subscribers on one IP)
  * and make every SSR call from the Next.js server share one 127.0.0.1 bucket. Anonymous traffic
- * still falls back to req.ip, which honours TRUST_PROXY: the SSR server must forward the
- * visitor's X-Forwarded-For (nginx sets it to $remote_addr) so loopback-trusted calls are keyed
- * by the real client.
+ * falls back to req.ip, which honours TRUST_PROXY (bootstrap/configure-app.ts parseTrustProxy).
+ *
+ * SSR contract (docs/CONVENTIONS.md §3): the Next.js servers call the API on 127.0.0.1 and send
+ * `x-forwarded-for: <the visitor's address>` (nginx sets X-Forwarded-For to $remote_addr) plus
+ * `x-house-ssr: 1`. With TRUST_PROXY=loopback, req.ip is then the visitor, so each visitor has its
+ * own bucket; a remote peer's X-Forwarded-For is ignored. `x-house-ssr` is informational only and
+ * grants nothing (anyone can send it through nginx). An SSR call without X-Forwarded-For (ISR
+ * revalidation, build) is keyed as the loopback address and shares one bucket.
  *
  * Runs before AuthGuard; the session lookup is memoized per request so AuthGuard reuses it.
  */

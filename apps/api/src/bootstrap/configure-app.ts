@@ -86,9 +86,11 @@ export function configureApp(app: NestExpressApplication, options: ConfigureAppO
   const origins = OriginPolicy.fromConfig(config);
   // A list (not a callback) so cors always sends `Vary: Origin`, also when it refuses an origin.
   app.enableCors((req: Request, cb) => {
+    const allowed = origins.forRequest(req);
+    const origin = req.headers.origin;
     cb(null, {
-      origin: [...origins.forRequest(req)],
-      credentials: true,
+      origin: [...allowed],
+      credentials: typeof origin === 'string' && allowed.has(origin),
       methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', HEADER_NAMES.CSRF, HEADER_NAMES.REQUEST_ID],
       exposedHeaders: [HEADER_NAMES.REQUEST_ID],

@@ -291,6 +291,8 @@ render_template() {
       -e "s|{{API_PORT}}|${API_PORT}|g" \
       -e "s|{{WEB_PORT}}|${WEB_PORT}|g" \
       -e "s|{{ADMIN_PORT}}|${ADMIN_PORT}|g" \
+      -e "s|{{MEDIA_PORT}}|${MEDIA_PORT}|g" \
+      -e "s|{{CURRENT}}|${CURRENT_LINK}|g" \
       -e "s|{{UPLOAD_PUBLIC}}|${UPLOAD_ROOT}/public|g" \
       -e "s|{{CERT_NAME}}|house|g" \
       -e "s|{{HSTS_LINE}}|${hsts}|g" "$src"
@@ -307,9 +309,11 @@ configure_nginx() {
   local tpl="$TPL_DIR" mode_tpl
   install -d -m 0755 /etc/nginx/snippets /etc/nginx/house /var/www/letsencrypt
   local f
-  for f in house-proxy.conf house-csp.conf house-acme.conf house-web-locations.conf \
-    house-admin-locations.conf house-server-common.conf; do
+  for f in house-proxy.conf house-csp.conf house-acme.conf house-server-common.conf; do
     write_if_changed "/etc/nginx/snippets/$f" 0644 <"$tpl/snippets/$f" || true
+  done
+  for f in house-web-locations house-admin-locations; do
+    render_template "$tpl/snippets/$f.conf.template" "/etc/nginx/snippets/$f.conf"
   done
   render_template "$tpl/snippets/house-security-headers.conf.template" /etc/nginx/snippets/house-security-headers.conf
   render_template "$tpl/snippets/house-media.conf.template" /etc/nginx/snippets/house-media.conf
@@ -359,7 +363,7 @@ fi
 upgrade_env_to_https() {
   [[ "$(env_get PUBLIC_BASE_URL)" == "http://${DOMAIN}" ]] || return 0
   local d="${DOMAIN//./\\.}" a="${ADMIN_DOMAIN//./\\.}"
-  sed -i -E "/^(PUBLIC_BASE_URL|ADMIN_BASE_URL|API_BASE_URL|CORS_ORIGINS|[A-Z]+_REDIRECT_URI)=/ s#http://(${d}|${a})([/,]|\$)#https://\\1\\2#g" "$ENV_FILE"
+  sed -i -E "/^(PUBLIC_BASE_URL|ADMIN_BASE_URL|API_BASE_URL|CORS_ORIGINS|NEXT_PUBLIC_SITE_URL|[A-Z]+_REDIRECT_URI)=/ s#http://(${d}|${a})([/,]|\$)#https://\\1\\2#g" "$ENV_FILE"
   ok ".env 의 사이트 주소를 https:// 로 변경 (재배포 필요: ./deploy.sh)"
 }
 
@@ -746,6 +750,15 @@ else
   rm -f "$TMP_ENV"
   ok ".env 생성 (비밀값 자동 생성, root:$HOUSE_USER 0640)"
 fi
+# Web/admin build settings (NEXT_PUBLIC_SITE_URL, MEDIA_ORIGIN, ...): keys missing from the .env
+# (new, or written by an older install.sh) are appended; values already there are never changed.
+mapfile -t FRONTEND_ENV < <(frontend_env_defaults "$SCHEME")
+ADDED_KEYS="$(env_add_missing "$ENV_FILE" "$HOUSE_USER" "${FRONTEND_ENV[@]}")"
+if [[ -n "$ADDED_KEYS" ]]; then
+  ok ".env 에 웹 빌드 설정 추가: ${ADDED_KEYS//$'\n'/, }"
+else
+  ok ".env 웹 빌드 설정 확인 (NEXT_PUBLIC_SITE_URL, MEDIA_ORIGIN — 기존 값 유지)"
+fi
 # Written by the service user into its own backup directory (never a root write there).
 # shellcheck disable=SC2016 # $1/$2 expand in the child shell
 as_house bash -c 'umask 077; cp "$1" "$2"' _ "$ENV_FILE" "$BACKUP_DIR/config/env.$(date +%Y%m%d).bak" || true
@@ -837,8 +850,9 @@ url_host() { local u="${1#*://}"; printf '%s' "${u%%[/:]*}"; }
 if $ENV_EXISTS; then
   ENV_HOST="$(url_host "$(env_get PUBLIC_BASE_URL)")"
   ENV_ADMIN_HOST="$(url_host "$(env_get ADMIN_BASE_URL)")"
-  if [[ "$ENV_HOST" != "$DOMAIN" || "$ENV_ADMIN_HOST" != "$ADMIN_DOMAIN" ]]; then
-    note_warn ".env 의 주소(${ENV_HOST:-없음}, ${ENV_ADMIN_HOST:-없음})가 새 도메인(${DOMAIN}, ${ADMIN_DOMAIN})과 다릅니다. sudo nano ${ENV_FILE} 에서 PUBLIC_BASE_URL, ADMIN_BASE_URL, API_BASE_URL, CORS_ORIGINS, KAKAO_REDIRECT_URI, NAVER_REDIRECT_URI, GOOGLE_REDIRECT_URI 를 ${SCHEME}://${DOMAIN} / ${SCHEME}://${ADMIN_DOMAIN} 기준으로 고치고, 각 로그인 콘솔의 Redirect URI도 바꾼 뒤 sudo ${HOUSE_ROOT}/deploy.sh"
+  ENV_SITE_HOST="$(url_host "$(env_get NEXT_PUBLIC_SITE_URL)")"
+  if [[ "$ENV_HOST" != "$DOMAIN" || "$ENV_ADMIN_HOST" != "$ADMIN_DOMAIN" || "$ENV_SITE_HOST" != "$DOMAIN" ]]; then
+    note_warn ".env 의 주소(${ENV_HOST:-없음}, ${ENV_ADMIN_HOST:-없음})가 새 도메인(${DOMAIN}, ${ADMIN_DOMAIN})과 다릅니다. sudo nano ${ENV_FILE} 에서 PUBLIC_BASE_URL, ADMIN_BASE_URL, API_BASE_URL, CORS_ORIGINS, NEXT_PUBLIC_SITE_URL, KAKAO_REDIRECT_URI, NAVER_REDIRECT_URI, GOOGLE_REDIRECT_URI 를 ${SCHEME}://${DOMAIN} / ${SCHEME}://${ADMIN_DOMAIN} 기준으로 고치고, 각 로그인 콘솔의 Redirect URI도 바꾼 뒤 sudo ${HOUSE_ROOT}/deploy.sh"
   fi
 fi
 

@@ -1,4 +1,4 @@
-# Rendered by deploy/install.sh to /etc/nginx/conf.d/house.conf (http context).
+# Rendered by deploy/install.sh to /etc/nginx/conf.d/house.conf (http context, both TLS and HTTP modes).
 # Edit the template in the repo and re-run:  sudo /srv/house/bin/install.sh --nginx-only
 
 upstream house_api {
@@ -29,5 +29,24 @@ map $http_upgrade $house_connection_upgrade {
 # the per-page reads /auth/me or /auth/csrf. No fail2ban jail bans on these 429s.
 limit_req_zone $binary_remote_addr zone=house_auth:10m rate=30r/m;
 limit_req_zone $binary_remote_addr zone=house_api:20m rate=20r/s;
+# Next.js pages (HTML + RSC/prefetch) and the image optimizer, per IP. /_next/static and /media
+# are served from disk without a limit. A scraper is held to ~10 pages/s, below what the API's
+# per-route throttle and two SSR workers absorb; one user's burst of prefetches fits easily.
+limit_req_zone $binary_remote_addr zone=house_pages:20m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=house_images:20m rate=30r/s;
 limit_req_status 429;
 limit_req_log_level warn;
+
+# Loopback-only /media origin for the Next image optimizer: web/admin are built with
+# MEDIA_ORIGIN=http://127.0.0.1:{{MEDIA_PORT}} (shared/.env), and /_next/image?url=/media/...
+# fetches the original here. Same file rules as the public /media location; nothing else.
+server {
+    listen 127.0.0.1:{{MEDIA_PORT}};
+    server_name localhost;
+    server_tokens off;
+    access_log off;
+    include /etc/nginx/snippets/house-media.conf;
+    location / {
+        return 404;
+    }
+}

@@ -30,9 +30,8 @@ const ENDED_STATUSES = [
 
 const WITHDRAWAL_REASON = '회원 탈퇴';
 
-/** Withdrawn members' requests that still hold anything identifying. */
-const WITHDRAWN_RESIDUE: Prisma.DealRequestWhereInput = {
-  user: { status: UserStatus.WITHDRAWN },
+/** Requests that still hold anything identifying (contact, 동·호, address, position, …, photos). */
+const IDENTIFYING_RESIDUE: Prisma.DealRequestWhereInput = {
   OR: [
     { contactScrubbedAt: null },
     { roadAddress: { not: null } },
@@ -42,6 +41,12 @@ const WITHDRAWN_RESIDUE: Prisma.DealRequestWhereInput = {
     { exclusiveArea: { not: null } },
     { photos: { some: {} } },
   ],
+};
+
+/** Withdrawn members' requests that still hold anything identifying. */
+const WITHDRAWN_RESIDUE: Prisma.DealRequestWhereInput = {
+  user: { status: UserStatus.WITHDRAWN },
+  ...IDENTIFYING_RESIDUE,
 };
 
 /**
@@ -177,12 +182,15 @@ export class DealRequestMaintenanceService {
   }
 
   /**
-   * Data minimization, two passes:
-   *  - requests that ended more than CONTACT_RETENTION_DAYS ago lose contact name/phone and 동·호;
-   *  - requests of withdrawn members are cancelled (agencies told) and lose everything identifying
-   *    (see eraseWithdrawn). AccountService.withdraw should do this at once via scrubUser; this pass
-   *    is the safety net.
-   * Contact grants are revoked with both.
+   * Data minimization (파기, 개인정보 보호법 제21조), two passes:
+   *  - requests that ended (CLOSED / CANCELLED / EXPIRED) at least CONTACT_RETENTION_DAYS (30) ago
+   *    lose everything identifying — contact name/phone, 동·호, road address, position, floor,
+   *    area, description and photos (media soft-deleted) — and their contact grants. What stays is
+   *    the request record: type, asset/deal type, prices, 읍면동 / 단지, wanted conditions, dates;
+   *  - requests of withdrawn members are cancelled (agencies told) and erased the same way.
+   *    AccountService.withdraw does this at once via scrubUser; this pass is the safety net.
+   * Selection is by residue, not by a marker, so a run picks up anything an earlier policy or an
+   * interrupted run left behind; re-running finds nothing (idempotent).
    */
   async scrubDue(now: Date = new Date()): Promise<number> {
     const cutoff = new Date(
@@ -192,10 +200,10 @@ export class DealRequestMaintenanceService {
     for (;;) {
       const batch = await this.prisma.dealRequest.findMany({
         where: {
-          contactScrubbedAt: null,
           status: { in: ENDED_STATUSES },
           closedAt: { lte: cutoff },
           user: { status: { not: UserStatus.WITHDRAWN } },
+          ...IDENTIFYING_RESIDUE,
         },
         select: { id: true },
         orderBy: { id: 'asc' },
@@ -204,11 +212,19 @@ export class DealRequestMaintenanceService {
       if (batch.length === 0) break;
       const ids = batch.map((r) => r.id);
       await this.prisma.$transaction(async (tx) => {
-        await this.revokeGrants(tx, ids, now);
-        await tx.dealRequest.updateMany({
-          where: { id: { in: ids }, contactScrubbedAt: null },
-          data: { contactName: '', contactPhone: '', addressDetail: null, contactScrubbedAt: now },
-        });
+        // Re-check under the row lock: a request reopened (extend) since the read is left alone.
+        const due = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM deal_requests
+          WHERE id = ANY(${ids}::uuid[])
+            AND status IN ('CLOSED'::deal_request_status, 'CANCELLED'::deal_request_status,
+                           'EXPIRED'::deal_request_status)
+            AND closed_at <= ${cutoff}
+          FOR UPDATE`;
+        await this.erase(
+          tx,
+          due.map((r) => r.id),
+          now,
+        );
       });
       total += ids.length;
       if (batch.length < JOB_BATCH_SIZE) break;
@@ -227,7 +243,7 @@ export class DealRequestMaintenanceService {
       total += ids.length;
       if (batch.length < JOB_BATCH_SIZE) break;
     }
-    if (total > 0) this.logger.log({ count: total }, 'scrubbed deal request contacts');
+    if (total > 0) this.logger.log({ count: total }, 'erased ended / withdrawn deal requests');
     return total;
   }
 
@@ -280,25 +296,38 @@ export class DealRequestMaintenanceService {
       tx,
       cancelled.map((r) => r.id),
     );
+    await this.erase(tx, ids, now);
+    return notices;
+  }
+
+  /**
+   * Revokes the grants and erases contact, 동·호, address, position, floor, area, description and
+   * photos. `contactScrubbedAt` keeps the first erasure time.
+   */
+  private async erase(tx: PrismaTx, ids: readonly string[], now: Date): Promise<void> {
+    if (ids.length === 0) return;
     await this.revokeGrants(tx, ids, now);
     await this.media.discardPhotos(ids, now, tx);
     // lat/lng → NULL also clears `location` (deal_requests_sync_location trigger).
+    const erased = {
+      contactName: '',
+      contactPhone: '',
+      addressDetail: null,
+      roadAddress: null,
+      lat: null,
+      lng: null,
+      floor: null,
+      exclusiveArea: null,
+      description: null,
+    };
     await tx.dealRequest.updateMany({
-      where: { id: { in: [...ids] } },
-      data: {
-        contactName: '',
-        contactPhone: '',
-        addressDetail: null,
-        roadAddress: null,
-        lat: null,
-        lng: null,
-        floor: null,
-        exclusiveArea: null,
-        description: null,
-        contactScrubbedAt: now,
-      },
+      where: { id: { in: [...ids] }, contactScrubbedAt: null },
+      data: { ...erased, contactScrubbedAt: now },
     });
-    return notices;
+    await tx.dealRequest.updateMany({
+      where: { id: { in: [...ids] }, contactScrubbedAt: { not: null } },
+      data: erased,
+    });
   }
 
   /** Same notice as DealRequestLifecycleService.end, for agencies with live proposals. */
