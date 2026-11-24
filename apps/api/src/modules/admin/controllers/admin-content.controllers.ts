@@ -28,6 +28,7 @@ import {
   NoticeAdminListQueryDto,
   NoticeInputDto,
   NoticeUpdateDto,
+  VideoOrderDto,
 } from '../dto';
 import { RequirePermission } from '../permissions.decorator';
 import { FaqsService } from '../services/faqs.service';
@@ -125,6 +126,14 @@ export class AdminVideosController {
   @Get()
   list(@Query() q: LocalVideoAdminListQueryDto): Promise<Paginated<AdminLocalVideoView>> {
     return this.videos.adminList(q);
+  }
+
+  /** `{ ids }` in display order → sortOrder 1…n. Declared before `:id` routes. */
+  @Put('order')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Audit({ action: 'video.reorder', resourceType: 'LocalVideo' })
+  reorder(@Body() dto: VideoOrderDto): Promise<void> {
+    return this.videos.reorder(dto.ids);
   }
 
   @Get(':id')

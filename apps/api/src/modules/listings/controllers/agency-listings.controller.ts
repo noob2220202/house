@@ -26,6 +26,7 @@ import { CurrentUser, Roles } from '../../../common/decorators';
 import { THROTTLE } from '../../../common/throttle/throttle.constants';
 import {
   AgencyListingListQueryDto,
+  CoBrokerCandidatesQueryDto,
   CoBrokerJoinDto,
   CoBrokerParamDto,
   CreateListingDto,
@@ -35,6 +36,11 @@ import {
   ListingVerificationDto,
   UpdateListingDto,
 } from '../dto';
+import {
+  AgencyConsoleService,
+  type AgencyListingSummaryView,
+  type CoBrokerCandidateView,
+} from '../services/agency-console.service';
 import { AgencyListingsService } from '../services/agency-listings.service';
 import { CoBrokerageService } from '../services/co-brokerage.service';
 
@@ -46,7 +52,25 @@ export class AgencyListingsController {
   constructor(
     private readonly listings: AgencyListingsService,
     private readonly coBrokerage: CoBrokerageService,
+    private readonly console: AgencyConsoleService,
   ) {}
+
+  // Static routes before `:id`.
+
+  /** Counters of the status tabs and reminder chips (실매물 확인 due, 광고 기간 ending, 공동중개). */
+  @Get('summary')
+  summary(@CurrentUser() user: UserPrincipal): Promise<AgencyListingSummaryView> {
+    return this.console.summary(user);
+  }
+
+  /** Other offices' public listings in a 단지 that this agency may ask to co-broker. */
+  @Get('co-broker-candidates')
+  coBrokerCandidates(
+    @CurrentUser() user: UserPrincipal,
+    @Query() q: CoBrokerCandidatesQueryDto,
+  ): Promise<Paginated<CoBrokerCandidateView>> {
+    return this.console.coBrokerCandidates(user, q);
+  }
 
   @Get()
   list(

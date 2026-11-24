@@ -4,6 +4,7 @@ import { AgenciesModule } from '../agencies/agencies.module';
 import { MediaModule } from '../media/media.module';
 import { DEAL_REQUESTS_QUEUE } from './constants';
 import { AdminDealRequestsController } from './controllers/admin-deal-requests.controller';
+import { AgencyDashboardController } from './controllers/agency-dashboard.controller';
 import { AgencyDealRequestsController } from './controllers/agency-deal-requests.controller';
 import {
   DealRequestsController,
@@ -28,9 +29,13 @@ import { DEAL_REQUEST_MEDIA, MediaServiceDealRequestMedia } from './ports/media.
 import { AdminDealRequestsService } from './services/admin-deal-requests.service';
 import { AgencyActorService } from './services/agency-actor.service';
 import { AgencyInboxService } from './services/agency-inbox.service';
+import { ConsoleDashboardService } from './services/console-dashboard.service';
 import { DealRequestLifecycleService } from './services/deal-request-lifecycle.service';
 import { DealRequestMaintenanceService } from './services/deal-request-maintenance.service';
 import { DealRequestsService } from './services/deal-requests.service';
+import { ListingCandidatesService } from './services/listing-candidates.service';
+import { RegionNamesService } from './services/region-names.service';
+import { RequestFormService } from './services/request-form.service';
 import { ProposalsService } from './services/proposals.service';
 
 /**
@@ -45,6 +50,7 @@ import { ProposalsService } from './services/proposals.service';
     MyDealRequestsController,
     MyProposalsController,
     AgencyDealRequestsController,
+    AgencyDashboardController,
     NotificationsController,
     AdminDealRequestsController,
   ],
@@ -64,6 +70,10 @@ import { ProposalsService } from './services/proposals.service';
     AdminDealRequestsService,
     DealRequestMaintenanceService,
     DealRequestsProcessor,
+    RegionNamesService,
+    RequestFormService,
+    ListingCandidatesService,
+    ConsoleDashboardService,
   ],
   exports: [NotificationsService, DealRequestMaintenanceService],
 })

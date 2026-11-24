@@ -26,6 +26,8 @@ All paths are under `/api/v1`. Admin routes need an admin session with TOTP veri
 | GET                 | `/complexes/:id/trades?dealType&areaTypeId&fromYm&toYm&includeCancelled&page`            | Public   |
 | GET                 | `/complexes/:id/stats?dealType&areaTypeId&months`                                        | Public   |
 | GET                 | `/complexes/:id/listings`                                                                | Public   |
+| GET                 | `/complexes/:id/nearby?limit&radius` (주변 단지, nearest first, `{ items }`)             | Public   |
+| GET                 | `/complexes/:id/agencies?limit` (offices with public listings here, `{ items }`)         | Public   |
 | GET                 | `/regions?parentCode&level&includeInactive` · `/regions/:code`                           | Public   |
 | GET · PUT/DELETE    | `/me/favorites/complexes` · `/me/favorites/complexes/:id`                                | User     |
 | GET                 | `/admin/complexes?q&emdCode&includeDeleted&missingExternalCode` · `/admin/complexes/:id` | OPERATOR |
@@ -56,6 +58,24 @@ Views: logged-in users dedupe per user; anonymous viewers per HMAC of their /24 
 (IPv6) network, capped at `ANON_VIEW_DAILY_CAP_PER_NETWORK` 단지 per KST day; bots (shared
 `isBotUserAgent`, which also treats a missing UA as a bot) are not counted. The SSR frontend must
 forward the browser's `X-Forwarded-For` and `User-Agent`.
+
+## Web contracts (frontend integration)
+
+Shapes follow the web mock handlers (DECISIONS "Source of truth" #2); `limit`/`radius` are clamped
+like the mocks (nearby: limit 1–30, default 10; radius 100–10,000 m, default 3,000; agencies: limit
+1–50, default 20). `ComplexNearbyService`:
+
+- `nearby` items: `{ id, name, assetType, emdName, lat, lng, distanceM, households, builtYear,
+activeListingCount, dealCounts{presale,sale,jeonse,monthly}, representative }`. PostGIS
+  `ST_DWithin` on `complexes.location`, deleted 단지 excluded. `representative` = the 평형 with the
+  most households: `pyeongLabel`, `dealType` (PRESALE when it has more 분양권 than 매매 listings, else
+  SALE) and `price` = lowest public asking price of that 평형 and deal type, else (SALE) the latest
+  매매 실거래가 of the 평형, else null; null without 평형.
+- `agencies` items: `{ agencyId, name, representativeName, phone, logoUrl, specialtyLabel: null,
+complexListingCount, avgResponseMinutes: null }` — approved offices with an ACTIVE
+  (primary or co-broker) link to a public listing of the 단지, most listings first.
+- `ComplexSearchService` and `ComplexPopularityService` are exported for `GET /search/suggest`
+  (home module).
 
 ## Files you own
 

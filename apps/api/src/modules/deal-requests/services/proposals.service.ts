@@ -210,10 +210,10 @@ export class ProposalsService {
       });
       if (count === 0) throw AppException.badRequest(ErrorCode.PROPOSAL_STATE_INVALID);
       if (input.shareContact) await this.lifecycle.grant(tx, p.dealRequestId, p.agencyId, now);
-      const recipients = (await this.agencies.memberUserIds([p.agencyId], tx)).filter(
-        (u) => u !== user.userId,
+      const recipients = (await this.agencies.memberRecipients([p.agencyId], tx)).filter(
+        (r) => r.userId !== user.userId,
       );
-      return this.notifications.createFor(
+      return this.notifications.createForMembers(
         recipients,
         {
           type: NotificationType.PROPOSAL_ACCEPTED,
@@ -240,10 +240,10 @@ export class ProposalsService {
         data: { status: ProposalStatus.DECLINED, respondedAt: now },
       });
       if (count === 0) throw AppException.badRequest(ErrorCode.PROPOSAL_STATE_INVALID);
-      const recipients = (await this.agencies.memberUserIds([p.agencyId], tx)).filter(
-        (u) => u !== user.userId,
+      const recipients = (await this.agencies.memberRecipients([p.agencyId], tx)).filter(
+        (r) => r.userId !== user.userId,
       );
-      return this.notifications.createFor(
+      return this.notifications.createForMembers(
         recipients,
         {
           type: NotificationType.SYSTEM,

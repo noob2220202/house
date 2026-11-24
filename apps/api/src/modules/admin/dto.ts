@@ -33,6 +33,12 @@ import {
   termsDocumentUpdateSchema,
 } from '@house/shared';
 import { createZodDto } from '../../common/pipes/zod-validation.pipe';
+import {
+  adminNotificationListQuerySchema,
+  adminSearchQuerySchema,
+  statsQuerySchema,
+  statsSectionParamSchema,
+} from './schemas';
 
 export class IdParamDto extends createZodDto(idParamSchema) {}
 export class PaginationQueryDto extends createZodDto(paginationQuerySchema) {}
@@ -76,3 +82,11 @@ export class AdminListingListQueryDto extends createZodDto(adminListingListQuery
 export class AdminListingModerationDto extends createZodDto(adminListingModerationSchema) {}
 
 export class AuditLogQueryDto extends createZodDto(auditLogQuerySchema) {}
+
+// Module-local contracts (./schemas.ts) of the WI-10 back-office endpoints.
+export class AdminSearchQueryDto extends createZodDto(adminSearchQuerySchema) {}
+export class AdminNotificationListQueryDto extends createZodDto(adminNotificationListQuerySchema) {}
+export class StatsQueryDto extends createZodDto(statsQuerySchema) {}
+export class StatsSectionParamDto extends createZodDto(statsSectionParamSchema) {}
+/** PUT /admin/videos/order `{ ids }` — same rules as the FAQ order (uuids, unique, ≤ 500). */
+export class VideoOrderDto extends createZodDto(faqOrderSchema) {}

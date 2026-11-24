@@ -62,12 +62,12 @@ export class DealRequestLifecycleService {
       select: { agencyId: true },
     });
     const recipients = (
-      await this.agencies.memberUserIds(
+      await this.agencies.memberRecipients(
         proposals.map((p) => p.agencyId),
         tx,
       )
-    ).filter((u) => u !== input.actorUserId);
-    return this.notifications.createFor(
+    ).filter((r) => r.userId !== input.actorUserId);
+    return this.notifications.createForMembers(
       recipients,
       {
         type: NotificationType.SYSTEM,

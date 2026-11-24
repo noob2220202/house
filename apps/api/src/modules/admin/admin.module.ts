@@ -4,6 +4,7 @@ import { APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
 import { AgenciesModule } from '../agencies/agencies.module';
 import { DealRequestsModule } from '../deal-requests/deal-requests.module';
 import { ListingsModule } from '../listings/listings.module';
+import { MediaModule } from '../media/media.module';
 import { AdminAuditCoverageService } from './audit/admin-audit-coverage.service';
 import { AdminMutationAuditInterceptor } from './audit/admin-mutation-audit.interceptor';
 import { AdminAccountsController } from './controllers/admin-accounts.controller';
@@ -12,6 +13,12 @@ import {
   AdminNoticesController,
   AdminVideosController,
 } from './controllers/admin-content.controllers';
+import {
+  AdminNotificationsController,
+  AdminSearchController,
+  AdminSocialLoginController,
+  AdminStatsController,
+} from './controllers/admin-insights.controllers';
 import { AdminListingsController } from './controllers/admin-listings.controller';
 import { AdminMembersController } from './controllers/admin-members.controller';
 import {
@@ -29,6 +36,11 @@ import { PublicReportsController } from './controllers/public-reports.controller
 import { LISTING_MODERATION, ListingModerationAdapter } from './ports/listing-moderation.port';
 import { AdminAccountsService } from './services/admin-accounts.service';
 import { AdminListingsService } from './services/admin-listings.service';
+import { AdminNotificationsService } from './services/admin-notifications.service';
+import { AdminSearchService } from './services/admin-search.service';
+import { AdminStatsService } from './services/admin-stats.service';
+import { DashboardQueuesService } from './services/dashboard-queues.service';
+import { SocialLoginStatusService } from './services/social-login-status.service';
 import { AdminTermsService } from './services/admin-terms.service';
 import { AuditLogsService } from './services/audit-logs.service';
 import { DashboardService } from './services/dashboard.service';
@@ -52,6 +64,7 @@ import { VisitorStatsService } from './visitors/visitor-stats.service';
     ListingsModule,
     AgenciesModule,
     DealRequestsModule,
+    MediaModule,
     BullModule.registerQueue({ name: ADMIN_QUEUE }),
   ],
   controllers: [
@@ -69,6 +82,10 @@ import { VisitorStatsService } from './visitors/visitor-stats.service';
     AdminVideosController,
     AdminTermsController,
     AdminSiteSettingsController,
+    AdminSearchController,
+    AdminNotificationsController,
+    AdminStatsController,
+    AdminSocialLoginController,
   ],
   providers: [
     { provide: LISTING_MODERATION, useClass: ListingModerationAdapter },
@@ -86,6 +103,11 @@ import { VisitorStatsService } from './visitors/visitor-stats.service';
     AdminTermsService,
     SiteSettingsService,
     DashboardService,
+    DashboardQueuesService,
+    AdminSearchService,
+    AdminNotificationsService,
+    AdminStatsService,
+    SocialLoginStatusService,
     AuditLogsService,
   ],
   exports: [VisitorStatsService],

@@ -15,6 +15,7 @@ import { ListingMapper } from './listing.mapper';
 import { LISTING_AGENCY_MEMBERSHIP, PrismaAgencyMembership } from './ports/agency-membership.port';
 import { LISTING_MEDIA, MediaServiceListingMedia } from './ports/listing-media.port';
 import { LISTING_NOTIFIER, PrismaListingNotifier } from './ports/listing-notifier.port';
+import { AgencyConsoleService } from './services/agency-console.service';
 import { AgencyListingsService } from './services/agency-listings.service';
 import { CoBrokerageService } from './services/co-brokerage.service';
 import { FavoritesService } from './services/favorites.service';
@@ -22,11 +23,13 @@ import { ListingCountersService } from './services/listing-counters.service';
 import { ListingExpiryService } from './services/listing-expiry.service';
 import { ListingQueryService } from './services/listing-query.service';
 import { ListingRegionNamesService } from './services/listing-region-names.service';
+import { ListingRegionStatsService } from './services/listing-region-stats.service';
 import { ListingSummariesService } from './services/listing-summaries.service';
 import { ListingViewsService } from './services/listing-views.service';
 import { ListingsModerationService } from './services/listings-moderation.service';
 import { MapSearchService } from './services/map-search.service';
 import { RecentViewsService } from './services/recent-views.service';
+import { SimilarListingsService } from './services/similar-listings.service';
 
 /** Listings: properties, listings, 공동중개, 실매물 확인, map/list search, favorites, recent views. */
 @Module({
@@ -49,7 +52,10 @@ import { RecentViewsService } from './services/recent-views.service';
     ListingSearchRepository,
     ListingMapper,
     ListingRegionNamesService,
+    ListingRegionStatsService,
     ListingSummariesService,
+    SimilarListingsService,
+    AgencyConsoleService,
     ListingCountersService,
     ListingViewsService,
     RecentViewsService,
@@ -64,6 +70,9 @@ import { RecentViewsService } from './services/recent-views.service';
     ListingExpiryProcessor,
   ],
   exports: [
+    ListingRegionNamesService,
+    ListingRegionStatsService,
+    ListingSummariesService,
     ListingsModerationService,
     ListingCountersService,
     RecentViewsService,

@@ -307,10 +307,10 @@ export class DealRequestsService {
     const sent = await this.prisma.$transaction(async (tx) => {
       const created = await this.lifecycle.grant(tx, id, agencyId, now);
       if (!created) return [];
-      const recipients = (await this.agencies.memberUserIds([agencyId], tx)).filter(
-        (u) => u !== user.userId,
+      const recipients = (await this.agencies.memberRecipients([agencyId], tx)).filter(
+        (r) => r.userId !== user.userId,
       );
-      return this.notifications.createFor(
+      return this.notifications.createForMembers(
         recipients,
         {
           type: NotificationType.CONTACT_GRANTED,

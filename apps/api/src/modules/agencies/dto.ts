@@ -1,4 +1,6 @@
 import {
+  ACTION_CONSENT_TERMS,
+  actionConsentsSchema,
   adminAgencyListQuerySchema,
   agencyAdminDocumentParamSchema,
   agencyAdminDeleteSchema,
@@ -25,7 +27,15 @@ import { createZodDto } from '../../common/pipes/zod-validation.pipe';
 
 export class IdParamDto extends createZodDto(idParamSchema) {}
 export class AgencyRegisterDto extends createZodDto(agencyRegisterSchema) {}
-export class AgencyResubmitDto extends createZodDto(agencyResubmitSchema) {}
+/**
+ * Resubmission body: the shared schema plus optional D8 `consents` (local until the shared schema
+ * has them). Sent → the current 개인정보 수집·이용 동의 version is required and recorded; omitted →
+ * the application's consent still covers the resubmission.
+ */
+export const agencyResubmitWithConsentsSchema = agencyResubmitSchema.safeExtend({
+  consents: actionConsentsSchema(ACTION_CONSENT_TERMS.AGENCY_APPLICATION),
+});
+export class AgencyResubmitDto extends createZodDto(agencyResubmitWithConsentsSchema) {}
 export class AgencyUpdateDto extends createZodDto(agencyUpdateSchema) {}
 export class AgencySearchQueryDto extends createZodDto(agencySearchQuerySchema) {}
 export class AgencyMapQueryDto extends createZodDto(agencyMapQuerySchema) {}

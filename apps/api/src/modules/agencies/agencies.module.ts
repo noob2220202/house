@@ -1,8 +1,11 @@
+import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { AdsModule } from '../ads/ads.module';
 import { ListingsModule } from '../listings/listings.module';
 import { MediaModule } from '../media/media.module';
 import { AgencyMapper } from './agency.mapper';
+import { AgenciesProcessor } from './jobs/agencies.processor';
+import { AGENCIES_QUEUE } from './constants';
 import { AgencySearchRepository } from './agency-search.repository';
 import { BROKER_REGISTRY, VworldBrokerRegistryClient } from './clients/broker-registry.client';
 import { AdminAgenciesController } from './controllers/admin-agencies.controller';
@@ -13,6 +16,7 @@ import { AGENCY_LISTINGS_SYNC, ModerationAgencyListingsSync } from './ports/agen
 import { AGENCY_MEDIA, MediaServiceAgencyMedia } from './ports/agency-media.port';
 import { AgenciesService } from './services/agencies.service';
 import { AgencyCacheService } from './services/agency-cache.service';
+import { AgencyDashboardService } from './services/agency-dashboard.service';
 import { AgencyInviteStore } from './services/agency-invite.store';
 import { AgencyMembersService } from './services/agency-members.service';
 import { AgencyPublicService } from './services/agency-public.service';
@@ -22,10 +26,16 @@ import { AgencySessionSyncService } from './services/agency-session-sync.service
 
 /**
  * 중개사무소: registration + admin review, staff (invite codes), public search/map/profile.
- * Exports AgenciesService (membership checks, 표시·광고 disclosure, warnings) for other modules.
+ * Exports AgenciesService (membership checks, 표시·광고 disclosure, warnings) and
+ * AgencyDashboardService (console home listing/view numbers) for other modules.
  */
 @Module({
-  imports: [ListingsModule, AdsModule, MediaModule],
+  imports: [
+    ListingsModule,
+    AdsModule,
+    MediaModule,
+    BullModule.registerQueue({ name: AGENCIES_QUEUE }),
+  ],
   // Order matters: MyAgencyController's static routes (/agencies/mine, /join, /membership)
   // must be registered before AgenciesController's /agencies/:id.
   controllers: [MyAgencyController, AgenciesController, AdminAgenciesController],
@@ -44,7 +54,9 @@ import { AgencySessionSyncService } from './services/agency-session-sync.service
     AgencyMembersService,
     AgencyPublicService,
     AgencyReviewService,
+    AgencyDashboardService,
+    AgenciesProcessor,
   ],
-  exports: [AgenciesService],
+  exports: [AgenciesService, AgencyDashboardService],
 })
 export class AgenciesModule {}

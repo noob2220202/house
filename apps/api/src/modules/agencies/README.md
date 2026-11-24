@@ -16,6 +16,9 @@ profile, and the 표시·광고 disclosure data listings need. Read `docs/CONVEN
 | `services/agency-invite.store.ts`          | invite codes in Redis (sha256 only, single-use via GETDEL, TTL)                        |
 | `services/agency-public.service.ts`        | search, map clusters/markers (cached tiles), profile (cached)                          |
 | `services/agency-review.service.ts`        | admin queue/detail/decision (+history, notification, audit), document stream, registry |
+| `services/agency-dashboard.service.ts`     | **exported** console-home numbers (listings, daily views, expiring / 실매물 확인 due)  |
+| `domain/dashboard.ts`                      | pure helpers: KST days, views from daily snapshots, dashboard listing rows             |
+| `jobs/agencies.processor.ts`               | queue `agencies`: hourly `agencies.daily-stats` snapshot (only when `JOBS_ENABLED`)    |
 | `agency-search.repository.ts`              | raw PostGIS / pg_trgm SQL (bound parameters only)                                      |
 | `clients/broker-registry.client.ts`        | registry lookup interface + data.go.kr implementation (`BROKER_REGISTRY` token)        |
 | `ports/agency-media.port.ts`               | media checks / URLs via MediaService (`AGENCY_MEDIA`, same-tx `assertUsable`)          |
@@ -27,31 +30,70 @@ and disclosure helpers live in `packages/shared/src/agencies/`.
 
 ## Endpoints (prefix `/api/v1`)
 
-| Method       | Path                                                      | Auth                              | Notes                                                  |
-| ------------ | --------------------------------------------------------- | --------------------------------- | ------------------------------------------------------ |
-| GET          | `/agencies?q&emdCode&bbox&specialties&sort&page&pageSize` | Public                            | APPROVED only; trigram on name / 대표 / address        |
-| GET          | `/agencies/map?bbox&zoom&q&specialties`                   | Public                            | REGION_CLUSTERS / GRID_CLUSTERS / MARKERS by zoom      |
-| GET          | `/agencies/:id`                                           | Public                            | profile, staff, listing counts, 대표 매물, disclosure  |
-| POST         | `/agencies`                                               | User                              | 등록 신청 → PENDING (등록증 + D8 `consents` required)  |
-| GET          | `/agencies/mine`                                          | User (owner)                      | own agency, any status, documents + status history     |
-| PATCH        | `/agencies/mine`                                          | User (owner)                      | profile (PENDING/APPROVED); APPROVED: 소재지 → 400 \*  |
-| POST         | `/agencies/mine/resubmit`                                 | User (owner)                      | REJECTED → PENDING; 409 if active in another agency    |
-| GET/POST     | `/agencies/mine/documents`                                | User (owner)                      | private document refs (media AGENCY_DOCUMENT, PRIVATE) |
-| DELETE       | `/agencies/mine/documents/:docId`                         | User (owner)                      | only before approval; keeps ≥ 1 등록증                 |
-| GET          | `/agencies/mine/members`                                  | AGENCY_OWNER                      | paginated, `includeRemoved`                            |
-| PATCH/DELETE | `/agencies/mine/members/:memberId`                        | AGENCY_OWNER                      | remove downgrades the agent to USER + updates sessions |
-| GET/POST     | `/agencies/mine/invites`                                  | AGENCY_OWNER                      | code returned once on creation                         |
-| DELETE       | `/agencies/mine/invites/:inviteId`                        | AGENCY_OWNER                      |                                                        |
-| POST         | `/agencies/join`                                          | User                              | redeem code → AGENT (THROTTLE.AUTH), `consents` D8     |
-| GET          | `/agencies/membership`                                    | User                              | caller's live membership                               |
-| POST         | `/agencies/membership/leave`                              | User (agent)                      | owners cannot leave                                    |
-| GET          | `/admin/agencies?status&q&sort&page`                      | Admin (OPERATOR+)                 | review queue (status=PENDING, oldest first)            |
-| GET          | `/admin/agencies/:id?includeRemoved`                      | Admin                             | full contacts; each view audited `agency.pii-view` †   |
-| DELETE       | `/admin/agencies/:id` `{ reason }`                        | Admin (OPERATOR+)                 | soft-delete a PENDING / REJECTED application, audited  |
-| POST         | `/admin/agencies/:id/decision`                            | Admin (suspend/reinstate: ADMIN+) | APPROVED / REJECTED / SUSPENDED (+reason), audited     |
-| PATCH        | `/admin/agencies/:id/location`                            | Admin (OPERATOR+)                 | 소재지 change after 이전신고 check (+reason), audited  |
-| GET          | `/admin/agencies/:id/documents/:docId/file`               | Admin                             | streams the private file, `no-store`, view audited     |
-| GET          | `/admin/agencies/:id/registry-check?refresh`              | Admin                             | MATCH / MISMATCH / NOT_FOUND / UNAVAILABLE             |
+| Method       | Path                                                      | Auth                              | Notes                                                    |
+| ------------ | --------------------------------------------------------- | --------------------------------- | -------------------------------------------------------- |
+| GET          | `/agencies?q&emdCode&bbox&specialties&sort&page&pageSize` | Public                            | APPROVED only; trigram on name / 대표 / address          |
+| GET          | `/agencies/map?bbox&zoom&q&specialties`                   | Public                            | REGION_CLUSTERS / GRID_CLUSTERS / MARKERS by zoom        |
+| GET          | `/agencies/regions`                                       | Public                            | 읍면동 facet `{ total, items[] }`, cached ‡              |
+| GET          | `/agencies/:id`                                           | Public                            | profile, staff, listing counts, 대표 매물, disclosure    |
+| POST         | `/agencies`                                               | User                              | 등록 신청 → PENDING (등록증 + D8 `consents` required)    |
+| GET          | `/agencies/mine`                                          | User (owner or staff)             | owner: full view; staff: reduced view (B2) §             |
+| GET          | `/agencies/mine/dashboard`                                | AGENT / AGENCY_OWNER              | console home; served by the deal-requests module ¶       |
+| PATCH        | `/agencies/mine`                                          | User (owner)                      | profile (PENDING/APPROVED); APPROVED: 소재지 → 400 \*    |
+| POST         | `/agencies/mine/resubmit`                                 | User (owner)                      | REJECTED → PENDING; 409 if active elsewhere; `consents`? |
+| GET/POST     | `/agencies/mine/documents`                                | User (owner)                      | private document refs (media AGENCY_DOCUMENT, PRIVATE)   |
+| DELETE       | `/agencies/mine/documents/:docId`                         | User (owner)                      | only before approval; keeps ≥ 1 등록증                   |
+| GET          | `/agencies/mine/members`                                  | AGENCY_OWNER                      | paginated, `includeRemoved`                              |
+| PATCH/DELETE | `/agencies/mine/members/:memberId`                        | AGENCY_OWNER                      | remove downgrades the agent to USER + updates sessions   |
+| GET/POST     | `/agencies/mine/invites`                                  | AGENCY_OWNER                      | code returned once on creation                           |
+| DELETE       | `/agencies/mine/invites/:inviteId`                        | AGENCY_OWNER                      |                                                          |
+| POST         | `/agencies/join`                                          | User                              | redeem code → AGENT (THROTTLE.AUTH), `consents` D8       |
+| GET          | `/agencies/membership`                                    | User                              | caller's live membership                                 |
+| POST         | `/agencies/membership/leave`                              | User (agent)                      | owners cannot leave                                      |
+| GET          | `/admin/agencies?status&q&sort&page`                      | Admin (OPERATOR+)                 | review queue (status=PENDING, oldest first)              |
+| GET          | `/admin/agencies/:id?includeRemoved`                      | Admin                             | full contacts; each view audited `agency.pii-view` †     |
+| DELETE       | `/admin/agencies/:id` `{ reason }`                        | Admin (OPERATOR+)                 | soft-delete a PENDING / REJECTED application, audited    |
+| POST         | `/admin/agencies/:id/decision`                            | Admin (suspend/reinstate: ADMIN+) | APPROVED / REJECTED / SUSPENDED (+reason), audited       |
+| PATCH        | `/admin/agencies/:id/location`                            | Admin (OPERATOR+)                 | 소재지 change after 이전신고 check (+reason), audited    |
+| GET          | `/admin/agencies/:id/documents/:docId/file`               | Admin                             | streams the private file, `no-store`, view audited       |
+| GET          | `/admin/agencies/:id/registry-check?refresh`              | Admin                             | MATCH / MISMATCH / NOT_FOUND / UNAVAILABLE               |
+
+‡ `GET /agencies/regions` → `{ total, items: [{ emdCode, name, count, lat, lng }] }`: APPROVED offices
+grouped by their 8-digit 읍면동 (리 codes roll up to the 읍면), named from `regions` (8-digit row or its
+10-digit `…00` twin; codes the table does not know are left out of `items`), busiest first; `lat/lng` =
+region centroid, else the offices' mean position. `total` counts every approved office (also those
+without a 읍면동). Cached 300 s under the public agency version (bumped on approvals, profile edits).
+
+§ **B2 — staff and `GET /agencies/mine`.** The response carries `myRole` (web `myAgencySchema`).
+The owner gets the full view (`myRole: OWNER`, any status). An ACTIVE AGENT of a live agency gets the
+same shape for the agency they work for with `myRole: AGENT`, but `documents: []`,
+`statusHistory: []` and `businessNumber: null` (owner-only data); owner-only routes stay 403. A
+rejected applicant who has since joined another office gets that office (AGENT). 404
+`AGENCY_NOT_FOUND` when the user neither owns nor works for an agency. `GET /agencies/membership`
+(`{ memberId, role, displayName, agency: { id, name, phone, roadAddress, status } }`) is unchanged and
+is also enough for the console shell (`{ id, name, status, myRole: role }`).
+
+¶ **Console dashboard.** `GET /agencies/mine/dashboard` is composed in the deal-requests module
+(`ConsoleDashboardService`: it needs the inbox, and deal-requests depends on agencies); the listing
+and view numbers come from `AgencyDashboardService` here:
+
+- `listings`: counts over listings the agency actively (co-)brokers (not deleted): `active`,
+  `reserved`, `draft`, `closed30d` (CLOSED with `closedAt` in the last 30 days), `coBrokered`
+  (ACTIVE/RESERVED where the agency is not primary).
+- `views`: `daily` (7 KST days ending today), `total7d`, `changeRatio` (vs the previous 7 days, null
+  unless both weeks were observed) from `agency_daily_stats` — one row per agency and KST day holding
+  the cumulative `SUM(listings.view_count)` of its (co-)brokered listings; views(D) = snap(D) −
+  snap(D−1), clamped at 0, unknown days 0. The snapshot is upserted by every dashboard read (today)
+  and by the hourly `agencies.daily-stats` job (:53 KST, every approved agency). `favorites7d` =
+  favorites added in the last 7 days on its listings. `profileViews7d` is always 0: office profile
+  views are not counted yet.
+- `expiringListings`: live (ACTIVE/RESERVED) listings of the primary agency whose ad period ends
+  within 7 days, soonest first. `verificationDue`: live listings of the primary agency never verified
+  or whose 실매물 확인 is older than 23 days, never-verified then oldest first;
+  `verificationDueAt` = KST date of `verifiedAt` + 30 days (null when never verified). Both lists
+  are capped at 20 rows; row = `{ id, title, summary ("34평 · 20/25층"), dealType, price, deposit,
+monthlyRent, expiresAt, verifiedAt, verificationDueAt }` (매매/분양권 → `price`, 전세 → `deposit`,
+  월세 → `deposit` + `monthlyRent`, 만원).
 
 Status machine (admin): PENDING → APPROVED | REJECTED, APPROVED → SUSPENDED, SUSPENDED → APPROVED.
 Owner: REJECTED → PENDING (resubmit). First approval sets the owner's role to AGENCY_OWNER and updates
@@ -101,8 +143,10 @@ listed only with `includeRemoved=true`, phones masked.
 form showed (`GET /terms/:type`). The current published version is required; a `UserConsent` row is
 written in the same transaction as the application / membership (auth `TermsService.consentForAction`,
 errors in the auth README). A join with a missing or outdated consent is refused before the invite
-code is claimed, so the code survives. `POST /agencies/mine/resubmit` does not take consents (the
-application's consent still covers it).
+code is claimed, so the code survives. `POST /agencies/mine/resubmit` takes an optional
+`consents: [{ type: 'PRIVACY_AGENCY_APPLICATION', version }]` (local `agencyResubmitWithConsentsSchema`
+in `dto.ts` until the shared schema has it): when sent, the current version is required and recorded
+in the resubmission transaction; when omitted, the application's consent still covers it.
 
 ## For other modules
 
@@ -112,12 +156,15 @@ constructor(private readonly agencies: AgenciesService) {}
 await agencies.assertActiveMember(user.userId, user.agencyId);            // 403 unless ACTIVE + APPROVED
 await agencies.getDisclosure(agencyId);  / getDisclosures(ids)             // 표시·광고 명시사항
 await agencies.recordWarning({ agencyId, reason, reportId, adminId }, tx); // reports resolution
+// AgencyDashboardService (also exported): listingDashboard(agencyId), snapshot(now?, agencyId?)
 ```
 
 ## Tests
 
-- Unit: `pnpm --filter @house/api test -- src/modules/agencies`
-- e2e: `pnpm --filter @house/api test:e2e agencies` (DB `house_test_agencies`, Redis DB 4). The registry
+- Unit: `pnpm --filter @house/api test -- src/modules/agencies` (incl. `domain/dashboard.spec.ts`)
+- e2e: `pnpm --filter @house/api test:e2e agencies` (DB `house_test_agencies`, Redis DB 4);
+  `console.e2e-spec.ts` covers regions, the staff `/agencies/mine`, resubmit consents and the
+  daily-views snapshot (the dashboard endpoint itself is tested in the deal-requests suite). The registry
   is replaced by `FakeBrokerRegistry` (test/e2e/agencies/helpers.ts); nothing touches the network.
 - Registry lookup: `VworldBrokerRegistryClient` calls 브이월드 `getEBOfficeInfo` (the nsdi.go.kr API moved
   there in 2024; data.go.kr only has the bulk file). Needs `VWORLD_API_KEY`; the key is domain-bound, so the

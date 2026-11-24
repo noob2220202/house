@@ -15,7 +15,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
 import { JOB_BATCH_SIZE } from '../constants';
 import type { DispatchableNotification } from '../notifications/notification-dispatcher';
-import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationsService, type MemberRecipient } from '../notifications/notifications.service';
 import {
   DEAL_REQUEST_AGENCIES,
   type DealRequestAgencyDirectory,
@@ -90,25 +90,33 @@ export class DealRequestMaintenanceService {
           data: { dealRequestId: req.id },
         };
         const out: DispatchableNotification[] = [];
-        const notify = async (userIds: string[]): Promise<void> => {
-          const fresh = await this.notYetNotified(
-            tx,
-            req.id,
-            userIds.filter((u) => u !== req.userId),
+        const notify = async (recipients: MemberRecipient[]): Promise<void> => {
+          const fresh = new Set(
+            await this.notYetNotified(
+              tx,
+              req.id,
+              recipients.map((r) => r.userId).filter((u) => u !== req.userId),
+            ),
           );
-          out.push(...(await this.notifications.createFor(fresh, input, tx)));
+          out.push(
+            ...(await this.notifications.createForMembers(
+              recipients.filter((r) => fresh.has(r.userId)),
+              input,
+              tx,
+            )),
+          );
         };
         if (req.visibility === DealRequestVisibility.SELECTED_AGENCIES) {
           const approved = await this.agencies.approvedIds(
             req.targets.map((t) => t.agencyId),
             tx,
           );
-          await notify(await this.agencies.memberUserIds([...approved], tx));
+          await notify(await this.agencies.memberRecipients([...approved], tx));
         } else {
           let after: string | null = null;
           do {
             const batch = await this.agencies.regionMemberBatch(req.sggCode, after, tx);
-            await notify(batch.userIds);
+            await notify(batch.recipients);
             after = batch.last;
           } while (after);
         }
@@ -306,9 +314,9 @@ export class DealRequestMaintenanceService {
     }
     const out: DispatchableNotification[] = [];
     for (const [dealRequestId, agencyIds] of byRequest) {
-      const recipients = await this.agencies.memberUserIds(agencyIds, tx);
+      const recipients = await this.agencies.memberRecipients(agencyIds, tx);
       out.push(
-        ...(await this.notifications.createFor(
+        ...(await this.notifications.createForMembers(
           recipients,
           {
             type: NotificationType.SYSTEM,

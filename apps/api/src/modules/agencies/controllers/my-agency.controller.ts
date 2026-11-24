@@ -38,7 +38,10 @@ import {
   AgencyUpdateDto,
 } from '../dto';
 import { AgencyMembersService } from '../services/agency-members.service';
-import { AgencyRegistrationService } from '../services/agency-registration.service';
+import {
+  AgencyRegistrationService,
+  type MyAgencyWithRole,
+} from '../services/agency-registration.service';
 
 /**
  * The logged-in user's own agency: 등록 신청, profile, documents, staff and invites, joining by
@@ -59,8 +62,9 @@ export class MyAgencyController {
     return this.registration.register(user, dto);
   }
 
+  /** Owner: full view (`myRole: OWNER`); staff: reduced view (`myRole: AGENT`), see the README. */
   @Get('mine')
-  getMine(@CurrentUser() user: UserPrincipal): Promise<MyAgency> {
+  getMine(@CurrentUser() user: UserPrincipal): Promise<MyAgencyWithRole> {
     return this.registration.getMine(user);
   }
 

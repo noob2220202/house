@@ -28,6 +28,11 @@ export interface OutdatedConsent {
   currentVersion: string;
 }
 
+/** Row of GET /terms/:type/versions. */
+export interface TermsVersionSummary extends TermsSummary {
+  isCurrent: boolean;
+}
+
 export function toTermsSummary(d: TermsDocument): TermsSummary {
   return {
     id: d.id,
@@ -129,6 +134,20 @@ export class TermsService {
     now: Date = new Date(),
   ): Promise<void> {
     await this.record(tx, userId, await this.verifyActionConsents(types, given, now, tx));
+  }
+
+  /**
+   * Every published version of a type (history selector), newest first, without content.
+   * `isCurrent` marks the version in force now; announced versions (published, effective later)
+   * are listed too.
+   */
+  async versions(type: TermsType, now: Date = new Date()): Promise<TermsVersionSummary[]> {
+    const docs = await this.prisma.termsDocument.findMany({
+      where: { type, publishedAt: { not: null, lte: now } },
+      orderBy: [{ effectiveAt: 'desc' }, { createdAt: 'desc' }],
+    });
+    const current = docs.find((d) => d.effectiveAt <= now);
+    return docs.map((d) => ({ ...toTermsSummary(d), isCurrent: d.id === current?.id }));
   }
 
   async listCurrent(): Promise<TermsSummary[]> {

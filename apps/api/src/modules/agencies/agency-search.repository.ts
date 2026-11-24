@@ -20,6 +20,14 @@ export interface AgencyFilter {
   specialties?: AssetType[];
 }
 
+export interface RegionFacetRow {
+  emdCode: string;
+  name: string | null;
+  count: number;
+  lat: number | null;
+  lng: number | null;
+}
+
 export interface MarkerRow {
   id: string;
   name: string;
@@ -120,6 +128,31 @@ export class AgencySearchRepository {
       LEFT JOIN regions r ON r.code = c.code
       ORDER BY c.count DESC, c.code ASC
       LIMIT ${MAP_MAX_MARKERS}`;
+  }
+
+  /**
+   * 읍면동 facet of APPROVED offices (`GET /agencies/regions`): one row per 8-digit 읍면동 code
+   * (리 codes roll up to their 읍면), named from `regions` (8-digit row, else its 10-digit "…00"
+   * twin); the point is the region centroid, else the offices' mean position.
+   */
+  async regionFacet(): Promise<RegionFacetRow[]> {
+    return this.prisma.$queryRaw<RegionFacetRow[]>`
+      SELECT c.code AS "emdCode", r.name, c.count,
+             COALESCE(r.lat, c.lat) AS lat, COALESCE(r.lng, c.lng) AS lng
+      FROM (
+        SELECT LEFT(a.emd_code, ${REGION_CODE_LENGTH.EMD}::int) AS code,
+               avg(a.lat)::float8 AS lat, avg(a.lng)::float8 AS lng, count(*)::int AS count
+        FROM agencies a
+        WHERE ${this.where({})} AND length(a.emd_code) >= ${REGION_CODE_LENGTH.EMD}::int
+        GROUP BY 1
+      ) c
+      LEFT JOIN LATERAL (
+        SELECT rg.name, rg.lat, rg.lng FROM regions rg
+        WHERE rg.code IN (c.code, c.code || '00') AND rg.level <> 'RI'::region_level
+        ORDER BY length(rg.code) ASC
+        LIMIT 1
+      ) r ON true
+      ORDER BY c.count DESC, r.name ASC NULLS LAST, c.code ASC`;
   }
 
   /** Mid zoom: grid clustering (cells aligned to the origin, so tiles never split a cell). */

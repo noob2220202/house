@@ -3,7 +3,7 @@ import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Public } from '../../../common/decorators';
 import { AgencyMapQueryDto, AgencySearchQueryDto, IdParamDto } from '../dto';
-import { AgencyPublicService } from '../services/agency-public.service';
+import { AgencyPublicService, type AgencyRegionFacet } from '../services/agency-public.service';
 
 /** 중개사무소 찾기 (public): list search, map, profile. Only APPROVED agencies are visible. */
 @ApiTags('agencies')
@@ -15,6 +15,12 @@ export class AgenciesController {
   @Get()
   search(@Query() q: AgencySearchQueryDto): Promise<Paginated<AgencySummary>> {
     return this.agencies.search(q);
+  }
+
+  /** 읍면동 facet (code, name, office count) for the 지역 filter. Before `:id`. */
+  @Get('regions')
+  regions(): Promise<AgencyRegionFacet> {
+    return this.agencies.regions();
   }
 
   @Get('map')

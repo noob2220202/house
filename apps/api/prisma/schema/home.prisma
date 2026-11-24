@@ -1,0 +1,49 @@
+// Owned by the home module (apps/api/src/modules/home): 관심 중개사무소, 관심 지역, 운영 정책 문서.
+//
+// FavoriteAgency / UserInterestRegion deliberately declare no Prisma relation to User / Agency:
+// those models belong to other modules' schema files. Reads always join through the live
+// agencies table (deleted / non-approved offices are skipped) and both tables are cleared by
+// HomeUserDataService.purge(userId) (see the home README).
+
+/// 관심 중개사무소 (per user, newest first).
+model FavoriteAgency {
+  userId    String   @map("user_id") @db.Uuid
+  agencyId  String   @map("agency_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@id([userId, agencyId])
+  @@index([agencyId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("favorite_agencies")
+}
+
+/// 관심 지역 selection (signup step / MY): up to 5 stable region keys + "새 매물 알림" flag.
+model UserInterestRegion {
+  userId     String   @id @map("user_id") @db.Uuid
+  /// Stable keys sent by the site ("sindae", "yeonhyang", …) or 법정동 codes (stored canonical, 12150…).
+  regionKeys String[] @default([]) @map("region_keys")
+  notify     Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("user_interest_regions")
+}
+
+/// Operating policy pages that are not consent documents (허위매물 신고 정책 …), versioned like
+/// terms: drafts are editable, published versions are immutable. GET /policies/:slug serves the
+/// latest published version whose effectiveAt has passed.
+model PolicyDocument {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  slug        String    @db.VarChar(50)
+  version     String    @db.VarChar(20)
+  title       String    @db.VarChar(100)
+  content     String
+  effectiveAt DateTime  @map("effective_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([slug, version])
+  @@index([slug, effectiveAt(sort: Desc)])
+  @@map("policy_documents")
+}

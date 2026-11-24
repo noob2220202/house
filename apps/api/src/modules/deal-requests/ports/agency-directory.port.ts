@@ -2,6 +2,7 @@ import { AgencyMemberStatus, AgencyStatus, UserStatus } from '@house/shared';
 import { Injectable } from '@nestjs/common';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
 import { JOB_BATCH_SIZE } from '../constants';
+import type { MemberRecipient } from '../notifications/notifications.service';
 
 /**
  * Agency reads the deal-requests module needs beyond AgenciesService (membership + disclosure):
@@ -15,17 +16,17 @@ export interface DealRequestAgencyDirectory {
   /** The subset of `ids` that are APPROVED and not deleted. */
   approvedIds(ids: readonly string[], db?: PrismaTx): Promise<Set<string>>;
   names(ids: readonly string[]): Promise<Map<string, string>>;
-  /** Active users of ACTIVE memberships of the given agencies. */
-  memberUserIds(agencyIds: readonly string[], db?: PrismaTx): Promise<string[]>;
+  /** Active users of ACTIVE memberships of the given agencies, with the agency they belong to. */
+  memberRecipients(agencyIds: readonly string[], db?: PrismaTx): Promise<MemberRecipient[]>;
   /**
-   * Active users of ACTIVE memberships of APPROVED agencies in `sggCode`, keyset-paginated by
-   * membership id (pass the last id back as `after`).
+   * Active users of ACTIVE memberships of APPROVED agencies in `sggCode` (with their agency),
+   * keyset-paginated by membership id (pass the last id back as `after`).
    */
   regionMemberBatch(
     sggCode: string,
     after: string | null,
     db?: PrismaTx,
-  ): Promise<{ userIds: string[]; last: string | null }>;
+  ): Promise<{ recipients: MemberRecipient[]; last: string | null }>;
 }
 
 export const DEAL_REQUEST_AGENCIES = Symbol('DEAL_REQUEST_AGENCIES');
@@ -60,7 +61,10 @@ export class PrismaDealRequestAgencyDirectory implements DealRequestAgencyDirect
     return new Map(rows.map((r) => [r.id, r.name]));
   }
 
-  async memberUserIds(agencyIds: readonly string[], db: PrismaTx = this.prisma): Promise<string[]> {
+  async memberRecipients(
+    agencyIds: readonly string[],
+    db: PrismaTx = this.prisma,
+  ): Promise<MemberRecipient[]> {
     if (agencyIds.length === 0) return [];
     const rows = await db.agencyMember.findMany({
       where: {
@@ -68,16 +72,17 @@ export class PrismaDealRequestAgencyDirectory implements DealRequestAgencyDirect
         status: AgencyMemberStatus.ACTIVE,
         user: { status: UserStatus.ACTIVE },
       },
-      select: { userId: true },
+      select: { userId: true, agencyId: true },
+      orderBy: { id: 'asc' },
     });
-    return [...new Set(rows.map((r) => r.userId))];
+    return rows;
   }
 
   async regionMemberBatch(
     sggCode: string,
     after: string | null,
     db: PrismaTx = this.prisma,
-  ): Promise<{ userIds: string[]; last: string | null }> {
+  ): Promise<{ recipients: MemberRecipient[]; last: string | null }> {
     const rows = await db.agencyMember.findMany({
       where: {
         status: AgencyMemberStatus.ACTIVE,
@@ -85,12 +90,12 @@ export class PrismaDealRequestAgencyDirectory implements DealRequestAgencyDirect
         agency: { status: AgencyStatus.APPROVED, deletedAt: null, sggCode },
         ...(after ? { id: { gt: after } } : {}),
       },
-      select: { id: true, userId: true },
+      select: { id: true, userId: true, agencyId: true },
       orderBy: { id: 'asc' },
       take: JOB_BATCH_SIZE,
     });
     return {
-      userIds: rows.map((r) => r.userId),
+      recipients: rows.map((r) => ({ userId: r.userId, agencyId: r.agencyId })),
       last: rows.length === JOB_BATCH_SIZE ? (rows[rows.length - 1]?.id ?? null) : null,
     };
   }

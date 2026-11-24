@@ -125,6 +125,32 @@ export class VideosService {
     await this.cache.bump(ADMIN_CACHE.CONTENT);
   }
 
+  /**
+   * PUT /admin/videos/order: `ids` in display order get sortOrder 1…n (as the admin app expects);
+   * videos not listed keep theirs. Every id must be a live (not deleted) video.
+   */
+  async reorder(ids: string[]): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const found = await tx.localVideo.findMany({
+        where: { id: { in: ids }, deletedAt: null },
+        select: { id: true, sortOrder: true },
+      });
+      if (found.length !== ids.length) {
+        const known = new Set(found.map((v) => v.id));
+        throw new AppException(ErrorCode.VALIDATION_FAILED, {
+          message: '목록에 없는 영상이 포함되어 있습니다. 새로고침 후 다시 시도해 주세요.',
+          details: { unknownIds: ids.filter((id) => !known.has(id)) },
+        });
+      }
+      RequestContext.setAuditBefore(found);
+      await tx.$executeRaw`
+        UPDATE local_videos AS v SET sort_order = o.ord::int, updated_at = now()
+        FROM unnest(${ids}::uuid[]) WITH ORDINALITY AS o(id, ord)
+        WHERE v.id = o.id`;
+    });
+    await this.cache.bump(ADMIN_CACHE.CONTENT);
+  }
+
   private async assertComplex(complexId: string): Promise<void> {
     const found = await this.prisma.complex.findFirst({
       where: { id: complexId, deletedAt: null },

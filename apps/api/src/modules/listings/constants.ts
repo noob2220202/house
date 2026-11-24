@@ -12,7 +12,12 @@ export const LISTINGS_REDIS_KEYS = {
   viewTotals: 'listings:views:totals',
   viewSeen: (listingId: string, viewer: string): string =>
     `listings:views:seen:${listingId}:${viewer}`,
+  /** ZSET `${assetType}|${regionKey}` → counted listing views on that KST day (지역 ranking). */
+  regionViewsDaily: (day: string): string => `listings:views:region-daily:${day}`,
 } as const;
+
+/** Daily region-view ZSETs cover this week and the previous one (rank change), plus slack. */
+export const REGION_VIEWS_DAILY_TTL_SECONDS = 16 * 24 * 60 * 60;
 
 /** BullMQ job (queue counters-flush) that writes Redis view totals to the DB. */
 export const FLUSH_VIEW_COUNTS_JOB = 'listings.flush-view-counts';

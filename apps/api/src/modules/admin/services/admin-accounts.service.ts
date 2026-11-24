@@ -9,7 +9,8 @@ import {
   ErrorCode,
   type Paginated,
 } from '@house/shared';
-import { Injectable } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma, type AdminUser } from '@prisma/client';
 import type { AdminPrincipal } from '../../../common/auth/principal';
 import { RequestContext } from '../../../common/context/request-context';
@@ -22,10 +23,15 @@ import { toAdminAccountView } from '../admin.mapper';
 /** Serializes changes that could leave the site without an active SUPER_ADMIN. */
 const SUPER_ADMIN_LOCK = 'admin:super-admin-invariant';
 
+/** Tombstoned e-mail of a soft-deleted account (frees the address for a new account). */
+export const deletedAdminEmail = (id: string): string => `deleted+${id}@deleted.invalid`;
+
 /**
- * Back-office account management (SUPER_ADMIN only). Accounts are never deleted — they are
- * DISABLED so audit history keeps its actor. Any change to role / status / IP allowlist and every
- * credential reset ends the account's sessions.
+ * Back-office account management (SUPER_ADMIN only). Accounts are never hard-deleted: DELETE is a
+ * soft delete (DISABLED, e-mail released, credentials cleared, `admin_account_deletions` row) so
+ * audit history keeps its actor; deleted accounts are hidden from every route here (404).
+ * Any change to role / status / IP allowlist and every credential reset ends the account's
+ * sessions.
  */
 @Injectable()
 export class AdminAccountsService {
@@ -36,7 +42,9 @@ export class AdminAccountsService {
   ) {}
 
   async list(q: AdminAccountListQuery): Promise<Paginated<AdminAccountView>> {
+    const deleted = await this.deletedIds();
     const where: Prisma.AdminUserWhereInput = {
+      ...(deleted.length ? { id: { notIn: deleted } } : {}),
       ...(q.role ? { role: q.role } : {}),
       ...(q.status ? { status: q.status } : {}),
       ...(q.q
@@ -166,6 +174,54 @@ export class AdminAccountsService {
     return toAdminAccountView(updated);
   }
 
+  /**
+   * Soft delete (SUPER_ADMIN): not oneself, not the last active SUPER_ADMIN. The row stays for the
+   * audit trail but is DISABLED, its e-mail tombstoned, password / TOTP / recovery codes cleared,
+   * and all its sessions end.
+   */
+  async remove(actor: AdminPrincipal, id: string): Promise<void> {
+    if (actor.adminId === id) {
+      throw new AppException(ErrorCode.ADMIN_SELF_MODIFICATION, {
+        status: HttpStatus.FORBIDDEN,
+        message: '본인 계정은 삭제할 수 없습니다.',
+      });
+    }
+    // Unusable random password (hashed before taking the lock: argon2 is slow on purpose).
+    const passwordHash = await this.passwords.hash(randomBytes(32).toString('base64url'));
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${SUPER_ADMIN_LOCK}))`;
+      const current = await this.load(id, tx);
+      await this.assertKeepsSuperAdmin(tx, current, {
+        role: current.role,
+        status: AdminStatus.DISABLED,
+      });
+      RequestContext.setAuditBefore(toAdminAccountView(current));
+      await tx.adminAccountDeletion.create({
+        data: { adminUserId: id, originalEmail: current.email, deletedByAdminId: actor.adminId },
+      });
+      await tx.adminUser.update({
+        where: { id },
+        data: {
+          status: AdminStatus.DISABLED,
+          email: deletedAdminEmail(id),
+          passwordHash,
+          totpSecretEnc: null,
+          totpEnabledAt: null,
+          recoveryCodeHashes: [],
+          ipAllowlist: [],
+          failedLoginCount: 0,
+          lockedUntil: null,
+        },
+      });
+    });
+    await this.sessions.destroyAllForSubject('ADMIN', id);
+  }
+
+  private async deletedIds(db: PrismaTx = this.prisma): Promise<string[]> {
+    const rows = await db.adminAccountDeletion.findMany({ select: { adminUserId: true } });
+    return rows.map((r) => r.adminUserId);
+  }
+
   private assertNotSelf(actor: AdminPrincipal, id: string): void {
     // Own credentials go through /admin/auth/password and the TOTP flow (they need the old factor).
     if (actor.adminId === id) throw AppException.forbidden(ErrorCode.ADMIN_SELF_MODIFICATION);
@@ -188,8 +244,14 @@ export class AdminAccountsService {
   }
 
   private async load(id: string, db: PrismaTx = this.prisma): Promise<AdminUser> {
-    const row = await db.adminUser.findUnique({ where: { id } });
-    if (!row) throw AppException.notFound(ErrorCode.ADMIN_ACCOUNT_NOT_FOUND);
+    const [row, deleted] = await Promise.all([
+      db.adminUser.findUnique({ where: { id } }),
+      db.adminAccountDeletion.findUnique({
+        where: { adminUserId: id },
+        select: { adminUserId: true },
+      }),
+    ]);
+    if (!row || deleted) throw AppException.notFound(ErrorCode.ADMIN_ACCOUNT_NOT_FOUND);
     return row;
   }
 }

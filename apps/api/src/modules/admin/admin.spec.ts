@@ -126,15 +126,52 @@ describe('AdminAccountsService guards', () => {
           .fn()
           .mockImplementation(({ data }) => Promise.resolve({ ...current, ...data })),
       },
+      adminAccountDeletion: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValue([]),
+        create: jest.fn().mockResolvedValue({}),
+      },
     };
     const prisma = {
       ...tx,
       $transaction: jest.fn((fn: (t: typeof tx) => unknown) => fn(tx)),
     };
     const sessions = { destroyAllForSubject: jest.fn().mockResolvedValue(0) };
-    const svc = new AdminAccountsService(prisma as never, {} as never, sessions as never);
+    const passwords = { hash: jest.fn().mockResolvedValue('hash') };
+    const svc = new AdminAccountsService(prisma as never, passwords as never, sessions as never);
     return { svc, sessions, tx };
   }
+
+  it('soft-deletes an account: DISABLED, e-mail released, credentials cleared, sessions ended', async () => {
+    const { svc, sessions, tx } = service(1, row({ email: 'old@example.kr' }));
+    await svc.remove(actor, 'target');
+    expect(tx.adminAccountDeletion.create).toHaveBeenCalledWith({
+      data: { adminUserId: 'target', originalEmail: 'old@example.kr', deletedByAdminId: 'self' },
+    });
+    expect(tx.adminUser.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'target' },
+        data: expect.objectContaining({
+          status: AdminStatus.DISABLED,
+          email: 'deleted+target@deleted.invalid',
+          totpSecretEnc: null,
+          recoveryCodeHashes: [],
+        }),
+      }),
+    );
+    expect(sessions.destroyAllForSubject).toHaveBeenCalledWith('ADMIN', 'target');
+  });
+
+  it('refuses to delete oneself or the last active SUPER_ADMIN; deleted accounts are 404', async () => {
+    const last = service(0);
+    expect(await codeOf(last.svc.remove(actor, 'target'))).toBe(ErrorCode.ADMIN_LAST_SUPER_ADMIN);
+    expect(last.tx.adminAccountDeletion.create).not.toHaveBeenCalled();
+    const self = service(1, row({ id: 'self' }));
+    expect(await codeOf(self.svc.remove(actor, 'self'))).toBe(ErrorCode.ADMIN_SELF_MODIFICATION);
+    const gone = service(1);
+    gone.tx.adminAccountDeletion.findUnique.mockResolvedValue({ adminUserId: 'target' });
+    expect(await codeOf(gone.svc.detail('target'))).toBe(ErrorCode.ADMIN_ACCOUNT_NOT_FOUND);
+  });
 
   async function codeOf(p: Promise<unknown>): Promise<string | undefined> {
     try {

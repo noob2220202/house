@@ -9,6 +9,7 @@ import {
   resetAll,
   type TestApp,
   type TestSession,
+  withoutUuids,
 } from '../../utils';
 import { adminActor, api, as, auditRows, expectAdminAuthz, expectCode } from './helpers';
 
@@ -67,7 +68,8 @@ describe('admin listing moderation (e2e)', () => {
     ]);
     const detail = await as(t, session, 'get', `/admin/listings/${listing.id}`).expect(200);
     expect(detail.body.agencies).toEqual([{ id: agency.id, name: agency.name, isPrimary: true }]);
-    expect(JSON.stringify(detail.body)).not.toContain('1203');
+    // Random UUIDs can contain the digits 1203: check everything but the ids.
+    expect(withoutUuids(detail.body)).not.toContain('1203');
     expectCode(
       await as(t, session, 'get', '/admin/listings/01890a5d-ac96-774b-bcce-b302099a8057').expect(
         404,

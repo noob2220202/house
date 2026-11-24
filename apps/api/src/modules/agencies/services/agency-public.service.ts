@@ -27,6 +27,7 @@ import { AgencySearchRepository, type AgencyFilter } from '../agency-search.repo
 import {
   MAP_CACHE_TTL_SECONDS,
   PROFILE_CACHE_TTL_SECONDS,
+  REGIONS_CACHE_TTL_SECONDS,
   PROFILE_MEMBERS_LIMIT,
   REPRESENTATIVE_LISTINGS_LIMIT,
 } from '../constants';
@@ -35,6 +36,13 @@ import { AGENCY_MEDIA, type AgencyMediaPort } from '../ports/agency-media.port';
 import { AgencyCacheService } from './agency-cache.service';
 
 const round6 = (n: number): number => Math.round(n * 1e6) / 1e6;
+
+/** `GET /agencies/regions` — 읍면동 facet of the office search's 지역 filter. */
+export interface AgencyRegionFacet {
+  /** All approved offices (also those without a 읍면동 code). */
+  total: number;
+  items: { emdCode: string; name: string; count: number; lat: number | null; lng: number | null }[];
+}
 
 /** Expands a bbox to tile boundaries (4 grid cells) so nearby viewports share a cache entry. */
 export function tileAlignedBbox(b: Bbox, zoom: number): Bbox {
@@ -87,6 +95,23 @@ export class AgencyPublicService {
       return row ? [this.mapper.summary(row)] : [];
     });
     return toPaginated(items, total, q);
+  }
+
+  /** Cached (public version namespace, bumped on approvals / profile changes). */
+  async regions(): Promise<AgencyRegionFacet> {
+    const key = await this.cache.publicKey('regions');
+    return this.cache.getOrSet(key, REGIONS_CACHE_TTL_SECONDS, async () => {
+      const [rows, total] = await Promise.all([this.repo.regionFacet(), this.repo.count({})]);
+      return {
+        total,
+        // A code the regions table does not know cannot be labelled in the filter: left out.
+        items: rows.flatMap((r) =>
+          r.name
+            ? [{ emdCode: r.emdCode, name: r.name, count: r.count, lat: r.lat, lng: r.lng }]
+            : [],
+        ),
+      };
+    });
   }
 
   async map(q: AgencyMapQuery): Promise<AgencyMapResult> {

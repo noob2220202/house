@@ -73,7 +73,10 @@ describe('deal-requests: jobs (e2e)', () => {
       expect(await received(pending.owner.id)).toBe(0);
       expect(await received(user.id)).toBe(0);
       const n = await t.prisma.notification.findFirstOrThrow({ where: { userId: b1.user.id } });
-      expect(n.data).toEqual({ dealRequestId: id });
+      // B5: addressed to the member as part of the agency.
+      expect(n.data).toEqual({ dealRequestId: id, agencyId: b1.agency.id });
+      const na = await t.prisma.notification.findFirstOrThrow({ where: { userId: a1.user.id } });
+      expect(na.data).toEqual({ dealRequestId: id, agencyId: b1.agency.id });
       expect(n.title).toContain('내놓기');
       expect(JSON.stringify(n)).not.toContain('01012345678');
     });

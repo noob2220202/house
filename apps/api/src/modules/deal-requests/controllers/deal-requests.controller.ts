@@ -20,23 +20,47 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { UserPrincipal } from '../../../common/auth/principal';
-import { CurrentUser } from '../../../common/decorators';
+import { CurrentUser, Public } from '../../../common/decorators';
 import { ZodValidationPipe } from '../../../common/pipes/zod-validation.pipe';
 import { THROTTLE } from '../../../common/throttle/throttle.constants';
 import {
+  AddressMatchQueryDto,
   ContactGrantDto,
   ContactGrantParamDto,
   DealRequestCloseDto,
   IdParamDto,
   MyDealRequestListQueryDto,
+  TargetAgencyQueryDto,
 } from '../dto';
 import { DealRequestsService } from '../services/deal-requests.service';
+import {
+  RequestFormService,
+  type AddressMatchView,
+  type TargetAgencyPage,
+} from '../services/request-form.service';
 
 /** 내놓기/구하기 registration (login required; no phone verification — contact is typed). */
 @ApiTags('deal-requests')
 @Controller('deal-requests')
 export class DealRequestsController {
-  constructor(private readonly requests: DealRequestsService) {}
+  constructor(
+    private readonly requests: DealRequestsService,
+    private readonly form: RequestFormService,
+  ) {}
+
+  /** Offices a request for the area reaches (`total`) + the "선택한 중개사" picker (`q`). Public. */
+  @Get('target-agencies')
+  @Public()
+  targetAgencies(@Query() q: TargetAgencyQueryDto): Promise<TargetAgencyPage> {
+    return this.form.targetAgencies(q);
+  }
+
+  /** Registered complex (평형, 시세 hints) of a postcode result. Public. */
+  @Get('address-match')
+  @Public()
+  addressMatch(@Query() q: AddressMatchQueryDto): Promise<AddressMatchView> {
+    return this.form.addressMatch(q);
+  }
 
   @Post()
   @Throttle(THROTTLE.DEAL_REQUEST)

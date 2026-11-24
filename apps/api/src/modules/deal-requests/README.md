@@ -41,24 +41,69 @@ Registered in `AppModule`. Read `docs/CONVENTIONS.md` first.
 - Notifications: in-app rows in `notifications` (written in the same transaction), then
   `NotificationDispatcher.dispatch()` (token `NOTIFICATION_DISPATCHER`, default in-app only) for e-mail/push.
   There is deliberately no SMS channel. New requests fan out to brokers via the `deal-request.fanout` job.
+- Notification audience (B5): one feed per user, but every row addressed to someone **as a member of
+  an agency** carries `data.agencyId` — `NotificationsService.createForMembers({ userId, agencyId }[])`
+  (fan-out, proposal accepted / declined, contact granted, request ended), the agencies module's
+  approval / rejection / warning rows, and listing notices written through `createFor` / `createEach`
+  (LISTING_HIDDEN, LISTING_EXPIRED, CO_BROKER_REQUESTED with `data.listingId` get the listing's
+  primary agency). `?scope=agency` = `data.agencyId` is set **or** the type is agency-only
+  (DEAL_REQUEST_RECEIVED, PROPOSAL_ACCEPTED, CONTACT_GRANTED, LISTING_EXPIRED, CO_BROKER_REQUESTED,
+  LISTING_HIDDEN — covers older rows and the listings module's direct writes without `agencyId`);
+  `?scope=personal` = everything else. The scope applies to the feed, its `unreadCount`, `unread-count`
+  and `read {all:true}` (the `unread` it returns is of that scope); without `scope` nothing changes.
 
 ## Endpoints (prefix `/api/v1`)
 
-| Method | Path                                                                           | Auth                                       |
-| ------ | ------------------------------------------------------------------------------ | ------------------------------------------ |
-| POST   | `/deal-requests`                                                               | User                                       |
-| GET    | `/me/deal-requests` · `/me/deal-requests/:id`                                  | User (owner, else 404)                     |
-| POST   | `/me/deal-requests/:id/cancel` · `/close` · `/extend`                          | User (owner)                               |
-| POST   | `/me/deal-requests/:id/contact-grants` `{agencyId}`                            | User (owner)                               |
-| DELETE | `/me/deal-requests/:id/contact-grants/:agencyId`                               | User (owner)                               |
-| POST   | `/me/proposals/:id/accept` `{shareContact}` · `/decline`                       | User (request owner)                       |
-| GET    | `/agency/deal-requests?scope&type&assetType&dealType` · `/:id`                 | AGENT / AGENCY_OWNER of an APPROVED agency |
-| POST   | `/agency/deal-requests/:id/proposals`                                          | AGENT / AGENCY_OWNER                       |
-| GET    | `/agency/proposals?status` · POST `/agency/proposals/:id/withdraw`             | AGENT / AGENCY_OWNER                       |
-| GET    | `/me/notifications?cursor&limit&unreadOnly` · `/me/notifications/unread-count` | User                                       |
-| POST   | `/me/notifications/read` `{ids}` or `{all:true}`                               | User                                       |
-| GET    | `/admin/deal-requests` · `/admin/deal-requests/:id`                            | Admin (TOTP)                               |
-| POST   | `/admin/deal-requests/:id/close` `{reason}` (audited)                          | Admin (TOTP)                               |
+| Method | Path                                                                                 | Auth                                       |
+| ------ | ------------------------------------------------------------------------------------ | ------------------------------------------ |
+| POST   | `/deal-requests`                                                                     | User                                       |
+| GET    | `/me/deal-requests` · `/me/deal-requests/:id`                                        | User (owner, else 404)                     |
+| POST   | `/me/deal-requests/:id/cancel` · `/close` · `/extend`                                | User (owner)                               |
+| POST   | `/me/deal-requests/:id/contact-grants` `{agencyId}`                                  | User (owner)                               |
+| DELETE | `/me/deal-requests/:id/contact-grants/:agencyId`                                     | User (owner)                               |
+| POST   | `/me/proposals/:id/accept` `{shareContact}` · `/decline`                             | User (request owner)                       |
+| GET    | `/deal-requests/target-agencies?q&emdCode&regionCodes&page&pageSize` ¹               | Public                                     |
+| GET    | `/deal-requests/address-match?roadAddress&buildingName&bcode` ²                      | Public                                     |
+| GET    | `/agencies/mine/dashboard` ³                                                         | AGENT / AGENCY_OWNER of an APPROVED agency |
+| GET    | `/agency/deal-requests?scope&type&assetType&dealType` · `/:id`                       | AGENT / AGENCY_OWNER of an APPROVED agency |
+| GET    | `/agency/deal-requests/:id/listing-candidates?q&page&pageSize` ⁴                     | AGENT / AGENCY_OWNER                       |
+| POST   | `/agency/deal-requests/:id/proposals`                                                | AGENT / AGENCY_OWNER                       |
+| GET    | `/agency/proposals?status` · POST `/agency/proposals/:id/withdraw`                   | AGENT / AGENCY_OWNER                       |
+| GET    | `/me/notifications?cursor&limit&unreadOnly&scope` → `{items,nextCursor,unreadCount}` | User                                       |
+| GET    | `/me/notifications/unread-count?scope` → `{unread}`                                  | User                                       |
+| POST   | `/me/notifications/read?scope` `{ids}` or `{all:true}`                               | User                                       |
+| GET    | `/admin/deal-requests` · `/admin/deal-requests/:id`                                  | Admin (TOTP)                               |
+| POST   | `/admin/deal-requests/:id/close` `{reason}` (audited)                                | Admin (TOTP)                               |
+
+¹ Offices a request reaches and the "선택한 중개사" picker: every APPROVED office of `REGION_SGG_CODE`
+(the `ALL_AGENCIES_IN_REGION` rule — `total` is the reach count); offices whose 읍면동 is one of the
+codes first, then by active listings. `q` = 상호 / 대표 / 주소 (ILIKE, `%`/`_` literal). Codes accept
+legacy 46150… (canonicalized). Response = `Paginated<{ id, name, representativeName, phone,
+roadAddress, specialty ("아파트·오피스텔 전문"), activeListingCount, avgResponseMinutes (null, not
+measured), logoUrl }>` + `areaLabel` (up to 3 region names joined by `·`, null without codes). Default
+`pageSize` 10 (max 50). Cached 60 s under the agencies' public version.
+
+² Registered complex of a Kakao postcode result: same road name + building number as
+`complexes.road_address` (any 시도 spelling), else the same building name (spaces / punctuation
+ignored) in the 읍면동 of `bcode` (or the service 시군구). → `{ emdCode, emdName, lat, lng, complex:
+{ id, name, emdName, households, builtYear, floorsMax, areaTypes[{ id, pyeongLabel, exclusiveArea,
+supplyArea }], market: { recentTradePrice, recentTradeYm "YYYY-MM", recentTradePyeong, askingMin,
+askingMax, perPyeong } | null } | null }`. Market = latest non-cancelled 매매 실거래 (평 / 평당가 from
+공급면적, else 전용) + min / max 매매가 of advertised listings. No match → `emdCode` = `bcode`, its
+name, no point. 400 without `roadAddress`. Cached 300 s.
+
+³ Console home, composed here (`ConsoleDashboardService`) from the agencies module's
+`AgencyDashboardService` (listings, views, expiring / 실매물 확인 due — see the agencies README) and the
+inbox: `dealRequests.newCount/newSellCount/newWantedCount` (OPEN, not yet proposed to, by type) and
+`items` = the latest 4 visible requests in the `GET /agency/deal-requests` item shape. `inquiries` is
+always `{ unreadCount: 0, items: [] }` — no inquiry backend for launch (DECISIONS D5).
+
+⁴ ACTIVE listings the agency actively (co-)brokers (the proposal rule), for a request it can see
+(404 otherwise). `q` = title or 단지명. Ranked like the web picker (`domain/listing-match.ts`: all
+stated conditions met first, then number of met conditions — asset type, deal type, region / complex,
+budget, area, rooms; ties by latest 실매물 확인). Item = `{ id, title, assetType, dealType, price
+(매매 / 전세 / 분양권 = 분양가 + 프리미엄), deposit / monthlyRent (월세), exclusiveArea, floorLabel,
+rooms, emdCode, emdName, complexId, thumbUrl, verifiedAt }`; default `pageSize` 50 (max 100).
 
 ## Jobs (queue `deal-requests`, own queue so no other worker competes)
 
@@ -70,9 +115,14 @@ Registered in `AppModule`. Read `docs/CONVENTIONS.md` first.
 
 `DEAL_REQUEST_AGENCIES` (agency 시군구 / approval / member recipients), `DEAL_REQUEST_LISTINGS`
 (proposable listings), `DEAL_REQUEST_COMPLEXES`, `DEAL_REQUEST_MEDIA` — Prisma read-only bindings in `ports/`.
+`RequestFormService` (target agencies, address match), `ListingCandidatesService` and
+`RegionNamesService` also read the agencies / complexes / trades / listings / regions tables
+read-only (no owning-module reader exists for these queries).
 
 ## Tests
 
-- Unit: `pnpm --filter @house/api test -- src/modules/deal-requests`, shared rules:
+- Unit: `pnpm --filter @house/api test -- src/modules/deal-requests` (incl. `domain/domain.spec.ts`), shared rules:
   `pnpm --filter @house/shared test -- src/deal-requests`.
-- e2e: `pnpm --filter @house/api test:e2e deal-requests` (DB `house_test_deal_requests`, Redis DB 5).
+- e2e: `pnpm --filter @house/api test:e2e deal-requests` (DB `house_test_deal_requests`, Redis DB 5);
+  `console.e2e-spec.ts` covers the dashboard, target agencies, address match, listing candidates and
+  the B5 notification audience.

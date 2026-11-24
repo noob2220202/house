@@ -3,6 +3,7 @@ import { AdminPermission } from '@house/shared';
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -24,7 +25,10 @@ import {
 import { RequirePermission } from '../permissions.decorator';
 import { AdminAccountsService } from '../services/admin-accounts.service';
 
-/** Back-office accounts (SUPER_ADMIN only). No delete: accounts are DISABLED to keep audit actors. */
+/**
+ * Back-office accounts (SUPER_ADMIN only). DELETE is a soft delete (the row stays DISABLED with a
+ * released e-mail so audit history keeps its actor).
+ */
 @ApiTags('admin/admins')
 @RequirePermission(AdminPermission.ADMINS_MANAGE)
 @Controller('admin/admins')
@@ -76,6 +80,13 @@ export class AdminAccountsController {
     @CurrentAdmin() actor: AdminPrincipal,
   ): Promise<AdminAccountView> {
     return this.accounts.resetTotp(actor, p.id);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Audit({ action: 'admin-account.delete', resourceType: 'AdminUser' })
+  remove(@Param() p: IdParamDto, @CurrentAdmin() actor: AdminPrincipal): Promise<void> {
+    return this.accounts.remove(actor, p.id);
   }
 
   @Post(':id/unlock')

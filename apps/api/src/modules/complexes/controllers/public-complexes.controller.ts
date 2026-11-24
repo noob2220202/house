@@ -13,13 +13,20 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Principal } from '../../../common/auth/principal';
 import { CurrentPrincipal, Public } from '../../../common/decorators';
 import {
+  ComplexAgenciesQueryDto,
   ComplexAutocompleteQueryDto,
+  ComplexNearbyQueryDto,
   ComplexSearchQueryDto,
   ComplexStatsQueryDto,
   ComplexTradesQueryDto,
   IdParamDto,
   PopularComplexesQueryDto,
 } from '../dto';
+import {
+  ComplexNearbyService,
+  type ComplexAgencyView,
+  type NearbyComplexView,
+} from '../services/complex-nearby.service';
 import { ComplexPopularityService } from '../services/complex-popularity.service';
 import { ComplexQueryService } from '../services/complex-query.service';
 import { ComplexSearchService } from '../services/complex-search.service';
@@ -34,6 +41,7 @@ export class PublicComplexesController {
     private readonly popularity: ComplexPopularityService,
     private readonly query: ComplexQueryService,
     private readonly trades: ComplexTradesService,
+    private readonly neighbourhood: ComplexNearbyService,
   ) {}
 
   @Public()
@@ -84,5 +92,25 @@ export class PublicComplexesController {
   @Get(':id/listings')
   listings(@Param() p: IdParamDto): Promise<ComplexListingsSummary> {
     return this.query.listingSummary(p.id);
+  }
+
+  /** 주변 단지 within `radius` m (default 3 km), nearest first, with listing counts per deal type. */
+  @Public()
+  @Get(':id/nearby')
+  async nearby(
+    @Param() p: IdParamDto,
+    @Query() q: ComplexNearbyQueryDto,
+  ): Promise<{ items: NearbyComplexView[] }> {
+    return { items: await this.neighbourhood.nearby(p.id, q.limit, q.radius) };
+  }
+
+  /** Offices with public listings in this 단지, most listings first. */
+  @Public()
+  @Get(':id/agencies')
+  async agencies(
+    @Param() p: IdParamDto,
+    @Query() q: ComplexAgenciesQueryDto,
+  ): Promise<{ items: ComplexAgencyView[] }> {
+    return { items: await this.neighbourhood.agencies(p.id, q.limit) };
   }
 }

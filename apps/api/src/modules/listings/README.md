@@ -22,6 +22,10 @@ All paths are under the global prefix `/api/v1`. Default is authenticated; publi
 | GET    | `/map/search?bbox&zoom&…filters`                          | Public (Redis tile cache, 30 s + version) |
 | GET    | `/listings?…filters&bbox&sort&page&pageSize`              | Public                                    |
 | GET    | `/listings/:id` (counts a deduped view + recent view)     | Public                                    |
+| GET    | `/listings/:id/similar` (같은 단지 / 평형 / 가격대)       | Public (Redis 2 min + search version)     |
+| POST   | `/listings/:id/view` → 204 (view beacon, same dedupe)     | Public                                    |
+| GET    | `/agency/listings/summary` (status tabs + reminders)      | AGENT / AGENCY_OWNER (own agency)         |
+| GET    | `/agency/listings/co-broker-candidates?complexId&dong&q`  | AGENT / AGENCY_OWNER (own agency)         |
 | GET    | `/agency/listings?statuses&dealTypes&primaryOnly&page`    | AGENT / AGENCY_OWNER (own agency)         |
 | POST   | `/agency/listings` (DRAFT)                                | AGENT / AGENCY_OWNER                      |
 | GET    | `/agency/listings/:id` (호/hidden reason: primary only)   | member of a participating agency          |
@@ -43,6 +47,32 @@ Listings of agencies the caller doesn't participate in answer 404; co-brokers ca
 actions get 403 `LISTING_PRIMARY_AGENCY_ONLY`.
 
 ## Design notes
+
+- Web contracts added for the frontend integration (shapes = the web mock handlers, DECISIONS
+  "Source of truth" #2; types live in the services until they move to `@house/shared`):
+  - `GET /listings/:id/similar` → `{ criteria, regionName, regionListingCount, groups[{ key, label,
+total, items: ListingSummary[] }] }` (`SimilarListingsService`). 같은 단지 = same 단지, any deal
+    type; 같은 평형 = same deal type, 전용 ±16㎡ (토지: 대지 ±20 %), same 지역, other 단지; 같은 가격대 =
+    same deal type, `priceSort` ±20 % (≥ ±500만원), other 단지. First 8 cards each; empty groups are
+    dropped; same asset type and public visibility rules as search.
+  - `POST /listings/:id/view` (204, `Cache-Control: no-store`): same viewer key as the detail read
+    (user id, else hash of IP + UA — the SSR frontend forwards `X-Forwarded-For` / `User-Agent`), so
+    SSR read + beacon count once; records the recent view of a signed-in user. CSRF applies as usual
+    to cookie sessions.
+  - Every counted view (detail or beacon) also adds 1 to `listings:views:region-daily:<KST day>`
+    (member `ASSET_TYPE|regionKey`, `domain/region-key.ts`: 8-digit 읍면동 / 10-digit 리) for the home
+    "많이 찾는 지역" ranking (`ListingViewsService.regionViews`). Admins and bot UAs (anonymous) are
+    not counted there.
+  - `GET /agency/listings/summary` → `{ total, byStatus{DRAFT…HIDDEN}, verificationDue,
+expiringSoon, coBrokered }` over the listings the agency actively (co-)brokers. `verificationDue`
+    = 광고중/계약중 never verified or whose 실매물 확인 (valid `LISTING_AD_TTL_DAYS`) ends within 7 KST
+    days; `expiringSoon` = 광고중 with `expiresAt` within 7 days.
+  - `GET /agency/listings/co-broker-candidates?complexId&dong&q&page&pageSize` → `Paginated<{ id,
+listingNo: null, status, dealType, assetType, name, dong, prices…, floor (null when 저/중/고),
+    floorClass, coverPhotoUrl, agencyCount, primaryAgencyName, joined }>`: public listings of other
+    offices in the 단지 (never 호), `joined` = this agency already co-brokers it.
+- Exported for the home module: `ListingRegionStatsService` (public listing counts / 평당가 per 지역,
+  city totals), `ListingRegionNamesService`, `ListingSummariesService`.
 
 - 공동중개 needs consent: a request is `PENDING` (no access, not public) until the primary accepts.
   Leaving → `WITHDRAWN` (may request again); removal/rejection by the primary → `REMOVED` (403

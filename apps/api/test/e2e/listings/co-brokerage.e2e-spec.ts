@@ -1,5 +1,5 @@
 import { ErrorCode, ListingAgencyStatus } from '@house/shared';
-import { createTestApp, resetAll, withSession, type TestApp } from '../../utils';
+import { createTestApp, resetAll, withoutUuids, withSession, type TestApp } from '../../utils';
 import {
   addCoBroker,
   agencyWithOwner,
@@ -36,7 +36,8 @@ describe('co-brokerage (e2e)', () => {
         agencyId: b.agency.id,
         status: ListingAgencyStatus.PENDING,
       });
-      expect(JSON.stringify(res.body)).not.toContain('1203');
+      // Random UUIDs can contain the digits 1203: check everything but the ids.
+      expect(withoutUuids(res.body)).not.toContain('1203');
 
       // Pending: no agency access, no public disclosure, not counted.
       await withSession(t.http().get(`${BASE}/${id}`), b.ownerSession).expect(404);
@@ -218,7 +219,8 @@ describe('co-brokerage (e2e)', () => {
         (x) => x.agencyId === a.agency.id,
       );
       expect(primary?.contactMemberId).toBeNull();
-      expect(JSON.stringify(res.body)).not.toContain('1203');
+      // Random UUIDs can contain the digits 1203: check everything but the ids.
+      expect(withoutUuids(res.body)).not.toContain('1203');
     });
   });
 

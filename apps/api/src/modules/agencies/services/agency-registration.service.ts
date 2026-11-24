@@ -15,6 +15,7 @@ import {
   type AgencyRegisterInput,
   type AgencyResubmitInput,
   type AgencyUpdateInput,
+  type ConsentRecordInput,
   type MyAgency,
 } from '@house/shared';
 import { Inject, Injectable } from '@nestjs/common';
@@ -32,6 +33,9 @@ import { lockAgency, lockUserMembership } from '../domain/locks';
 import { AGENCY_MEDIA, type AgencyMediaPort } from '../ports/agency-media.port';
 import { AgencyCacheService } from './agency-cache.service';
 import { AgencySessionSyncService } from './agency-session-sync.service';
+
+/** GET /agencies/mine: the agency plus the caller's role in it (web `myAgencySchema.myRole`). */
+export type MyAgencyWithRole = MyAgency & { myRole: AgencyMemberRole };
 
 /** Profile statuses in which the owner may edit the public profile. */
 const EDITABLE_STATUSES: AgencyStatus[] = [AgencyStatus.PENDING, AgencyStatus.APPROVED];
@@ -147,9 +151,39 @@ export class AgencyRegistrationService {
     return this.loadMine(agencyId);
   }
 
-  async getMine(user: UserPrincipal): Promise<MyAgency> {
-    const { id } = await this.ownedAgency(user.userId);
-    return this.loadMine(id);
+  /**
+   * GET /agencies/mine: the owner's agency (any status) with `myRole: OWNER`, or — for staff (B2) —
+   * a reduced view of the agency they work for with `myRole: AGENT`: same shape, but no documents,
+   * status history or 사업자등록번호 (owner-only data). A rejected applicant who has since joined
+   * another office gets that office. 404 when the user neither owns nor works for an agency.
+   */
+  async getMine(user: UserPrincipal): Promise<MyAgencyWithRole> {
+    const owned = await this.findOwned(user.userId);
+    if (owned && owned.status !== AgencyStatus.REJECTED) {
+      return { ...(await this.loadMine(owned.id)), myRole: AgencyMemberRole.OWNER };
+    }
+    const staff = await this.prisma.agencyMember.findFirst({
+      where: {
+        userId: user.userId,
+        role: AgencyMemberRole.AGENT,
+        status: AgencyMemberStatus.ACTIVE,
+        agency: { deletedAt: null, status: { in: [...LIVE_AGENCY_STATUSES] } },
+      },
+      orderBy: { joinedAt: 'asc' },
+      select: { agencyId: true },
+    });
+    if (staff) {
+      const agency = await this.loadMine(staff.agencyId);
+      return {
+        ...agency,
+        businessNumber: null,
+        documents: [],
+        statusHistory: [],
+        myRole: AgencyMemberRole.AGENT,
+      };
+    }
+    if (owned) return { ...(await this.loadMine(owned.id)), myRole: AgencyMemberRole.OWNER };
+    throw AppException.notFound(ErrorCode.AGENCY_NOT_FOUND);
   }
 
   async updateMine(user: UserPrincipal, input: AgencyUpdateInput): Promise<MyAgency> {
@@ -212,8 +246,12 @@ export class AgencyRegistrationService {
   }
 
   /** 반려된 신청 보완 후 재신청: REJECTED → PENDING with a history row. */
-  async resubmit(user: UserPrincipal, input: AgencyResubmitInput): Promise<MyAgency> {
+  async resubmit(
+    user: UserPrincipal,
+    input: AgencyResubmitInput & { consents?: ConsentRecordInput[] },
+  ): Promise<MyAgency> {
     const owned = await this.ownedAgency(user.userId);
+    const now = new Date();
     await this.prisma.$transaction(async (tx) => {
       // Same lock order as join(): membership first, then the agency.
       await lockUserMembership(tx, user.userId);
@@ -239,6 +277,16 @@ export class AgencyRegistrationService {
         },
       });
       if (elsewhere > 0) throw AppException.conflict(ErrorCode.AGENCY_ALREADY_MEMBER);
+      // D8: a resubmission that shows the consent again records it (current version required).
+      if (input.consents?.length) {
+        await this.terms.consentForAction(
+          tx,
+          user.userId,
+          ACTION_CONSENT_TERMS.AGENCY_APPLICATION,
+          input.consents,
+          now,
+        );
+      }
       if (input.registrationNumber) {
         await this.assertRegistrationNumberFree(tx, input.registrationNumber, owned.id);
       }
@@ -338,13 +386,17 @@ export class AgencyRegistrationService {
 
   /** The user's own (not deleted) agency; 404 when they have none. */
   async ownedAgency(userId: string): Promise<{ id: string; status: AgencyStatus }> {
-    const agency = await this.prisma.agency.findFirst({
+    const agency = await this.findOwned(userId);
+    if (!agency) throw AppException.notFound(ErrorCode.AGENCY_NOT_FOUND);
+    return agency;
+  }
+
+  private findOwned(userId: string): Promise<{ id: string; status: AgencyStatus } | null> {
+    return this.prisma.agency.findFirst({
       where: { ownerUserId: userId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
       select: { id: true, status: true },
     });
-    if (!agency) throw AppException.notFound(ErrorCode.AGENCY_NOT_FOUND);
-    return agency;
   }
 
   private async loadMine(agencyId: string): Promise<MyAgency> {

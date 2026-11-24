@@ -14,9 +14,14 @@ import {
   AgencyDealRequestListQueryDto,
   AgencyProposalListQueryDto,
   IdParamDto,
+  ListingCandidateQueryDto,
   ProposalCreateDto,
 } from '../dto';
 import { AgencyInboxService } from '../services/agency-inbox.service';
+import {
+  ListingCandidatesService,
+  type ListingCandidateView,
+} from '../services/listing-candidates.service';
 import { ProposalsService } from '../services/proposals.service';
 
 /**
@@ -30,6 +35,7 @@ export class AgencyDealRequestsController {
   constructor(
     private readonly inbox: AgencyInboxService,
     private readonly proposals: ProposalsService,
+    private readonly candidates: ListingCandidatesService,
   ) {}
 
   @Get('deal-requests')
@@ -43,6 +49,16 @@ export class AgencyDealRequestsController {
   @Get('deal-requests/:id')
   get(@CurrentUser() user: UserPrincipal, @Param() p: IdParamDto): Promise<AgencyDealRequestView> {
     return this.inbox.get(user, p.id);
+  }
+
+  /** The agency's ACTIVE listings for the proposal picker, best match for the request first. */
+  @Get('deal-requests/:id/listing-candidates')
+  listingCandidates(
+    @CurrentUser() user: UserPrincipal,
+    @Param() p: IdParamDto,
+    @Query() q: ListingCandidateQueryDto,
+  ): Promise<Paginated<ListingCandidateView>> {
+    return this.candidates.list(user, p.id, q);
   }
 
   @Post('deal-requests/:id/proposals')

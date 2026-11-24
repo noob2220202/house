@@ -22,21 +22,32 @@ Every admin route also needs an admin session with TOTP verified (global AuthGua
 
 ## Endpoints (prefix `/api/v1`)
 
-| Method             | Path                                                                         | Auth              |
-| ------------------ | ---------------------------------------------------------------------------- | ----------------- |
-| POST               | `/reports` (THROTTLE.REPORT + daily cap `REPORT_CREATE`)                     | User              |
-| GET                | `/notices` · `/notices/:id` · `/faqs` · `/videos` · `/site-settings/public`  | Public (cached)   |
-| GET                | `/admin/permissions`                                                         | any admin         |
-| GET                | `/admin/dashboard`                                                           | DASHBOARD_READ    |
-| GET                | `/admin/audit-logs` · `/:id`                                                 | AUDIT_READ        |
-| GET · PATCH        | `/admin/reports` · `/:id` · POST `/:id/resolve`                              | REPORTS_MANAGE    |
-| GET · POST         | `/admin/listings` · `/:id` · `/:id/hide` · `/:id/unhide` · `/:id/close`      | LISTINGS_MODERATE |
-| GET                | `/admin/users` · `/:id`                                                      | MEMBERS_READ      |
-| POST               | `/admin/users/:id/suspend` · `/:id/unsuspend`                                | MEMBERS_SUSPEND   |
-| CRUD               | `/admin/notices` · `/admin/faqs` (+ PUT `/order`) · `/admin/videos`          | CONTENT_MANAGE    |
-| CRUD + POST        | `/admin/terms` · `/:id/publish` (drafts editable, published immutable)       | TERMS_MANAGE      |
-| GET · PUT          | `/admin/site-settings` · `/:key`                                             | SETTINGS_MANAGE   |
-| GET · POST · PATCH | `/admin/admins` · `/:id` · `/:id/reset-password` · `/reset-totp` · `/unlock` | ADMINS_MANAGE     |
+| Method             | Path                                                                                       | Auth              |
+| ------------------ | ------------------------------------------------------------------------------------------ | ----------------- |
+| POST               | `/reports` (THROTTLE.REPORT + daily cap `REPORT_CREATE`)                                   | User              |
+| GET                | `/notices` · `/notices/:id` · `/faqs` · `/videos` · `/site-settings/public`                | Public (cached)   |
+| GET                | `/admin/permissions`                                                                       | any admin         |
+| GET                | `/admin/dashboard` (+ `notificationsUnread` of the caller) · `/queues`                     | DASHBOARD_READ    |
+| GET                | `/admin/search?q&limit` (q ≥ 2 chars besides spaces/hyphens, limit ≤ 20)                   | DASHBOARD_READ    |
+| GET · POST         | `/admin/notifications?cursor&limit&unreadOnly` · `/:id/read` · `/read-all`                 | DASHBOARD_READ    |
+| GET                | `/admin/stats/{traffic,listings,deal-requests,ads}?days=7\|30\|90`                         | DASHBOARD_READ    |
+| GET                | `/admin/social-login` (read-only, no secrets)                                              | SETTINGS_MANAGE   |
+| GET                | `/admin/audit-logs` · `/:id`                                                               | AUDIT_READ        |
+| GET · PATCH        | `/admin/reports` · `/:id` · POST `/:id/resolve`                                            | REPORTS_MANAGE    |
+| GET · POST         | `/admin/listings` · `/:id` · `/:id/hide` · `/:id/unhide` · `/:id/close`                    | LISTINGS_MODERATE |
+| GET                | `/admin/users` · `/:id`                                                                    | MEMBERS_READ      |
+| POST               | `/admin/users/:id/suspend` · `/:id/unsuspend`                                              | MEMBERS_SUSPEND   |
+| CRUD               | `/admin/notices` · `/admin/faqs` (+ PUT `/order`) · `/admin/videos` (+ PUT `/order` → 204) | CONTENT_MANAGE    |
+| CRUD + POST        | `/admin/terms` · `/:id/publish` (drafts editable, published immutable)                     | TERMS_MANAGE      |
+| GET · PUT          | `/admin/site-settings` · `/:key`                                                           | SETTINGS_MANAGE   |
+| GET · POST · PATCH | `/admin/admins` · `/:id` · `/:id/reset-password` · `/reset-totp` · `/unlock`               | ADMINS_MANAGE     |
+| DELETE             | `/admin/admins/:id` → 204 (soft delete)                                                    | ADMINS_MANAGE     |
+
+Response shapes of the WI-10 routes (dashboard queues, search, notifications, stats, social login)
+follow the admin app's zod schemas (`apps/admin/src/features/{m-core,m-content}/api/schemas.ts`);
+they are typed locally in `schemas.ts` (TODO: move to `packages/shared`). Routes owned by other
+modules that the admin app calls: `/admin/agencies/:id/documents/:docId/file` and
+`GET /admin/agencies/:id/registry-check?refresh=1` (agencies), `/admin/deal-requests/**` (deal-requests).
 
 ## Notes
 
@@ -83,6 +94,50 @@ Every admin route also needs an admin session with TOTP verified (global AuthGua
 - **Reports.** One open report per (user, target); resolution claims the report, hides the listing
   (same transaction), warns the agency (`AgenciesService.recordWarning`), notifies the reporter and
   the agency owner and writes the audit row, all atomically; map tiles are invalidated after commit.
+
+- **Dashboard queues** (`DashboardQueuesService`, cached 30 s, same for every admin): pending
+  agencies oldest first with the document checklist (등록증 + 사업자등록증, as the admin app's
+  `REQUIRED_AGENCY_DOCUMENTS`; `registryStatus` is always `null` — the lookup runs on the detail
+  page), OPEN/MATCHED deal requests newest first, open reports grouped per target (newest report,
+  `reportCount`; `handledThisWeek` / `avgHandleHours` since Monday 00:00 KST), banners and popups
+  ending within `ADS_ENDING_SOON_DAYS` (CTR from `banner_stat_daily`). 5 rows per panel + `total`.
+- **Search** (`AdminSearchService`, never cached): listings (title, complex, building, address,
+  office, 읍면동), agencies (name, 대표, 등록번호 via `registration_key`, address, 읍면동), members
+  (nickname, name, e-mail, phone digits). The query also matches without spaces/hyphens. Members
+  come back masked (`김*진`, `ki***@…`, `010-****-5678`). `listingNo` is always `null` (no
+  human-facing listing number exists).
+- **Notifications** (`admin_notifications` + per-admin `admin_notification_reads`): shared by all
+  admins, derived from the source tables by `AdminNotificationsService.sync()` — new PENDING
+  agencies (`AGENCY_APPLIED`), new open reports (`REPORT_RECEIVED`, "N건째"), OPEN deal requests
+  with no target office after 30 min (`DEAL_REQUEST_UNASSIGNED`), banners/popups ending within 3
+  days (`AD_EXPIRING`, re-armed when the end date changes). One row per event (`dedupe_key`),
+  events older than 7 days are skipped. The sync runs lazily (at most once a minute, Redis lock)
+  on `GET /admin/notifications` / `GET /admin/dashboard` and every 5 min from the
+  admin-maintenance queue; rows older than 90 days are purged daily (04:53 KST). The feed shows 30
+  days, newest first, keyset cursor. Read / read-all are audited. `LISTING_REVIEW`, `SECURITY`
+  and `SYSTEM` kinds are accepted but not produced yet.
+- **Stats** (`AdminStatsService`, cached 2 min per section/window/day): daily KST series of
+  `days` points ending today plus `previous` totals of the `days` before. Traffic: visitors from
+  the HyperLogLogs, `pageViews` = counted visitor requests (public API GETs, so several per page —
+  a proxy, not browser page views), `devices` from the UA of those requests, signups from
+  `users.created_at`, `signupsByProvider` by each new member's first identity, `topPages` is `[]`
+  (the API does not see page paths). Listings: `created` = first publication (`published_at`),
+  `closed` = `closed_at`, active split, top complexes by cumulative `view_count`. Deal requests:
+  per type per day, proposals per day, `responseRate` / `avgFirstResponseMinutes` over requests
+  created in the period, top 5 regions + "그 밖의 지역". Ads: `banner_stat_daily` (flushed by the
+  ads job every 5 min) per day and per slot. The visitor sketches and counters are kept 200 days.
+- **Social login** (`SocialLoginStatusService`): 카카오 · 네이버 · Google only. `enabled` follows the
+  auth module's rule (Kakao: client id; Naver/Google: id + secret), the client id is masked, no
+  secret is ever returned; `lastSuccessAt` / `last24h.success` come from `identities.last_used_at`
+  and `userShare` from linked identities ÷ non-withdrawn members. Failed callbacks are not
+  recorded, so `last24h.failure` is 0 and `healthy` = `enabled`.
+- **Deleting an admin account** is a soft delete (`admin_account_deletions` row, `admin-account.delete`
+  audit with the before-snapshot): not oneself (403 `ADMIN_SELF_MODIFICATION`), never the last
+  active SUPER_ADMIN (409 `ADMIN_LAST_SUPER_ADMIN`). The AdminUser row stays DISABLED with a
+  tombstoned e-mail (`deleted+<id>@deleted.invalid`, the address can be reused), credentials and
+  IP allowlist cleared, sessions ended; it disappears from `/admin/admins` and every
+  `/admin/admins/:id` route answers 404.
+- **Site settings** responses also carry `updatedByAdminName` (= `updatedBy.name`) for the admin app.
 
 ## Tests
 

@@ -1,6 +1,5 @@
 import type {
   CursorPage,
-  NotificationListQuery,
   NotificationReadInput,
   NotificationReadResult,
   NotificationType,
@@ -17,6 +16,12 @@ import {
   type DispatchableNotification,
   type NotificationDispatcher,
 } from './notification-dispatcher';
+import {
+  LISTING_AGENCY_NOTIFICATION_TYPES,
+  notificationScopeWhere,
+  type NotificationFeedQuery,
+  type NotificationScope,
+} from './notification-scope';
 
 export interface NotificationInput {
   type: NotificationType;
@@ -24,6 +29,17 @@ export interface NotificationInput {
   body?: string | null;
   /** Deep-link ids only — never contact or other PII. */
   data?: Prisma.InputJsonObject;
+}
+
+/** A recipient addressed as a member of an agency: the row gets `data.agencyId` (B5). */
+export interface MemberRecipient {
+  userId: string;
+  agencyId: string;
+}
+
+/** The feed page plus the unread count of the same scope (the web badges read it from here). */
+export interface NotificationFeedPage extends CursorPage<NotificationView> {
+  unreadCount: number;
 }
 
 /**
@@ -41,7 +57,10 @@ export class NotificationsService {
     @Inject(NOTIFICATION_DISPATCHER) private readonly dispatcher: NotificationDispatcher,
   ) {}
 
-  /** One notification per distinct user id. */
+  /**
+   * One notification per distinct user id (personal audience). Listing notices addressed to an
+   * agency (LISTING_HIDDEN …) get `data.agencyId` of the listing's primary agency.
+   */
   async createFor(
     userIds: readonly string[],
     input: NotificationInput,
@@ -49,16 +68,32 @@ export class NotificationsService {
   ): Promise<DispatchableNotification[]> {
     const ids = [...new Set(userIds)];
     if (ids.length === 0) return [];
-    return db.notification.createManyAndReturn({
-      data: ids.map((userId) => ({
+    return this.createEach(
+      ids.map((userId) => ({ ...input, userId })),
+      db,
+    );
+  }
+
+  /**
+   * One notification per member of an agency (deduplicated by user, first agency wins): every row
+   * carries `data.agencyId`, so the console and the my-page can tell agency events apart (B5).
+   */
+  async createForMembers(
+    recipients: readonly MemberRecipient[],
+    input: NotificationInput,
+    db: PrismaTx = this.prisma,
+  ): Promise<DispatchableNotification[]> {
+    const byUser = new Map<string, string>();
+    for (const r of recipients) if (!byUser.has(r.userId)) byUser.set(r.userId, r.agencyId);
+    if (byUser.size === 0) return [];
+    return this.createEach(
+      [...byUser].map(([userId, agencyId]) => ({
+        ...input,
         userId,
-        type: input.type,
-        title: input.title,
-        body: input.body ?? null,
-        data: input.data ?? undefined,
+        data: { ...input.data, agencyId },
       })),
-      select: { id: true, userId: true, type: true, title: true, body: true },
-    });
+      db,
+    );
   }
 
   /** One notification per item (per-recipient payloads). */
@@ -67,8 +102,9 @@ export class NotificationsService {
     db: PrismaTx = this.prisma,
   ): Promise<DispatchableNotification[]> {
     if (items.length === 0) return [];
+    const withAgency = await this.withListingAgency(items, db);
     return db.notification.createManyAndReturn({
-      data: items.map((i) => ({
+      data: withAgency.map((i) => ({
         userId: i.userId,
         type: i.type,
         title: i.title,
@@ -76,6 +112,34 @@ export class NotificationsService {
         data: i.data ?? undefined,
       })),
       select: { id: true, userId: true, type: true, title: true, body: true },
+    });
+  }
+
+  /**
+   * Listing notices written by other modules (admin hide, report resolution) carry only
+   * `listingId`; they are addressed to the primary agency's owner, so add its `agencyId`.
+   */
+  private async withListingAgency<T extends NotificationInput>(
+    items: readonly T[],
+    db: PrismaTx,
+  ): Promise<T[]> {
+    const listingIdOf = (i: T): string | null => {
+      if (!LISTING_AGENCY_NOTIFICATION_TYPES.includes(i.type)) return null;
+      if (typeof i.data?.agencyId === 'string') return null;
+      const id = i.data?.listingId;
+      return typeof id === 'string' ? id : null;
+    };
+    const listingIds = [...new Set(items.map(listingIdOf).filter((v): v is string => !!v))];
+    if (listingIds.length === 0) return [...items];
+    const rows = await db.listing.findMany({
+      where: { id: { in: listingIds } },
+      select: { id: true, primaryAgencyId: true },
+    });
+    const agencyOf = new Map(rows.map((r) => [r.id, r.primaryAgencyId]));
+    return items.map((i) => {
+      const listingId = listingIdOf(i);
+      const agencyId = listingId ? agencyOf.get(listingId) : undefined;
+      return agencyId ? { ...i, data: { ...i.data, agencyId } } : i;
     });
   }
 
@@ -89,10 +153,11 @@ export class NotificationsService {
     }
   }
 
-  async list(userId: string, q: NotificationListQuery): Promise<CursorPage<NotificationView>> {
+  async list(userId: string, q: NotificationFeedQuery): Promise<NotificationFeedPage> {
     const cursor = parseCursor(decodeCursor(q.cursor));
     const where: Prisma.NotificationWhereInput = {
       userId,
+      ...notificationScopeWhere(q.scope),
       ...(q.unreadOnly ? { readAt: null } : {}),
       ...(cursor
         ? {
@@ -103,33 +168,49 @@ export class NotificationsService {
           }
         : {}),
     };
-    const rows = await this.prisma.notification.findMany({
-      where,
-      select: notificationSelect,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: q.limit + 1,
-    });
+    const [rows, unreadCount] = await Promise.all([
+      this.prisma.notification.findMany({
+        where,
+        select: notificationSelect,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: q.limit + 1,
+      }),
+      this.unreadCount(userId, q.scope),
+    ]);
     const page = toCursorPage(rows, q.limit, (r) => `${r.createdAt.toISOString()}|${r.id}`);
     return {
       items: page.items.map((n) => this.mapper.notification(n)),
       nextCursor: page.nextCursor,
+      unreadCount,
     };
   }
 
-  unreadCount(userId: string): Promise<number> {
-    return this.prisma.notification.count({ where: { userId, readAt: null } });
+  /** Unread rows of the user, optionally of one audience (same filter as the feed). */
+  unreadCount(userId: string, scope?: NotificationScope): Promise<number> {
+    return this.prisma.notification.count({
+      where: { userId, readAt: null, ...notificationScopeWhere(scope) },
+    });
   }
 
+  /**
+   * Marks `ids` (or all) read. With `scope`, `all` only covers that audience and `unread` is the
+   * count of that audience, so the console's "모두 읽음" never touches the personal feed.
+   */
   async markRead(
     userId: string,
     input: NotificationReadInput,
+    scope?: NotificationScope,
     now: Date = new Date(),
   ): Promise<NotificationReadResult> {
     const { count } = await this.prisma.notification.updateMany({
-      where: { userId, readAt: null, ...(input.ids ? { id: { in: input.ids } } : {}) },
+      where: {
+        userId,
+        readAt: null,
+        ...(input.ids ? { id: { in: input.ids } } : notificationScopeWhere(scope)),
+      },
       data: { readAt: now },
     });
-    return { updated: count, unread: await this.unreadCount(userId) };
+    return { updated: count, unread: await this.unreadCount(userId, scope) };
   }
 }
 

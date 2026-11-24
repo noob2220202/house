@@ -182,3 +182,50 @@ model SiteSetting {
 
   @@map("site_settings")
 }
+
+/// Back-office notification (the console bell), shared by every admin. Produced from the source
+/// tables by AdminNotificationsService.sync (agency applications, reports, unassigned deal
+/// requests, expiring ads); `dedupeKey` makes each event appear once. `kind` is one of
+/// ADMIN_NOTIFICATION_KINDS (admin module), not a Prisma enum.
+model AdminNotification {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  kind      String   @db.VarChar(40)
+  title     String   @db.VarChar(200)
+  body      String?  @db.VarChar(1000)
+  /// Site-relative back-office path, e.g. "/agencies/<id>".
+  link      String?  @db.VarChar(500)
+  dedupeKey String   @unique @map("dedupe_key") @db.VarChar(160)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  reads AdminNotificationRead[]
+
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  @@map("admin_notifications")
+}
+
+/// Per-admin read marker of an AdminNotification (no row = unread). `adminUserId` has no FK:
+/// AdminUser lives in auth.prisma; rows go with the notification (retention purge).
+model AdminNotificationRead {
+  notificationId String   @map("notification_id") @db.Uuid
+  adminUserId    String   @map("admin_user_id") @db.Uuid
+  readAt         DateTime @default(now()) @map("read_at") @db.Timestamptz(3)
+
+  notification AdminNotification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@id([notificationId, adminUserId])
+  @@index([adminUserId, notificationId])
+  @@map("admin_notification_reads")
+}
+
+/// Soft delete of a back-office account (DELETE /admin/admins/:id). The AdminUser row stays
+/// (audit history keeps its actor) but is DISABLED, its e-mail is released (tombstoned) and it
+/// disappears from the account list. `adminUserId` has no FK (AdminUser lives in auth.prisma).
+model AdminAccountDeletion {
+  adminUserId      String   @id @map("admin_user_id") @db.Uuid
+  /// The e-mail before it was tombstoned (for the audit trail / restore by hand).
+  originalEmail    String   @map("original_email") @db.VarChar(254)
+  deletedByAdminId String?  @map("deleted_by_admin_id") @db.Uuid
+  deletedAt        DateTime @default(now()) @map("deleted_at") @db.Timestamptz(3)
+
+  @@map("admin_account_deletions")
+}

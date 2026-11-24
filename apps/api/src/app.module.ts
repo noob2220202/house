@@ -9,6 +9,7 @@ import { AgenciesModule } from './modules/agencies/agencies.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ComplexesModule } from './modules/complexes/complexes.module';
 import { DealRequestsModule } from './modules/deal-requests/deal-requests.module';
+import { HomeModule } from './modules/home/home.module';
 import { ListingsModule } from './modules/listings/listings.module';
 import { MediaModule } from './modules/media/media.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -38,6 +39,7 @@ import { RedisModule } from './redis/redis.module';
     DealRequestsModule,
     AdsModule,
     AdminModule,
+    HomeModule,
   ],
 })
 export class AppModule {}

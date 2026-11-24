@@ -1,4 +1,6 @@
 import {
+  AgencyInboxScope,
+  DealRequestType,
   ErrorCode,
   UserStatus,
   type AgencyDealRequestListQuery,
@@ -17,7 +19,7 @@ import {
   type DealRequestAgencyRow,
   type DealRequestContactRow,
 } from '../deal-request.selects';
-import { AgencyActorService } from './agency-actor.service';
+import { AgencyActorService, type AgencyActor } from './agency-actor.service';
 import { agencyInboxWhere, agencyVisibleWhere } from './deal-request-access';
 
 /**
@@ -71,6 +73,43 @@ export class AgencyInboxService {
     if (!row) throw AppException.notFound(ErrorCode.DEAL_REQUEST_NOT_FOUND);
     const contacts = await this.contactsFor([row]);
     return this.mapper.agency(row, contacts.get(row.id) ?? null);
+  }
+
+  /**
+   * Request part of the console dashboard: NEW requests (OPEN, not proposed to yet) by type, and
+   * the latest visible requests in the inbox shape (same rows as the first inbox page).
+   */
+  async dashboardFor(
+    actor: AgencyActor,
+    take: number,
+    now: Date = new Date(),
+  ): Promise<{
+    newCount: number;
+    newSellCount: number;
+    newWantedCount: number;
+    items: AgencyDealRequestView[];
+  }> {
+    const fresh = agencyInboxWhere(actor, { scope: AgencyInboxScope.NEW }, now);
+    const [byType, rows] = await Promise.all([
+      this.prisma.dealRequest.groupBy({ by: ['type'], where: fresh, _count: { _all: true } }),
+      this.prisma.dealRequest.findMany({
+        where: agencyVisibleWhere(actor, now),
+        select: dealRequestAgencySelect(actor.agencyId),
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take,
+      }),
+    ]);
+    const countOf = (type: DealRequestType): number =>
+      byType.find((g) => g.type === type)?._count._all ?? 0;
+    const newSellCount = countOf(DealRequestType.SELL_OR_LEASE);
+    const newWantedCount = countOf(DealRequestType.WANTED);
+    const contacts = await this.contactsFor(rows);
+    return {
+      newCount: newSellCount + newWantedCount,
+      newSellCount,
+      newWantedCount,
+      items: rows.map((r) => this.mapper.agency(r, contacts.get(r.id) ?? null)),
+    };
   }
 
   /**

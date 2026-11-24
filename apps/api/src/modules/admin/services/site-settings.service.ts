@@ -26,12 +26,19 @@ const settingSelect = {
 } satisfies Prisma.SiteSettingSelect;
 type SettingRow = Prisma.SiteSettingGetPayload<{ select: typeof settingSelect }>;
 
-function toView(key: SiteSettingKey, row: SettingRow | undefined): SiteSettingView {
+/**
+ * Shared `SiteSettingView` plus `updatedByAdminName` (= `updatedBy.name`), the field the admin
+ * app's site-setting forms read (`siteSettingSchema` in apps/admin m-content).
+ */
+export type AdminSiteSettingView = SiteSettingView & { updatedByAdminName: string | null };
+
+function toView(key: SiteSettingKey, row: SettingRow | undefined): AdminSiteSettingView {
   return {
     key,
     value: row?.value ?? null,
     updatedAt: row?.updatedAt.toISOString() ?? null,
     updatedBy: row?.updatedByAdmin ?? null,
+    updatedByAdminName: row?.updatedByAdmin?.name ?? null,
   };
 }
 
@@ -63,18 +70,22 @@ export class SiteSettingsService {
     );
   }
 
-  async list(): Promise<SiteSettingView[]> {
+  async list(): Promise<AdminSiteSettingView[]> {
     const rows = await this.prisma.siteSetting.findMany({ select: settingSelect });
     const byKey = new Map(rows.map((r) => [r.key, r]));
     return ALL_KEYS.map((k) => toView(k, byKey.get(k)));
   }
 
-  async get(key: SiteSettingKey): Promise<SiteSettingView> {
+  async get(key: SiteSettingKey): Promise<AdminSiteSettingView> {
     const row = await this.prisma.siteSetting.findUnique({ where: { key }, select: settingSelect });
     return toView(key, row ?? undefined);
   }
 
-  async put(key: SiteSettingKey, value: unknown, admin: AdminPrincipal): Promise<SiteSettingView> {
+  async put(
+    key: SiteSettingKey,
+    value: unknown,
+    admin: AdminPrincipal,
+  ): Promise<AdminSiteSettingView> {
     const parsed = siteSettingSchemas[key].safeParse(value);
     if (!parsed.success) {
       throw AppException.badRequest(ErrorCode.SETTING_INVALID, formatZodIssues(parsed.error));

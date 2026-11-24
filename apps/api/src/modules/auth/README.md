@@ -39,6 +39,7 @@ Adding a provider: a class implementing `OAuthProvider`, an `AuthProvider` enum 
 | POST     | `/me/withdraw`                                               | User                    | `{confirm: true, reason?}`; blocked (409) while owning an agency                                 |
 | POST     | `/auth/withdraw`                                             | Public (ticket cookie)  | suspended member's withdrawal, `{confirm: true, reason?}`; `house_withdraw` ticket, single use   |
 | GET      | `/terms` · `/terms/:type?version=`                           | Public                  | list = account terms; `:type` any TermsType (`DEAL_REQUEST_PRIVACY`, `deal-request-privacy`, …)  |
+| GET      | `/terms/:type/versions` · `/terms/:type/versions/:version`   | Public                  | published versions newest first (no content, `isCurrent`) · one version (= `?version=`)          |
 | POST     | `/admin/auth/login`                                          | Public                  | → pre-TOTP session (10 min idle)                                                                 |
 | POST     | `/admin/auth/totp/setup` · `/totp/activate` · `/totp/verify` | pre-TOTP admin session  | session rotated on success; rotation: verified session + `{currentPassword, code\|recoveryCode}` |
 | GET      | `/admin/auth/csrf`                                           | admin session           |                                                                                                  |

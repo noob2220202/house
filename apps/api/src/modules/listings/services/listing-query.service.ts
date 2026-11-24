@@ -97,11 +97,34 @@ export class ListingQueryService {
     if (!row) throw AppException.notFound(ErrorCode.LISTING_NOT_FOUND);
     const userId = principal?.kind === 'USER' ? principal.userId : null;
     const [viewCount, isFavorite, emdName] = await Promise.all([
-      this.views.record(row.id, this.views.viewerKey(principal), row.viewCount),
+      this.views.record(row.id, this.views.viewerKey(principal), row.viewCount, row),
       userId ? this.favorites.isFavorite(userId, row.id) : Promise.resolve(false),
       this.regionNames.nameOf(row.emdCode),
       userId ? this.recent.record(userId, RecentViewTarget.LISTING, row.id) : Promise.resolve(),
     ]);
     return { ...this.mapper.publicDetail(row, isFavorite, emdName), viewCount };
+  }
+
+  /**
+   * POST /listings/:id/view — the browser-side view beacon: counts a view (same per-viewer dedupe
+   * as the detail read, so SSR + beacon count once) and, for a signed-in user, the recent view.
+   */
+  async recordView(id: string, principal: Principal | undefined): Promise<void> {
+    const row = await this.prisma.listing.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        status: { in: [...PUBLIC_LISTING_STATUSES] },
+        ...PUBLIC_PRIMARY_AGENCY_WHERE,
+      },
+      select: { id: true, viewCount: true, assetType: true, emdCode: true },
+    });
+    if (!row) throw AppException.notFound(ErrorCode.LISTING_NOT_FOUND);
+    await Promise.all([
+      this.views.record(row.id, this.views.viewerKey(principal), row.viewCount, row),
+      principal?.kind === 'USER'
+        ? this.recent.record(principal.userId, RecentViewTarget.LISTING, row.id)
+        : Promise.resolve(),
+    ]);
   }
 }

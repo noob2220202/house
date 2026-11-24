@@ -12,6 +12,7 @@ import { COMPLEX_MEDIA, MediaServiceComplexMedia } from './ports/complex-media.p
 import { ComplexAdminService } from './services/complex-admin.service';
 import { ComplexFavoritesService } from './services/complex-favorites.service';
 import { ComplexListingsService } from './services/complex-listings.service';
+import { ComplexNearbyService } from './services/complex-nearby.service';
 import { ComplexPopularityService } from './services/complex-popularity.service';
 import { ComplexQueryService } from './services/complex-query.service';
 import { ComplexSearchService } from './services/complex-search.service';
@@ -45,6 +46,7 @@ import { TradeSyncService } from './trade-sync/trade-sync.service';
     ComplexListingsService,
     ComplexTradesService,
     ComplexPopularityService,
+    ComplexNearbyService,
     ComplexFavoritesService,
     ComplexSearchService,
     ComplexQueryService,
@@ -54,6 +56,12 @@ import { TradeSyncService } from './trade-sync/trade-sync.service';
     TradeSyncJobs,
     TradeSyncProcessor,
   ],
-  exports: [RegionsService, ComplexListingsService, TradeSyncService],
+  exports: [
+    RegionsService,
+    ComplexListingsService,
+    ComplexSearchService,
+    ComplexPopularityService,
+    TradeSyncService,
+  ],
 })
 export class ComplexesModule {}

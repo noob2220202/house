@@ -90,6 +90,7 @@ model Agency {
   contactGrants   DealRequestContactGrant[]
   banners         Banner[]
   reports         Report[]
+  dailyStats      AgencyDailyStat[]
 
   @@index([status, sggCode])
   @@index([emdCode, status])
@@ -181,4 +182,21 @@ model AgencyWarning {
 
   @@index([agencyId, createdAt(sort: Desc)])
   @@map("agency_warnings")
+}
+
+/// Daily snapshot of an agency's cumulative listing views for the console dashboard chart: one row
+/// per agency and KST day, upserted by the dashboard read and the hourly `agencies.daily-stats` job.
+/// Views of day D = listingViews(D) − listingViews(D−1) (no row for D−1 → unknown, shown as 0).
+model AgencyDailyStat {
+  agencyId     String   @map("agency_id") @db.Uuid
+  /// KST calendar day.
+  day          DateTime @db.Date
+  /// Sum of listings.view_count over the listings the agency actively (co-)brokers.
+  listingViews Int      @default(0) @map("listing_views")
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@id([agencyId, day])
+  @@map("agency_daily_stats")
 }

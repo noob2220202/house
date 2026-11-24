@@ -13,6 +13,9 @@ import { AdminOnly, CurrentAdmin } from '../../../common/decorators';
 import { AuditLogQueryDto, IdParamDto } from '../dto';
 import { RequirePermission } from '../permissions.decorator';
 import { AuditLogsService } from '../services/audit-logs.service';
+import type { DashboardQueues } from '../schemas';
+import { AdminNotificationsService } from '../services/admin-notifications.service';
+import { DashboardQueuesService } from '../services/dashboard-queues.service';
 import { DashboardService } from '../services/dashboard.service';
 
 /** What the signed-in admin may do (drives the back-office menu). */
@@ -34,12 +37,31 @@ export class AdminPermissionsController {
 @RequirePermission(AdminPermission.DASHBOARD_READ)
 @Controller('admin/dashboard')
 export class AdminDashboardController {
-  constructor(private readonly dashboard: DashboardService) {}
+  constructor(
+    private readonly dashboard: DashboardService,
+    private readonly queues: DashboardQueuesService,
+    private readonly notifications: AdminNotificationsService,
+  ) {}
 
+  /** Counters (cached, shared) plus this admin's unread bell count (`notificationsUnread`). */
   @Get()
   @Header('Cache-Control', 'private, no-store')
-  get(): Promise<AdminDashboard> {
-    return this.dashboard.get();
+  async get(
+    @CurrentAdmin() admin: AdminPrincipal,
+  ): Promise<AdminDashboard & { notificationsUnread: number }> {
+    await this.notifications.syncThrottled();
+    const [summary, notificationsUnread] = await Promise.all([
+      this.dashboard.get(),
+      this.notifications.unreadCount(admin.adminId),
+    ]);
+    return { ...summary, notificationsUnread };
+  }
+
+  /** Work queues previewed on the dashboard (pending agencies, deal requests, reports, ads). */
+  @Get('queues')
+  @Header('Cache-Control', 'private, no-store')
+  getQueues(): Promise<DashboardQueues> {
+    return this.queues.get();
   }
 }
 

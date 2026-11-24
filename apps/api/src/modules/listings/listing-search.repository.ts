@@ -20,7 +20,7 @@ import { PrismaService } from '../../prisma/prisma.service';
  * template; the only Prisma.raw() inputs are compile-time constants from this file.
  */
 
-const PUBLIC_STATUS_SQL = Prisma.sql`l.status IN (${Prisma.join(
+export const PUBLIC_STATUS_SQL = Prisma.sql`l.status IN (${Prisma.join(
   PUBLIC_LISTING_STATUSES.map((s) => Prisma.sql`${s}::listing_status`),
 )})`;
 const PRICE_DEALS = Prisma.sql`(${DealType.SALE}::deal_type, ${DealType.PRESALE}::deal_type)`;

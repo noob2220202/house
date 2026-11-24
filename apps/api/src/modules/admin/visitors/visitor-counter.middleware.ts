@@ -2,7 +2,7 @@ import { COOKIE_NAMES, isBotUserAgent } from '@house/shared';
 import { Injectable, type NestMiddleware } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 import { isAdminPath } from '../../../common/auth/session-resolver';
-import { VisitorStatsService, visitorId } from './visitor-stats.service';
+import { deviceClassOf, VisitorStatsService, visitorId } from './visitor-stats.service';
 
 const SKIPPED_PREFIXES = ['/api/v1/health', '/api/v1/docs'];
 
@@ -34,6 +34,8 @@ export class VisitorCounterMiddleware implements NestMiddleware {
           ip: req.ip,
           userAgent: typeof ua === 'string' ? ua : null,
         }),
+        new Date(),
+        deviceClassOf(typeof ua === 'string' ? ua : null),
       );
     }
     next();

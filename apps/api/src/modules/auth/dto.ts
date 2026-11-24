@@ -11,6 +11,7 @@ import {
   sessionIdParamSchema,
   signupSchema,
   termsTypeParamSchema,
+  termsVersionSchema,
   termsVersionQuerySchema,
   updateProfileSchema,
   withdrawSchema,
@@ -27,6 +28,10 @@ export class ConsentInputDto extends createZodDto(consentInputSchema) {}
 export class WithdrawDto extends createZodDto(withdrawSchema) {}
 export class TermsTypeParamDto extends createZodDto(termsTypeParamSchema) {}
 export class TermsVersionQueryDto extends createZodDto(termsVersionQuerySchema) {}
+/** GET /terms/:type/versions/:version */
+export class TermsVersionParamDto extends createZodDto(
+  termsTypeParamSchema.extend({ version: termsVersionSchema }),
+) {}
 export class AdminLoginDto extends createZodDto(adminLoginSchema) {}
 export class AdminTotpVerifyDto extends createZodDto(adminTotpVerifySchema) {}
 export class AdminTotpSetupDto extends createZodDto(adminTotpSetupSchema) {}
