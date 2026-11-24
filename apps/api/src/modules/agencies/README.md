@@ -109,3 +109,6 @@ await agencies.recordWarning({ agencyId, reason, reportId, adminId }, tx); // re
 - Unit: `pnpm --filter @house/api test -- src/modules/agencies`
 - e2e: `pnpm --filter @house/api test:e2e agencies` (DB `house_test_agencies`, Redis DB 4). The registry
   is replaced by `FakeBrokerRegistry` (test/e2e/agencies/helpers.ts); nothing touches the network.
+- Registry lookup: `VworldBrokerRegistryClient` calls 브이월드 `getEBOfficeInfo` (the nsdi.go.kr API moved
+  there in 2024; data.go.kr only has the bulk file). Needs `VWORLD_API_KEY`; the key is domain-bound, so the
+  call sends `VWORLD_DOMAIN` (default: `PUBLIC_BASE_URL` host) as `domain` and Referer.

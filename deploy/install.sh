@@ -961,6 +961,7 @@ ${C_BLU}▶ 다음 할 일${C_RST}
     - GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET   (console.cloud.google.com)
     - NAVER_MAP_CLIENT_ID / NAVER_MAP_CLIENT_SECRET (네이버 클라우드 플랫폼 Maps)
     - DATA_GO_KR_SERVICE_KEY                    (공공데이터포털 data.go.kr, 실거래가)
+    - VWORLD_API_KEY / VWORLD_DOMAIN            (브이월드 vworld.kr, 중개사무소 등록번호 대조, 선택)
     각 콘솔에 등록할 로그인 Redirect URI:
       ${SCHEME}://${DOMAIN}/api/v1/auth/oauth/kakao/callback
       ${SCHEME}://${DOMAIN}/api/v1/auth/oauth/naver/callback

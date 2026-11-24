@@ -4,7 +4,7 @@ import { ListingsModule } from '../listings/listings.module';
 import { MediaModule } from '../media/media.module';
 import { AgencyMapper } from './agency.mapper';
 import { AgencySearchRepository } from './agency-search.repository';
-import { BROKER_REGISTRY, DataGoKrBrokerRegistryClient } from './clients/broker-registry.client';
+import { BROKER_REGISTRY, VworldBrokerRegistryClient } from './clients/broker-registry.client';
 import { AdminAgenciesController } from './controllers/admin-agencies.controller';
 import { AgenciesController } from './controllers/agencies.controller';
 import { MyAgencyController } from './controllers/my-agency.controller';
@@ -33,7 +33,7 @@ import { AgencySessionSyncService } from './services/agency-session-sync.service
     { provide: AGENCY_MEDIA, useClass: MediaServiceAgencyMedia },
     { provide: AGENCY_LISTINGS_READER, useClass: PrismaAgencyListingsReader },
     { provide: AGENCY_LISTINGS_SYNC, useClass: ModerationAgencyListingsSync },
-    { provide: BROKER_REGISTRY, useClass: DataGoKrBrokerRegistryClient },
+    { provide: BROKER_REGISTRY, useClass: VworldBrokerRegistryClient },
     AgencyMapper,
     AgencySearchRepository,
     AgencyCacheService,

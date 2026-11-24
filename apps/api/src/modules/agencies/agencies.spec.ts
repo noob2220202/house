@@ -4,7 +4,10 @@ import { escapeLike } from './agency-search.repository';
 import {
   BrokerRegistryUnavailableError,
   parseRegistryResponse,
+  resolveVworldDomain,
+  VworldBrokerRegistryClient,
 } from './clients/broker-registry.client';
+import type { AppConfig } from '../../config/app-config.service';
 import { isUniqueViolation } from './domain/prisma-errors';
 import { compareWithRegistry, normalizeOfficeName } from './domain/registry-compare';
 import { toBusinessHours } from './agency.mapper';
@@ -56,6 +59,74 @@ describe('broker registry response parsing', () => {
     expect(parseRegistryResponse({ EBOfficeInfos: { field: [] } }, REG)).toBeNull();
     expect(parseRegistryResponse({}, REG)).toBeNull();
     expect(() => parseRegistryResponse('<xml/>', REG)).toThrow(BrokerRegistryUnavailableError);
+  });
+
+  it('treats the 브이월드 error envelope (e.g. a key bound to another domain) as unavailable', () => {
+    const body = { response: { status: 'ERROR', error: { code: 'INCORRECT_KEY', text: '…' } } };
+    expect(() => parseRegistryResponse(body, REG)).toThrow('registry error INCORRECT_KEY');
+  });
+});
+
+describe('브이월드 broker registry client', () => {
+  const config = (env: Record<string, string | undefined>) =>
+    ({
+      get: (k: string) => ({ PUBLIC_BASE_URL: 'https://brand.example', ...env })[k],
+    }) as unknown as AppConfig;
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it('resolves the registered domain from VWORLD_DOMAIN or PUBLIC_BASE_URL', () => {
+    expect(resolveVworldDomain(undefined, 'https://brand.example/')).toBe('brand.example');
+    expect(resolveVworldDomain(' ', 'https://brand.example')).toBe('brand.example');
+    expect(resolveVworldDomain('https://www.brand.example/x', 'https://a.b')).toBe(
+      'www.brand.example',
+    );
+    expect(resolveVworldDomain('www.brand.example', 'https://a.b')).toBe('www.brand.example');
+  });
+
+  it('is disabled without a key and refuses to call out', async () => {
+    const client = new VworldBrokerRegistryClient(config({}));
+    expect(client.enabled).toBe(false);
+    const spy = jest.spyOn(globalThis, 'fetch');
+    await expect(client.findByRegistrationNumber(REG, '46150')).rejects.toThrow(
+      BrokerRegistryUnavailableError,
+    );
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('calls getEBOfficeInfo with key, domain, 시군구 ldCode and 등록번호, sending the domain as Referer', async () => {
+    const spy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(JSON.stringify({ EBOfficeInfos: { field: [office] } }), { status: 200 }),
+      );
+    const client = new VworldBrokerRegistryClient(config({ VWORLD_API_KEY: 'k-123' }));
+    const rec = await client.findByRegistrationNumber(REG, '46150');
+    expect(rec?.officeName).toBe('순천중앙 공인중개사사무소');
+    const [url, init] = spy.mock.calls[0] as [URL, RequestInit];
+    expect(`${url.origin}${url.pathname}`).toBe('https://api.vworld.kr/ned/data/getEBOfficeInfo');
+    expect(Object.fromEntries(url.searchParams)).toMatchObject({
+      key: 'k-123',
+      domain: 'brand.example',
+      ldCode: '46150',
+      jurirno: REG,
+      format: 'json',
+    });
+    expect(init.headers).toEqual({ Referer: 'https://brand.example/' });
+  });
+
+  it('maps HTTP failures and error envelopes to BrokerRegistryUnavailableError', async () => {
+    const client = new VworldBrokerRegistryClient(config({ VWORLD_API_KEY: 'k' }));
+    jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('', { status: 503 }));
+    await expect(client.findByRegistrationNumber(REG, '46150')).rejects.toThrow('HTTP 503');
+    jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ response: { status: 'ERROR', error: { code: 'X' } } })),
+      );
+    await expect(client.findByRegistrationNumber(REG, '46150')).rejects.toThrow(
+      BrokerRegistryUnavailableError,
+    );
   });
 });
 

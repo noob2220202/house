@@ -74,6 +74,12 @@ export const envSchema = z
     NAVER_MAP_CLIENT_SECRET: optionalString,
     /** 공공데이터포털 service key (국토교통부 아파트 매매/전월세 실거래가). Decoded form. */
     DATA_GO_KR_SERVICE_KEY: optionalString,
+    /**
+     * 브이월드(vworld.kr) 인증키 — 부동산중개업 사무소정보조회(getEBOfficeInfo), 중개사무소 등록번호 대조용.
+     * The key is bound to the service domain given at issuance; VWORLD_DOMAIN defaults to PUBLIC_BASE_URL's host.
+     */
+    VWORLD_API_KEY: optionalString,
+    VWORLD_DOMAIN: optionalString,
 
     UPLOAD_DIR: z.string().min(1),
     PRIVATE_UPLOAD_DIR: z.string().min(1),
