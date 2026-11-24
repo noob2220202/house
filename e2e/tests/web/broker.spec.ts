@@ -1,5 +1,5 @@
 import { expect, test } from 'playwright/test';
-import { Api, apiSessionAs, loginAs } from '../../lib/api';
+import { Api, apiSessionAs, bodyOf, loginAs } from '../../lib/api';
 import { SEED } from '../../lib/env';
 import { ListingWizard } from '../../lib/listing-wizard';
 
@@ -118,30 +118,45 @@ test.describe('broker console', () => {
     // Agency a2's owner joins one of agency a1's listings as 공동중개.
     const primary = await apiSessionAs(playwright, SEED.ownerA1);
     const { login: a2 } = await loginAs(context, SEED.ownerA2);
+    // An ACTIVE complex listing a1 registered itself (primary — /agency/listings also lists the
+    // rows a1 only co-brokers) that a2 has not joined or asked to join yet.
     const candidates = await primary.api.get<{
-      items: { id: string; status: string; complex: { id: string; name: string } | null }[];
+      items: {
+        id: string;
+        status: string;
+        complex: { id: string; name: string } | null;
+        primaryAgency: { id: string };
+      }[];
     }>('/agency/listings?pageSize=100');
-    const target = candidates.items.find((l) => l.status === 'ACTIVE' && l.complex)!;
-    expect(target, 'a1 has an ACTIVE complex listing').toBeTruthy();
+    let target: (typeof candidates.items)[number] | undefined;
+    for (const l of candidates.items) {
+      if (l.status !== 'ACTIVE' || !l.complex || l.primaryAgency.id !== primary.login.agencyId) {
+        continue;
+      }
+      const d = await primary.api.get<{ agencies: { agencyId: string }[] }>(
+        `/agency/listings/${l.id}`,
+      );
+      if (!d.agencies.some((a) => a.agencyId === a2.agencyId)) {
+        target = l;
+        break;
+      }
+    }
+    expect(target, 'a1 has an ACTIVE complex listing a2 has not joined').toBeTruthy();
 
     await page.goto('/agent/listings/co-broker');
     await page
       .getByRole('combobox', { name: '공동중개할 단지 검색' })
-      .fill(target.complex!.name.slice(0, 6));
+      .fill(target!.complex!.name.slice(0, 6));
     await page
-      .getByRole('option', { name: new RegExp(target.complex!.name) })
+      .getByRole('option', { name: new RegExp(escapeRe(target!.complex!.name)) })
       .first()
       .click();
-    const join = page.getByRole('button', { name: /공동중개 참여$/ }).first();
-    await expect(join).toBeVisible();
-    // Join the a1 listing specifically when several rows are listed.
-    const row = page.locator(`a[href*="/listing/${target.id}"]`).first();
-    const button = (await row.count())
-      ? row
-          .locator('xpath=ancestor::*[.//button[contains(@aria-label,"공동중개 참여")]][1]')
-          .getByRole('button', { name: /공동중개 참여$/ })
-      : join;
-    await button.click();
+    // The row of that listing (its public link) and its 공동중개 참여 button.
+    const row = page
+      .getByRole('listitem')
+      .filter({ has: page.locator(`a[href$="/listing/${target!.id}"]`) });
+    await expect(row).toHaveCount(1);
+    await row.getByRole('button', { name: /공동중개 참여$/ }).click();
     const dialog = page.getByRole('dialog', { name: '공동중개로 참여할까요?' });
     await expect(dialog).toBeVisible();
     await dialog.getByLabel('담당자', { exact: true }).fill('공동테스트');
@@ -153,14 +168,15 @@ test.describe('broker console', () => {
     );
     await dialog.getByRole('button', { name: '공동중개 참여' }).click();
     const res = await sent;
-    expect(res.ok(), await res.text()).toBe(true);
+    expect(res.ok(), await bodyOf(res)).toBe(true);
     const listingId = /listings\/([0-9a-f-]{36})\/co-brokers/.exec(res.url())![1];
+    expect(listingId).toBe(target!.id);
 
     // The primary agency sees the request on the listing.
     const detail = await primary.api.get<{
-      agencies: { agencyId?: string; agency?: { id: string }; status: string }[];
+      agencies: { agencyId: string; status: string }[];
     }>(`/agency/listings/${listingId}`);
-    expect(detail.agencies.some((a) => (a.agencyId ?? a.agency?.id) === a2.agencyId)).toBe(true);
+    expect(detail.agencies.find((a) => a.agencyId === a2.agencyId)?.status).toBe('PENDING');
     await primary.dispose();
   });
 });
@@ -191,4 +207,8 @@ async function expectPublic(
   if (opts.ho) expect(await visitor.locator('body').innerText()).not.toContain(`${opts.ho}호`);
   await anon.close();
   return detail;
+}
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

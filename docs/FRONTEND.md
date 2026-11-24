@@ -393,12 +393,33 @@ export const metadata = buildMetadata({ title: '아파트·분양권 지도', pa
 export async function generateMetadata({ params }) { … return buildMetadata({ title, description, path, image }); }
 ```
 
-`@/lib/seo`: `buildMetadata` (title, description, canonical, Open Graph, Twitter, `noindex`),
-`<JsonLd data={…} />` with builders `listingJsonLd`, `complexJsonLd`, `agencyJsonLd`,
-`breadcrumbJsonLd`, `siteJsonLd`. SEO pages (home, listing, complex, agency, content) fetch on the
-server with `revalidate`; render the above-the-fold content on the server; images lazy except the LCP
-image (`priority`). My pages, forms and dev routes use `noindex: true`. `NEXT_PUBLIC_SITE_URL` is the
-canonical origin.
+`@/lib/seo`: `buildMetadata` (title, description ≤ 160 chars, canonical / `canonicalPath`, Open
+Graph, Twitter, `noindex: true` = noindex+nofollow, `noindex: 'follow'` for thin pages,
+`brandSuffix: false` when the title already ends in a place), `<JsonLd data={…} />` with builders
+`siteJsonLd`, `organizationJsonLd`, `breadcrumbJsonLd`, `listingJsonLd`, `complexJsonLd` (+
+`aggregateOfferJsonLd`), `agencyJsonLd`, `placeJsonLd`, `itemListJsonLd`, `faqJsonLd`,
+`datasetJsonLd`. SEO pages fetch on the server with `revalidate`; render the above-the-fold content
+on the server; images lazy except the LCP image (`priority`). My pages, forms and dev routes use
+`noindex: true`. `NEXT_PUBLIC_SITE_URL` is the canonical origin (must be set for production builds);
+`NEXT_PUBLIC_{NAVER,GOOGLE}_SITE_VERIFICATION` emit the console ownership tags (empty = omitted).
+
+Search / answer-engine surface (w-seo, data from the API `seo` module via `@/lib/seo/api`):
+
+| URL                                             | What                                                                                                                                   |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `/suncheon`                                     | 지역별 시세 index (every 읍면동/리 with data)                                                                                          |
+| `/suncheon/<법정동 slug>/<apt\|oneroom\|…>`     | landing per 지역 × 매물 종류 (`SEO_ROUTES.region`); `landingDecision` = 404 / thin (noindex) / duplicate (canonical to the 리) / index |
+| `/reports/suncheon-apartment-trades[/YYYYMM]`   | monthly 아파트 매매 실거래 report (Dataset JSON-LD)                                                                                    |
+| `/about`                                        | 서비스 소개 + Organization JSON-LD (NAP from 사이트 설정, never placeholders)                                                          |
+| `/sitemap.xml` → `/sitemaps/<kind>/sitemap.xml` | sitemap index: static, regions, complexes, listings, agencies                                                                          |
+| `/llms.txt`, `/llms-full.txt`                   | service summary, sources, URL patterns, latest figures                                                                                 |
+
+Every name in that copy comes from `BRAND` (`brand.ts` → `seo` fields) and every number from the
+API — a sentence without its number is dropped, never estimated. Region slugs are the 법정동 label
+("해룡면-신대리"); `DISTRICT_ALIASES` maps a 리 to its 지구 name for titles. The hub pages render per
+request (`connection()`) so a build without an API never bakes in an empty page; landing pages use
+blocking ISR. A listing that is no longer public redirects to its 단지 (or 지역 landing) via
+`GET /seo/listings/:id/status` (308; 307 while HIDDEN).
 
 ## 11. Accessibility & quality bar
 

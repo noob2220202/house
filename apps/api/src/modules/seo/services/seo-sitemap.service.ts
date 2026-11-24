@@ -117,7 +117,9 @@ export class SeoSitemapService {
       assetType: row.assetType,
       complexId: row.complex && row.complex.deletedAt === null ? row.complexId : null,
       regionCode: regionKeyOf(row.emdCode),
-      endedAt: isPublic ? null : (row.deletedAt ?? row.closedAt ?? expired)?.toISOString() ?? null,
+      endedAt: isPublic
+        ? null
+        : ((row.deletedAt ?? row.closedAt ?? expired)?.toISOString() ?? null),
     };
   }
 }

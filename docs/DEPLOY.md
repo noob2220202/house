@@ -324,6 +324,35 @@ https://example.com/api/v1/auth/oauth/google/callback
 **약관 관리**에서 새 버전을 게시하세요. 동의서가 하나라도 게시되어 있지 않으면 해당 신청은 접수되지 않습니다
 (`AUTH_CONSENT_UNAVAILABLE`).
 
+### 검색 등록(네이버 서치어드바이저·구글 서치 콘솔)
+
+사이트가 `https://example.com`에서 열리면 두 검색엔진에 사이트를 등록합니다. 소유 확인은 **HTML 태그** 방식을 씁니다.
+
+1. **네이버 서치어드바이저**(searchadvisor.naver.com) → 웹마스터 도구 → 사이트 등록에 `https://example.com` 입력 →
+   소유확인에서 **HTML 태그**를 고르면 `<meta name="naver-site-verification" content="값">`이 보입니다. `content`의 **값만** 복사합니다.
+2. **구글 서치 콘솔**(search.google.com/search-console) → 속성 추가 → **URL 접두어** `https://example.com` →
+   다른 확인 방법 → **HTML 태그**의 `content` 값만 복사합니다.
+3. 서버 `.env`(`sudo nano /srv/house/shared/.env`)에 붙여 넣습니다. 비워 두면 태그가 나가지 않습니다.
+   **`NEXT_PUBLIC_SITE_URL`도 함께 확인하세요.** 설치 스크립트가 만든 `.env`에는 이 줄이 없어서, 없으면 캐노니컬 주소·사이트맵이
+   `http://localhost:3000`으로 만들어집니다. 실제 대표 주소(https, 끝에 `/` 없음)로 넣습니다.
+   ```
+   NEXT_PUBLIC_SITE_URL=https://example.com
+   NEXT_PUBLIC_NAVER_SITE_VERIFICATION=네이버에서_복사한_값
+   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=구글에서_복사한_값
+   ```
+4. 이 값은 사이트 **빌드에 들어가므로** `/srv/house/deploy.sh --force`로 다시 빌드·배포합니다(그냥 `deploy.sh`는 빌드 없이 재시작만 합니다).
+   배포 뒤 브라우저에서 `https://example.com` 페이지 소스를 열어 두 `<meta>` 태그가 보이면, 각 콘솔에서 **확인(소유확인)**을 누릅니다.
+5. 두 콘솔 모두 **사이트맵 제출**에 `https://example.com/sitemap.xml` 을 넣습니다(사이트맵 색인 — 기본·지역별 시세·단지·매물·중개사무소
+   파일을 묶은 것). `https://example.com/robots.txt`에도 같은 주소가 적혀 있습니다.
+6. 네이버 서치어드바이저 → 요청 → **웹 페이지 수집**에 주요 주소(홈, `/suncheon`, `/reports/suncheon-apartment-trades`, `/about`)를 한 번 요청해 두면 첫 수집이 빨라집니다.
+
+참고
+
+- `NEXT_PUBLIC_SITE_URL`(대표 주소)이 실제 도메인과 같아야 합니다. 캐노니컬 주소·사이트맵·검색 결과 미리보기 모두 이 값으로 만듭니다.
+- AI 검색(ChatGPT, Perplexity, Google AI 개요, 네이버 Cue:)용 요약은 `https://example.com/llms.txt`, `/llms-full.txt`에서 자동으로 만들어집니다. 따로 할 일은 없습니다.
+- 서비스 소개(`/about`)와 검색 결과의 사업자 정보는 관리자 사이트 **사이트 설정 → 사업자 정보·고객센터** 값을 씁니다. 오픈 전에 채워 두세요.
+- 목업 모드(`NEXT_PUBLIC_API_MOCK=1`)로 띄운 미리보기 서버는 `robots.txt`가 전체 수집을 막으므로 검색에 노출되지 않습니다.
+
 ---
 
 ## 11. 업데이트 (코드를 고칠 때마다)

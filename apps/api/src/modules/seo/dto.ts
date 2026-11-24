@@ -39,7 +39,11 @@ export const seoReportQuerySchema = z.object({
 });
 export type SeoReportQuery = z.infer<typeof seoReportQuerySchema>;
 
-export const SEO_SITEMAP_KINDS = ['complexes', 'listings', 'agencies'] as const satisfies readonly SeoSitemapKind[];
+export const SEO_SITEMAP_KINDS = [
+  'complexes',
+  'listings',
+  'agencies',
+] as const satisfies readonly SeoSitemapKind[];
 export const seoSitemapParamSchema = z.object({
   kind: z.enum(SEO_SITEMAP_KINDS, { error: '알 수 없는 사이트맵입니다.' }),
 });

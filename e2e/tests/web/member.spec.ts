@@ -1,5 +1,5 @@
 import { expect, test } from 'playwright/test';
-import { anyComplexListing, loginAs } from '../../lib/api';
+import { anyComplexListing, bodyOf, loginAs } from '../../lib/api';
 import { uniq } from '../../lib/env';
 import { installFakePostcode, pickFakeAddress } from '../../lib/postcode';
 
@@ -26,10 +26,10 @@ test.describe('member', () => {
     );
 
     await page.goto('/me/favorites');
-    await expect(page.getByRole('tab', { name: /관심 매물/ })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    // The tabs are links (URL-driven, ?tab=complexes); the current one has aria-current="page".
+    await expect(
+      page.getByRole('navigation', { name: '관심 목록' }).getByRole('link', { name: /관심 매물/ }),
+    ).toHaveAttribute('aria-current', 'page');
     await expect(page.locator(`a[href*="/listing/${listing.id}"]`).first()).toBeVisible();
   });
 
@@ -68,8 +68,9 @@ test.describe('member', () => {
     await page.getByRole('button', { name: '다음 단계로' }).click();
 
     // C/D. 연락처 · 전달 범위 · 동의 (DEAL_REQUEST_PRIVACY + DEAL_REQUEST_PROVIDE, D8)
-    await page.getByLabel('이름').fill('김테스트');
-    await page.getByLabel('휴대폰 번호').fill('010-1234-5678');
+    // Required fields read "<label> (필수)"; the consent checkbox label also mentions 이름.
+    await page.getByRole('textbox', { name: /^이름( \(필수\))?$/ }).fill('김테스트');
+    await page.getByRole('textbox', { name: /^휴대폰 번호( \(필수\))?$/ }).fill('010-1234-5678');
     await page.getByText('필수 항목에 모두 동의합니다').click();
     await page.getByRole('button', { name: '다음 단계로' }).click();
 
@@ -79,7 +80,7 @@ test.describe('member', () => {
     );
     await page.getByRole('button', { name: '요청 등록하기' }).click();
     const res = await created;
-    expect(res.status(), await res.text()).toBe(201);
+    expect(res.status(), await bodyOf(res)).toBe(201);
     const body = res.request().postDataJSON() as { consents: { type: string }[] };
     expect(body.consents.map((c) => c.type).sort()).toEqual([
       'DEAL_REQUEST_PRIVACY',
@@ -88,6 +89,8 @@ test.describe('member', () => {
     await expect(page).toHaveURL(/\/deal\/sell\/complete/);
 
     await page.goto('/me/requests');
-    await expect(page.getByText(road).or(page.getByText(emd.name)).first()).toBeVisible();
+    // The list names the request by its address without the 시·도 ("순천시 e2e로 123").
+    const shortRoad = road.replace(/^전남광주통합특별시\s+/, '');
+    await expect(page.getByRole('link', { name: shortRoad, exact: true })).toBeVisible();
   });
 });

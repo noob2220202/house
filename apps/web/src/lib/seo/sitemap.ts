@@ -15,7 +15,10 @@ export type SitemapFile = (typeof SITEMAP_FILES)[number];
 export const sitemapFilePath = (name: SitemapFile) => `/sitemaps/${name}/sitemap.xml`;
 
 const xmlEscape = (s: string) =>
-  s.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c] ?? c);
+  s.replace(
+    /[<>&'"]/g,
+    (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c] ?? c,
+  );
 
 /** `<sitemapindex>` XML; `lastmod` per file when known. */
 export function sitemapIndexXml(files: readonly { path: string; lastModified?: Date | null }[]) {
@@ -58,14 +61,19 @@ export function staticEntries(policyPaths: readonly string[] = []): SitemapEntry
 
 /** Monthly report: the latest month (bare path) + every archived month. */
 export function reportEntries(
-  report: { latestYearMonth: number; availableMonths: readonly number[]; updatedAt: string } | null,
+  report: {
+    latestYearMonth: number;
+    availableMonths: readonly number[];
+    syncedAt: string | null;
+  } | null,
 ): SitemapEntry[] {
   if (!report) return [];
   const archived = report.availableMonths.filter((ym) => ym !== report.latestYearMonth);
   return [
     {
       url: absoluteUrl(SEO_ROUTES.report),
-      lastModified: new Date(report.updatedAt),
+      // When the latest month was last synced from 국토교통부 (not when the API computed it).
+      lastModified: report.syncedAt ? new Date(report.syncedAt) : undefined,
       changeFrequency: 'weekly',
       priority: 0.7,
     },

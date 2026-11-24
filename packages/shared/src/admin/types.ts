@@ -10,7 +10,7 @@ import type {
   SiteSettingKey,
 } from '../enums/admin';
 import type { AgencyMemberRole, AgencyMemberStatus, AgencyStatus } from '../enums/agency';
-import type { AssetType, DealType, ListingStatus } from '../enums/listing';
+import type { AssetType, DealType, FloorClass, ListingStatus } from '../enums/listing';
 import type {
   AdminRole,
   AdminStatus,
@@ -132,11 +132,34 @@ export interface ReportCreatedResponse {
 export interface AdminReportView {
   id: string;
   targetType: ReportTargetType;
+  /**
+   * The reported listing as it is now: what the moderator needs to judge the report (종류, 거래
+   * 형태·가격, 단지·동, 면적·층, 실매물 확인, 광고 시작) without opening the listing.
+   */
   listing: {
     id: string;
     status: ListingStatus;
     title: string | null;
     roadAddress: string;
+    assetType: AssetType;
+    dealType: DealType;
+    /** 만원 */
+    salePrice: number | null;
+    deposit: number | null;
+    monthlyRent: number | null;
+    presalePrice: number | null;
+    premium: number | null;
+    complexName: string | null;
+    dong: string | null;
+    buildingName: string | null;
+    exclusiveArea: number | null;
+    supplyArea: number | null;
+    floorClass: FloorClass | null;
+    floor: number | null;
+    totalFloors: number | null;
+    verifiedAt: string | null;
+    publishedAt: string | null;
+    photoCount: number;
   } | null;
   agency: { id: string; name: string; status: AgencyStatus; warningCount: number } | null;
   reporter: { id: string; nickname: string | null } | null;

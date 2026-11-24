@@ -96,10 +96,11 @@ const getListings = cache((id: string) =>
 );
 
 /**
- * The 아파트 landing page of the 단지's 읍면동/리 (`/suncheon/<지역>/apt`) when it is indexable —
- * internal link + containedInPlace. Best effort: null when the seo index is unavailable.
+ * The 단지's 읍면동/리 from the seo index: its 법정동 label ("해룡면 신대리") and, when indexable,
+ * its 아파트 landing page (`/suncheon/<지역>/apt`) — internal link + containedInPlace. Best effort:
+ * null when the index is unavailable or does not list the region.
  */
-const getAptLanding = cache(async (emdCode: string | null) => {
+const getComplexRegion = cache(async (emdCode: string | null) => {
   if (!emdCode) return null;
   const key = emdCode.length === 10 && emdCode.endsWith('00') ? emdCode.slice(0, 8) : emdCode;
   const index = await getSeoRegionIndex().catch((error: unknown) => {
@@ -107,15 +108,19 @@ const getAptLanding = cache(async (emdCode: string | null) => {
     throw error;
   });
   const region = index?.regions.find((r) => r.code === key);
-  if (!index || !region || landingDecision(index.regions, region, 'apt').kind !== 'index') {
-    return null;
-  }
-  return { region, path: SEO_ROUTES.region(region, 'apt'), label: placeLabel(region) };
+  if (!index || !region) return null;
+  const indexable = landingDecision(index.regions, region, 'apt').kind === 'index';
+  return {
+    emdName: region.emdName,
+    landing: indexable
+      ? { path: SEO_ROUTES.region(region, 'apt'), label: placeLabel(region) }
+      : null,
+  };
 });
 
 /** "{단지명} 실거래가·시세·매물 | 순천 {읍면동}" (the place replaces the brand suffix). */
-function complexTitle(c: { name: string; emdName: string | null }): string {
-  return `${c.name} 실거래가·시세·매물 | ${BRAND.seo.regionShort}${c.emdName ? ` ${c.emdName}` : ''}`;
+function complexTitle(name: string, emdName: string | null): string {
+  return `${name} 실거래가·시세·매물 | ${BRAND.seo.regionShort}${emdName ? ` ${emdName}` : ''}`;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -124,9 +129,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // Thrown here (not only in the page) so crawlers get a real 404 / 308 before streaming starts.
   if (!complex) notFound();
   if (id !== complex.id) permanentRedirect(ROUTES.complex(complex.id));
-  const listings = await getListings(complex.id);
+  const [listings, region] = await Promise.all([
+    getListings(complex.id),
+    getComplexRegion(complex.emdCode),
+  ]);
   return buildMetadata({
-    title: complexTitle(complex),
+    title: complexTitle(complex.name, region?.emdName ?? complex.emdName),
     brandSuffix: false,
     description: complexDescription(complex, listings?.summary.total),
     path: ROUTES.complex(complex.id),
@@ -179,10 +187,11 @@ export default async function ComplexPage({ params }: Props) {
   ]);
 
   const path = ROUTES.complex(complex.id);
-  const regionLanding = await getAptLanding(complex.emdCode);
+  const region = await getComplexRegion(complex.emdCode);
+  const regionLanding = region?.landing ?? null;
   const latest = [...(stats?.latest ?? []), ...complex.latestTrades];
   const faq = complexFaq({
-    complex,
+    complex: region ? { ...complex, emdName: region.emdName } : complex,
     listings: listings?.summary ?? null,
     latest,
     asOf: new Date(),
@@ -212,7 +221,7 @@ export default async function ComplexPage({ params }: Props) {
             description: complexDescription(complex, listings?.summary.total),
             image: complex.photos[0]?.url,
             address: complex.roadAddress ?? complex.jibunAddress ?? undefined,
-            emdName: complex.emdName,
+            emdName: region?.emdName ?? complex.emdName,
             geo: { lat: complex.lat, lng: complex.lng },
             households: complex.households,
             builtYear: complex.builtYear,

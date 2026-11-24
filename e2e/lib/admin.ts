@@ -1,5 +1,6 @@
 import { expect, type Page } from 'playwright/test';
 import { freshTotp } from './totp.mjs';
+import { bodyOf } from './api';
 import { readAdminState, recordTotpStep } from './env';
 
 /**
@@ -23,6 +24,6 @@ export async function adminLogin(page: Page): Promise<void> {
   await otp.fill(code); // 6 digits → the form submits itself (onComplete)
   const res = await verified;
   recordTotpStep(step);
-  expect(res.status(), await res.text()).toBe(200);
+  expect(res.status(), await bodyOf(res)).toBe(200);
   await expect(page).not.toHaveURL(/\/login/);
 }

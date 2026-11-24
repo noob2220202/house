@@ -1,6 +1,6 @@
 import { AssetType } from '@house/shared';
 import { BRAND } from '@/config/brand';
-import type { MapAssetSlug } from '@/config/nav';
+import { ROUTES, type MapAssetSlug } from '@/config/nav';
 import type { SeoRegion } from './schemas';
 
 /**
@@ -10,12 +10,13 @@ import type { SeoRegion } from './schemas';
  */
 export const SEO_ROUTES = {
   /** 순천 지역별 시세 (index of every landing). */
-  regions: '/suncheon',
+  regions: ROUTES.regions,
+  /** Percent-encoded (the slug is Korean) so it is also a valid redirect Location. */
   region: (region: Pick<SeoRegion, 'emdName'>, asset: MapAssetSlug) =>
-    `/suncheon/${regionSlug(region)}/${asset}`,
-  about: '/about',
-  report: '/reports/suncheon-apartment-trades',
-  reportMonth: (ym: number) => `/reports/suncheon-apartment-trades/${ym}`,
+    `${ROUTES.regions}/${encodeURIComponent(regionSlug(region))}/${asset}`,
+  about: ROUTES.about,
+  report: ROUTES.tradeReport,
+  reportMonth: (ym: number) => `${ROUTES.tradeReport}/${ym}`,
   llms: '/llms.txt',
   llmsFull: '/llms-full.txt',
 } as const;
@@ -178,9 +179,7 @@ export function landingDecision(
     return { kind: 'empty' };
   }
   if (region.code.length === 8) {
-    const children = regions.filter(
-      (r) => r.code.length === 10 && r.code.startsWith(region.code),
-    );
+    const children = regions.filter((r) => r.code.length === 10 && r.code.startsWith(region.code));
     const withData = children.filter((c) => {
       const n = landingCounts(c, asset);
       return n.listings + n.complexes + n.trades > 0;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { AdminReportView } from '@house/shared';
 import {
   agenciesDb,
   toAgencyDetailView,
@@ -180,6 +181,57 @@ describe('other real admin views', () => {
     expect(parsed.agencies[0]).toMatchObject({ agencyId: 'a1', isPrimary: true });
     expect(parsed.reports).toHaveLength(1);
     expect(parsed.agencyCount).toBe(1);
+  });
+
+  it('parses AdminReportView as the API sends it (listing target card fields)', () => {
+    const view: AdminReportView = {
+      id: 'r1',
+      targetType: 'LISTING',
+      listing: {
+        id: 'l1',
+        status: 'RESERVED',
+        title: '오천 리버하임 34평 고층',
+        roadAddress: '전남광주통합특별시 순천시 오천강변길 52',
+        assetType: 'APT',
+        dealType: 'JEONSE',
+        salePrice: null,
+        deposit: 25000,
+        monthlyRent: null,
+        presalePrice: null,
+        premium: null,
+        complexName: '오천 리버하임',
+        dong: '103',
+        buildingName: null,
+        exclusiveArea: 84.9,
+        supplyArea: 112.4,
+        floorClass: 'HIGH',
+        floor: 18,
+        totalFloors: 25,
+        verifiedAt: T,
+        publishedAt: T,
+        photoCount: 6,
+      },
+      agency: { id: 'a1', name: '오천그린공인중개사사무소', status: 'APPROVED', warningCount: 0 },
+      reporter: { id: 'u1', nickname: '신고자' },
+      reporterPhone: null,
+      reason: 'ALREADY_DEALT',
+      detail: '이미 거래가 끝난 매물입니다.',
+      status: 'RECEIVED',
+      action: null,
+      resolutionNote: null,
+      handledBy: null,
+      handledAt: null,
+      createdAt: T,
+      updatedAt: T,
+    };
+    const parsed = adminReportDetailSchema.parse(view);
+    expect(parsed.listing).toMatchObject({
+      dealType: 'JEONSE',
+      deposit: 25000,
+      complexName: '오천 리버하임',
+      photoCount: 6,
+    });
+    expect(adminReportListItemSchema.parse(view).listing?.dealType).toBe('JEONSE');
   });
 
   it('maps AdminDealRequestView (complex, targets, masked contact, userId)', () => {

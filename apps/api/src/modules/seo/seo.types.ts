@@ -94,7 +94,12 @@ export interface SeoComplexItem {
   approvalDate: string | null;
   activeListingCount: number;
   /** Latest non-cancelled 매매 실거래 of the 단지. */
-  latestSale: { price: number; dealDate: string; exclusiveArea: number; floor: number | null } | null;
+  latestSale: {
+    price: number;
+    dealDate: string;
+    exclusiveArea: number;
+    floor: number | null;
+  } | null;
 }
 
 /** GET /seo/regions/:code/landing?assetTypes */

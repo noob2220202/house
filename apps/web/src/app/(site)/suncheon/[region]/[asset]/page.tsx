@@ -67,7 +67,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description: landingDescription(r.landing, r.asset),
     path,
     canonicalPath:
-      r.decision.kind === 'duplicate' ? SEO_ROUTES.region(r.decision.canonical, r.asset) : undefined,
+      r.decision.kind === 'duplicate'
+        ? SEO_ROUTES.region(r.decision.canonical, r.asset)
+        : undefined,
     noindex: r.decision.kind === 'thin' ? 'follow' : undefined,
   });
 }
@@ -83,7 +85,7 @@ export default async function RegionLandingPage({ params }: Props) {
   // Non-아파트 pages link to the latest listings of the region (best effort).
   const listings = cfg.complexes
     ? []
-    : (
+    : ((
         await serverGetOr('/listings', null, {
           query: {
             emdCode: region.code,
@@ -95,7 +97,7 @@ export default async function RegionLandingPage({ params }: Props) {
           revalidate: 300,
           tags: ['listings'],
         })
-      )?.items ?? [];
+      )?.items ?? []);
 
   const otherAssets: LandingLink[] = LANDING_ASSET_SLUGS.flatMap((a) =>
     a === asset || landingDecision(index.regions, region, a).kind === 'index'
@@ -141,7 +143,10 @@ export default async function RegionLandingPage({ params }: Props) {
             name: region.emdName,
             alternateName: DISTRICT_ALIASES[region.code] ?? null,
             description: `${placeFull(region)} ${cfg.topic}`,
-            geo: region.lat !== null && region.lng !== null ? { lat: region.lat, lng: region.lng } : null,
+            geo:
+              region.lat !== null && region.lng !== null
+                ? { lat: region.lat, lng: region.lng }
+                : null,
           }),
           breadcrumbJsonLd([
             { name: '홈', path: ROUTES.home },

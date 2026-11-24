@@ -77,8 +77,9 @@ export function AboutView({ nap, coverage }: AboutViewProps) {
 
       <Section id="coverage" title="서비스 지역">
         <p className={styles.prose}>
-          {BRAND.regionFull}(시군구 코드 {DEFAULT_SGG_CODE}) 한 곳만 다룹니다. 2026년 7월 1일 행정구역
-          개편으로 전라남도 순천시가 {BRAND.regionFull}가 되었고, 지역 코드도 새 코드로 바뀌었습니다.
+          {BRAND.regionFull}(시군구 코드 {DEFAULT_SGG_CODE}) 한 곳만 다룹니다. 2026년 7월 1일
+          행정구역 개편으로 전라남도 순천시가 {BRAND.regionFull}가 되었고, 지역 코드도 새 코드로
+          바뀌었습니다.
           {coverage &&
             ` 지금 매물이나 실거래 자료가 있는 읍면동·리는 ${formatCount(coverage.regions)}곳, 공개 매물은 ${formatCount(coverage.listings)}건입니다.`}
         </p>

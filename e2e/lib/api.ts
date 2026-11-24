@@ -186,3 +186,11 @@ export async function activeListingWithHo(api: Api): Promise<AgencyListingLite> 
   }
   throw new Error('no ACTIVE complex listing with a 호 in the broker seed data');
 }
+
+/**
+ * Body of a response for an assertion message. A page that navigates right after the call
+ * (form submitted → redirect) drops the body from the browser, so this never throws.
+ */
+export async function bodyOf(res: { text(): Promise<string> }): Promise<string> {
+  return res.text().catch(() => '(body unavailable after navigation)');
+}

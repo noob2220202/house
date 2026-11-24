@@ -79,7 +79,9 @@ export function LandingView({
           label: '중위 거래가',
           value: formatManwon(trades.sale.medianPrice),
           detail:
-            trades.sale.avgPrice !== null ? `평균 ${formatManwon(trades.sale.avgPrice)}` : undefined,
+            trades.sale.avgPrice !== null
+              ? `평균 ${formatManwon(trades.sale.avgPrice)}`
+              : undefined,
         });
       }
       if (trades.sale.avgPricePerPyeong !== null) {
@@ -143,9 +145,7 @@ export function LandingView({
                 {landing.listings.byDealType.map((d) => (
                   <tr key={d.dealType}>
                     <th scope="row">
-                      <b className={`t-${dealKindOf(d.dealType)}`}>
-                        {DEAL_TYPE_LABEL[d.dealType]}
-                      </b>
+                      <b className={`t-${dealKindOf(d.dealType)}`}>{DEAL_TYPE_LABEL[d.dealType]}</b>
                     </th>
                     <td className={styles.r}>
                       <b>{formatCount(d.count)}</b>건

@@ -29,6 +29,9 @@ const DETAIL = {
   floorDisplay: 'EXACT',
   options: [],
   emdName: '석현동',
+  // The summary fields sit at the top level; `property` has no lat/lng (AgencyListingDetail).
+  lat: 34.96,
+  lng: 127.48,
   isPrimaryAgency: false,
   version: 4,
   latestVerification: { method: 'SITE_VISIT', verifiedAt: '2026-11-20' },
@@ -37,8 +40,6 @@ const DETAIL = {
     assetType: AssetType.ONEROOM,
     roadAddress: '대학로 15',
     emdCode: '1215011000',
-    lat: 34.96,
-    lng: 127.48,
     buildingUse: 'MULTI_FAMILY_HOUSE',
     complexId: null,
     areaTypeId: null,
@@ -68,6 +69,8 @@ describe('agencyListingSchema (API AgencyListingDetail → console view)', () =>
       emdName: '석현동',
       emdCode: '1215011000',
       buildingUse: 'MULTI_FAMILY_HOUSE',
+      lat: 34.96,
+      lng: 127.48,
     });
     expect(l.maintenanceFee).toEqual({
       billingType: 'ACTUAL',

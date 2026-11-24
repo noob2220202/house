@@ -21,7 +21,11 @@ export async function generateMetadata(): Promise<Metadata> {
   await connection();
   const report = await getTradeReport();
   if (!report) {
-    return buildMetadata({ title: '순천 아파트 실거래 리포트', path: SEO_ROUTES.report, noindex: 'follow' });
+    return buildMetadata({
+      title: '순천 아파트 실거래 리포트',
+      path: SEO_ROUTES.report,
+      noindex: 'follow',
+    });
   }
   return reportMetadata(report, SEO_ROUTES.report);
 }

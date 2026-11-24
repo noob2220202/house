@@ -144,7 +144,7 @@ export type MaintenanceFeeView = z.infer<typeof maintenanceFeeViewSchema>;
 
 /**
  * Backend `AgencyListingDetail` → console view: `isPrimaryAgency` → `isPrimary`, the summary's
- * `emdName` onto the property, `latestVerification.verifiedAt` → `verifiedAt`.
+ * `emdName` and `lat`/`lng` onto the property, `latestVerification.verifiedAt` → `verifiedAt`.
  */
 function listingInput(v: unknown): unknown {
   if (!isRecord(v)) return v;
@@ -152,8 +152,13 @@ function listingInput(v: unknown): unknown {
   if (typeof v.isPrimaryAgency === 'boolean' && v.isPrimary === undefined) {
     out.isPrimary = v.isPrimaryAgency;
   }
-  if (isRecord(v.property) && v.property.emdName === undefined && v.emdName !== undefined) {
-    out.property = { ...v.property, emdName: v.emdName };
+  if (isRecord(v.property)) {
+    // The API carries the summary fields (emdName, lat/lng) at the top level of the detail.
+    const property: Raw = { ...v.property };
+    if (property.emdName === undefined && v.emdName !== undefined) property.emdName = v.emdName;
+    if (property.lat === undefined && typeof v.lat === 'number') property.lat = v.lat;
+    if (property.lng === undefined && typeof v.lng === 'number') property.lng = v.lng;
+    out.property = property;
   }
   if (v.verifiedAt === undefined && isRecord(v.latestVerification)) {
     out.verifiedAt = v.latestVerification.verifiedAt;

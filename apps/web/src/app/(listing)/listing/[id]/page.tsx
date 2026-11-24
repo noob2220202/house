@@ -1,4 +1,10 @@
-import { AssetType, BannerSlot, DealType, ListingStatus, REGION_CODE_PATTERN } from '@house/shared';
+import {
+  type AssetType,
+  BannerSlot,
+  DealType,
+  ListingStatus,
+  REGION_CODE_PATTERN,
+} from '@house/shared';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { cache } from 'react';

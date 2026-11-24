@@ -15,6 +15,7 @@ import {
 import type { AdminUser, Faq, LocalVideo, Notice, Prisma } from '@prisma/client';
 
 const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() : null);
+const num = (d: Prisma.Decimal | null): number | null => (d === null ? null : d.toNumber());
 
 // ---------- admin accounts ----------
 
@@ -59,7 +60,29 @@ export const reportSelect = {
       status: true,
       title: true,
       deletedAt: true,
-      property: { select: { roadAddress: true } },
+      assetType: true,
+      dealType: true,
+      salePrice: true,
+      deposit: true,
+      monthlyRent: true,
+      presalePrice: true,
+      premium: true,
+      exclusiveArea: true,
+      floorClass: true,
+      verifiedAt: true,
+      publishedAt: true,
+      photoCount: true,
+      complex: { select: { name: true } },
+      property: {
+        select: {
+          roadAddress: true,
+          dong: true,
+          buildingName: true,
+          supplyArea: true,
+          floor: true,
+          totalFloors: true,
+        },
+      },
     },
   },
   agency: { select: { id: true, name: true, status: true, warningCount: true } },
@@ -82,6 +105,24 @@ export function toAdminReportView(
           status: r.listing.status,
           title: r.listing.title,
           roadAddress: r.listing.property.roadAddress,
+          assetType: r.listing.assetType,
+          dealType: r.listing.dealType,
+          salePrice: r.listing.salePrice,
+          deposit: r.listing.deposit,
+          monthlyRent: r.listing.monthlyRent,
+          presalePrice: r.listing.presalePrice,
+          premium: r.listing.premium,
+          complexName: r.listing.complex?.name ?? null,
+          dong: r.listing.property.dong,
+          buildingName: r.listing.property.buildingName,
+          exclusiveArea: num(r.listing.exclusiveArea),
+          supplyArea: num(r.listing.property.supplyArea),
+          floorClass: r.listing.floorClass,
+          floor: r.listing.property.floor,
+          totalFloors: r.listing.property.totalFloors,
+          verifiedAt: iso(r.listing.verifiedAt),
+          publishedAt: iso(r.listing.publishedAt),
+          photoCount: r.listing.photoCount,
         }
       : null,
     agency: r.agency,

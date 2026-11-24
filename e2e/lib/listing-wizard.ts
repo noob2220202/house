@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from 'playwright/test';
+import { bodyOf } from './api';
 import { FIXTURES_DIR } from './env';
 import path from 'node:path';
 
@@ -11,8 +12,14 @@ import path from 'node:path';
 export class ListingWizard {
   constructor(readonly page: Page) {}
 
+  /** Required groups/fields read "<label> (필수)" to screen readers (packages/ui FormRow). */
   radioGroup(name: string): Locator {
-    return this.page.getByRole('radiogroup', { name, exact: true });
+    return this.page.getByRole('radiogroup', { name: field(name) });
+  }
+
+  /** A labelled control by its label, with or without the " (필수)" suffix. */
+  field(name: string): Locator {
+    return this.page.getByLabel(field(name));
   }
 
   async choose(group: string, option: string | RegExp): Promise<void> {
@@ -62,19 +69,19 @@ export class ListingWizard {
       .getByRole('option', { name: new RegExp(escapeRe(roadAddress)) })
       .first()
       .click();
-    await this.page.getByLabel('해당 층').fill(unit.floor);
-    await this.fillIfEmpty(this.page.getByLabel('총 층수'), unit.totalFloors);
+    await this.field('해당 층').fill(unit.floor);
+    await this.fillIfEmpty(this.field('총 층수'), unit.totalFloors);
     await this.pickBuildingUseIfEmpty();
   }
 
   private async unitFields(unit: { dong: string; ho: string; floor: string }) {
-    await this.page.getByLabel('동', { exact: true }).fill(unit.dong);
-    await this.page.getByLabel('호 (비공개)').fill(unit.ho);
-    await this.page.getByLabel('해당 층').fill(unit.floor);
+    await this.field('동').fill(unit.dong);
+    await this.field('호 (비공개)').fill(unit.ho);
+    await this.field('해당 층').fill(unit.floor);
   }
 
   private async pickBuildingUseIfEmpty() {
-    const use = this.page.getByLabel('건축물 용도', { exact: true });
+    const use = this.field('건축물 용도');
     if (!(await use.isVisible())) return;
     if ((await use.inputValue()) === '') {
       // First real option of the "자주 쓰는 용도" group.
@@ -86,31 +93,30 @@ export class ListingWizard {
   /** 거래·가격 + 관리비 (정액 0원 → no 세부 내역) + 입주가능일 즉시입주. */
   async deal(kind: '매매' | '전세' | '월세', price: { amount: string; rent?: string }) {
     await this.choose('거래 형태', kind);
-    if (kind === '매매') await this.page.getByLabel('매매가', { exact: true }).fill(price.amount);
-    if (kind === '전세')
-      await this.page.getByLabel('전세 보증금', { exact: true }).fill(price.amount);
+    if (kind === '매매') await this.field('매매가').fill(price.amount);
+    if (kind === '전세') await this.field('전세 보증금').fill(price.amount);
     if (kind === '월세') {
-      await this.page.getByLabel('보증금', { exact: true }).fill(price.amount);
-      await this.page.getByLabel('월세', { exact: true }).fill(price.rent ?? '50');
+      await this.field('보증금').fill(price.amount);
+      await this.field('월세').fill(price.rent ?? '50');
     }
-    await this.page.getByLabel('월 관리비').fill('0');
+    await this.field('월 관리비').fill('0');
     await this.choose('입주가능일', '즉시입주');
   }
 
   /** 면적·상세: 평형 (단지) or 전용면적, 방/욕실, 방향 + 기준, 사용승인일, 주차. */
   async detail(opts: { area?: string; approvalDate?: string } = {}) {
-    const areaType = this.page.getByLabel('평형', { exact: true });
+    const areaType = this.field('평형');
     if ((await areaType.isVisible()) && (await areaType.inputValue()) === '') {
       const first = areaType.locator('option:not([value=""])').first();
       await areaType.selectOption((await first.getAttribute('value')) ?? '');
     }
     await this.fillIfEmpty(this.page.getByLabel(/^전용면적 \(제곱미터\)/), opts.area ?? '23.14');
-    await this.fillIfEmpty(this.page.getByLabel('방 수'), '1');
-    await this.fillIfEmpty(this.page.getByLabel('욕실 수'), '1');
+    await this.fillIfEmpty(this.field('방 수'), '1');
+    await this.fillIfEmpty(this.field('욕실 수'), '1');
     await this.choose('방향', '남향');
     await this.choose('방향 기준', '거실 기준');
-    await this.fillIfEmpty(this.page.getByLabel('사용승인일'), opts.approvalDate ?? '2015-03-02');
-    await this.fillIfEmpty(this.page.getByLabel('총 주차대수'), '1');
+    await this.fillIfEmpty(this.field('사용승인일'), opts.approvalDate ?? '2015-03-02');
+    await this.fillIfEmpty(this.field('총 주차대수'), '1');
   }
 
   async photos() {
@@ -118,12 +124,12 @@ export class ListingWizard {
       .getByLabel('매물 사진 선택')
       .setInputFiles(path.join(FIXTURES_DIR, 'listing-photo.jpg'));
     // Upload → worker processing → READY thumbnail.
-    await expect(this.page.getByLabel('사진 1 설명')).toBeVisible({ timeout: 30_000 });
+    await expect(this.field('사진 1 설명')).toBeVisible({ timeout: 30_000 });
   }
 
   async verify() {
     await this.choose('확인 방법', '소유자 통화 확인');
-    const date = this.page.getByLabel('확인일');
+    const date = this.field('확인일');
     await this.fillIfEmpty(date, new Date().toISOString().slice(0, 10));
   }
 
@@ -136,9 +142,13 @@ export class ListingWizard {
     );
     await this.page.getByRole('button', { name: '광고 게시하기' }).click();
     const res = await published;
-    expect(res.ok(), `publish → ${res.status()} ${await res.text()}`).toBe(true);
+    expect(res.ok(), `publish → ${res.status()} ${await bodyOf(res)}`).toBe(true);
     return /listings\/([0-9a-f-]{36})\/publish/.exec(res.url())![1]!;
   }
+}
+
+function field(name: string): RegExp {
+  return new RegExp(`^${escapeRe(name)}( \\(필수\\))?$`);
 }
 
 function escapeRe(s: string): string {

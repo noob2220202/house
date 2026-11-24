@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { expect, test } from 'playwright/test';
+import { bodyOf } from '../../lib/api';
 import { FIXTURES_DIR, uniq, WEB_URL } from '../../lib/env';
 
 /** 광고: MAIN_HERO banner and a popup created in the admin, then visible on the user site. */
@@ -21,14 +22,15 @@ test.describe('admin ads → user site', () => {
     await expect(page.getByAltText('PC 이미지 미리보기')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByAltText('모바일 이미지 미리보기')).toBeVisible({ timeout: 30_000 });
     const link = form.getByLabel('링크 URL');
-    if (await link.isVisible()) await link.fill(`${WEB_URL}/map`);
+    // The admin accepts https:// links or a site path ("/map"), not plain http.
+    if (await link.isVisible()) await link.fill('/map');
 
     const saved = page.waitForResponse(
       (r) => r.url().endsWith('/api/v1/admin/banners') && r.request().method() === 'POST',
     );
     await page.getByRole('button', { name: '저장', exact: true }).click();
     const res = await saved;
-    expect(res.status(), await res.text()).toBe(201);
+    expect(res.status(), await bodyOf(res)).toBe(201);
 
     // The home page caches banners (ISR, revalidate 60 s): reload until the new one is served.
     const visitor = await browser.newPage();
@@ -57,7 +59,7 @@ test.describe('admin ads → user site', () => {
     );
     await page.getByRole('button', { name: '저장', exact: true }).click();
     const res = await saved;
-    expect(res.status(), await res.text()).toBe(201);
+    expect(res.status(), await bodyOf(res)).toBe(201);
 
     const visitor = await browser.newPage();
     await expect

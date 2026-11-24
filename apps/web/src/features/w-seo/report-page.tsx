@@ -67,8 +67,17 @@ export function ReportPageBody({
             temporalCoverage: ym,
             dateModified: report.syncedAt ?? report.updatedAt,
             source: { name: DATA_SOURCES.trades.name, url: DATA_SOURCES.trades.url },
-            variables: ['거래량', '평균 거래가(만 원)', '중위 거래가(만 원)', '전용면적 3.3㎡당 평균 거래가(만 원)'],
-            keywords: [`${BRAND.seo.regionShort} 아파트 실거래가`, `${BRAND.seo.regionShort} 아파트 거래량`, month],
+            variables: [
+              '거래량',
+              '평균 거래가(만 원)',
+              '중위 거래가(만 원)',
+              '전용면적 3.3㎡당 평균 거래가(만 원)',
+            ],
+            keywords: [
+              `${BRAND.seo.regionShort} 아파트 실거래가`,
+              `${BRAND.seo.regionShort} 아파트 거래량`,
+              month,
+            ],
           }),
           breadcrumbJsonLd([
             { name: '홈', path: ROUTES.home },

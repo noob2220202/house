@@ -5,7 +5,13 @@ import type {
   ComplexListingSummary,
   TradeRecord,
 } from '@/features/w-complex/api/schemas';
-import { formatCount, formatDateKorean, formatPriceRange, formatPyeong, formatSqm } from '@/lib/format';
+import {
+  formatCount,
+  formatDateKorean,
+  formatPriceRange,
+  formatPyeong,
+  formatSqm,
+} from '@/lib/format';
 import { DISTRICT_ALIASES } from '@/lib/seo/regions';
 import { dateOnlyLabel, manwonText } from '@/lib/seo/text';
 
@@ -30,8 +36,7 @@ export function newestTrade(
   return (
     trades
       .filter((t) => t.dealType === dealType && !t.cancelled && (t.price ?? t.deposit) !== null)
-      .sort((a, b) => (a.dealDate < b.dealDate ? 1 : a.dealDate > b.dealDate ? -1 : 0))[0] ??
-    null
+      .sort((a, b) => (a.dealDate < b.dealDate ? 1 : a.dealDate > b.dealDate ? -1 : 0))[0] ?? null
   );
 }
 
@@ -64,7 +69,7 @@ export function complexFaq({ complex: c, listings, latest, asOf }: ComplexFaqInp
       c.floorsMax !== null ? `최고 ${c.floorsMax}층` : null,
     ].filter(Boolean);
     items.push({
-      question: `${name}${josa(name, '은', '는')} 언제 준공됐나요?`,
+      question: `${josa(name, '은', '는')} 언제 준공됐나요?`,
       answer: `${josa(name, '은', '는')} ${when}된 ${scale.length ? `${scale.join(', ')} 규모의 ` : ''}단지입니다.`,
     });
   }
@@ -134,7 +139,7 @@ export function complexFaq({ complex: c, listings, latest, asOf }: ComplexFaqInp
   const address = c.roadAddress ?? c.jibunAddress;
   if (address || c.emdName) {
     items.push({
-      question: `${name}${josa(name, '은', '는')} 어디에 있나요?`,
+      question: `${josa(name, '은', '는')} 어디에 있나요?`,
       answer: `${place}에 있으며 주소는 ${address ?? place}입니다.`,
     });
   }

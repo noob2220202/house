@@ -115,7 +115,7 @@ function reportSummary(report: SeoTradeReport): string[] {
   const lines = [
     `## ${ymLabel(report.yearMonth)} ${report.regionName} 아파트 매매 실거래 요약`,
     '',
-    `- 거래량: ${s.count.toLocaleString('ko-KR')}건 (해제 거래 ${s.cancelledCount}건 제외)`,
+    `- 거래량: ${s.count.toLocaleString('ko-KR')}건${s.cancelledCount > 0 ? ` (해제 거래 ${s.cancelledCount}건 제외)` : ''}`,
     s.avgPrice !== null ? `- 평균 거래가: ${manwonText(s.avgPrice)}` : null,
     s.medianPrice !== null ? `- 중위 거래가: ${manwonText(s.medianPrice)}` : null,
     s.avgPricePerPyeong !== null
@@ -163,7 +163,11 @@ export function buildLlmsTxt(input: LlmsInput): string {
     patterns(),
     citation(),
     contact(input.contact),
-    ['## Optional', '', link('전체 요약 (llms-full.txt)', SEO_ROUTES.llmsFull, '최신 통계와 지역별 페이지 목록')],
+    [
+      '## Optional',
+      '',
+      link('전체 요약 (llms-full.txt)', SEO_ROUTES.llmsFull, '최신 통계와 지역별 페이지 목록'),
+    ],
   ]);
 }
 

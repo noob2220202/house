@@ -1,7 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { expect, test } from 'playwright/test';
-import { Api, apiSessionAs, findListings, termsVersion } from '../../lib/api';
+import { Api, apiSessionAs, bodyOf, findListings, loginAs, termsVersion } from '../../lib/api';
 import { ADMIN_URL, FIXTURES_DIR, SEED, uniq, WEB_URL } from '../../lib/env';
 
 /** Valid 사업자등록번호 (check digit as in @house/shared isValidBusinessNumber). */
@@ -14,13 +14,15 @@ function businessNumber(): string {
 }
 
 test.describe('admin moderation', () => {
-  test('agency application → admin approves → member becomes AGENCY_OWNER', async ({
+  test('agency application → admin approves → AGENCY_OWNER opens the console', async ({
     page,
     context,
+    browser,
     playwright,
   }) => {
     // A fresh member applies through the real API (documents + PRIVACY_AGENCY_APPLICATION consent).
-    const applicant = await apiSessionAs(playwright, `${uniq('apply')}@e2e.example.invalid`, {
+    const applicantEmail = `${uniq('apply')}@e2e.example.invalid`;
+    const applicant = await apiSessionAs(playwright, applicantEmail, {
       nickname: '신청대표',
     });
     const doc = await applicant.api.upload<{ id: string }>('/media?purpose=AGENCY_DOCUMENT', {
@@ -58,25 +60,41 @@ test.describe('admin moderation', () => {
     // Admin reviews and approves in the console.
     await page.goto(`/agencies/${agency.id}`);
     await expect(page.getByText(name).first()).toBeVisible();
+    // Without a 브이월드 key the 등록 조회 is not MATCHED (and no 사업자등록증 was uploaded), so the
+    // admin approves through "확인 후 승인" and records how the documents were checked.
     await page.getByRole('button', { name: /^(확인 후 )?승인$/ }).click();
-    const dialog = page.getByRole('dialog', { name: '이 중개사무소를 승인할까요?' });
+    const dialog = page.getByRole('dialog', {
+      name: /^(확인 후 승인|이 중개사무소를 승인할까요\?)$/,
+    });
     await expect(dialog).toBeVisible();
-    // Without a 브이월드 key the 등록번호 cross-check is not MATCHED: the dialog asks for an
-    // explicit acknowledgement before approving.
-    for (const box of await dialog.getByRole('checkbox').all()) await box.check();
+    const method = dialog.getByLabel(/^확인한 방법/);
+    if (await method.count()) {
+      await method.fill('e2e: 중개사무소 등록증 원본과 사업자등록증을 직접 확인했습니다.');
+    }
     const decided = page.waitForResponse(
       (r) =>
         r.url().endsWith(`/api/v1/admin/agencies/${agency.id}/decision`) &&
         r.request().method() === 'POST',
     );
     await dialog.getByRole('button', { name: '승인', exact: true }).click();
-    expect((await decided).ok()).toBe(true);
+    const decision = await decided;
+    expect(decision.ok(), await bodyOf(decision)).toBe(true);
 
     const admin = Api.of(context, ADMIN_URL);
     const after = await admin.get<{ status: string }>(`/admin/agencies/${agency.id}`);
     expect(after.status).toBe('APPROVED');
     const me = await applicant.api.get<{ role: string }>('/auth/me');
     expect(me.role).toBe('AGENCY_OWNER');
+
+    // The new 대표 signs in again and gets into the broker console of the approved office.
+    const owner = await browser.newContext({ baseURL: WEB_URL });
+    await loginAs(owner, applicantEmail);
+    const consolePage = await owner.newPage();
+    const res = await consolePage.goto('/agent');
+    expect(res?.status()).toBe(200);
+    await expect(consolePage).toHaveURL(/\/agent\/?$/);
+    await expect(consolePage.getByText(name).first()).toBeVisible();
+    await owner.close();
     await applicant.dispose();
   });
 

@@ -55,9 +55,7 @@ export function regionNameResolver(
     if (!n) continue;
     short.set(n, short.has(n) && short.get(n) !== r.code ? null : r.code);
   }
-  const parents = new Set(
-    [...index.values()].flatMap((r) => (r.parentName ? [r.parentName] : [])),
-  );
+  const parents = new Set([...index.values()].flatMap((r) => (r.parentName ? [r.parentName] : [])));
   return (emdName) => {
     const raw = emdName?.trim();
     if (!raw) return null;
@@ -138,7 +136,10 @@ export function groupByRegion(
   index: ReadonlyMap<string, RegionEntry>,
   resolve: (emdName: string | null) => string | null,
 ): { regionCode: string | null; name: string; rows: ReportTradeRow[] }[] {
-  const groups = new Map<string, { regionCode: string | null; name: string; rows: ReportTradeRow[] }>();
+  const groups = new Map<
+    string,
+    { regionCode: string | null; name: string; rows: ReportTradeRow[] }
+  >();
   for (const row of rows) {
     const key = row.complexRegionKey ?? resolve(row.emdName);
     const entry = key ? index.get(key) : undefined;

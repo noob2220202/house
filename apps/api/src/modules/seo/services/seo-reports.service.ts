@@ -117,7 +117,9 @@ export class SeoReportsService {
     const summaryOf = (month: number): SeoSaleSummary | null => {
       const sales = salesOf(month);
       return sales.length
-        ? summarizeSales(sales.map((r) => ({ price: r.price as number, exclusiveArea: r.exclusiveArea })))
+        ? summarizeSales(
+            sales.map((r) => ({ price: r.price as number, exclusiveArea: r.exclusiveArea })),
+          )
         : null;
     };
 

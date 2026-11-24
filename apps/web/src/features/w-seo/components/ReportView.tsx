@@ -50,7 +50,11 @@ export function ReportView({ report, regionHref }: ReportViewProps) {
     kpis.push({
       label: '평균 거래가',
       value: formatManwon(sale.avgPrice),
-      detail: <TrendLine trends={[trendOf(sale.avgPrice, previous?.sale.avgPrice ?? null, '전월 대비')]} />,
+      detail: (
+        <TrendLine
+          trends={[trendOf(sale.avgPrice, previous?.sale.avgPrice ?? null, '전월 대비')]}
+        />
+      ),
     });
   }
   if (sale.medianPrice !== null) {
@@ -58,7 +62,9 @@ export function ReportView({ report, regionHref }: ReportViewProps) {
       label: '중위 거래가',
       value: formatManwon(sale.medianPrice),
       detail: (
-        <TrendLine trends={[trendOf(sale.medianPrice, previous?.sale.medianPrice ?? null, '전월 대비')]} />
+        <TrendLine
+          trends={[trendOf(sale.medianPrice, previous?.sale.medianPrice ?? null, '전월 대비')]}
+        />
       ),
     });
   }
@@ -119,7 +125,9 @@ export function ReportView({ report, regionHref }: ReportViewProps) {
                 const href = r.regionCode ? regionHref(r.regionCode) : null;
                 return (
                   <tr key={`${r.regionCode ?? ''}-${r.name}`}>
-                    <th scope="row">{href ? <Link href={href}>{r.name}</Link> : <b>{r.name}</b>}</th>
+                    <th scope="row">
+                      {href ? <Link href={href}>{r.name}</Link> : <b>{r.name}</b>}
+                    </th>
                     <td className={styles.r}>
                       <b>{formatCount(r.sale.count)}</b>건
                     </td>
@@ -208,7 +216,9 @@ export function ReportView({ report, regionHref }: ReportViewProps) {
               return (
                 <Link
                   key={ym}
-                  href={ym === report.latestYearMonth ? SEO_ROUTES.report : SEO_ROUTES.reportMonth(ym)}
+                  href={
+                    ym === report.latestYearMonth ? SEO_ROUTES.report : SEO_ROUTES.reportMonth(ym)
+                  }
                   className={current ? `${styles.chip} ${styles.chipCurrent}` : styles.chip}
                   aria-current={current ? 'page' : undefined}
                 >
@@ -230,8 +240,9 @@ export function ReportView({ report, regionHref }: ReportViewProps) {
         </p>
         <p>
           <b>집계 방법</b> 계약일이 해당 월인 아파트 매매 신고분을 법정동별로 모았어요. 평균은
-          산술평균, 중위는 가운데 값이며 3.3㎡당 가격은 전용면적 기준이에요. 해제 거래{' '}
-          {formatCount(sale.cancelledCount)}건은 제외했어요.
+          산술평균, 중위는 가운데 값이며 3.3㎡당 가격은 전용면적 기준이에요.
+          {sale.cancelledCount > 0 &&
+            ` 이 달 해제(취소)된 거래 ${formatCount(sale.cancelledCount)}건은 제외했어요.`}
         </p>
         <p>{DATA_SOURCES.trades.reportingNote}</p>
         <p>

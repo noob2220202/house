@@ -73,7 +73,9 @@ const median = (values: readonly number[]): number | null => {
   if (values.length === 0) return null;
   const s = [...values].sort((a, b) => a - b);
   const mid = Math.floor(s.length / 2);
-  return s.length % 2 ? (s[mid] as number) : Math.round(((s[mid - 1] as number) + (s[mid] as number)) / 2);
+  return s.length % 2
+    ? (s[mid] as number)
+    : Math.round(((s[mid - 1] as number) + (s[mid] as number)) / 2);
 };
 const mean = (values: readonly number[]) =>
   values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null;
@@ -87,7 +89,9 @@ function summarizeSales(rows: readonly { price: number; exclusiveArea: number }[
     minPrice: prices.length ? Math.min(...prices) : null,
     maxPrice: prices.length ? Math.max(...prices) : null,
     avgPricePerPyeong: mean(
-      rows.filter((r) => r.exclusiveArea > 0).map((r) => r.price / (r.exclusiveArea / SQM_PER_PYEONG)),
+      rows
+        .filter((r) => r.exclusiveArea > 0)
+        .map((r) => r.price / (r.exclusiveArea / SQM_PER_PYEONG)),
     ),
   };
 }
@@ -128,7 +132,10 @@ const PUBLIC_LISTINGS = LISTINGS.filter((l) => l.status === 'ACTIVE' || l.status
 
 function regionView(entry: MockRegionEntry): SeoRegion {
   const own = (key: string | null) => inRegion(key, entry.code);
-  const listingCounts = Object.fromEntries(ASSET_TYPES.map((t) => [t, 0])) as Record<AssetType, number>;
+  const listingCounts = Object.fromEntries(ASSET_TYPES.map((t) => [t, 0])) as Record<
+    AssetType,
+    number
+  >;
   for (const l of PUBLIC_LISTINGS) if (own(regionKeyOf(l.emdCode))) listingCounts[l.assetType] += 1;
   return {
     ...entry,
@@ -152,13 +159,18 @@ export function mockRegionIndex(): SeoRegionIndex {
     tradePeriod: TRADE_WINDOW,
     regions: REGION_ENTRIES.map(regionView).filter(
       (r) =>
-        r.complexCount > 0 || r.saleTradeCount > 0 || Object.values(r.listingCounts).some((n) => n > 0),
+        r.complexCount > 0 ||
+        r.saleTradeCount > 0 ||
+        Object.values(r.listingCounts).some((n) => n > 0),
     ),
     updatedAt: UPDATED_AT,
   };
 }
 
-export function mockRegionLanding(code: string, assetTypes: readonly AssetType[]): SeoRegionLanding | null {
+export function mockRegionLanding(
+  code: string,
+  assetTypes: readonly AssetType[],
+): SeoRegionLanding | null {
   const key = regionKeyOf(code) ?? code;
   const entry = REGION_ENTRIES.find((r) => r.code === key);
   if (!entry) return null;
@@ -170,7 +182,9 @@ export function mockRegionLanding(code: string, assetTypes: readonly AssetType[]
     const rows = listings.filter((l) => l.dealType === dealType);
     if (!rows.length) return [];
     const prices = rows.map((l) => l.priceSort ?? 0).filter((p) => p > 0);
-    const rents = rows.flatMap((l) => (dealType === DealType.MONTHLY && l.monthlyRent ? [l.monthlyRent] : []));
+    const rents = rows.flatMap((l) =>
+      dealType === DealType.MONTHLY && l.monthlyRent ? [l.monthlyRent] : [],
+    );
     return [
       {
         dealType,
@@ -200,31 +214,54 @@ export function mockRegionLanding(code: string, assetTypes: readonly AssetType[]
         approvalDate: spec.approvalDate,
         activeListingCount: spec.counts.reduce((a, b) => a + b, 0),
         latestSale: sale
-          ? { price: sale.price as number, dealDate: sale.dealDate, exclusiveArea: sale.exclusiveArea, floor: sale.floor }
+          ? {
+              price: sale.price as number,
+              dealDate: sale.dealDate,
+              exclusiveArea: sale.exclusiveArea,
+              floor: sale.floor,
+            }
           : null,
       };
     })
-    .sort((a, b) => b.activeListingCount - a.activeListingCount || (b.households ?? 0) - (a.households ?? 0));
+    .sort(
+      (a, b) =>
+        b.activeListingCount - a.activeListingCount || (b.households ?? 0) - (a.households ?? 0),
+    );
   const own = TRADES.filter(
-    (t) => inRegion(t.regionKey, key) && t.dealYm >= TRADE_WINDOW.fromYm && t.dealYm <= TRADE_WINDOW.toYm,
+    (t) =>
+      inRegion(t.regionKey, key) &&
+      t.dealYm >= TRADE_WINDOW.fromYm &&
+      t.dealYm <= TRADE_WINDOW.toYm,
   );
   const sales = own.filter((t) => t.dealType === 'SALE' && t.price);
-  const deposits = own.filter((t) => t.dealType === 'JEONSE' && t.deposit).map((t) => t.deposit as number);
+  const deposits = own
+    .filter((t) => t.dealType === 'JEONSE' && t.deposit)
+    .map((t) => t.deposit as number);
   return {
     region: regionView(entry),
     assetTypes: types,
     listings: {
       total: listings.length,
       byDealType,
-      lastPublishedAt: listings.map((l) => l.publishedAt ?? '').sort().pop() || null,
+      lastPublishedAt:
+        listings
+          .map((l) => l.publishedAt ?? '')
+          .sort()
+          .pop() || null,
     },
     complexes,
     complexTotal: specs.length,
     trades: types.includes(AssetType.APT)
       ? {
           ...TRADE_WINDOW,
-          sale: summarizeSales(sales.map((t) => ({ price: t.price as number, exclusiveArea: t.exclusiveArea }))),
-          jeonse: { count: deposits.length, avgDeposit: mean(deposits), medianDeposit: median(deposits) },
+          sale: summarizeSales(
+            sales.map((t) => ({ price: t.price as number, exclusiveArea: t.exclusiveArea })),
+          ),
+          jeonse: {
+            count: deposits.length,
+            avgDeposit: mean(deposits),
+            medianDeposit: median(deposits),
+          },
           recent: [...sales]
             .sort((a, b) => (a.dealDate < b.dealDate ? 1 : -1))
             .slice(0, 10)
@@ -252,17 +289,20 @@ export function mockTradeReport(ym: number | undefined): SeoTradeReport | null {
   const summary = (m: number) => {
     const rows = rowsOf(m);
     return rows.length
-      ? summarizeSales(rows.map((t) => ({ price: t.price as number, exclusiveArea: t.exclusiveArea })))
+      ? summarizeSales(
+          rows.map((t) => ({ price: t.price as number, exclusiveArea: t.exclusiveArea })),
+        )
       : null;
   };
   const rows = rowsOf(target);
   const regions = new Map<string, MockTrade[]>();
-  for (const t of rows) regions.set(t.regionKey ?? t.emdName, [...(regions.get(t.regionKey ?? t.emdName) ?? []), t]);
+  for (const t of rows)
+    regions.set(t.regionKey ?? t.emdName, [...(regions.get(t.regionKey ?? t.emdName) ?? []), t]);
   const complexes = new Map<string, MockTrade[]>();
   for (const t of rows) complexes.set(t.complexId, [...(complexes.get(t.complexId) ?? []), t]);
-  const deposits = TRADES.filter((t) => t.dealYm === target && t.dealType === 'JEONSE' && t.deposit).map(
-    (t) => t.deposit as number,
-  );
+  const deposits = TRADES.filter(
+    (t) => t.dealYm === target && t.dealType === 'JEONSE' && t.deposit,
+  ).map((t) => t.deposit as number);
   const prev = addMonths(target, -1);
   const yearAgo = addMonths(target, -12);
   const prevSummary = summary(prev);
@@ -274,7 +314,9 @@ export function mockTradeReport(ym: number | undefined): SeoTradeReport | null {
     latestYearMonth: latest,
     availableMonths: months,
     sale: {
-      ...summarizeSales(rows.map((t) => ({ price: t.price as number, exclusiveArea: t.exclusiveArea }))),
+      ...summarizeSales(
+        rows.map((t) => ({ price: t.price as number, exclusiveArea: t.exclusiveArea })),
+      ),
       cancelledCount: 0,
     },
     jeonse: { count: deposits.length, avgDeposit: mean(deposits), medianDeposit: median(deposits) },
@@ -286,7 +328,9 @@ export function mockTradeReport(ym: number | undefined): SeoTradeReport | null {
         return {
           regionCode: entry?.code ?? null,
           name: entry?.emdName ?? list[0]?.emdName ?? key,
-          sale: summarizeSales(list.map((t) => ({ price: t.price as number, exclusiveArea: t.exclusiveArea }))),
+          sale: summarizeSales(
+            list.map((t) => ({ price: t.price as number, exclusiveArea: t.exclusiveArea })),
+          ),
         };
       })
       .sort((a, b) => b.sale.count - a.sale.count),

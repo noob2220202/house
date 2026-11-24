@@ -54,7 +54,9 @@ export default async function AboutPage() {
     ? {
         regions: index.regions.length,
         listings: index.regions
-          .filter((r) => r.code.length === 8 || !index.regions.some((p) => p.code === r.code.slice(0, 8)))
+          .filter(
+            (r) => r.code.length === 8 || !index.regions.some((p) => p.code === r.code.slice(0, 8)),
+          )
           .reduce((n, r) => n + Object.values(r.listingCounts).reduce((a, x) => a + x, 0), 0),
       }
     : null;

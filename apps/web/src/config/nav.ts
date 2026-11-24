@@ -30,6 +30,10 @@ export const ROUTES = {
   report: '/support/report',
   terms: (type: 'service' | 'privacy' | 'location' | 'brokerage-fee' | 'false-listing') =>
     `/terms/${type}`,
+  /** SEO / GEO pages (w-seo; landing URLs are built by `SEO_ROUTES` in lib/seo/regions). */
+  regions: '/suncheon',
+  about: '/about',
+  tradeReport: '/reports/suncheon-apartment-trades',
 } as const;
 
 export type MapAssetSlug = 'apt' | 'oneroom' | 'house' | 'commercial' | 'land';
@@ -99,6 +103,8 @@ export const FOOTER_COLUMNS: readonly {
     links: [
       { label: '내놓기 · 구하기', href: ROUTES.deal },
       { label: '중개사무소 찾기', href: ROUTES.agencies },
+      { label: '순천 지역별 시세', href: ROUTES.regions },
+      { label: '아파트 실거래 리포트', href: ROUTES.tradeReport },
       { label: '커뮤니티', href: ROUTES.community },
       { label: '허위매물 신고', href: ROUTES.report },
     ],
@@ -116,6 +122,7 @@ export const FOOTER_COLUMNS: readonly {
   {
     title: '고객지원',
     links: [
+      { label: '서비스 소개', href: ROUTES.about },
       { label: '공지사항', href: ROUTES.notices },
       { label: '자주 묻는 질문', href: ROUTES.faq },
       { label: '광고 문의', href: ROUTES.adInquiry },

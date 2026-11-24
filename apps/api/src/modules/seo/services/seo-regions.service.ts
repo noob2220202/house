@@ -378,9 +378,7 @@ export class SeoRegionsService {
     let trades: SeoRegionLandingView['trades'] = null;
     if (wantsTrades) {
       const resolve = regionNameResolver(index);
-      const own = tradeRows.filter((t) =>
-        inRegion(t.complexRegionKey ?? resolve(t.emdName), key),
-      );
+      const own = tradeRows.filter((t) => inRegion(t.complexRegionKey ?? resolve(t.emdName), key));
       const sales = own.filter((t) => t.dealType === 'SALE' && t.price !== null && t.price > 0);
       const recent: SeoTradeItem[] = [...sales]
         .sort((a, b) => b.dealDate.getTime() - a.dealDate.getTime())

@@ -192,6 +192,15 @@ describe('reports (e2e)', () => {
       const { session } = await adminActor(t, AdminRole.OPERATOR);
       const res = await as(t, session, 'get', `/admin/reports/${reportId}`).expect(200);
       expect(res.body).toMatchObject({ id: reportId, reason: ReportReason.NOT_EXIST });
+      // The target card shows the listing's 종류, 거래 형태·가격 and facts without a second call.
+      expect(res.body.listing).toMatchObject({
+        assetType: expect.any(String),
+        dealType: expect.any(String),
+        photoCount: expect.any(Number),
+      });
+      expect(res.body.listing).toHaveProperty('salePrice');
+      expect(res.body.listing).toHaveProperty('complexName');
+      expect(res.body.listing).toHaveProperty('exclusiveArea');
       expectCode(
         await as(t, session, 'get', '/admin/reports/01890a5d-ac96-774b-bcce-b302099a8057').expect(
           404,
