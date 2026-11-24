@@ -1,12 +1,18 @@
 import {
+  effectiveRoomType,
   floorClassOf,
+  landCategoryOf,
+  landZoneOf,
   priceSortOf,
   searchAreaOf,
   type AssetType,
   type DealType,
   type Direction,
   type FloorClass,
+  type LandCategory,
+  type LandZone,
   type ListingPriceFields,
+  type RoomType,
 } from '@house/shared';
 
 /** Property values (numbers, not Decimals) that feed the denormalized listing search columns. */
@@ -24,9 +30,13 @@ export interface PropertySearchSource {
   landArea: number | null;
   totalFloorArea: number | null;
   rooms: number | null;
+  roomType: RoomType | null;
   baths: number | null;
   direction: Direction | null;
   approvalDate: Date | null;
+  /** 용도지역 / 지목 as entered (free text). */
+  zoning: string | null;
+  landCategory: string | null;
 }
 
 export interface PropertySearchColumns {
@@ -38,6 +48,9 @@ export interface PropertySearchColumns {
   lng: number;
   exclusiveArea: number | null;
   rooms: number | null;
+  roomType: RoomType | null;
+  landZone: LandZone | null;
+  landCategory: LandCategory | null;
   baths: number | null;
   direction: Direction | null;
   floorClass: FloorClass | null;
@@ -58,6 +71,9 @@ export function propertySearchColumns(
     lng: p.lng,
     exclusiveArea: searchAreaOf(p),
     rooms: p.rooms,
+    roomType: effectiveRoomType(p.assetType, p.roomType, p.rooms),
+    landZone: landZoneOf(p.zoning),
+    landCategory: landCategoryOf(p.landCategory),
     baths: p.baths,
     direction: p.direction,
     floorClass: floorClassOf(p.floor, p.totalFloors),

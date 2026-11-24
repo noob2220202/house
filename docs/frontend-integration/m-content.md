@@ -9,9 +9,17 @@ Code: `apps/admin/src/features/m-content/**`, routes under
 `(console)/settings/{page.tsx,site,terms,social-login,admins,audit-logs}`.
 (`(console)/settings/account` belongs to m-core.)
 
-None of the backend controllers exist yet (module READMEs + Prisma models + shared zod schemas
-only). Paths follow `apps/api/src/modules/{admin,complexes}/README.md`; every **payload shape** is an
-assumption parsed by exactly one zod schema in `features/m-content/api/schemas.ts` (responses) or
+> **Status (2026-11-24):** every endpoint below — the "assumed" ones included — exists in
+> `apps/api` (`modules/admin/controllers/*`, `modules/complexes/controllers/admin-*`) and the console
+> calls it. Changed since the frontend gate (the admin code is authoritative): complex photos are
+> **one whole-list call**, `PUT /admin/complexes/:id/photos { items: [{ mediaId, caption }] }` → the
+> new list (order = display order, first = 대표 사진, left-out photos are removed) — there is no
+> per-photo POST / PATCH / DELETE or `photos/order`; `DELETE /admin/admins/:id` is a soft delete
+> (DISABLED, e-mail released) and `POST /admin/admins/:id/unlock` lifts a second-factor lockout;
+> `HOME_LAYOUT` is a real shared site setting (D9) that the user-site home follows. "Assumed" below
+> is the wording of the gate, kept for history.
+
+Each **payload shape** is parsed by exactly one zod schema in `features/m-content/api/schemas.ts` (responses) or
 `api/inputs.ts` (request bodies — these mirror `packages/shared/src/schemas/admin.ts` where a shared
 schema exists). Reconcile by editing the schema and the mock fixture together.
 
@@ -127,9 +135,8 @@ Notes on these:
 | GET            | `/api/v1/admin/complexes/:id`                                                                                                                | OPERATOR    | —                                                                                                      | `complexDetailSchema`: all fact columns + `areaTypes[]` (with `tradeCount`, `lastSalePrice`), `photos[]` (`{ id, mediaId, url, width, height, caption, sortOrder }`), `trades: { total, unmatched, lastDealDate }`, `favoriteCount` |
 | POST           | `/api/v1/admin/complexes/:id/area-types`                                                                                                     | OPERATOR    | `areaTypeFormSchema`: `{ exclusiveArea, supplyArea, typeName, pyeongLabel, households, rooms, baths }` | the 평형; `409 AREA_TYPE_EXISTS` on a duplicate `(exclusiveArea, typeName)`                                                                                                                                                         |
 | PATCH / DELETE | `/api/v1/admin/complexes/:id/area-types/:areaTypeId`                                                                                         | OPERATOR    | same body                                                                                              | the 평형 / `204`                                                                                                                                                                                                                    |
-| POST           | `/api/v1/admin/complexes/:id/photos`                                                                                                         | OPERATOR    | `{ mediaId, caption? }` (file uploaded first via `/admin/media`)                                       | the photo; `409 COMPLEX_PHOTO_LIMIT` (20), `409 COMPLEX_PHOTO_EXISTS`, `400 MEDIA_NOT_USABLE`                                                                                                                                       |
-| PATCH / DELETE | `/api/v1/admin/complexes/:id/photos/:photoId`                                                                                                | OPERATOR    | `{ caption }`                                                                                          | the photo / `204`                                                                                                                                                                                                                   |
-| PUT            | `/api/v1/admin/complexes/:id/photos/order`                                                                                                   | OPERATOR    | `{ ids: string[] }`                                                                                    | `204`; first = 대표 사진                                                                                                                                                                                                            |
+| PUT            | `/api/v1/admin/complexes/:id/photos`                                                                                                         | OPERATOR    | `{ items: [{ mediaId, caption? }] }` — the whole list (file uploaded first via `/admin/media`)         |
+| POST           | `/api/v1/admin/admins/:id/unlock`                                                                                                            | SUPER_ADMIN | —                                                                                                      |
 | POST           | `/api/v1/admin/admins/:id/reset-totp`                                                                                                        | SUPER_ADMIN | —                                                                                                      | the account with `totpEnabled: false`; clears the secret + recovery codes, destroys sessions                                                                                                                                        |
 | POST           | `/api/v1/admin/admins/:id/reset-password`                                                                                                    | SUPER_ADMIN | `{ password }`                                                                                         | the account; unlocks it, destroys sessions                                                                                                                                                                                          |
 | GET            | `/api/v1/admin/social-login`                                                                                                                 | ADMIN       | —                                                                                                      | `{ items: [{ provider: KAKAO\|NAVER\|GOOGLE, enabled, healthy, clientIdMasked, callbackUrl, lastSuccessAt, last24h: { success, failure }, userShare, message }] }` — secrets are never returned                                     |
@@ -148,21 +155,13 @@ Notes on these:
 - **Complex `emdCode` → `sggCode`.** The form only sends `emdCode` (+ free-text `emdName`); the
   backend derives `sggCode` from it.
 
-## 메인 화면 편집 (stub)
+## 메인 화면 편집
 
-The backend has no model for the home layout, so the editor stores
-`{ sections: [{ key, visible }] }` under the **assumed** site-setting key `HOME_LAYOUT`
-(`HOME_SECTION_KEYS` in `api/schemas.ts`: `HERO_SEARCH`, `CATEGORY_TILES`, `MAIN_BANNER`,
-`POPULAR_COMPLEXES`, `NEW_LISTINGS`, `DEAL_REQUEST_CTA`, `FEATURED_AGENCIES`, `LOCAL_VIDEOS`,
-`NOTICES`, `APP_BAND`). `HERO_SEARCH` is locked first and visible. Saving works end to end against
-the mock, and the screen says clearly that the user site does not follow it yet. To finish:
-
-1. add `HOME_LAYOUT` to `SiteSettingKey` / `siteSettingSchemas` and expose it in
-   `GET /site-settings/public`;
-2. make `apps/web` home (w-home) render its sections in that order and skip hidden ones;
-3. remove the "연동 준비 단계" notice in `home/HomeEditorView.tsx`.
-
-If the backend prefers not to support this, delete the route and the tab (`ContentTabs.tsx`).
+The editor stores `{ sections: [{ key, visible }] }` under the shared site-setting key
+`HOME_LAYOUT` (D9; `HOME_SECTION_KEYS` in `api/schemas.ts` = shared `HomeSectionKey`).
+`HERO_SEARCH` is locked first and visible. The setting is part of `GET /site-settings/public` and
+the user-site home renders its sections in that order and skips hidden ones
+(`apps/web/src/features/w-home/lib/home-layout.ts`).
 
 ## Mock resources (all under `apps/admin/src/app/mock-api/v1/admin/`)
 
@@ -189,7 +188,7 @@ BarList).
 
 ## Open points for the integrator
 
-1. `HOME_LAYOUT` (above).
+1. ~~`HOME_LAYOUT`~~ — done (D9, above).
 2. Filters on the admin list endpoints (`q`, `status`, `role`, `missing`, `sort`) are assumed.
 3. `reconsentUserCount` on publish and `consentCount` per version are display extras — the UI hides
    them when null.

@@ -4,9 +4,17 @@ Scope: `apps/admin/src/app/(console)/{agencies,listings,reports,deal-requests,us
 `apps/admin/src/features/m-moderation/**`, and the mock resources listed below. See
 `docs/FRONTEND.md` for conventions.
 
-None of the admin controllers exist yet (`apps/api/src/modules/*` are READMEs + Prisma only), so
-every **payload shape** below is an assumption derived from the module READMEs, the Prisma models
-and `packages/shared`. Each response is parsed by exactly one zod schema in
+> **Status (2026-11-24):** every endpoint below exists in `apps/api` and the console calls it.
+> Changed since the frontend gate (the admin code is authoritative): the private document stream is
+> **`GET /admin/agencies/:id/documents/:docId/file`**; the registry re-check is
+> **`GET /admin/agencies/:id/registry-check?refresh=1`** (plain `GET` = cached result); 검토 시작 is
+> **`PATCH /admin/reports/:id { status: IN_REVIEW }`** (`reportReviewSchema`) and the memo is the
+> same `PATCH` with `{ note }` — there is **one note per report** (`resolutionNote`, no separate
+> `internalNote` column); `POST /admin/reports/:id/resolve` takes the final decision only
+> (`RESOLVED` + action, or `REJECTED`). Report `attachments` are still not sent by the API (the
+> admin shows "첨부된 증빙 자료가 없어요"). "Assumed" below is the wording of the gate.
+
+Each response is parsed by exactly one zod schema in
 `apps/admin/src/features/m-moderation/api/schemas.ts`, and
 `api/schemas.test.ts` asserts that every mock fixture parses with it — reconcile the schema and the
 fixture together.
@@ -36,35 +44,35 @@ fixture together.
 
 ## Endpoints used
 
-| Method | Path                                                       | Used by                               | Backend status                                      |
-| ------ | ---------------------------------------------------------- | ------------------------------------- | --------------------------------------------------- |
-| GET    | `/api/v1/admin/agencies?status&q&page&pageSize`            | agencies list + counts                | agencies README (`?status`) — `q` assumed           |
-| GET    | `/api/v1/admin/agencies/:id`                               | agency detail                         | agencies README — shape assumed (1)                 |
-| GET    | `/api/v1/admin/agencies/:id/documents/:docId`              | private document viewer (file stream) | agencies README ("private file")                    |
-| POST   | `/api/v1/admin/agencies/:id/decision`                      | 승인 / 반려 / 정지 / 정지 해제        | agencies README, body = `agencyDecisionSchema`      |
-| GET    | `/api/v1/admin/reports?status&targetType&page&pageSize`    | reports list + counts                 | admin README, `reportListQuerySchema` — `q` assumed |
-| GET    | `/api/v1/admin/reports/:id`                                | report detail                         | admin README — shape assumed (3)                    |
-| PATCH  | `/api/v1/admin/reports/:id`                                | internal memo `{ internalNote }`      | admin README ("GET/PATCH") — body + column assumed  |
-| POST   | `/api/v1/admin/reports/:id/resolve`                        | 검토 시작 / 조치 / 기각               | admin README, body = `reportResolveSchema`          |
-| GET    | `/api/v1/admin/users?q&status&role&provider&page&pageSize` | users list + counts                   | admin README ("list/search") — params assumed       |
-| POST   | `/api/v1/admin/users/:id/suspend`                          | 이용 정지 `{ reason }`                | admin README — body assumed                         |
-| POST   | `/api/v1/admin/users/:id/unsuspend`                        | 정지 해제 (no body)                   | admin README                                        |
+| Method | Path                                                       | Used by                                            | Backend status                                      |
+| ------ | ---------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------- |
+| GET    | `/api/v1/admin/agencies?status&q&page&pageSize`            | agencies list + counts                             | agencies README (`?status`) — `q` assumed           |
+| GET    | `/api/v1/admin/agencies/:id`                               | agency detail                                      | agencies README — shape assumed (1)                 |
+| GET    | `/api/v1/admin/agencies/:id/documents/:docId/file`         | private document viewer (file stream)              | agencies module ("private file")                    |
+| POST   | `/api/v1/admin/agencies/:id/decision`                      | 승인 / 반려 / 정지 / 정지 해제                     | agencies README, body = `agencyDecisionSchema`      |
+| GET    | `/api/v1/admin/reports?status&targetType&page&pageSize`    | reports list + counts                              | admin README, `reportListQuerySchema` — `q` assumed |
+| GET    | `/api/v1/admin/reports/:id`                                | report detail                                      | admin README — shape assumed (3)                    |
+| PATCH  | `/api/v1/admin/reports/:id`                                | 검토 시작 `{ status: IN_REVIEW }`, memo `{ note }` | `reportReviewSchema`                                |
+| POST   | `/api/v1/admin/reports/:id/resolve`                        | 조치 / 기각                                        | body = `reportResolveSchema`                        |
+| GET    | `/api/v1/admin/users?q&status&role&provider&page&pageSize` | users list + counts                                | admin README ("list/search") — params assumed       |
+| POST   | `/api/v1/admin/users/:id/suspend`                          | 이용 정지 `{ reason }`                             | admin README — body assumed                         |
+| POST   | `/api/v1/admin/users/:id/unsuspend`                        | 정지 해제 (no body)                                | admin README                                        |
 
 ## Assumed endpoints (not in any backend README — please confirm or rename)
 
-| Method | Path                                        | Purpose                                                                                                                                                                                                            |
-| ------ | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| POST   | `/api/v1/admin/agencies/:id/registry-check` | Re-run the 국가공간정보 중개업소 조회 for an application → `registryCheckSchema`. The detail response also embeds the latest result as `registryCheck`.                                                            |
-| GET    | `/api/v1/admin/listings`                    | Moderator listing search. Query: `q`, `status`, `assetType`, `dealType`, `agencyId`, `needsReview=true`, `sort=LATEST\|REPORTS\|VIEWS\|PRICE_DESC`, `page`, `pageSize`. DRAFT listings are excluded.               |
-| GET    | `/api/v1/admin/listings/:id`                | Full listing for moderation incl. the **private 호수**, co-brokers, 실매물 확인 records, reports, change history (from the audit log).                                                                             |
-| POST   | `/api/v1/admin/listings/:id/hide`           | `{ reason }` (5–500 chars). ACTIVE / RESERVED → HIDDEN; the reason is sent to every advertising office. `409 LISTING_STATUS_CONFLICT` otherwise.                                                                   |
-| POST   | `/api/v1/admin/listings/:id/unhide`         | `{ reason? }`. HIDDEN → ACTIVE.                                                                                                                                                                                    |
-| POST   | `/api/v1/admin/listings/:id/close`          | `{ reason }`. ACTIVE / RESERVED / HIDDEN → CLOSED (force close; cannot be re-opened by the office).                                                                                                                |
-| GET    | `/api/v1/admin/deal-requests`               | 내놓기·구하기 monitoring, newest first. Query: `q`, `type`, `status`, `spam=flagged\|suspected`, `page`, `pageSize`.                                                                                               |
-| GET    | `/api/v1/admin/deal-requests/:id`           | Request incl. the requester's contact, targets, proposals, contact grants, abuse signals, history. Personal data → audit-logged read.                                                                              |
-| POST   | `/api/v1/admin/deal-requests/:id/spam-flag` | `{ flagged: boolean, reason? }` (reason required, ≥ 5 chars, when `flagged`). A flagged request is hidden from every office until cleared.                                                                         |
-| POST   | `/api/v1/admin/deal-requests/:id/close`     | `{ reason }`. OPEN / MATCHED → CLOSED. `409 DEAL_REQUEST_NOT_OPEN` otherwise.                                                                                                                                      |
-| GET    | `/api/v1/admin/users/:id`                   | Member detail with linked identities + consents + sanctions. Personal data → the API must write an audit-log entry (e.g. `USER_VIEWED`) per read; the UI tells the admin so and never refetches in the background. |
+| Method | Path                                                    | Purpose                                                                                                                                                                                                            |
+| ------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/api/v1/admin/agencies/:id/registry-check[?refresh=1]` | The 국가공간정보 중개업소 조회 for an application (cached; `refresh=1` re-runs it) → `registryCheckSchema`. The detail response also embeds the latest result as `registryCheck`.                                  |
+| GET    | `/api/v1/admin/listings`                                | Moderator listing search. Query: `q`, `status`, `assetType`, `dealType`, `agencyId`, `needsReview=true`, `sort=LATEST\|REPORTS\|VIEWS\|PRICE_DESC`, `page`, `pageSize`. DRAFT listings are excluded.               |
+| GET    | `/api/v1/admin/listings/:id`                            | Full listing for moderation incl. the **private 호수**, co-brokers, 실매물 확인 records, reports, change history (from the audit log).                                                                             |
+| POST   | `/api/v1/admin/listings/:id/hide`                       | `{ reason }` (5–500 chars). ACTIVE / RESERVED → HIDDEN; the reason is sent to every advertising office. `409 LISTING_STATUS_CONFLICT` otherwise.                                                                   |
+| POST   | `/api/v1/admin/listings/:id/unhide`                     | `{ reason? }`. HIDDEN → ACTIVE.                                                                                                                                                                                    |
+| POST   | `/api/v1/admin/listings/:id/close`                      | `{ reason }`. ACTIVE / RESERVED / HIDDEN → CLOSED (force close; cannot be re-opened by the office).                                                                                                                |
+| GET    | `/api/v1/admin/deal-requests`                           | 내놓기·구하기 monitoring, newest first. Query: `q`, `type`, `status`, `spam=flagged\|suspected`, `page`, `pageSize`.                                                                                               |
+| GET    | `/api/v1/admin/deal-requests/:id`                       | Request incl. the requester's contact, targets, proposals, contact grants, abuse signals, history. Personal data → audit-logged read.                                                                              |
+| POST   | `/api/v1/admin/deal-requests/:id/spam-flag`             | `{ flagged: boolean, reason? }` (reason required, ≥ 5 chars, when `flagged`). A flagged request is hidden from every office until cleared.                                                                         |
+| POST   | `/api/v1/admin/deal-requests/:id/close`                 | `{ reason }`. OPEN / MATCHED → CLOSED. `409 DEAL_REQUEST_NOT_OPEN` otherwise.                                                                                                                                      |
+| GET    | `/api/v1/admin/users/:id`                               | Member detail with linked identities + consents + sanctions. Personal data → the API must write an audit-log entry (e.g. `USER_VIEWED`) per read; the UI tells the admin so and never refetches in the background. |
 
 Every mutation returns the updated **detail** object (the screens put it straight into the query
 cache). Error shape `{ code, message, details?: [{ path, message }] }`; a `details` entry with
@@ -100,18 +108,17 @@ status, warningCount }, sameTargetCount }` — for a LISTING report `agency` is 
    office. Detail adds `reporter { id, nickname, reportCount, upheldCount }, reporterPhone,
 resolutionNote, internalNote, handledByName, attachments[] { id, url, fileName }, relatedReports[],
 timeline[] { status?, note, adminName, createdAt }`.
-   - **Two different notes.** `resolutionNote` is the outcome text written in the 조치 / 기각 dialog
-     and forwarded to the reporter (and to the office with a warning). `internalNote` is the
-     moderators' memo (`PATCH /admin/reports/:id { internalNote }`), never shown outside the back
-     office and never overwritten by a resolution. The Prisma `Report` model has only
-     `resolutionNote` today → **needs an additive `internal_note VARCHAR(2000)` column** (or memo
-     entries in the audit log). Do not store the memo in `resolutionNote`: the next resolution
-     would overwrite it, and a resolution sent without a note would publish the memo.
+   - **One note per report (as built).** The API keeps a single `resolutionNote`: the memo is
+     saved with `PATCH /admin/reports/:id { note }` while the report is open, and the resolution's
+     `note` replaces it (a blank note keeps the saved memo). The reporter / office notifications
+     carry the action label only, never the note. The schema maps `internalNote` ←
+     `resolutionNote` for the memo panel. (The gate asked for a separate `internal_note` column;
+     not built.)
    - `attachments` (evidence images) are **not** in `reportCreateSchema` yet; the screen shows
      "첨부된 증빙 자료가 없어요" when the array is empty/absent. The viewer loads `url` as a plain
      `<img>` request with the admin cookie (never through the image optimizer), so it can be an
      authorized streaming endpoint.
-   - `reportResolveSchema` is used as is: `{ status: IN_REVIEW }` (검토 시작), `{ status: RESOLVED,
+   - 검토 시작 = `PATCH { status: IN_REVIEW }`; `reportResolveSchema` for the outcome: `{ status: RESOLVED,
 action: LISTING_HIDDEN | AGENCY_WARNED | LISTING_HIDDEN_AGENCY_WARNED, note }` (조치), `{ status:
 REJECTED, action: NONE, note }` (기각). The UI requires a note for both final outcomes and at
      least one action for RESOLVED. Expected side effects: hide the listing (reason → offices) and/or
@@ -159,7 +166,7 @@ dealRequestCount, reportCount, favoriteCount, activeSessionCount }, sanctions[] 
   list still returns raw values because the m-core topbar-search mock matches on them; the UI masks
   them.)
 - Audit-logged reads the screens rely on (a notice says so on each): `GET /admin/users/:id`,
-  `GET /admin/agencies/:id` (applicant data), `GET /admin/agencies/:id/documents/:docId`,
+  `GET /admin/agencies/:id` (applicant data), `GET /admin/agencies/:id/documents/:docId/file`,
   `GET /admin/deal-requests/:id` (contact), `GET /admin/reports/:id` (reporter phone, evidence),
   `GET /admin/listings/:id` (private 호수, office contact phones).
 - The document viewer fetches the private file with `credentials: 'include'`, `cache: 'no-store'`,

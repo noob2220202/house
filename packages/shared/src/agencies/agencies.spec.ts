@@ -4,6 +4,7 @@ import {
   agencyLocationUpdateSchema,
   agencyMemberUpdateSchema,
   agencyRegisterSchema,
+  agencySearchQuerySchema,
   agencyUpdateSchema,
   businessHoursSchema,
   registrationNumberSchema,
@@ -165,6 +166,27 @@ describe('agency schemas', () => {
       false,
     );
     expect(businessHoursSchema.safeParse({ holiday: null }).success).toBe(false);
+  });
+
+  it('update takes logo and cover media ids (null removes them)', () => {
+    const id = '0192f2a0-0000-7000-8000-000000000001';
+    expect(agencyUpdateSchema.parse({ coverMediaId: id })).toMatchObject({ coverMediaId: id });
+    expect(agencyUpdateSchema.parse({ coverMediaId: null, logoMediaId: null })).toMatchObject({
+      coverMediaId: null,
+      logoMediaId: null,
+    });
+    expect(agencyUpdateSchema.safeParse({ coverMediaId: 'cover.png' }).success).toBe(false);
+  });
+
+  it('office search takes openNow / handlesPresale flags', () => {
+    expect(agencySearchQuerySchema.parse({ openNow: 'true', handlesPresale: '1' })).toMatchObject({
+      openNow: true,
+      handlesPresale: true,
+    });
+    const plain = agencySearchQuerySchema.parse({});
+    expect(plain.openNow).toBeUndefined();
+    expect(plain.handlesPresale).toBeUndefined();
+    expect(agencySearchQuerySchema.safeParse({ openNow: 'yes' }).success).toBe(false);
   });
 
   it('update needs at least one field and lat/lng together', () => {

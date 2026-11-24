@@ -55,7 +55,7 @@ interface RowProps {
  * read); an unread row without one is a button that marks it read; otherwise plain text.
  */
 export function AgentNotificationRow({ notification: n, onRead }: RowProps) {
-  const meta = notificationMeta(n.type, n.data);
+  const meta = notificationMeta(n.type);
   const href = agentNotificationHref(n);
   const unread = isUnread(n);
   const markRead = () => {

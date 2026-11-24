@@ -206,8 +206,11 @@ await api.post('/favorites', { listingId }); // CSRF header added automatically
 - Responses are **zod-parsed** when you pass `schema` — use `@house/shared` schemas when they exist,
   otherwise define the schema next to your feature.
 - Query arrays are sent as CSV (`deal=SALE,JEONSE`), matching `csvArray` in the backend.
-- Mutations send `x-csrf-token` = the readable `house_csrf` cookie (`GET /auth/csrf` issues it; a
-  `403 *CSRF*` is retried once). The session cookie is httpOnly and never read in JS.
+- Mutations send `x-csrf-token` = the session's CSRF token, kept **in memory** (`lib/api/csrf.ts`):
+  taken from the `csrfToken` of session-creating responses (web `POST /auth/signup`; admin login /
+  TOTP verify / activate / password) or fetched from `GET /auth/csrf` (admin: `GET /admin/auth/csrf`).
+  A `403 CSRF_FAILED` fetches a fresh token and retries once. The readable `house_csrf` cookie is
+  shared by web and admin, so it is not relied on. The session cookie is httpOnly and never read in JS.
 - Every failure is an `ApiError { status, code, message, details?, requestId? }` (network = status 0).
   `error.fieldErrors()` maps backend validation details to form fields; `errorMessage(e)` gives the
   Korean user-facing text.

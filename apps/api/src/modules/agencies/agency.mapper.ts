@@ -71,6 +71,11 @@ export class AgencyMapper {
     return logo && !logo.deletedAt ? this.media.publicUrl(logo, 'thumb') : null;
   }
 
+  /** Cover (header) image: the wide `large` variant. */
+  coverUrl(cover: (MediaRef & { deletedAt: Date | null }) | null): string | null {
+    return cover && !cover.deletedAt ? this.media.publicUrl(cover, 'large') : null;
+  }
+
   summary(a: AgencySummaryRow): AgencySummary {
     return {
       id: a.id,
@@ -108,6 +113,8 @@ export class AgencyMapper {
       intro: a.intro,
       businessHours: toBusinessHours(a.businessHours),
       logoMediaId: a.logoMediaId,
+      coverMediaId: a.coverMediaId,
+      coverUrl: this.coverUrl(a.cover),
       status: a.status,
       statusReason: a.statusReason,
       approvedAt: iso(a.approvedAt),

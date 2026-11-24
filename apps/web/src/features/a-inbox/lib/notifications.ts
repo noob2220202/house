@@ -24,7 +24,6 @@ export function isAgencyNotification(n: Pick<Notification, 'data'>): boolean {
 export function agentNotificationHref(n: Pick<Notification, 'type' | 'data'>): string | null {
   if (isAgencyNotification(n)) {
     const dealRequestId = str(n.data, 'dealRequestId');
-    const inquiryId = str(n.data, 'inquiryId');
     switch (n.type) {
       case NotificationType.DEAL_REQUEST_RECEIVED:
       case NotificationType.PROPOSAL_ACCEPTED:
@@ -32,7 +31,7 @@ export function agentNotificationHref(n: Pick<Notification, 'type' | 'data'>): s
       case NotificationType.PROPOSAL_RECEIVED:
         return dealRequestId ? INBOX_ROUTES.request(dealRequestId) : INBOX_ROUTES.requests;
       default:
-        if (inquiryId) return INBOX_ROUTES.inquiry(inquiryId);
+        // No inquiry inbox for launch (D5): a payload `inquiryId` leads nowhere of its own.
         if (dealRequestId) return INBOX_ROUTES.request(dealRequestId);
     }
   }

@@ -69,6 +69,10 @@ export function filterConditions(f: ListingFilter, bbox?: Bbox): Prisma.Sql[] {
   if (f.builtYearMax !== undefined) c.push(Prisma.sql`l.built_year <= ${f.builtYearMax}`);
   if (f.options?.length) c.push(Prisma.sql`l.options @> ${f.options}::listing_option[]`);
   if (f.verifiedOnly) c.push(Prisma.sql`l.verified_at IS NOT NULL`);
+  if (f.roomTypes?.length) c.push(Prisma.sql`l.room_type = ANY(${f.roomTypes}::room_type[])`);
+  if (f.landZones?.length) c.push(Prisma.sql`l.land_zone = ANY(${f.landZones}::land_zone[])`);
+  if (f.landCategories?.length)
+    c.push(Prisma.sql`l.land_category = ANY(${f.landCategories}::land_category[])`);
   if (f.complexId) c.push(Prisma.sql`l.complex_id = ${f.complexId}::uuid`);
   if (f.agencyId)
     c.push(Prisma.sql`EXISTS (SELECT 1 FROM listing_agencies la
@@ -320,6 +324,39 @@ export class ListingSearchRepository {
       WHERE la.listing_id = ANY(${ids}::uuid[])
         AND la.status = ${ListingAgencyStatus.ACTIVE}::listing_agency_status
       GROUP BY la.listing_id`;
+  }
+
+  /**
+   * Console text search (GET /agency/listings?q): ids of the agency's listings (ACTIVE membership,
+   * not deleted) whose 단지명, 건물명, 도로명·지번 주소, 동, 제목 or 매물번호 contain the text, spaces
+   * ignored on both sides ("레이크 파크" finds "레이크파크"). 호 is searched only on listings the
+   * agency is the primary of (co-brokers never see it). `listingNo` also matches exactly.
+   */
+  async agencyTextMatchIds(
+    agencyId: string,
+    text: string,
+    listingNo: number | null,
+  ): Promise<string[]> {
+    const squashed = text.replace(/\s+/g, '');
+    if (!squashed && listingNo === null) return [];
+    const pattern = `%${squashed.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT l.id::text AS id
+      FROM listings l
+      JOIN properties p ON p.id = l.property_id
+      LEFT JOIN complexes c ON c.id = l.complex_id
+      WHERE l.deleted_at IS NULL
+        AND EXISTS (SELECT 1 FROM listing_agencies la
+          WHERE la.listing_id = l.id AND la.agency_id = ${agencyId}::uuid
+            AND la.status = ${ListingAgencyStatus.ACTIVE}::listing_agency_status)
+        AND (
+          regexp_replace(concat_ws(' ', c.name, p.building_name, p.road_address, p.jibun_address,
+            p.dong, l.title, l.listing_no::text,
+            CASE WHEN l.primary_agency_id = ${agencyId}::uuid THEN p.ho END), '\\s+', '', 'g')
+            ILIKE ${pattern}
+          OR l.listing_no = ${listingNo}::int
+        )`;
+    return rows.map((r) => r.id);
   }
 
   async agencyCounts(ids: string[]): Promise<Map<string, number>> {

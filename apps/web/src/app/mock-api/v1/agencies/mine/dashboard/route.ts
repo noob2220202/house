@@ -23,7 +23,9 @@ export async function GET(req: NextRequest) {
     return mockError(500, 'INTERNAL_ERROR', '일시적인 오류가 발생했습니다.');
   }
   const empty = ctx.state.emptyDashboard || req.nextUrl.searchParams.get('_empty') === '1';
-  if (empty) return mockJson(emptyDashboard());
+  // The API always answers an empty `inquiries` block (D5); the frontend schema ignores it.
+  const inquiries = { unreadCount: 0, items: [] };
+  if (empty) return mockJson({ ...emptyDashboard(), inquiries });
   // The feed is the first rows of the inbox mock, in its own shape (agencyDealRequestSchema) —
   // the console home and the inbox then name a request the same way.
   const requests = [...inboxRequests()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -36,6 +38,6 @@ export async function GET(req: NextRequest) {
       newWantedCount: fresh.filter((r) => r.type === 'WANTED').length,
       items: requests.slice(0, 4).map((r) => agencyRequestDto(r)),
     },
-    inquiries: { unreadCount: 0, items: [] },
+    inquiries,
   });
 }

@@ -62,11 +62,12 @@ of the same asset type with the card's own id, name, prices, areas, floor, 동 a
 
 ### Agency dashboard feeds — `GET /api/v1/agencies/mine/dashboard`
 
-`dealRequests.items[]` = `agencyDealRequestSchema` rows and `inquiries.items[]` = `inquirySchema`
-rows — the first rows of `GET /agency/deal-requests` and `GET /agency/inquiries`, same shapes. The
-previously assumed dashboard-only fields (`title`, `summary`, `listingTitle`, `preview`, `read`,
-`proposed`) are **removed**; titles and summaries are rendered with `a-inbox/lib/request-text.ts`
-and `a-inbox/lib/inquiry.ts`, exactly like the inbox.
+`dealRequests.items[]` = `agencyDealRequestSchema` rows — the first rows of
+`GET /agency/deal-requests`, same shape. The previously assumed dashboard-only fields (`title`,
+`summary`, `proposed`) are **removed**; titles and summaries are rendered with
+`a-inbox/lib/request-text.ts`, exactly like the inbox. (`inquiries` is always empty in the API — D5,
+no inquiry backend for launch — and is not parsed; the inquiry feed and `a-inbox/lib/inquiry.ts`
+were removed.)
 
 ### Served banners — `GET /api/v1/banners?slot&regionCode&complexId`
 

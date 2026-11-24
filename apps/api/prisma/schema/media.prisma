@@ -20,6 +20,8 @@ enum MediaPurpose {
   COMPLEX_PHOTO
   DEAL_REQUEST_PHOTO
   AGENCY_LOGO
+  /// Wide header image of an agency's public page (PUBLIC, like the logo).
+  AGENCY_COVER
   AGENCY_DOCUMENT
   BANNER
   POPUP
@@ -61,6 +63,7 @@ model Media {
   dealRequestPhotos DealRequestPhoto[]
   agencyDocuments   AgencyDocument[]
   agencyLogos       Agency[]           @relation("AgencyLogo")
+  agencyCovers      Agency[]           @relation("AgencyCover")
   bannersPc         Banner[]           @relation("BannerPcMedia")
   bannersMobile     Banner[]           @relation("BannerMobileMedia")
   popups            Popup[]

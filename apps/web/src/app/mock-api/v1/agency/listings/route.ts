@@ -72,7 +72,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           l.property.roadAddress,
           l.property.jibunAddress,
           l.property.dong,
-          l.property.ho,
+          // Like the API: 호 is searched only on the office's own (primary) listings.
+          isPrimaryMine(l) ? l.property.ho : null,
           l.title,
           l.listingNo,
         ]

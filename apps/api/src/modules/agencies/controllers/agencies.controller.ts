@@ -1,4 +1,4 @@
-import type { AgencyMapResult, AgencyProfile, AgencySummary, Paginated } from '@house/shared';
+import type { AgencyMapResult, AgencyProfile, AgencySearchItem, Paginated } from '@house/shared';
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Public } from '../../../common/decorators';
@@ -13,7 +13,7 @@ export class AgenciesController {
   constructor(private readonly agencies: AgencyPublicService) {}
 
   @Get()
-  search(@Query() q: AgencySearchQueryDto): Promise<Paginated<AgencySummary>> {
+  search(@Query() q: AgencySearchQueryDto): Promise<Paginated<AgencySearchItem>> {
     return this.agencies.search(q);
   }
 

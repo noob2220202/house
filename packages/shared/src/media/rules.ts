@@ -41,6 +41,7 @@ export const MEDIA_PURPOSE_RULES: Record<MediaPurpose, MediaPurposeRule> = {
   COMPLEX_PHOTO: image([MediaUploader.ADMIN]),
   DEAL_REQUEST_PHOTO: image([MediaUploader.USER]),
   AGENCY_LOGO: image([MediaUploader.USER], 5 * MB),
+  AGENCY_COVER: image([MediaUploader.USER], 10 * MB),
   AGENCY_DOCUMENT: {
     kind: MediaKind.DOCUMENT,
     visibility: MediaVisibility.PRIVATE,

@@ -1,30 +1,33 @@
-# Frontend integration notes — a-inbox (broker inbox: 내놓기·구하기 requests, proposals, inquiries, notifications)
+# Frontend integration notes — a-inbox (broker inbox: 내놓기·구하기 requests, proposals, notifications)
 
-Scope: `apps/web/src/app/agent/{requests,requests/[id],inquiries,notifications}/**`,
+Scope: `apps/web/src/app/agent/{requests,requests/[id],notifications}/**`,
 `apps/web/src/features/a-inbox/**` and the mock resources listed below. See `docs/FRONTEND.md` for
 conventions. The console chrome (`app/agent/layout.tsx`, `<AgentShell>`, sidebar / tab bar) belongs
 to a-agency.
 
-The deal-requests module only has a README, the Prisma models and the shared schemas / enums /
-error codes — **no controller or response DTO yet** — and there is **no inquiry backend at all**. So
-the endpoint _paths_ of the request / proposal flow come from the module README, while every
-**response shape** below is an assumption. Each response is parsed by exactly one zod schema in
+> **Status (2026-11-24):** the inbox runs against the `deal-requests` module of `apps/api`
+> (`controllers/agency-deal-requests.controller.ts`, `notifications/`), built to the shapes below
+> (DECISIONS rule 2). **No inquiry backend for launch (D5):** the 문의함 was removed from the
+> frontend — `/agent/inquiries` only redirects to `/agent`, there is no inquiry code, query or mock,
+> and a notification payload with `inquiryId` has no destination. Sections that described the
+> inquiry contract were removed; the "assumed" wording below is kept for history.
+
+Each response is parsed by exactly one zod schema in
 `apps/web/src/features/a-inbox/api/schemas.ts`; reconcile the schema and its mock fixture together.
 
 ## Routes
 
-| Route                  | Who                  | What                                                                                                                                                                           |
-| ---------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/agent/requests`      | AGENT · AGENCY_OWNER | 내놓기·구하기 requests that reach the office. Stage tabs with counts, type / 지역 / 매물 종류 filters, sort, pagination — all in the query string.                             |
-| `/agent/requests/[id]` | AGENT · AGENCY_OWNER | Request detail (no private data), requester contact (masked until consent), proposal form **or** the proposal we sent (progress timeline, message, attached listings, 철회).   |
-| `/agent/inquiries`     | AGENT · AGENCY_OWNER | Messages / contact actions on the office's listings and office page: status tabs, channel filter, unread filter, search; `?id=` opens the detail drawer (reply, status, memo). |
-| `/agent/notifications` | AGENT · AGENCY_OWNER | Notification centre of the console: inbox counters + the member's notification feed with console deep links, 안 읽음 filter, 모두 읽음, cursor "더 보기".                      |
+| Route                  | Who                  | What                                                                                                                                                                         |
+| ---------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/agent/requests`      | AGENT · AGENCY_OWNER | 내놓기·구하기 requests that reach the office. Stage tabs with counts, type / 지역 / 매물 종류 filters, sort, pagination — all in the query string.                           |
+| `/agent/requests/[id]` | AGENT · AGENCY_OWNER | Request detail (no private data), requester contact (masked until consent), proposal form **or** the proposal we sent (progress timeline, message, attached listings, 철회). |
+| `/agent/notifications` | AGENT · AGENCY_OWNER | Notification centre of the console: inbox counters + the member's notification feed with console deep links, 안 읽음 filter, 모두 읽음, cursor "더 보기".                    |
 
-All four pages call `requireAgent()` on the server (signed-out → `/login?returnTo=…`, plain users →
+`/agent/inquiries` is not a page any more: it redirects to `/agent` (D5) so old bookmarks land
+somewhere. All three pages call `requireAgent()` on the server (signed-out → `/login?returnTo=…`, plain users →
 `/agent/apply`) and are `noindex` through the console layout. URL state:
 
 - `/agent/requests?stage=new|proposed|accepted|ended&type=sell|find&region=<emd,emd>&asset=<AssetType,…>&sort=expiring&page=N`
-- `/agent/inquiries?status=new|progress|done&channel=message|call|sms|copy&unread=1&q=…&page=N&id=<inquiryId>`
 
 Filter changes are shallow (`history.pushState`, no server round trip); defaults are left out of the
 URL. `INBOX_ROUTES` (`features/a-inbox/routes.ts`) holds the paths; `/agent/notifications` is new
@@ -54,11 +57,6 @@ the form fields.
 | Method | Path                                                                  | Purpose                                                                                                                                                                                                                                                                                  |
 | ------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GET    | `/api/v1/agency/deal-requests/:id/listing-candidates?q&page&pageSize` | The agency's **ACTIVE** listings that may be attached to a proposal (picker), `q` = title search, page envelope of `inboxListingSchema`. Can be replaced by `GET /agency/listings?status=ACTIVE&q=` if that returns the same fields — the client ranks by match itself (`lib/match.ts`). |
-| GET    | `/api/v1/agency/inquiries?status&channel&unreadOnly&q&page&pageSize`  | Contact log of the agency (assumption 7). Page envelope + `unreadCount` + `statusCounts`.                                                                                                                                                                                                |
-| GET    | `/api/v1/agency/inquiries/:id`                                        | One inquiry (deep link from a notification, drawer refresh). `404 NOT_FOUND` when it is not the caller's agency's.                                                                                                                                                                       |
-| PATCH  | `/api/v1/agency/inquiries/:id`                                        | Body `{ status?: NEW \| IN_PROGRESS \| DONE, memo?: string \| null (≤ 1,000), read?: true }` → the updated inquiry. Changing status / memo records the member as `handledByName`.                                                                                                        |
-| POST   | `/api/v1/agency/inquiries/:id/replies`                                | Body `{ message }` (1–1,000 chars) → the updated inquiry (reply appended, status → IN_PROGRESS if it was NEW, marked read). Only offered when `canReply` is true. `409` when the inquiry cannot be answered.                                                                             |
-| POST   | `/api/v1/agency/inquiries/read`                                       | Body `{ all: true }` (or `{ ids: string[] }`) → `{ updated, unreadCount }`. "모두 읽음".                                                                                                                                                                                                 |
 
 All of them: AGENT / AGENCY_OWNER of an APPROVED agency, scoped to the caller's agency; CSRF header
 on mutations.
@@ -118,29 +116,16 @@ exclusiveArea?, floorLabel?, rooms?, emdCode?, emdName?, complexId?, thumbUrl?, 
    2,000 limit are reserved for it. If the backend adds real columns (e.g. `offerPrice`, `offerDeposit`, `offerMonthlyRent` in
    만원), change `toProposalBody()` and `MyProposalCard` only. 구하기 proposals carry prices through
    the attached listings instead.
-7. **Inquiry** → `inquirySchema`:
-   `{ id, channel: MESSAGE | CALL | SMS | COPY, listing: InboxListing | null (null = office page),
-customerName? (masked; null = not signed in), message? (MESSAGE only), status: NEW | IN_PROGRESS |
-DONE, memo?, handledByName?, readAt?, createdAt, canReply, replies: [{ id, message, memberName?,
-createdAt }] }`; list = page envelope + `unreadCount` + `statusCounts { NEW, IN_PROGRESS, DONE }`
-   (for the current channel / unread / q filters, ignoring `status`).
-   The public site currently has **no message form** — "문의하기" opens the office's contact dialog
-   (전화 걸기 / 문자 보내기 / 번호 복사, see `w-listing.md`). The page is therefore built to work as a
-   **contact log** first: CALL / SMS / COPY rows are contact actions (they need a tracking call
-   from the listing / agency pages, e.g. `POST /listings/:id/contact-events { channel }`, which no
-   group sends yet) with status + private memo; MESSAGE rows and the reply box appear only when the
-   backend delivers written inquiries (`canReply: true`). No customer phone number is stored or
-   shown.
+7. ~~Inquiry~~ — dropped (D5: no inquiry backend for launch).
 8. **Listing candidates** → page of `InboxListing` (ACTIVE listings of the agency, any type); the
    mock returns them best-match first, the client ranks again and labels each row
    ("조건 일치" / which conditions differ). The match is a hint, never a filter.
 9. **Agency notifications** use the member's own feed (`GET /me/notifications`). To deep-link into
    the console the payload must carry `data.agencyId` plus `data.dealRequestId` (types
-   `DEAL_REQUEST_RECEIVED`, `PROPOSAL_ACCEPTED`, `CONTACT_GRANTED`) or `data.inquiryId` (new
-   inquiry, sent as `SYSTEM` until a dedicated type exists) — `lib/notifications.ts`. Without
-   `agencyId` a notification falls back to the my-page links (`/me/requests/:id` …), because an
-   agent's own 내놓기·구하기 lands in the same feed. A dedicated `INQUIRY_RECEIVED` type would be
-   cleaner.
+   `DEAL_REQUEST_RECEIVED`, `PROPOSAL_ACCEPTED`, `CONTACT_GRANTED`) — `lib/notifications.ts`.
+   Without `agencyId` a notification falls back to the my-page links (`/me/requests/:id` …), because
+   an agent's own 내놓기·구하기 lands in the same feed. A `data.inquiryId` is ignored (D5): such a row
+   gets the plain 알림 caption and no link.
 
 ## Mock resources (owned by this group)
 
@@ -154,7 +139,6 @@ createdAt }] }`; list = page envelope + `unreadCount` + `statusCounts { NEW, IN_
 | `deal-requests/_seed.ts`, `_listings.ts`         | 11 seeded requests of fictional people covering every stage (req-01 … req-11) and 16 ACTIVE listings of the mock office (ids reuse the public mocks). |
 | `deal-requests/_store.ts`                        | Agency view of the store, DTO mapping (name masking, contact only with a grant), guards, agency notifications.                                        |
 | `proposals/[id]/withdraw/route.ts`               | Withdraw.                                                                                                                                             |
-| `inquiries/**`                                   | List, detail / PATCH, replies, read; 15 seeded inquiries (2 unread).                                                                                  |
 
 `agency/listings/**` belongs to a-listings and is not touched.
 
@@ -166,9 +150,8 @@ createdAt }] }`; list = page envelope + `unreadCount` + `statusCounts { NEW, IN_
   the console to "제안 수락" / reveals the contact. Only _reading_ `deal-requests/_store.ts`,
   `deal-requests/_fixtures.ts` and `me/_store.ts` of the other groups — none of their files were
   edited.
-- Ids `req-01 … req-04` and `inq-01 … inq-03` match the a-agency dashboard feed, and the counters
-  match its badges (3 new requests, 2 unread inquiries) — but the dashboard aggregate is a separate
-  fixture, so its numbers do not move when the inbox state changes during a dev session.
+- The a-agency dashboard mock takes its request feed and 새 요청 badge from this store (ids
+  `req-01 …`), so they move with the inbox; its other numbers are a separate fixture.
 - State lives on `globalThis`; restarting the dev server resets it.
 
 ## Behaviour notes
@@ -191,11 +174,6 @@ createdAt }] }`; list = page envelope + `unreadCount` + `statusCounts { NEW, IN_
 - Requester photos (if any) open their `large` (else `medium`) variant in a new tab.
 - **Listing picker** loads one page (50). When `total` is larger it says so and points to the
   search box.
-- **Inquiries**: opening an unread inquiry marks it read (`PATCH { read: true }`); the list row is
-  shown instantly in the drawer and refreshed in the background; the drawer id lives in the URL so a
-  notification can deep-link to it and the back button closes it. Closing a drawer opened from a
-  row pops its history entry (`history.back()`); closing one that came with the URL (deep link,
-  reload) replaces the entry — either way no duplicate list entry is left behind.
 - Phones: the list toolbars wrap instead of scrolling sideways (every filter stays visible), and
   the notification counters are one compact row of three so the feed starts above the fold.
 - **After every mutation** the lists, counters and a-agency's dashboard query (sidebar badges) are
@@ -206,11 +184,10 @@ createdAt }] }`; list = page envelope + `unreadCount` + `statusCounts { NEW, IN_
 
 - The shell's topbar bell (a-agency) opens `/agent/notifications`, so the inbox pages carry no
   separate "알림" header button.
-- `GET /me/notifications` is one feed per user, so an agent's personal notifications (their own
-  내놓기·구하기, site notices) appear in the console feed too. A `scope=agency` filter on the
-  endpoint (or `data.agencyId` on every agency event) would let the console show only work items.
+- `GET /me/notifications` is one feed per user; the console asks for `scope=agency` (B5) and also
+  drops rows without the agency marker on the client, so personal notifications stay on the
+  my-page.
 - No realtime: the two lists refetch when the tab regains focus (once stale, 30 s), on navigation
   and after mutations — no polling, no push.
-- Contact-action tracking (`CALL` / `SMS` / `COPY`) is not sent by the public pages yet (see 7).
 - Requester-side "제안 확인(VIEWED)" is assumed to be set by the backend when the requester opens
   the proposal list.

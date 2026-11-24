@@ -10,6 +10,7 @@ import {
 /** A `ListingSummary` exactly as the listings mapper serializes it. */
 const wire: WireListingSummary = {
   id: 'L01',
+  listingNo: '100412',
   dealType: 'SALE',
   assetType: 'APT',
   status: 'ACTIVE',
@@ -28,6 +29,9 @@ const wire: WireListingSummary = {
   floorClass: 'HIGH',
   rooms: 3,
   baths: 2,
+  roomType: null,
+  landZone: null,
+  landCategory: null,
   direction: 'SOUTH',
   builtYear: 2019,
   roadAddress: '전남광주통합특별시 순천시 해룡면 신대2로 40',

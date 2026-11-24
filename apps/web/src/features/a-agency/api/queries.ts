@@ -196,6 +196,15 @@ export function removeMember(memberId: string) {
   return api.delete(`/agencies/mine/members/${encodeURIComponent(memberId)}`);
 }
 
+/**
+ * POST /agencies/membership/leave → 204. A 소속 중개사 (AGENT) leaves their office: the server turns
+ * the session into a plain member (role USER, no acting agency) and moves their ads to the 대표.
+ * The owner cannot leave (400 `AGENCY_OWNER_NOT_REMOVABLE`).
+ */
+export function leaveAgency() {
+  return api.post('/agencies/membership/leave');
+}
+
 export interface JoinAgencyInput {
   /** Normalized invite code (`normalizeInviteCode`). */
   code: string;

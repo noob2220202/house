@@ -130,16 +130,21 @@ function wirePrice(l: ListingSummary): number | null {
 /**
  * Card → the backend wire shape (`ListingSummary` of `@house/shared`, listings mapper): nested
  * `complex` / `coverPhoto`, `floorLabel`, `exclusiveAreaPyeong`. Fields the real API does not
- * serve (kindLabel, locationNote, roomType, landZone, sameBuildingCount, …) are left out, so mock
+ * serve (kindLabel, locationNote, sameBuildingCount, …) are left out, so mock
  * mode shows what production shows. Every route answering with listing cards sends this.
  */
 export function toListingWire(
   l: ListingSummary,
-  extra: { emdCode?: string | null; primaryAgency?: { id: string; name: string } } = {},
+  extra: {
+    emdCode?: string | null;
+    primaryAgency?: { id: string; name: string };
+    listingNo?: string | null;
+  } = {},
 ): WireListingSummary & { isFavorite?: boolean } {
   const cover = l.coverPhotoUrl;
   const out: WireListingSummary & { isFavorite?: boolean } = {
     id: l.id,
+    listingNo: extra.listingNo ?? null,
     dealType: l.dealType,
     assetType: l.assetType,
     status: l.status,
@@ -158,6 +163,9 @@ export function toListingWire(
     floorClass: l.floorClass ?? null,
     rooms: l.rooms ?? null,
     baths: l.baths ?? null,
+    roomType: l.roomType ?? null,
+    landZone: l.landZone ?? null,
+    landCategory: l.landCategory ?? null,
     direction: l.direction ?? null,
     builtYear: l.builtYear ?? null,
     roadAddress: l.roadAddress ?? `${DEFAULT_REGION_NAME} ${l.emdName ?? ''}`.trim(),

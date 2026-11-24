@@ -65,6 +65,8 @@ model Agency {
   businessHours      Json?                                  @map("business_hours")
   specialties        AssetType[]                            @default([])
   logoMediaId        String?                                @map("logo_media_id") @db.Uuid
+  /// Cover (header) image of the public page: PUBLIC media of purpose AGENCY_COVER.
+  coverMediaId       String?                                @map("cover_media_id") @db.Uuid
   status             AgencyStatus                           @default(PENDING)
   statusReason       String?                                @map("status_reason") @db.VarChar(1000)
   approvedAt         DateTime?                              @map("approved_at") @db.Timestamptz(3)
@@ -79,6 +81,7 @@ model Agency {
 
   owner           User                      @relation("AgencyOwner", fields: [ownerUserId], references: [id], onDelete: Restrict)
   logo            Media?                    @relation("AgencyLogo", fields: [logoMediaId], references: [id], onDelete: SetNull)
+  cover           Media?                    @relation("AgencyCover", fields: [coverMediaId], references: [id], onDelete: SetNull)
   members         AgencyMember[]
   documents       AgencyDocument[]
   statusHistory   AgencyStatusHistory[]
@@ -101,6 +104,7 @@ model Agency {
   @@index([representativeName(ops: raw("gin_trgm_ops"))], type: Gin, map: "agencies_representative_name_trgm_idx")
   @@index([status, createdAt])
   @@index([logoMediaId])
+  @@index([coverMediaId])
   @@index([registrationKey])
   @@map("agencies")
 }

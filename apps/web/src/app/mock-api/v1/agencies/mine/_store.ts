@@ -76,7 +76,7 @@ export function agencyContext(
   const role = mockSessionRole(req);
   if (!role) return mockUnauthenticated();
   if (options.mutation && !mockCsrfOk(req)) {
-    return mockError(403, 'CSRF_TOKEN_INVALID', '요청을 확인할 수 없습니다.');
+    return mockError(403, 'CSRF_FAILED', '요청을 확인할 수 없습니다.');
   }
   const state = agencyState();
   if (role === 'USER') {

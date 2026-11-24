@@ -19,3 +19,8 @@ export function kstDayStart(value: string): Date {
 export function kstToday(now: Date = new Date()): string {
   return new Date(now.getTime() + KST_OFFSET_MS).toISOString().slice(0, 10);
 }
+
+/** "YYYY-MM-DD" + `days` calendar days. */
+export function addDaysToDateOnly(value: string, days: number): string {
+  return new Date(Date.parse(`${value}T00:00:00.000Z`) + days * 86_400_000).toISOString().slice(0, 10);
+}

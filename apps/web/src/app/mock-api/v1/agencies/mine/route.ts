@@ -1,6 +1,5 @@
 import { agencyUpdateSchema } from '@house/shared';
 import type { NextRequest } from 'next/server';
-import { z } from 'zod';
 import type { Media } from '@/features/a-agency/api/schemas';
 import { mockDelay, mockError, mockForbidden, mockJson } from '@/lib/mock';
 import { mediaDto } from '../../media/_store';
@@ -24,14 +23,10 @@ export async function GET(req: NextRequest) {
 
 /**
  * Validates exactly like the API would: the shared `agencyUpdateSchema` (so a `null` intro, an
- * empty mobile or a missing `specialties` — defaulted to [] by zod — behave as they will for real)
- * plus ONLY the documented REQUIRED ADDITION still missing from it (integration doc, assumption 3):
- * `coverMediaId`. `mobile: null`, `businessHours` and `logoMediaId` are part of the shared schema.
- * `safeExtend` keeps the shared refinements (zod refuses `.extend` on a refined object).
+ * empty mobile or a missing `specialties` behave as they will for real). `mobile: null`,
+ * `businessHours`, `logoMediaId` (AGENCY_LOGO) and `coverMediaId` (AGENCY_COVER) are all part of it.
  */
-const patchSchema = agencyUpdateSchema.safeExtend({
-  coverMediaId: z.string().nullable().optional(),
-});
+const patchSchema = agencyUpdateSchema;
 
 // PATCH /api/v1/agencies/mine — AGENCY_OWNER only.
 export async function PATCH(req: NextRequest) {

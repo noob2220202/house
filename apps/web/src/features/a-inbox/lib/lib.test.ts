@@ -1,16 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { AgencyDealRequest, InboxListing, MyProposal } from '../api/schemas';
 import { agencyDealRequestSchema } from '../api/schemas';
-import { inquiryPreview, inquiryTitle } from './inquiry';
 import { matchListing, rankListings } from './match';
 import { agentNotificationHref, isAgencyNotification } from './notifications';
 import {
-  DEFAULT_INQUIRY_FILTERS,
   DEFAULT_REQUEST_FILTERS,
   activeRequestFilterCount,
-  inquiryFiltersToQuery,
-  inquiryFiltersToSearch,
-  parseInquiryFilters,
   parseRequestFilters,
   requestFiltersToQuery,
   requestFiltersToSearch,
@@ -222,34 +217,6 @@ describe('URL filters', () => {
         regions: [SINDAE],
       }),
     ).toBe(2);
-  });
-
-  it('parses, serializes and maps inquiry filters', () => {
-    expect(parseInquiryFilters(new URLSearchParams(''))).toEqual(DEFAULT_INQUIRY_FILTERS);
-    const filters = parseInquiryFilters(
-      new URLSearchParams('status=progress&channel=call&unread=1&q=%20레이크%20&page=2&id=inq-01'),
-    );
-    expect(filters).toEqual({
-      status: 'progress',
-      channel: 'call',
-      unread: true,
-      q: '레이크',
-      page: 2,
-      id: 'inq-01',
-    });
-    expect(
-      parseInquiryFilters(new URLSearchParams(inquiryFiltersToSearch(filters).slice(1))),
-    ).toEqual(filters);
-    expect(inquiryFiltersToSearch(DEFAULT_INQUIRY_FILTERS)).toBe('');
-    expect(inquiryFiltersToQuery(filters)).toEqual({
-      status: 'IN_PROGRESS',
-      channel: 'CALL',
-      unreadOnly: true,
-      q: '레이크',
-      page: 2,
-      pageSize: 12,
-    });
-    expect(parseInquiryFilters({ channel: 'fax', unread: 'yes' })).toEqual(DEFAULT_INQUIRY_FILTERS);
   });
 });
 
@@ -517,9 +484,19 @@ describe('console notifications', () => {
     expect(agentNotificationHref({ type: 'CONTACT_GRANTED', data: { agencyId: 'a1' } })).toBe(
       '/agent/requests',
     );
+  });
+
+  it('gives inquiry notifications no destination (D5: no 문의함 for launch)', () => {
     expect(
       agentNotificationHref({ type: 'SYSTEM', data: { agencyId: 'a1', inquiryId: 'inq 1' } }),
-    ).toBe('/agent/inquiries?id=inq%201');
+    ).toBeNull();
+    // Anything else the payload carries still leads somewhere.
+    expect(
+      agentNotificationHref({
+        type: 'SYSTEM',
+        data: { agencyId: 'a1', inquiryId: 'inq 1', dealRequestId: 'req-01' },
+      }),
+    ).toBe('/agent/requests/req-01');
   });
 
   it('keeps personal notifications on the my-page links and ignores unsafe urls', () => {
@@ -534,22 +511,6 @@ describe('console notifications', () => {
     ).toBeNull();
     expect(agentNotificationHref({ type: 'AGENCY_APPROVED', data: { agencyId: 'a1' } })).toBe(
       '/agent',
-    );
-  });
-});
-
-describe('inquiry text', () => {
-  it('describes messages and contact actions', () => {
-    expect(inquiryTitle({ customerName: '박*연', channel: 'MESSAGE' })).toBe('박*연 님의 문의');
-    expect(inquiryTitle({ customerName: null, channel: 'CALL' })).toBe('비회원 고객 · 전화');
-    expect(
-      inquiryPreview({ channel: 'MESSAGE', message: '집 볼 수 있을까요?', listing: null }),
-    ).toBe('집 볼 수 있을까요?');
-    expect(inquiryPreview({ channel: 'CALL', message: null, listing: listing({}) })).toBe(
-      '매물 상세에서 전화 걸기를 눌렀어요',
-    );
-    expect(inquiryPreview({ channel: 'COPY', message: null, listing: null })).toBe(
-      '사무소 페이지에서 사무소 전화번호를 복사했어요',
     );
   });
 });

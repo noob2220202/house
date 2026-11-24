@@ -102,4 +102,30 @@ describe('listing state', () => {
       priceSort: 30_000,
     });
   });
+  it('derives the 방 구성 and 용도지역 / 지목 search groups from the property', () => {
+    const room = listingDraftSchema.parse({
+      dealType: 'MONTHLY',
+      deposit: 300,
+      monthlyRent: 30,
+      property: { assetType: 'ONEROOM', roadAddress: '순천시 1', lat: 34.95, lng: 127.49, rooms: 2 },
+    });
+    const p = propertyStateFromInput(room.property, '12150');
+    const l = listingStateFromInput(room);
+    expect(listingWriteColumns(l, p, null)).toMatchObject({
+      roomType: 'TWO_ROOM',
+      landZone: null,
+      landCategory: null,
+    });
+    expect(listingWriteColumns(l, { ...p, roomType: 'ONE_HALF_ROOM' }, null).roomType).toBe(
+      'ONE_HALF_ROOM',
+    );
+    const land = { ...p, assetType: 'LAND' as const, zoning: '계획관리지역', landCategory: '임야' };
+    expect(listingWriteColumns(l, land, null)).toMatchObject({
+      roomType: null,
+      landZone: 'MANAGEMENT',
+      landCategory: 'IMYA',
+    });
+    // The free text itself never lands on the listing row.
+    expect(listingWriteColumns(l, land, null)).not.toHaveProperty('zoning');
+  });
 });

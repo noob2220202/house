@@ -33,7 +33,7 @@ export function NotificationRow({
   now,
   rowRef,
 }: NotificationRowProps) {
-  const meta = notificationMeta(n.type, n.data);
+  const meta = notificationMeta(n.type);
   const href = notificationHref(n);
   const unread = isUnread(n);
   const markRead = () => {

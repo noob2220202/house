@@ -6,6 +6,7 @@ import { matchAreaType, withComplexDetail } from './complex';
 
 const wire = {
   id: 'L01',
+  listingNo: '100412',
   dealType: 'SALE',
   assetType: 'APT',
   status: 'ACTIVE',
@@ -24,6 +25,9 @@ const wire = {
   floorClass: 'HIGH',
   rooms: 3,
   baths: 2,
+  roomType: null,
+  landZone: null,
+  landCategory: null,
   direction: 'SOUTH',
   builtYear: 2019,
   roadAddress: '순천시 해룡면 신대2로 40',
@@ -69,6 +73,7 @@ const wire = {
     landArea: null,
     totalFloorArea: null,
     rooms: 3,
+    roomType: null,
     baths: 2,
     direction: 'SOUTH',
     directionBasis: 'LIVING_ROOM',

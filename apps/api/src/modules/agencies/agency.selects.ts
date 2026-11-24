@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { STATUS_HISTORY_LIMIT } from './constants';
 
+/** Logo / cover media: what the public URL needs (+ deletedAt, a deleted file has no URL). */
 const logoSelect = { select: { storageKey: true, variants: true, deletedAt: true } } as const;
 
 export const agencySummarySelect = {
@@ -22,6 +23,7 @@ export type AgencySummaryRow = Prisma.AgencyGetPayload<{ select: typeof agencySu
 
 export const agencyProfileSelect = {
   ...agencySummarySelect,
+  cover: logoSelect,
   mobile: true,
   email: true,
   jibunAddress: true,
@@ -62,6 +64,8 @@ export const myAgencySelect = {
   intro: true,
   businessHours: true,
   logoMediaId: true,
+  coverMediaId: true,
+  cover: logoSelect,
   status: true,
   statusReason: true,
   approvedAt: true,

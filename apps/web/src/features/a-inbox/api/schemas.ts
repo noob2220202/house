@@ -12,8 +12,8 @@ import { mediaSchema } from '@/features/w-deal/api/schemas';
 /**
  * Response shapes of the broker inbox as the frontend expects them.
  *
- * The deal-requests module only has a README + Prisma models and there is no inquiry backend at
- * all, so every shape here is an ASSUMPTION (see docs/frontend-integration/a-inbox.md). Each
+ * Shapes of the `deal-requests` module of apps/api (see docs/frontend-integration/a-inbox.md).
+ * There is no inquiry backend for launch (DECISIONS D5), so the inbox has no inquiry shapes. Each
  * response is parsed by exactly one schema below — fix the schema and its mock fixture together.
  */
 
@@ -158,59 +158,3 @@ export type AgencyDealRequestPage = z.infer<typeof agencyDealRequestPageSchema>;
 
 export const listingCandidatePageSchema = pageOf(inboxListingSchema);
 export type ListingCandidatePage = z.infer<typeof listingCandidatePageSchema>;
-
-// ---------- inquiries (문의 · 연락 기록) ----------
-
-/** How the customer reached out: a message left on the site, or a contact action on a listing. */
-export const INQUIRY_CHANNELS = ['MESSAGE', 'CALL', 'SMS', 'COPY'] as const;
-export type InquiryChannel = (typeof INQUIRY_CHANNELS)[number];
-
-export const INQUIRY_STATUSES = ['NEW', 'IN_PROGRESS', 'DONE'] as const;
-export type InquiryStatus = (typeof INQUIRY_STATUSES)[number];
-
-export const inquiryReplySchema = z.object({
-  id: z.string(),
-  message: z.string(),
-  memberName: nullish(z.string()),
-  createdAt: z.string(),
-});
-export type InquiryReply = z.infer<typeof inquiryReplySchema>;
-
-export const inquirySchema = z.object({
-  id: z.string(),
-  channel: z.enum(INQUIRY_CHANNELS).catch('MESSAGE'),
-  /** The listing the customer was looking at; null = the office page. */
-  listing: inboxListingSchema.nullable().default(null),
-  /** Masked nickname / name ("박*연"); null for visitors who are not signed in. */
-  customerName: nullish(z.string()),
-  /** Text the customer left (MESSAGE only). */
-  message: nullish(z.string()),
-  status: z.enum(INQUIRY_STATUSES).catch('NEW'),
-  /** Private note of the office (never shown to the customer). */
-  memo: nullish(z.string()),
-  /** Member who last handled it. */
-  handledByName: nullish(z.string()),
-  readAt: nullish(z.string()),
-  createdAt: z.string(),
-  /** True when the backend can deliver a written answer to the customer. */
-  canReply: z.boolean().default(false),
-  replies: z.array(inquiryReplySchema).default([]),
-});
-export type Inquiry = z.infer<typeof inquirySchema>;
-
-export const inquiryStatusCountsSchema = z.object({
-  NEW: z.number().default(0),
-  IN_PROGRESS: z.number().default(0),
-  DONE: z.number().default(0),
-});
-export type InquiryStatusCounts = z.infer<typeof inquiryStatusCountsSchema>;
-
-export const inquiryPageSchema = pageOf(inquirySchema).extend({
-  unreadCount: z.number().optional(),
-  statusCounts: inquiryStatusCountsSchema.optional(),
-});
-export type InquiryPage = z.infer<typeof inquiryPageSchema>;
-
-export const inquiryReadResultSchema = z
-  .object({ updated: z.number().optional(), unreadCount: z.number().optional() })
-  .optional();

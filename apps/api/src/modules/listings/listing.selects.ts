@@ -24,6 +24,7 @@ const mediaRef = { select: { storageKey: true, variants: true } } as const;
 
 export const LISTING_SUMMARY_SELECT = {
   id: true,
+  listingNo: true,
   dealType: true,
   assetType: true,
   status: true,
@@ -37,6 +38,9 @@ export const LISTING_SUMMARY_SELECT = {
   maintenanceFeeWon: true,
   exclusiveArea: true,
   rooms: true,
+  roomType: true,
+  landZone: true,
+  landCategory: true,
   baths: true,
   direction: true,
   floorClass: true,
@@ -89,6 +93,7 @@ const PUBLIC_PROPERTY_SELECT = {
   landArea: true,
   totalFloorArea: true,
   rooms: true,
+  roomType: true,
   baths: true,
   direction: true,
   directionBasis: true,
@@ -188,6 +193,24 @@ export const LISTING_AGENCY_DETAIL_SELECT = {
     },
   },
 } as const satisfies Prisma.ListingSelect;
+/**
+ * Rows of the console list (GET /agency/listings): the summary plus the agency-private columns.
+ * Served to members of a participating agency only (ho / hiddenReason are blanked for co-brokers
+ * by the mapper).
+ */
+export const LISTING_AGENCY_ROW_SELECT = {
+  ...LISTING_SUMMARY_SELECT,
+  hiddenReason: true,
+  expiresAt: true,
+  updatedAt: true,
+  property: {
+    select: { ...LISTING_SUMMARY_SELECT.property.select, ho: true, landArea: true },
+  },
+} as const satisfies Prisma.ListingSelect;
+export type ListingAgencyRow = Prisma.ListingGetPayload<{
+  select: typeof LISTING_AGENCY_ROW_SELECT;
+}>;
+
 export type ListingAgencyDetailRow = Prisma.ListingGetPayload<{
   select: typeof LISTING_AGENCY_DETAIL_SELECT;
 }>;

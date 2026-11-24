@@ -1,8 +1,8 @@
 import {
   UserRole,
   type AgencyListingDetail,
+  type AgencyListingRow,
   type CoBrokerRequestResult,
-  type ListingSummary,
   type Paginated,
   type PhotoUrls,
 } from '@house/shared';
@@ -76,7 +76,7 @@ export class AgencyListingsController {
   list(
     @CurrentUser() user: UserPrincipal,
     @Query() q: AgencyListingListQueryDto,
-  ): Promise<Paginated<ListingSummary>> {
+  ): Promise<Paginated<AgencyListingRow>> {
     return this.listings.list(user, q);
   }
 

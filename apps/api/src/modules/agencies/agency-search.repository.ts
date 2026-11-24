@@ -1,12 +1,16 @@
 import {
   AgencySearchSort,
   AgencyStatus,
+  DealType,
+  ListingAgencyStatus,
   MAP_MAX_MARKERS,
+  PUBLIC_LISTING_STATUSES,
   REGION_CODE_LENGTH,
   type AgencyGridCluster,
   type AgencyRegionCluster,
   type AssetType,
   type Bbox,
+  type Weekday,
 } from '@house/shared';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -18,7 +22,34 @@ export interface AgencyFilter {
   emdCode?: string;
   bbox?: Bbox;
   specialties?: AssetType[];
+  /** Open at this KST moment by the stored 영업시간 (see `kstClock`). */
+  openAt?: KstClock;
+  /** Advertises at least one public 분양권 listing. */
+  handlesPresale?: boolean;
 }
+
+/** A moment in Asia/Seoul as the 영업시간 JSON keys it: weekday key + "HH:MM". */
+export interface KstClock {
+  day: Weekday;
+  time: string;
+}
+
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+/** getUTCDay() (0 = Sunday) → BusinessHours key. */
+const WEEKDAY_BY_UTC_DAY: readonly Weekday[] = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+/** Same clock shared `isOpenAt` evaluates (KST, minute precision). */
+export function kstClock(now: Date): KstClock {
+  const kst = new Date(now.getTime() + KST_OFFSET_MS);
+  return {
+    day: WEEKDAY_BY_UTC_DAY[kst.getUTCDay()] as Weekday,
+    time: kst.toISOString().slice(11, 16),
+  };
+}
+
+const PUBLIC_LISTING_STATUS_SQL = Prisma.join(
+  PUBLIC_LISTING_STATUSES.map((st) => Prisma.sql`${st}::listing_status`),
+);
 
 export interface RegionFacetRow {
   emdCode: string;
@@ -75,7 +106,43 @@ export class AgencySearchRepository {
     if (f.specialties?.length) {
       parts.push(Prisma.sql`a.specialties && ${f.specialties}::asset_type[]`);
     }
+    if (f.openAt) {
+      // businessHoursSchema guarantees zero-padded "HH:MM" (close may be "24:00") with open <
+      // close, so text comparison is time comparison. A missing / null day (휴무) or no 영업시간
+      // at all yields NULL → not open.
+      const { day, time } = f.openAt;
+      parts.push(Prisma.sql`(a.business_hours -> ${day}::text ->> 'open') <= ${time}
+        AND ${time} < (a.business_hours -> ${day}::text ->> 'close')`);
+    }
+    if (f.handlesPresale) parts.push(this.handlesPresaleSql());
     return Prisma.join(parts, ' AND ');
+  }
+
+  /**
+   * The office advertises (ACTIVE ListingAgency row) a public 분양권 listing — one the public site
+   * shows, so its primary agency must be disclosable too (same rule as the listings search).
+   */
+  private handlesPresaleSql(): Prisma.Sql {
+    return Prisma.sql`EXISTS (
+      SELECT 1 FROM listing_agencies la
+      JOIN listings l ON l.id = la.listing_id
+      JOIN agencies pa ON pa.id = l.primary_agency_id
+      WHERE la.agency_id = a.id
+        AND la.status = ${ListingAgencyStatus.ACTIVE}::listing_agency_status
+        AND l.deal_type = ${DealType.PRESALE}::deal_type
+        AND l.status IN (${PUBLIC_LISTING_STATUS_SQL})
+        AND l.deleted_at IS NULL
+        AND pa.status = ${AgencyStatus.APPROVED}::agency_status
+        AND pa.deleted_at IS NULL)`;
+  }
+
+  /** Ids (of `ids`) of offices that advertise a public 분양권 listing. */
+  async presaleAgencyIds(ids: readonly string[]): Promise<Set<string>> {
+    if (ids.length === 0) return new Set();
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT a.id::text AS id FROM agencies a
+      WHERE a.id = ANY(${[...ids]}::uuid[]) AND ${this.handlesPresaleSql()}`;
+    return new Set(rows.map((r) => r.id));
   }
 
   private orderBy(sort: AgencySearchSort, q: string | undefined): Prisma.Sql {

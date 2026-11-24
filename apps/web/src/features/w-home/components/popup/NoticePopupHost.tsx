@@ -2,7 +2,7 @@
 import { useQuery } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { env } from '@/config/env';
 import { fetchPopups, homeKeys } from '../../api/client';
 import type { Popup } from '../../api/schemas';
@@ -29,6 +29,36 @@ function storage(kind: 'local' | 'session'): StorageLike | null {
   }
 }
 
+/**
+ * Another modal dialog (a confirmation, the 약관 재동의 prompt, the photo lightbox …) is on screen.
+ * Every modal of the site renders `aria-modal="true"` (`@house/ui` Overlay, the lightbox); the notice
+ * card itself is `aria-modal="false"`, so it never blocks itself.
+ */
+function modalOpen(): boolean {
+  return document.querySelector('[aria-modal="true"]') !== null;
+}
+
+function subscribeModals(onChange: () => void): () => void {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['aria-modal'],
+  });
+  return () => observer.disconnect();
+}
+
+/**
+ * Renders the notice card only while no modal is open: the popup steps aside (it is not closed)
+ * and comes back when the modal closes, so two dialogs never stack. Only mounted while a popup is
+ * due, so pages without one never observe the DOM.
+ */
+function YieldToModals({ children }: { children: ReactNode }) {
+  const blocked = useSyncExternalStore(subscribeModals, modalOpen, () => true);
+  return blocked ? null : children;
+}
+
 /** `?popup=off` keeps screenshots and visual tests clean — honoured outside production only. */
 function suppressedByQuery(): boolean {
   if (env.isProd && !env.apiMock) return false;
@@ -42,6 +72,7 @@ function suppressedByQuery(): boolean {
  * - "N일 동안 보지 않기" → localStorage, keyed by popup id + version (`updatedAt`), so an edited
  *   popup shows again;
  * - "닫기" → sessionStorage (stays closed for this tab session).
+ * Only one popup is on screen at a time, and none while another modal is open (`YieldToModals`).
  * Nothing is rendered on the server — the stores are only readable after hydration.
  */
 export function NoticePopupHost() {
@@ -87,12 +118,14 @@ export function NoticePopupHost() {
   };
 
   return (
-    <NoticePopup
-      key={popupStorageKey(current)}
-      popup={current}
-      position={total > 1 ? { index: closedHere + 1, total } : undefined}
-      onClose={() => close(current, 0)}
-      onDismiss={() => close(current, current.dismissDays)}
-    />
+    <YieldToModals>
+      <NoticePopup
+        key={popupStorageKey(current)}
+        popup={current}
+        position={total > 1 ? { index: closedHere + 1, total } : undefined}
+        onClose={() => close(current, 0)}
+        onDismiss={() => close(current, current.dismissDays)}
+      />
+    </YieldToModals>
   );
 }

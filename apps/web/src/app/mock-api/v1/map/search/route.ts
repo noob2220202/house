@@ -6,7 +6,7 @@ import { forcedFailure, queryObject, validationError } from '../_query';
 import { parseExtraFilters, searchMapWire } from '../_search';
 
 // GET /api/v1/map/search?bbox&zoom&…filters — public (listings module).
-// Query = `mapSearchQuerySchema` (@house/shared) + ASSUMED `roomTypes`, `landZones`, `landCategories`.
+// Query = `mapSearchQuerySchema` (@house/shared), incl. `roomTypes`, `landZones`, `landCategories`.
 // zoom ≤ 12 → 읍면동 clusters · ≤ 15 → grid clusters · above → complex / listing markers.
 // Answers `MapSearchResult` (@house/shared): { kind, zoom, bbox, total, clusters, complexes,
 // listings, truncated }.

@@ -1,4 +1,11 @@
-import { DEFAULT_SGG_CODE, maskEmail, maskPhone, normalizePhone } from '@house/shared';
+import {
+  DEFAULT_SGG_CODE,
+  formatListingNo,
+  maskEmail,
+  maskPhone,
+  normalizePhone,
+  parseListingNo,
+} from '@house/shared';
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -26,6 +33,7 @@ export function registrationKeyOf(q: string): string {
 
 const listingSelect = {
   id: true,
+  listingNo: true,
   title: true,
   dealType: true,
   status: true,
@@ -63,7 +71,7 @@ const userSelect = {
 } satisfies Prisma.UserSelect;
 
 /**
- * Topbar search of the back office: listings (title, complex, building, address, office, 읍면동),
+ * Topbar search of the back office: listings (매물번호, title, complex, building, address, office, 읍면동),
  * agencies (name, 대표, 등록번호, address, 읍면동) and members (nickname, name, e-mail, phone).
  * Members are matched on full values but returned masked. Read-only, never cached (free text).
  */
@@ -76,7 +84,7 @@ export class AdminSearchService {
     const variants = searchVariants(query);
     const emdCodes = await this.matchingRegionCodes(variants);
     const [listings, agencies, users] = await Promise.all([
-      this.listings(variants, emdCodes, q.limit),
+      this.listings(variants, emdCodes, parseListingNo(query), q.limit),
       this.agencies(query, variants, emdCodes, q.limit),
       this.users(query, variants, q.limit),
     ]);
@@ -97,7 +105,12 @@ export class AdminSearchService {
     return rows.map((r) => r.code);
   }
 
-  private async listings(variants: string[], emdCodes: string[], limit: number) {
+  private async listings(
+    variants: string[],
+    emdCodes: string[],
+    listingNo: number | null,
+    limit: number,
+  ) {
     const or: Prisma.ListingWhereInput[] = variants.flatMap((v) => [
       { title: ci(v) },
       { complex: { name: ci(v) } },
@@ -106,6 +119,8 @@ export class AdminSearchService {
       { primaryAgency: { name: ci(v) } },
     ]);
     if (emdCodes.length) or.push({ emdCode: { in: emdCodes } });
+    // 매물번호: exact number ("100412", "매물번호 100412").
+    if (listingNo !== null) or.push({ listingNo });
     const where: Prisma.ListingWhereInput = { deletedAt: null, OR: or };
     const [rows, total] = await Promise.all([
       this.prisma.listing.findMany({
@@ -122,7 +137,7 @@ export class AdminSearchService {
     );
     const items: AdminSearchListing[] = rows.map((l) => ({
       id: l.id,
-      listingNo: null,
+      listingNo: formatListingNo(l.listingNo),
       title: listingHeadline(l),
       dealType: l.dealType,
       ...priceFields(l.dealType, l),

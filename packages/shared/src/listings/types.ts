@@ -11,11 +11,14 @@ import type {
   DirectionBasis,
   FloorClass,
   FloorDisplay,
+  LandCategory,
+  LandZone,
   ListingAgencyStatus,
   ListingOption,
   ListingStatus,
   MoveInType,
   RecentViewTarget,
+  RoomType,
   VerificationMethod,
 } from '../enums/listing';
 
@@ -40,6 +43,8 @@ export interface ListingPriceView {
 
 export interface ListingSummary extends ListingPriceView {
   id: string;
+  /** 매물번호 — the listing's sequential number as text ("100412"); public. */
+  listingNo: string | null;
   dealType: DealType;
   assetType: AssetType;
   status: ListingStatus;
@@ -52,6 +57,12 @@ export interface ListingSummary extends ListingPriceView {
   floorClass: FloorClass | null;
   rooms: number | null;
   baths: number | null;
+  /** 방 구성 (원룸·투룸): stated or derived from `rooms` (shared `effectiveRoomType`). */
+  roomType: RoomType | null;
+  /** 용도지역 group of the property's 용도지역 text (shared `landZoneOf`). */
+  landZone: LandZone | null;
+  /** 지목 group of the property's 지목 text (shared `landCategoryOf`). */
+  landCategory: LandCategory | null;
   direction: Direction | null;
   builtYear: number | null;
   roadAddress: string;
@@ -115,6 +126,8 @@ export interface ListingDetail extends ListingSummary {
     landArea: number | null;
     totalFloorArea: number | null;
     rooms: number | null;
+    /** 방 구성 as stated by the broker (null = derive from `rooms`). */
+    roomType: RoomType | null;
     baths: number | null;
     direction: Direction | null;
     directionBasis: DirectionBasis | null;
@@ -148,6 +161,11 @@ export interface AgencyListingDetail extends Omit<ListingDetail, 'agencies' | 'p
   closedAt: string | null;
   /** End of the current ad period (ACTIVE/RESERVED listings revert to DRAFT after it). */
   expiresAt: string | null;
+  /**
+   * KST date (YYYY-MM-DD) by which the 실매물 확인 must be renewed: the last 확인일 + the ad
+   * period. Null when never verified.
+   */
+  verificationDueAt: string | null;
   createdAt: string;
   updatedAt: string;
   /** Send back as `version` on PATCH to detect concurrent edits. */
@@ -167,6 +185,25 @@ export interface AgencyListingDetail extends Omit<ListingDetail, 'agencies' | 'p
     note: string | null;
     byAdmin: boolean;
   }[];
+}
+
+/**
+ * Row of GET /agency/listings — the acting agency's private console view of a listing (never a
+ * public response): the summary plus 호, the ad and 실매물 확인 deadlines and, for drafts, how
+ * many 명시사항 are still missing.
+ */
+export interface AgencyListingRow extends ListingSummary {
+  /** 호 — only when the acting agency is the primary (null for co-brokered rows). */
+  ho: string | null;
+  landArea: number | null;
+  /** See AgencyListingDetail.verificationDueAt. */
+  verificationDueAt: string | null;
+  expiresAt: string | null;
+  updatedAt: string;
+  /** Why an admin hid it; primary agency only (null for co-brokers). */
+  hiddenReason: string | null;
+  /** DRAFT only: number of missing 명시사항 (shared `checkPublishRequirements`); null otherwise. */
+  missingCount: number | null;
 }
 
 export interface DealTypeStats {

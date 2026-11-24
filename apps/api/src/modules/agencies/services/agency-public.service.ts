@@ -11,8 +11,8 @@ import {
   type AgencyMapQuery,
   type AgencyMapResult,
   type AgencyProfile,
+  type AgencySearchItem,
   type AgencySearchQuery,
-  type AgencySummary,
   type Bbox,
   type Paginated,
 } from '@house/shared';
@@ -23,7 +23,11 @@ import { toPaginated, toSkipTake } from '../../../common/pagination/pagination';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AgencyMapper, toBusinessHours } from '../agency.mapper';
 import { agencyProfileSelect, agencySummarySelect } from '../agency.selects';
-import { AgencySearchRepository, type AgencyFilter } from '../agency-search.repository';
+import {
+  AgencySearchRepository,
+  kstClock,
+  type AgencyFilter,
+} from '../agency-search.repository';
 import {
   MAP_CACHE_TTL_SECONDS,
   PROFILE_CACHE_TTL_SECONDS,
@@ -72,27 +76,44 @@ export class AgencyPublicService {
     @Inject(AGENCY_MEDIA) private readonly media: AgencyMediaPort,
   ) {}
 
-  async search(q: AgencySearchQuery): Promise<Paginated<AgencySummary>> {
+  /**
+   * Office search. `openNow` evaluates the 영업시간 at `now` in Asia/Seoul (offices without hours
+   * drop out); `handlesPresale` keeps offices advertising a public 분양권 listing.
+   */
+  async search(q: AgencySearchQuery, now = new Date()): Promise<Paginated<AgencySearchItem>> {
     const filter: AgencyFilter = {
       q: q.q,
       emdCode: q.emdCode,
       bbox: q.bbox,
       specialties: q.specialties,
+      openAt: q.openNow ? kstClock(now) : undefined,
+      handlesPresale: q.handlesPresale || undefined,
     };
     const [ids, total] = await Promise.all([
       this.repo.searchIds(filter, q.sort, toSkipTake(q)),
       this.repo.count(filter),
     ]);
-    const rows = ids.length
-      ? await this.prisma.agency.findMany({
-          where: { id: { in: ids } },
-          select: agencySummarySelect,
-        })
-      : [];
+    const [rows, presale] = ids.length
+      ? await Promise.all([
+          this.prisma.agency.findMany({
+            where: { id: { in: ids } },
+            select: { ...agencySummarySelect, businessHours: true },
+          }),
+          q.handlesPresale ? Promise.resolve(new Set(ids)) : this.repo.presaleAgencyIds(ids),
+        ])
+      : [[], new Set<string>()];
     const byId = new Map(rows.map((r) => [r.id, r]));
-    const items = ids.flatMap((id) => {
+    const items = ids.flatMap((id): AgencySearchItem[] => {
       const row = byId.get(id);
-      return row ? [this.mapper.summary(row)] : [];
+      return row
+        ? [
+            {
+              ...this.mapper.summary(row),
+              businessHours: toBusinessHours(row.businessHours),
+              handlesPresale: presale.has(id),
+            },
+          ]
+        : [];
     });
     return toPaginated(items, total, q);
   }
@@ -192,6 +213,7 @@ export class AgencyPublicService {
     ]);
     return {
       ...this.mapper.summary(row),
+      coverUrl: this.mapper.coverUrl(row.cover),
       mobile: row.mobile,
       email: row.email,
       jibunAddress: row.jibunAddress,

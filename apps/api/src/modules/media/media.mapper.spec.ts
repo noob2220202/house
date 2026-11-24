@@ -19,6 +19,7 @@ const counts = {
   dealRequestPhotos: 0,
   agencyDocuments: 0,
   agencyLogos: 0,
+  agencyCovers: 0,
   bannersPc: 0,
   bannersMobile: 0,
   popups: 0,

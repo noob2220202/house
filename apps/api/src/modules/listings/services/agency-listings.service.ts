@@ -1,5 +1,6 @@
 import {
   AGENCY_EDITABLE_STATUSES,
+  AgencyListingSort,
   canAgencyTransition,
   checkPublishRequirements,
   DEFAULT_MAP_CENTER,
@@ -7,16 +8,17 @@ import {
   ErrorCode,
   floorWithinBuilding,
   ListingAgencyStatus,
+  parseListingNo,
   ListingStatus,
   PUBLIC_LISTING_STATUSES,
   ReportStatus,
   type AgencyListingDetail,
   type AgencyListingListQuery,
+  type AgencyListingRow,
   type ListingContactInput,
   type ListingDraftInput,
   type ListingPhotosInput,
   type ListingStatusChangeInput,
-  type ListingSummary,
   type ListingUpdateInput,
   type ListingVerificationInput,
   type Paginated,
@@ -47,8 +49,9 @@ import {
   type PropertyState,
 } from '../domain/listing-state';
 import { propertySearchColumns } from '../domain/search-columns';
+import { ListingSearchRepository } from '../listing-search.repository';
 import { ListingMapper } from '../listing.mapper';
-import { LISTING_AGENCY_DETAIL_SELECT, LISTING_SUMMARY_SELECT } from '../listing.selects';
+import { LISTING_AGENCY_DETAIL_SELECT, LISTING_AGENCY_ROW_SELECT } from '../listing.selects';
 import {
   LISTING_AGENCY_MEMBERSHIP,
   mayBeAdvertised,
@@ -57,6 +60,7 @@ import {
   type ListingActor,
 } from '../ports/agency-membership.port';
 import { LISTING_MEDIA, type ListingMediaPort } from '../ports/listing-media.port';
+import { verificationDueBefore } from './agency-console.service';
 import { ListingCountersService } from './listing-counters.service';
 import { ListingRegionNamesService } from './listing-region-names.service';
 import { ListingSummariesService } from './listing-summaries.service';
@@ -94,6 +98,25 @@ function touchesContent(dto: ListingUpdateInput): boolean {
 const concurrentModification = (): AppException =>
   AppException.conflict(ErrorCode.LISTING_CONCURRENT_MODIFICATION);
 
+/** Console list order per sort key (id last, so pages never overlap). */
+const AGENCY_LIST_ORDER: Record<AgencyListingSort, Prisma.ListingOrderByWithRelationInput[]> = {
+  UPDATED: [{ updatedAt: 'desc' }, { id: 'desc' }],
+  LATEST: [{ createdAt: 'desc' }, { id: 'desc' }],
+  // Oldest 확인 first = the soonest deadline; never verified last (no deadline to show).
+  VERIFY_DUE: [{ verifiedAt: { sort: 'asc', nulls: 'last' } }, { id: 'desc' }],
+  PRICE_DESC: [{ priceSort: { sort: 'desc', nulls: 'last' } }, { id: 'desc' }],
+  PRICE_ASC: [{ priceSort: { sort: 'asc', nulls: 'last' } }, { id: 'desc' }],
+  VIEWS: [{ viewCount: 'desc' }, { updatedAt: 'desc' }, { id: 'desc' }],
+};
+
+const PUBLISH_AGENCY_SELECT = {
+  name: true,
+  roadAddress: true,
+  phone: true,
+  registrationNumber: true,
+  representativeName: true,
+} as const satisfies Prisma.AgencySelect;
+
 /**
  * Agency (중개사무소) side of listings. The primary agency owns the ad: content, photos, 실매물
  * 확인, status, publish and delete. Co-brokers (ACTIVE ListingAgency rows the primary accepted) may
@@ -107,6 +130,7 @@ export class AgencyListingsService {
     private readonly config: AppConfig,
     private readonly mapper: ListingMapper,
     private readonly summaries: ListingSummariesService,
+    private readonly search: ListingSearchRepository,
     private readonly regionNames: ListingRegionNamesService,
     private readonly counters: ListingCountersService,
     @Inject(LISTING_AGENCY_MEMBERSHIP) private readonly membership: AgencyMembershipPort,
@@ -115,30 +139,78 @@ export class AgencyListingsService {
 
   // ------------------------------------------------------------------ reads
 
+  /**
+   * The console list: listings the acting agency participates in (ACTIVE membership; own and
+   * co-brokered). Filters: statuses, deal / asset types, text (`q`, see
+   * ListingSearchRepository.agencyTextMatchIds), 실매물 확인 due (same rule as the summary chip),
+   * co-brokered only / primary only.
+   */
   async list(
     principal: UserPrincipal,
     q: AgencyListingListQuery,
-  ): Promise<Paginated<ListingSummary>> {
+    now = new Date(),
+  ): Promise<Paginated<AgencyListingRow>> {
     const actor = await this.membership.resolveActor(principal);
-    const where: Prisma.ListingWhereInput = {
-      deletedAt: null,
-      agencies: { some: { agencyId: actor.agencyId, status: ListingAgencyStatus.ACTIVE } },
-      ...(q.primaryOnly ? { primaryAgencyId: actor.agencyId } : {}),
-      ...(q.statuses?.length ? { status: { in: q.statuses } } : {}),
-      ...(q.dealTypes?.length ? { dealType: { in: q.dealTypes } } : {}),
-    };
+    const and: Prisma.ListingWhereInput[] = [
+      {
+        deletedAt: null,
+        agencies: { some: { agencyId: actor.agencyId, status: ListingAgencyStatus.ACTIVE } },
+      },
+    ];
+    if (q.primaryOnly) and.push({ primaryAgencyId: actor.agencyId });
+    if (q.coBrokered) and.push({ primaryAgencyId: { not: actor.agencyId } });
+    if (q.statuses?.length) and.push({ status: { in: q.statuses } });
+    if (q.dealTypes?.length) and.push({ dealType: { in: q.dealTypes } });
+    if (q.assetTypes?.length) and.push({ assetType: { in: q.assetTypes } });
+    if (q.verificationDue) {
+      and.push({
+        status: { in: [...PUBLIC_LISTING_STATUSES] },
+        OR: [{ verifiedAt: null }, { verifiedAt: { lt: verificationDueBefore(now) } }],
+      });
+    }
+    if (q.q) {
+      const ids = await this.search.agencyTextMatchIds(actor.agencyId, q.q, parseListingNo(q.q));
+      and.push({ id: { in: ids } });
+    }
+    const where: Prisma.ListingWhereInput = { AND: and };
     return paginate(
       q,
       async (args) => {
         const rows = await this.prisma.listing.findMany({
           where,
-          orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
-          select: LISTING_SUMMARY_SELECT,
+          orderBy: AGENCY_LIST_ORDER[q.sort],
+          select: LISTING_AGENCY_ROW_SELECT,
           ...args,
         });
-        return this.summaries.map(rows);
+        const drafts = rows.filter((r) => r.status === ListingStatus.DRAFT).map((r) => r.id);
+        return this.summaries.mapForAgency(
+          rows,
+          actor.agencyId,
+          await this.missingCounts(drafts),
+        );
       },
       () => this.prisma.listing.count({ where }),
+    );
+  }
+
+  /** Number of missing 명시사항 per draft (shared checkPublishRequirements, as publish checks). */
+  private async missingCounts(ids: string[]): Promise<Map<string, number>> {
+    if (ids.length === 0) return new Map();
+    const rows = await this.prisma.listing.findMany({
+      where: { id: { in: ids } },
+      include: { property: true, primaryAgency: { select: PUBLISH_AGENCY_SELECT } },
+    });
+    return new Map(
+      rows.map((r) => [
+        r.id,
+        checkPublishRequirements(
+          publishCheckInput(
+            listingStateFromRow(r),
+            propertyStateFromRow(r.property),
+            r.primaryAgency,
+          ),
+        ).length,
+      ]),
     );
   }
 
@@ -572,13 +644,7 @@ export class AgencyListingsService {
   ): Promise<void> {
     const agency = await this.prisma.agency.findUnique({
       where: { id: primaryAgencyId },
-      select: {
-        name: true,
-        roadAddress: true,
-        phone: true,
-        registrationNumber: true,
-        representativeName: true,
-      },
+      select: PUBLISH_AGENCY_SELECT,
     });
     const issues = checkPublishRequirements(
       publishCheckInput(listing, property, agency satisfies PublishCheckInput['agency']),

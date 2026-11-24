@@ -55,7 +55,7 @@ const REVIEWED_LOCATION_FIELDS = [
 /** Documents can be removed only before approval (an approved agency keeps its evidence). */
 const DOCUMENT_REMOVABLE_STATUSES: AgencyStatus[] = [AgencyStatus.PENDING, AgencyStatus.REJECTED];
 
-type ProfileInput = Omit<AgencyUpdateInput, 'logoMediaId'>;
+type ProfileInput = Omit<AgencyUpdateInput, 'logoMediaId' | 'coverMediaId'>;
 
 interface ProfileData {
   phone?: string;
@@ -188,17 +188,25 @@ export class AgencyRegistrationService {
 
   async updateMine(user: UserPrincipal, input: AgencyUpdateInput): Promise<MyAgency> {
     const owned = await this.ownedAgency(user.userId);
-    const { logoMediaId, ...profile } = input;
+    const { logoMediaId, coverMediaId, ...profile } = input;
     await this.prisma.$transaction(async (tx) => {
       await lockAgency(tx, owned.id);
       const before = await tx.agency.findUniqueOrThrow({
         where: { id: owned.id },
-        select: { status: true, phone: true, mobile: true, email: true, logoMediaId: true },
+        select: {
+          status: true,
+          phone: true,
+          mobile: true,
+          email: true,
+          logoMediaId: true,
+          coverMediaId: true,
+        },
       });
       if (!EDITABLE_STATUSES.includes(before.status)) {
         throw AppException.badRequest(ErrorCode.AGENCY_NOT_EDITABLE);
       }
       if (logoMediaId) await this.media.assertLogoUsable(logoMediaId, user.userId, tx);
+      if (coverMediaId) await this.media.assertCoverUsable(coverMediaId, user.userId, tx);
       if (before.status === AgencyStatus.APPROVED) {
         const fields = REVIEWED_LOCATION_FIELDS.filter((f) => profile[f] !== undefined);
         if (fields.length > 0) {
@@ -214,11 +222,17 @@ export class AgencyRegistrationService {
           ...this.profileData(profile),
           ...(profile.emdCode !== undefined ? { sggCode: this.sggCodeFor(profile.emdCode) } : {}),
           ...(logoMediaId !== undefined ? { logoMediaId } : {}),
+          ...(coverMediaId !== undefined ? { coverMediaId } : {}),
         },
       });
-      if (logoMediaId !== undefined && before.logoMediaId && before.logoMediaId !== logoMediaId) {
-        await this.media.released([before.logoMediaId], tx);
-      }
+      // Replaced / removed images go back to the orphan grace period (then the cleanup job).
+      const released = [
+        logoMediaId !== undefined && before.logoMediaId !== logoMediaId ? before.logoMediaId : null,
+        coverMediaId !== undefined && before.coverMediaId !== coverMediaId
+          ? before.coverMediaId
+          : null,
+      ].filter((id): id is string => !!id);
+      if (released.length > 0) await this.media.released(released, tx);
       // 연락처 of a live office is part of every ad's disclosure: keep a trail of who changed it.
       if (before.status === AgencyStatus.APPROVED) {
         const changed = (['phone', 'mobile', 'email'] as const).filter(

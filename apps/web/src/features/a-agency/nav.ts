@@ -22,10 +22,9 @@ export const AGENT_ROUTES = {
   request: (id: string) => `/agent/requests/${encodeURIComponent(id)}`,
   /**
    * 문의함 — hidden for launch (D5: no inquiry backend). The route redirects to the dashboard and
-   * is in no menu; it stays defined so old links and notification deep links land somewhere.
+   * is in no menu or notification link; it stays defined so old bookmarks land somewhere.
    */
   inquiries: '/agent/inquiries',
-  inquiry: (id: string) => `/agent/inquiries?id=${encodeURIComponent(id)}`,
   notifications: '/agent/notifications',
 } as const;
 

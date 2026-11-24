@@ -5,6 +5,12 @@ end. Design reference: `design/drafts/project/AdminDashboard.dc.html` (login / s
 notifications / account have no draft and are extrapolated from the design system and
 `Login.dc.html`). Conventions: `docs/FRONTEND.md`.
 
+> **Status (2026-11-24):** every endpoint in this note exists in `apps/api` (`auth/admin/`,
+> `modules/admin/controllers/admin-overview` / `admin-insights`) and the console calls it. The login /
+> TOTP flow and the auth shapes below are **as built** (WI-3, `features/m-core/api`); the dashboard,
+> search and notification shapes are the frontend contract the backend implemented (DECISIONS rule
+> 2). B4 is resolved.
+
 ## Routes
 
 | Path                | File                                          | Notes                                                                                                                                                                |
@@ -20,35 +26,46 @@ All pages inherit `robots: noindex, nofollow` from the root layout (back-office,
 
 ## Login flow
 
-1. `POST /admin/auth/login { email, password }` (`adminLoginSchema`) → `{ mfaVerified, totpEnrolled }`
-   and a **half-authenticated** `house_admin_sid` cookie.
-2. `totpEnrolled = true` → 6-digit code → `POST /admin/auth/totp/verify { code }`
-   (`adminTotpVerifySchema`) → session upgraded → full-page navigation to `returnTo`.
-3. `totpEnrolled = false` (first login / after a reset by a SUPER_ADMIN) →
-   `POST /admin/auth/totp/setup` → `{ secret, otpauthUrl }` → the QR is rendered **in the browser**
-   from the `otpauth://` URI (`features/m-core/lib/qr.ts`, no image service, the secret never leaves
-   the page) + manual key → first code via `/totp/verify` → `recoveryCodes` shown once (copy /
-   download, must be acknowledged) → console.
-4. "다른 계정으로 로그인" calls `POST /admin/auth/logout` to drop the half-authenticated session.
-5. Session loss anywhere in the console (any query/mutation answering `401` that is not a form
+1. `POST /admin/auth/login { email, password }` (`adminLoginSchema`) →
+   `{ mfaRequired, totpEnrolled, csrfToken }` (`adminLoginResultSchema`) and a **pre-MFA**
+   `house_admin_sid` session (10 min idle). The `csrfToken` is kept in memory
+   (`lib/api/csrf.ts`; the shared `house_csrf` cookie is never read).
+2. `totpEnrolled = true` → 6-digit code **or a recovery code** →
+   `POST /admin/auth/totp/verify { code } | { recoveryCode }` → `{ admin, csrfToken }`
+   (`adminSessionResultSchema`; session rotated) → full-page navigation to `returnTo`.
+3. `totpEnrolled = false` (first login / after a reset by a SUPER*ADMIN) →
+   `POST /admin/auth/totp/setup` (no body) → `{ secret, otpauthUrl, expiresInSeconds? }` (a
+   \_pending* secret) → the QR is rendered **in the browser** from the `otpauth://` URI
+   (`features/m-core/lib/qr.ts`, no image service, the secret never leaves the page) + manual key →
+   first code via **`POST /admin/auth/totp/activate { code }`** → `{ recoveryCodes, admin, csrfToken }`
+   (`totpActivateResultSchema`) → recovery codes shown once (copy / download, must be acknowledged)
+   → console.
+4. Re-enrolment from 내 계정: the dialog first asks for the current password and the current code
+   (or a recovery code) → `POST /admin/auth/totp/setup { currentPassword, code | recoveryCode }`
+   (without it 403 `AUTH_REAUTH_REQUIRED`) → `activate` as in 3.
+5. "다른 계정으로 로그인" calls `POST /admin/auth/logout` to drop the pre-MFA session.
+6. Session loss anywhere in the console (any query/mutation answering `401` that is not a form
    error, `AUTH_TOTP_REQUIRED` included) → `/login?returnTo=<current path>&reason=expired`
    (`SessionWatcher`; on a full page load `SessionRedirect`, see the notes below).
-6. Phones: next to the QR, an "이 휴대폰의 인증 앱에 추가" button opens the `otpauth://` URI directly
+7. Phones: next to the QR, an "이 휴대폰의 인증 앱에 추가" button opens the `otpauth://` URI directly
    (shown for `max-width: 720px` or a coarse pointer — a QR cannot be scanned by the same device).
 
 Error codes handled explicitly (`features/m-core/lib/session.ts`): `AUTH_INVALID_CREDENTIALS`,
-`AUTH_ACCOUNT_LOCKED`, `AUTH_ACCOUNT_SUSPENDED`, `AUTH_IP_NOT_ALLOWED`, `AUTH_TOTP_INVALID`,
+`AUTH_ACCOUNT_LOCKED` (423), `AUTH_ACCOUNT_SUSPENDED`, `AUTH_IP_NOT_ALLOWED`, `AUTH_TOTP_INVALID`,
+`AUTH_TOTP_SETUP_EXPIRED`, `AUTH_TOTP_NOT_ENROLLED`, `AUTH_REAUTH_REQUIRED`,
 `AUTH_SESSION_EXPIRED` / `UNAUTHENTICATED` (restart the flow). Validation errors map to fields via
 `details[].path` (`email`, `password`, `code`, `currentPassword`, `newPassword`).
 
-## Endpoints listed in the backend READMEs (payload shapes are assumptions — no controller exists yet)
+## Endpoints listed in the backend READMEs
 
 | Method | Path                                  | Used by                                 | Shape assumed by the frontend (zod schema in `features/m-core/api/schemas.ts`)                                                                                                                                                                                                      |
 | ------ | ------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST   | `/api/v1/admin/auth/login`            | login step 1                            | body `adminLoginSchema`; response `adminLoginResultSchema` `{ mfaVerified: boolean (default false), totpEnrolled: boolean (default true) }`. Sets the admin session cookie in a "TOTP pending" state.                                                                               |
-| POST   | `/api/v1/admin/auth/totp/verify`      | login step 2, enrolment, re-enrolment   | body `{ code: "123456" }`; response `totpVerifyResultSchema` `{ recoveryCodes?: string[] }` (present once, right after an enrolment). Invalid code → `AUTH_TOTP_INVALID` with a **non-401** status (the mock uses 400) or 401 with that code.                                       |
-| POST   | `/api/v1/admin/auth/totp/setup`       | first enrolment, account page           | no body; response `totpSetupSchema` `{ secret: base32, otpauthUrl: "otpauth://totp/…" }`. Must be callable with the half-authenticated session **and** with a verified one (re-enrolment).                                                                                          |
-| GET    | `/api/v1/admin/auth/me`               | session, account page                   | `AdminUser` (foundation) + optional `totpEnabled`, `totpEnrolledAt`, `passwordChangedAt`, `lastLoginIp` (`adminAccountSchema`). 401 while the TOTP step is pending (or `mfaVerified: false`, both are handled).                                                                     |
+| POST   | `/api/v1/admin/auth/login`            | login step 1                            | body `adminLoginSchema`; response `adminLoginResultSchema` `{ mfaRequired, totpEnrolled, csrfToken }`. Opens a pre-MFA session.                                                                                                                                                     |
+| POST   | `/api/v1/admin/auth/totp/verify`      | login step 2 (enrolled admins only)     | body `{ code }` or `{ recoveryCode }`; response `adminSessionResultSchema` `{ admin, csrfToken }` (session rotated). Invalid code → 401 `AUTH_TOTP_INVALID`, handled as a form error.                                                                                               |
+| POST   | `/api/v1/admin/auth/totp/setup`       | first enrolment, account page           | first enrolment: no body (pre-MFA session); re-enrolment: `{ currentPassword, code \| recoveryCode }` (else 403 `AUTH_REAUTH_REQUIRED`). Response `totpSetupSchema` `{ secret, otpauthUrl, expiresInSeconds? }` — a pending secret.                                                 |
+| POST   | `/api/v1/admin/auth/totp/activate`    | enrolment, re-enrolment                 | body `{ code }`; response `totpActivateResultSchema` `{ recoveryCodes, admin, csrfToken }` (session rotated, other sessions ended).                                                                                                                                                 |
+| GET    | `/api/v1/admin/auth/csrf`             | CSRF token after a reload               | `{ csrfToken }` of the admin session (401 without one).                                                                                                                                                                                                                             |
+| GET    | `/api/v1/admin/auth/me`               | session, account page                   | shared `AdminMeResponse` (`adminUserSchema` in `lib/auth/types.ts`, incl. `totpEnabled`, `recoveryCodesRemaining`, `lastLoginAt`, `lastLoginIp`). 401 while the second factor is pending.                                                                                           |
 | POST   | `/api/v1/admin/auth/logout`           | account menu, cancel login              | —                                                                                                                                                                                                                                                                                   |
 | GET    | `/api/v1/admin/dashboard`             | shell (badges, bell, status card), KPIs | `dashboardSummarySchema`, see below.                                                                                                                                                                                                                                                |
 | POST   | `/api/v1/admin/agencies/:id/decision` | dashboard 승인 / 반려                   | `agencyDecisionSchema` `{ status: APPROVED \| REJECTED, reason? }`. 승인 is offered only when `readyToApprove` (m-moderation/lib/labels.ts: documents complete && `registryStatus === 'MATCHED'`); otherwise the row links to 심사하기 `/agencies/:id`. Mock owned by m-moderation. |
@@ -80,7 +97,7 @@ The README only promises "pending agencies, open reports, active listings" count
 else in this payload is an assumption. `badges`, `notificationsUnread` and `socialLogin` default to
 zero / empty when missing; `kpis` is required for the KPI row.
 
-## Assumed endpoints (not in any backend README)
+## Endpoints first assumed by the frontend (now built to these shapes)
 
 | Method | Path                                                         | Used by                     | Shape                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | ------ | ------------------------------------------------------------ | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -90,7 +107,7 @@ zero / empty when missing; `kpis` is required for the KPI row.
 | GET    | `/api/v1/admin/notifications?cursor=&limit=&unreadOnly=true` | notification centre         | `CursorPage`: `{ items: [{ id, kind, title, body?, link?, createdAt, readAt? }], nextCursor, unreadCount }`. `kind` ∈ `AGENCY_APPLIED · LISTING_REVIEW · REPORT_RECEIVED · DEAL_REQUEST_UNASSIGNED · AD_EXPIRING · SECURITY · SYSTEM` (unknown kinds render as SYSTEM). `link` must be a site-relative admin path.                                                                                                                              |
 | POST   | `/api/v1/admin/notifications/:id/read`                       | open a notification         | —                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | POST   | `/api/v1/admin/notifications/read-all`                       | 모두 읽음                   | —                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| POST   | `/api/v1/admin/auth/password`                                | account page                | body `{ currentPassword, newPassword }`; wrong current password → validation error on `currentPassword`. Client-side policy (assumed): ≥ 10 chars with a letter and a digit (`ADMIN_PASSWORD_MIN` in `features/m-core/lib/otp.ts`).                                                                                                                                                                                                             |
+| POST   | `/api/v1/admin/auth/password`                                | account page                | body `{ currentPassword, newPassword }` → `{ admin, csrfToken }` (session rotated, other sessions end); wrong current password → validation error on `currentPassword`. Policy ≥ 12 chars (`ADMIN_PASSWORD_MIN` in `features/m-core/lib/otp.ts`).                                                                                                                                                                                               |
 
 Notes for the integrator:
 
@@ -129,17 +146,9 @@ Notes for the integrator:
 - **`AUTH_TOTP_REQUIRED`**: the API guard answers it (401) on every `/admin/*` route for a session
   that is not TOTP-verified. In the console it counts as a lost session (→ login); during the login
   flow it is the expected state and does **not** restart the flow.
-- **Contract risks to settle with the auth module** (README lists `POST /admin/auth/totp/setup` as
-  "Admin", which the global guard would reject with `AUTH_TOTP_REQUIRED` for the half-authenticated
-  session of a first-time login):
-  1. `/totp/setup` must accept the half-authenticated session of an admin **without** an enrolled
-     authenticator (first login) — e.g. `@Public()` + an explicit check in the handler.
-  2. A setup call must only stage a _pending_ secret; the active secret may only be replaced by a
-     successful `/totp/verify`. Otherwise abandoning the re-enrolment dialog on the account page (or
-     two setup calls racing) locks the admin out. The frontend shows only the latest setup response.
-  3. Re-enrolment from the account page currently needs nothing but the verified session. Consider
-     requiring the current TOTP code or password on `/totp/setup` for an already enrolled admin
-     (the dialog can ask for it once the API defines the field).
+- **B4 (resolved)**: `/totp/setup` accepts the pre-MFA session of an admin without an
+  authenticator, only stages a _pending_ secret (activated by `/totp/activate`, so abandoning the
+  dialog never locks anyone out) and requires re-authentication for an already enrolled admin.
 - **Notification links** are followed only when they pass the same check as `returnTo`
   (`safeReturnTo`: site-relative, no `//`, no backslash, no control characters) and render as real
   links (open in new tab works); opening one marks it read.

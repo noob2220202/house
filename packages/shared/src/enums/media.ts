@@ -18,6 +18,8 @@ export const MediaPurpose = {
   COMPLEX_PHOTO: 'COMPLEX_PHOTO',
   DEAL_REQUEST_PHOTO: 'DEAL_REQUEST_PHOTO',
   AGENCY_LOGO: 'AGENCY_LOGO',
+  /** Wide header image of the agency's public page (public, like the logo). */
+  AGENCY_COVER: 'AGENCY_COVER',
   AGENCY_DOCUMENT: 'AGENCY_DOCUMENT',
   BANNER: 'BANNER',
   POPUP: 'POPUP',

@@ -125,6 +125,42 @@ enum ListingAgencyStatus {
   @@map("listing_agency_status")
 }
 
+/// 방 구성 (원룸·투룸 filter). Property: as stated; Listing: effective (stated, else from rooms).
+enum RoomType {
+  ONE_ROOM
+  ONE_HALF_ROOM
+  TWO_ROOM
+  THREE_ROOM_PLUS
+
+  @@map("room_type")
+}
+
+/// 용도지역 group of Property.zoning (shared landZoneOf).
+enum LandZone {
+  RESIDENTIAL
+  COMMERCIAL
+  INDUSTRIAL
+  GREEN
+  MANAGEMENT
+  AGRICULTURAL
+  CONSERVATION
+
+  @@map("land_zone")
+}
+
+/// 지목 group of Property.landCategory (shared landCategoryOf).
+enum LandCategory {
+  DAE
+  JEON
+  DAP
+  GWASUWON
+  IMYA
+  JAPJONGJI
+  ETC
+
+  @@map("land_category")
+}
+
 enum RecentViewTarget {
   LISTING
   COMPLEX
@@ -203,6 +239,8 @@ model Property {
   /// 연면적 (주택/상업) ㎡
   totalFloorArea Decimal?                               @map("total_floor_area") @db.Decimal(12, 2)
   rooms          Int?
+  /// 방 구성 as stated by the broker (only needed for 1.5룸; null = derived from rooms).
+  roomType       RoomType?                              @map("room_type")
   baths          Int?
   direction      Direction?
   directionBasis DirectionBasis?                        @map("direction_basis")
@@ -237,6 +275,8 @@ model Property {
 /// maintained by ListingsService on every write so map/list queries hit one table.
 model Listing {
   id                String          @id @default(uuid(7)) @db.Uuid
+  /// 매물번호: sequential, human-friendly number (console, detail page, admin search).
+  listingNo         Int             @unique @default(autoincrement()) @map("listing_no")
   propertyId        String          @map("property_id") @db.Uuid
   dealType          DealType        @map("deal_type")
   status            ListingStatus   @default(DRAFT)
@@ -283,6 +323,11 @@ model Listing {
   location      Unsupported("geography(Point, 4326)")?
   exclusiveArea Decimal?                               @map("exclusive_area") @db.Decimal(10, 2)
   rooms         Int?
+  /// Effective 방 구성 (shared effectiveRoomType).
+  roomType      RoomType?                              @map("room_type")
+  /// 용도지역 / 지목 groups of the property's free-text values (shared landZoneOf / landCategoryOf).
+  landZone      LandZone?                              @map("land_zone")
+  landCategory  LandCategory?                          @map("land_category")
   baths         Int?
   direction     Direction?
   floorClass    FloorClass?                            @map("floor_class")

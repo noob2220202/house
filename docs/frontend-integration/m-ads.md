@@ -3,9 +3,14 @@
 Scope: `apps/admin/src/app/(console)/banners/**`, `apps/admin/src/features/m-ads/**` and the mock
 resources listed below. See `docs/FRONTEND.md` for conventions.
 
-The ads controllers do not exist yet (`apps/api/src/modules/ads/README.md` + the shared input
-schemas / enums / constants only). **Request bodies** follow `packages/shared/src/schemas/ads.ts`
-exactly; every **response shape** below is an assumption. Each response is parsed by exactly one zod
+> **Status (2026-11-24):** the ads controllers exist (`apps/api/src/modules/ads/controllers/`) and
+> the console calls them. Request bodies are the shared schemas of `packages/shared/src/schemas/ads.ts`:
+> `bannerCreateSchema` / `bannerUpdateSchema` (strict — no `slot`), `popupCreateSchema` /
+> `popupUpdateSchema`, `bannerReorderSchema` `{ slot, ids }`, `popupReorderSchema` `{ ids }`. Slot
+> sizes follow D4 (`MAIN_HERO` upload 2480×440, mobile 1074×480). "Assumed" below is the wording of
+> the frontend gate, kept for history.
+
+**Request bodies** follow `packages/shared/src/schemas/ads.ts` exactly. Each response is parsed by exactly one zod
 schema in `apps/admin/src/features/m-ads/api/schemas.ts` — reconcile the schema and the mock
 fixture together.
 
@@ -31,27 +36,27 @@ topbar between 1181 and 1439px) and a modal sheet below. Sidebar entry: `ADMIN_R
 
 ## Endpoints used
 
-| Method | Path                                                    | Used by                                                          | Backend status                                             |
-| ------ | ------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------- |
-| GET    | `/api/v1/admin/banners?slot&status&q&page&pageSize`     | list, order select of the editor (`slot` + `pageSize=100`)       | README — query params + response assumed (1, 2)            |
-| GET    | `/api/v1/admin/banners/:id`                             | editor, stats header                                             | README — response assumed (1)                              |
-| POST   | `/api/v1/admin/banners`                                 | create / duplicate (`bannerInputSchema`)                         | README + shared schema                                     |
-| PATCH  | `/api/v1/admin/banners/:id`                             | save, status toggle (`{ paused }` only)                          | README — partial body + `null` clears assumed (3)          |
-| DELETE | `/api/v1/admin/banners/:id`                             | delete (204)                                                     | README                                                     |
-| PUT    | `/api/v1/admin/banners/reorder`                         | drag / keyboard reorder, order select (`reorderSchema: { ids }`) | README + shared schema — semantics assumed (4)             |
-| GET    | `/api/v1/admin/banners/:id/stats?from&to`               | stats page                                                       | README — query + response assumed (5)                      |
-| GET    | `/api/v1/admin/banner-slots`                            | slot cards, spec sheet, editor                                   | README (ADMIN+) — response + OPERATOR read assumed (6)     |
-| PATCH  | `/api/v1/admin/banner-slots/:slot`                      | 동시 노출 수 in the spec sheet (`{ maxActive }`, ADMIN+)         | README — body assumed (6)                                  |
-| GET    | `/api/v1/admin/popups?status&page&pageSize`             | popup list, quick panel, tab count                               | README — response assumed (7)                              |
-| GET    | `/api/v1/admin/popups/:id`                              | popup editor                                                     | README — response assumed (7)                              |
-| POST   | `/api/v1/admin/popups`                                  | create / duplicate (`popupInputSchema`)                          | README + shared schema                                     |
-| PATCH  | `/api/v1/admin/popups/:id`                              | save, toggle, quick panel (period / pages / dismiss)             | README — partial body assumed (3)                          |
-| DELETE | `/api/v1/admin/popups/:id`                              | delete (204)                                                     | README                                                     |
-| PUT    | `/api/v1/admin/popups/reorder`                          | reorder (`{ ids }`)                                              | README — semantics assumed (4)                             |
-| POST   | `/api/v1/admin/media?purpose=BANNER\|POPUP` (multipart) | image upload (field `file`) → `MediaDto`                         | media README                                               |
-| GET    | `/api/v1/media/:id`                                     | polled after an upload until a variant URL exists                | media README — readable by the uploading admin assumed (8) |
-| GET    | `/api/v1/agencies?q&page&pageSize`                      | advertiser picker (public search)                                | agencies README — fields read: 9                           |
-| GET    | `/api/v1/complexes?q&page&pageSize`                     | complex targeting picker (public search)                         | complexes README — fields read: 9                          |
+| Method | Path                                                    | Used by                                                       | Backend status                                             |
+| ------ | ------------------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------- |
+| GET    | `/api/v1/admin/banners?slot&status&q&page&pageSize`     | list, order select of the editor (`slot` + `pageSize=100`)    | README — query params + response assumed (1, 2)            |
+| GET    | `/api/v1/admin/banners/:id`                             | editor, stats header                                          | README — response assumed (1)                              |
+| POST   | `/api/v1/admin/banners`                                 | create / duplicate (`bannerCreateSchema`)                     | README + shared schema                                     |
+| PATCH  | `/api/v1/admin/banners/:id`                             | save (`bannerUpdateSchema`, no `slot`), toggle (`{ paused }`) | README — partial body + `null` clears assumed (3)          |
+| DELETE | `/api/v1/admin/banners/:id`                             | delete (204)                                                  | README                                                     |
+| PUT    | `/api/v1/admin/banners/reorder`                         | drag / keyboard reorder, order select (`{ slot, ids }`)       | README + shared schema — semantics assumed (4)             |
+| GET    | `/api/v1/admin/banners/:id/stats?from&to`               | stats page                                                    | README — query + response assumed (5)                      |
+| GET    | `/api/v1/admin/banner-slots`                            | slot cards, spec sheet, editor                                | README (ADMIN+) — response + OPERATOR read assumed (6)     |
+| PATCH  | `/api/v1/admin/banner-slots/:slot`                      | 동시 노출 수 in the spec sheet (`{ maxActive }`, ADMIN+)      | README — body assumed (6)                                  |
+| GET    | `/api/v1/admin/popups?status&page&pageSize`             | popup list, quick panel, tab count                            | README — response assumed (7)                              |
+| GET    | `/api/v1/admin/popups/:id`                              | popup editor                                                  | README — response assumed (7)                              |
+| POST   | `/api/v1/admin/popups`                                  | create / duplicate (`popupCreateSchema`)                      | README + shared schema                                     |
+| PATCH  | `/api/v1/admin/popups/:id`                              | save (`popupUpdateSchema`), toggle, quick panel               | README — partial body assumed (3)                          |
+| DELETE | `/api/v1/admin/popups/:id`                              | delete (204)                                                  | README                                                     |
+| PUT    | `/api/v1/admin/popups/reorder`                          | reorder (`{ ids }`)                                           | README — semantics assumed (4)                             |
+| POST   | `/api/v1/admin/media?purpose=BANNER\|POPUP` (multipart) | image upload (field `file`) → `MediaDto`                      | media README                                               |
+| GET    | `/api/v1/media/:id`                                     | polled after an upload until a variant URL exists             | media README — readable by the uploading admin assumed (8) |
+| GET    | `/api/v1/agencies?q&page&pageSize`                      | advertiser picker (public search)                             | agencies README — fields read: 9                           |
+| GET    | `/api/v1/complexes?q&page&pageSize`                     | complex targeting picker (public search)                      | complexes README — fields read: 9                          |
 
 ## Assumed endpoints (not in any backend README — please confirm or rename)
 
@@ -96,22 +101,23 @@ thumb` (the `thumb` variant is a 320×240 cover crop and unusable for wide banne
    select and the reorder flow read one whole slot with `?slot=X&page=1&pageSize=100`, so
    `pageSize` must allow at least the largest slot.
 
-3. **PATCH semantics** — partial body; the merged record is validated with `bannerInputSchema` /
-   `popupInputSchema`. `null` clears an optional field (`agencyId`, `advertiserName`,
-   `mobileMediaId`, `linkUrl`, `memo`). The list toggle sends only `{ paused }`. Changing `slot`
-   appends the banner to the new slot and renumbers the old one.
+3. **PATCH semantics** — partial body validated with `bannerUpdateSchema` / `popupUpdateSchema`
+   (strict). `null` clears an optional field (`agencyId`, `advertiserName`, `mobileMediaId`,
+   `linkUrl`, `memo`). The list toggle sends only `{ paused }`. **`slot` is immutable**: the banner
+   editor locks the slot of an existing banner and never sends it (`toBannerUpdateInput`); to move a
+   creative, copy it into the other slot.
    Errors mapped by the UI: `400 VALIDATION_FAILED` (`details[].path` = field name → inline error),
    `409 BANNER_SLOT_FULL` (activating beyond `maxActive`; shown under the status control),
    `BANNER_INVALID_LINK` (link field), `404 BANNER_NOT_FOUND` / `POPUP_NOT_FOUND`.
    The form sends KST calendar days as `startAt = <day>T00:00:00+09:00`,
    `endAt = <day>T23:59:59+09:00` (both days inclusive).
 
-4. **Reorder** — `PUT …/reorder` with `{ ids }` = **all** banner ids of **one** slot (all popup ids)
+4. **Reorder** — `PUT /admin/banners/reorder` with `{ slot, ids }` (`bannerReorderSchema`) =
+   **all** banner ids of **one** slot; `PUT /admin/popups/reorder` with `{ ids }` (all popup ids)
    in the new display order; `sortOrder` becomes 1..n. The UI always fetches the slot fresh, applies
    the move and sends the complete list (moves on a filtered / paged list keep hidden rows in place).
    Ids of different slots → `400`. Response is ignored (mock: `{ items: [{ id, sortOrder }] }`).
-   New banners / popups are expected to be **appended** (`sortOrder = count + 1`) by `POST` (and a
-   banner moved to another slot by `PATCH`); when the editor's order select asks for another position
+   New banners / popups are expected to be **appended** (`sortOrder = count + 1`) by `POST`; when the editor's order select asks for another position
    the UI follows up with one reorder call. A new / copied item that should stay last sends no reorder
    at all, so its default place never depends on counts that are still loading.
 

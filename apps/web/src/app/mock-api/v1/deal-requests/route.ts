@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
   const off = mockGuard();
   if (off) return off;
   if (!mockSessionRole(req)) return mockUnauthenticated();
-  if (!mockCsrfOk(req)) return mockError(403, 'CSRF_INVALID', '보안 토큰이 올바르지 않습니다.');
+  if (!mockCsrfOk(req)) return mockError(403, 'CSRF_FAILED', '보안 토큰이 올바르지 않습니다.');
   await mockDelay(req, 400);
 
   const raw: unknown = await req.json().catch(() => null);

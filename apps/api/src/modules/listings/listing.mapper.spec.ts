@@ -30,6 +30,7 @@ const agency = {
 function row(): ListingAgencyDetailRow {
   return {
     id: 'l1',
+    listingNo: 100412,
     dealType: 'SALE',
     assetType: 'APT',
     status: 'ACTIVE',
@@ -43,6 +44,9 @@ function row(): ListingAgencyDetailRow {
     maintenanceFeeWon: 0,
     exclusiveArea: new Prisma.Decimal('84.97'),
     rooms: 3,
+    roomType: null,
+    landZone: null,
+    landCategory: null,
     baths: 2,
     direction: 'SOUTH',
     floorClass: 'MID',
@@ -88,6 +92,7 @@ function row(): ListingAgencyDetailRow {
       landArea: null,
       totalFloorArea: null,
       rooms: 3,
+      roomType: null,
       baths: 2,
       direction: 'SOUTH',
       directionBasis: 'LIVING_ROOM',
@@ -236,5 +241,56 @@ describe('ListingMapper', () => {
       agencyCount: 2,
       emdName: null,
     });
+  });
+  it('summary carries the 매물번호 and the search groups', () => {
+    const out = mapper.summary(
+      { ...row(), roomType: 'ONE_HALF_ROOM', landZone: 'GREEN', landCategory: 'IMYA' },
+      1,
+      null,
+    );
+    expect(out).toMatchObject({
+      listingNo: '100412',
+      roomType: 'ONE_HALF_ROOM',
+      landZone: 'GREEN',
+      landCategory: 'IMYA',
+    });
+  });
+
+  it('agency detail has the 실매물 확인 deadline (KST 확인일 + ad period)', () => {
+    // 2026-03-01 00:30 KST = 2026-02-28 15:30Z → due 30 KST days after 2026-03-01.
+    const out = mapper.agencyDetail(
+      { ...row(), verifiedAt: new Date('2026-02-28T15:30:00Z') },
+      'a1',
+      null,
+    );
+    expect(out.verificationDueAt).toBe('2026-03-31');
+    expect(mapper.agencyDetail(row(), 'a1', null).verificationDueAt).toBeNull();
+  });
+
+  it('console row: 호 and hidden reason for the primary only, deadlines, missing count', () => {
+    const r = row();
+    const base = {
+      ...r,
+      verifiedAt: new Date('2026-11-01T03:00:00Z'),
+      property: { ...r.property, landArea: new Prisma.Decimal('330.5') },
+    };
+    const own = mapper.agencyRow(base, 'a1', 2, '조례동', 3);
+    expect(own).toMatchObject({
+      listingNo: '100412',
+      ho: 'SECRET-HO',
+      hiddenReason: 'PRIVATE-REASON',
+      landArea: 330.5,
+      verificationDueAt: '2026-12-01',
+      expiresAt: null,
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      missingCount: 3,
+      agencyCount: 2,
+      emdName: '조례동',
+    });
+    const co = mapper.agencyRow(base, 'a2', 2, null, null);
+    expect(co.ho).toBeNull();
+    expect(co.hiddenReason).toBeNull();
+    expect(co.missingCount).toBeNull();
+    expect(JSON.stringify(co)).not.toContain('SECRET-HO');
   });
 });

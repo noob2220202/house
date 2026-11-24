@@ -56,18 +56,17 @@ are not implemented yet):
 | GET        | `/api/v1/me/notifications` (cursor)    | deal-requests | 알림 feed, unread counter          |
 | POST       | `/api/v1/me/notifications/read`        | deal-requests | mark read                          |
 | PATCH      | `/api/v1/me/profile`                   | auth          | nickname, phone, marketingOptIn    |
-| GET        | `/api/v1/auth/me`, POST `/auth/logout` | auth          | session (foundation)               |
+| GET        | `/api/v1/auth/me`, POST `/auth/logout` | auth          | session (foundation), 내 정보      |
 
 ## Assumed endpoints
 
 Not listed in any README — please add them or tell us the real path:
 
-1. **`GET /api/v1/me/profile`** → the profile shown on 내 정보. Needed because `/auth/me` has no
-   consent timestamp. Shape (`profileSchema`): the `/auth/me` fields plus
-   `marketingOptInAt` (ISO datetime of the latest MARKETING consent change — required for the
-   "수신 동의 일시" display), `createdAt`, `lastLoginAt`. `PATCH /me/profile` is expected to return the
-   same shape. If the backend prefers, `marketingOptInAt` can simply be added to `/auth/me` and this
-   endpoint dropped (one line in `features/w-me/api.ts`).
+1. ~~`GET /api/v1/me/profile`~~ — **resolved**: the backend has no GET there. 내 정보 reads the
+   profile from **`GET /api/v1/auth/me`** (`MeResponse`, which carries `marketingOptInAt` — the
+   "수신 동의 일시" display — and `createdAt`; there is no `lastLoginAt`). `PATCH /me/profile` answers
+   the same `MeResponse` (`profileSchema` in `features/w-me/schemas.ts`, `meQueries.profile` in
+   `features/w-me/queries.ts`).
 2. **`GET /api/v1/me/identities`** → linked social accounts (shared with w-auth, which also assumes
    `DELETE /me/identities/{provider}`): `{ items: [{ id, provider, email?, lastUsedAt?, createdAt }] }`.
 
@@ -112,8 +111,9 @@ counts{presale,sale,jeonse,monthly}, pricePerPyeong?, coverPhotoUrl?, favoritedA
    - **Agency events** — a row with `data.agencyId`, or one of the agency-only types
      `DEAL_REQUEST_RECEIVED` / `PROPOSAL_ACCEPTED` / `CONTACT_GRANTED` (the enum semantics of the
      deal-requests README: a request arrived, our proposal was accepted, the requester opened their
-     contact to us) — open the broker console: `dealRequestId` → `/agent/requests/{id}`,
-     `inquiryId` → `/agent/inquiries?id=…`. Labels: 새 요청 도착 / 제안 수락됨 / 연락처 공개됨.
+     contact to us) — open the broker console: `dealRequestId` → `/agent/requests/{id}`. A
+     `data.inquiryId` leads nowhere (D5: no 문의함 for launch) and gets no caption of its own.
+     Labels: 새 요청 도착 / 제안 수락됨 / 연락처 공개됨.
    - **Requester events** — `PROPOSAL_RECEIVED` + `dealRequestId` → `/me/requests/{id}`;
      `LISTING_HIDDEN` + `listingId` → `/listing/{id}`; `AGENCY_APPROVED`/`AGENCY_WARNED` → `/agent`,
      `AGENCY_REJECTED` → the apply page; `SYSTEM` → `data.url` (site-relative paths only), else

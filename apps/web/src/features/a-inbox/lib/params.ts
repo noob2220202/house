@@ -1,5 +1,5 @@
 import { AssetType, DealRequestType } from '@house/shared';
-import type { InboxStage, InquiryChannel, InquiryStatus } from '../api/schemas';
+import type { InboxStage } from '../api/schemas';
 
 /**
  * URL state of the inbox lists. Filters live in the query string so a view can be bookmarked,
@@ -128,79 +128,4 @@ export function activeRequestFilterCount(f: RequestFilters): number {
   return (
     (f.type === 'all' ? 0 : 1) + (f.regions.length > 0 ? 1 : 0) + (f.assets.length > 0 ? 1 : 0)
   );
-}
-
-// ---------- inquiries ----------
-
-export const INQUIRY_STATUS_TABS = ['all', 'new', 'progress', 'done'] as const;
-export type InquiryStatusTab = (typeof INQUIRY_STATUS_TABS)[number];
-export const INQUIRY_CHANNEL_TABS = ['all', 'message', 'call', 'sms', 'copy'] as const;
-export type InquiryChannelTab = (typeof INQUIRY_CHANNEL_TABS)[number];
-
-export interface InquiryFilters {
-  status: InquiryStatusTab;
-  channel: InquiryChannelTab;
-  unread: boolean;
-  q: string;
-  page: number;
-  /** Inquiry open in the detail drawer. */
-  id: string | null;
-}
-
-export const DEFAULT_INQUIRY_FILTERS: InquiryFilters = {
-  status: 'all',
-  channel: 'all',
-  unread: false,
-  q: '',
-  page: 1,
-  id: null,
-};
-
-export function parseInquiryFilters(input: SearchInput): InquiryFilters {
-  const get = reader(input);
-  return {
-    status: oneOf(get('status'), INQUIRY_STATUS_TABS, 'all'),
-    channel: oneOf(get('channel'), INQUIRY_CHANNEL_TABS, 'all'),
-    unread: get('unread') === '1',
-    q: get('q').trim().slice(0, 50),
-    page: pageOf(get('page')),
-    id: get('id').slice(0, 64) || null,
-  };
-}
-
-export function inquiryFiltersToSearch(f: InquiryFilters): string {
-  return toSearch([
-    ['status', f.status === 'all' ? null : f.status],
-    ['channel', f.channel === 'all' ? null : f.channel],
-    ['unread', f.unread ? '1' : null],
-    ['q', f.q],
-    ['page', f.page > 1 ? String(f.page) : null],
-    ['id', f.id],
-  ]);
-}
-
-const STATUS_PARAM: Record<Exclude<InquiryStatusTab, 'all'>, InquiryStatus> = {
-  new: 'NEW',
-  progress: 'IN_PROGRESS',
-  done: 'DONE',
-};
-const CHANNEL_PARAM: Record<Exclude<InquiryChannelTab, 'all'>, InquiryChannel> = {
-  message: 'MESSAGE',
-  call: 'CALL',
-  sms: 'SMS',
-  copy: 'COPY',
-};
-
-export const INQUIRIES_PAGE_SIZE = 12;
-
-/** Query of GET /agency/inquiries. */
-export function inquiryFiltersToQuery(f: InquiryFilters) {
-  return {
-    status: f.status === 'all' ? undefined : STATUS_PARAM[f.status],
-    channel: f.channel === 'all' ? undefined : CHANNEL_PARAM[f.channel],
-    unreadOnly: f.unread ? true : undefined,
-    q: f.q || undefined,
-    page: f.page,
-    pageSize: INQUIRIES_PAGE_SIZE,
-  };
 }

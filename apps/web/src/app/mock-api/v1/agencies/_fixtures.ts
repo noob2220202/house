@@ -370,8 +370,8 @@ export const AGENCY_REGIONS: readonly AgencyRegion[] = (Object.keys(EMD) as EmdK
 
 /**
  * `GET /agencies/:id` wire shape (`AgencyProfile`): listing counts keyed by deal / asset type,
- * 대표 매물 as `AgencyListingCard`, the 표시·광고 disclosure block. Mock-only display extras
- * (tagline, 전문 단지, 30일 통계, cover) are left out like the backend does.
+ * 대표 매물 as `AgencyListingCard`, the 표시·광고 disclosure block, `coverUrl`. Mock-only display
+ * extras (tagline, 전문 단지, 30일 통계) are left out like the backend does.
  */
 export function toAgencyProfileWire(d: AgencyDetail): AgencyProfile {
   const c = d.listingCounts;
@@ -393,6 +393,7 @@ export function toAgencyProfileWire(d: AgencyDetail): AgencyProfile {
     lng: d.lng,
     specialties: d.specialties,
     logoUrl: d.logoUrl ?? null,
+    coverUrl: d.coverUrl ?? null,
     activeListingCount: d.activeListingCount,
     mobile: d.mobile ?? null,
     email: null,

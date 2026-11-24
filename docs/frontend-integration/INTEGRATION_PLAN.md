@@ -1,5 +1,29 @@
 # Frontend ↔ real backend integration plan
 
+## Status (2026-11-24)
+
+Integration stages 1–2 are **done**: the frontends call the real API (`apps/api`); mock mode stays
+for UI work. Owner decisions are in [`DECISIONS.md`](./DECISIONS.md) and override this plan. The
+sections below are the original mismatch analysis and are kept as the record — the "today" columns
+describe the code before the stages.
+
+| Work item                            | Status                                                                                                                                                                                                                                                        |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| WI-S shared                          | Done: `HOME_LAYOUT` / `APP_LINKS` site settings (D9), `MAIN_HERO` 2480×440 / 1074×480 (D4), purpose `TermsType`s + `consents` (D8), region 12150 + `canonicalRegionCode` (D1), `isSafeLinkUrl` hardening, `marketingOptInAt` on `MeResponse`.                 |
+| WI-1 deps + compile                  | Done (FE-0 + stage-1 gate, see the item).                                                                                                                                                                                                                     |
+| WI-2 user auth                       | Done: signup via `GET/POST /auth/signup`, `?error=` on `/login`, `intent=link`, `sessionUserSchema` from `MeResponse`, profile from `GET /auth/me`, terms history via `?version=`. CSRF token kept in memory (from `csrfToken` bodies / `GET /auth/csrf`).    |
+| WI-3 admin auth                      | Done: `/admin/auth/csrf`, `totp/activate`, recovery-code entry, re-enrolment re-auth, password ≥ 12, CSRF token in memory.                                                                                                                                    |
+| WI-4 admin ads                       | Done: shared create / update / reorder schemas.                                                                                                                                                                                                               |
+| WI-5 broker console agency           | Done: staff via `GET /agencies/membership`, invites via `/agencies/mine/invites`, `Paginated` members; "사무소 나가기" (`POST /agencies/membership/leave`) added in FE-gaps.                                                                                  |
+| WI-6 listing shapes                  | Done: `ListingSummary` preprocess (nested `complex` / `coverPhoto`), `maintenanceFee` object, whole-list complex photos.                                                                                                                                      |
+| WI-7 notifications                   | Done: `GET /me/notifications/unread-count`, `{ updated, unread }`, B5 `data.agencyId` + `scope=agency`.                                                                                                                                                       |
+| WI-8 backend public / user endpoints | Done: every listed endpoint exists in `apps/api`.                                                                                                                                                                                                             |
+| WI-9 backend broker console          | Done: dashboard, listings summary, co-broker candidates, listing candidates. Inquiries: **not built** (D5) — the frontend inquiry code was removed (FE-gaps).                                                                                                 |
+| WI-10 admin endpoints (backend + FE) | Done: queues, search, notifications, stats, social-login, videos order, admin delete, spam flag; FE renames (`…/documents/:docId/file`, `GET …/registry-check?refresh=1`, `PUT …/photos`). Open: report **attachments** (the admin parses `attachments: []`). |
+
+Still open after stage 2: report attachments (above); `inquiryCount` on the broker listing rows has
+no backend source (always 0); stage 3 (real-API E2E, audit, deploy rehearsal) is in progress.
+
 Sources: frontend `/home/user/house-merge/apps/{web,admin}` (trial merge, branch `integration-test`),
 backend `/home/user/house/apps/api` (develop `66d950c`), shared `/home/user/house/packages/shared`.
 Full per-endpoint table: `docs/frontend-integration/endpoint-inventory.md`

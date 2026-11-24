@@ -29,6 +29,7 @@ import {
   type AgentBadgeCounts,
 } from '../nav';
 import styles from './AgentShell.module.css';
+import { LeaveAgencyDialog } from './LeaveAgencyDialog';
 
 /** What the shell needs to know about the caller's agency (from GET /agencies/mine). */
 export interface ShellAgency {
@@ -137,53 +138,81 @@ function NavList({ agency, isOwner, badges, onNavigate }: NavListProps) {
   );
 }
 
-function AccountMenu({ user }: { user: SessionUser }) {
+interface AccountMenuProps {
+  user: SessionUser;
+  /** The caller's office when they are its 소속 중개사 (AGENT) — enables "사무소 나가기". */
+  staffOf?: ShellAgency | null;
+}
+
+function AccountMenu({ user, staffOf }: AccountMenuProps) {
   const { logout } = useSession();
+  const [leaving, setLeaving] = useState(false);
   const name = user.name || user.nickname;
   return (
-    <Popover
-      placement="bottom-end"
-      label="내 계정 메뉴"
-      flush
-      trigger={(p) => (
-        <button type="button" className={styles.me} {...p} aria-label={`${name} 계정 메뉴`}>
-          <Avatar name={name} size={36} />
-          <span className={styles.meText}>
-            <b>{name}</b>
-            <span>{ROLE_LABEL[user.role]}</span>
-          </span>
-          <Icon name="chevron-down" size={16} />
-        </button>
-      )}
-    >
-      {(close) => (
-        <div className={styles.menu}>
-          <p className={styles.menuHead}>
-            <b>{name}님</b>
-            {ROLE_LABEL[user.role]}
-          </p>
-          <Link href={ROUTES.me} onClick={close}>
-            <Icon name="user" size={18} />
-            마이페이지
-          </Link>
-          <Link href={ROUTES.home} onClick={close}>
-            <Icon name="home" size={18} />
-            사이트 홈
-          </Link>
-          <hr />
-          <button
-            type="button"
-            onClick={() => {
-              close();
-              void logout();
-            }}
-          >
-            <Icon name="logout" size={18} />
-            로그아웃
+    <>
+      <Popover
+        placement="bottom-end"
+        label="내 계정 메뉴"
+        flush
+        trigger={(p) => (
+          <button type="button" className={styles.me} {...p} aria-label={`${name} 계정 메뉴`}>
+            <Avatar name={name} size={36} />
+            <span className={styles.meText}>
+              <b>{name}</b>
+              <span>{ROLE_LABEL[user.role]}</span>
+            </span>
+            <Icon name="chevron-down" size={16} />
           </button>
-        </div>
+        )}
+      >
+        {(close) => (
+          <div className={styles.menu}>
+            <p className={styles.menuHead}>
+              <b>{name}님</b>
+              {ROLE_LABEL[user.role]}
+            </p>
+            <Link href={ROUTES.me} onClick={close}>
+              <Icon name="user" size={18} />
+              마이페이지
+            </Link>
+            <Link href={ROUTES.home} onClick={close}>
+              <Icon name="home" size={18} />
+              사이트 홈
+            </Link>
+            {staffOf && (
+              <button
+                type="button"
+                onClick={() => {
+                  close();
+                  setLeaving(true);
+                }}
+              >
+                <Icon name="store" size={18} />
+                사무소 나가기
+              </button>
+            )}
+            <hr />
+            <button
+              type="button"
+              onClick={() => {
+                close();
+                void logout();
+              }}
+            >
+              <Icon name="logout" size={18} />
+              로그아웃
+            </button>
+          </div>
+        )}
+      </Popover>
+      {staffOf && (
+        <LeaveAgencyDialog
+          open={leaving}
+          onClose={() => setLeaving(false)}
+          agencyName={staffOf.name}
+        />
       )}
-    </Popover>
+    </>
   );
 }
 
@@ -358,7 +387,10 @@ export function AgentShell({ user, agency, children }: AgentShellProps) {
           )}
           <BellLink />
           <span className={styles.sep} aria-hidden="true" />
-          <AccountMenu user={user} />
+          <AccountMenu
+            user={user}
+            staffOf={agency?.myRole === AgencyMemberRole.AGENT ? agency : null}
+          />
         </header>
         <main id="main" className={styles.body} tabIndex={-1}>
           {children}

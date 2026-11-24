@@ -33,15 +33,15 @@ module READMEs. Each response is parsed by exactly one zod schema in
 
 | Route            | Who                                     | What                                                                                                 |
 | ---------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `/agent`         | AGENT · AGENCY_OWNER                    | Dashboard: KPIs, 7-day views, expiring listings, 실매물 확인 due, new 내놓기·구하기, inquiries       |
+| `/agent`         | AGENT · AGENCY_OWNER                    | Dashboard: KPIs, 7-day views, expiring listings, 실매물 확인 due, new 내놓기·구하기                  |
 | `/agent/apply`   | any signed-in user                      | New application · invite-code join (`?tab=join`) · status tracking · resubmit · 등록 정보 (approved) |
 | `/agent/profile` | AGENT (read-only) · AGENCY_OWNER (edit) | Public profile editor: logo, cover, intro, specialties, business hours, phone + live preview         |
 | `/agent/staff`   | AGENCY_OWNER (AGENT sees a notice)      | Members, invitations (one-time codes), remove                                                        |
 | `/agent/**`      | —                                       | Unknown console paths render the in-shell 404 (`[...rest]` catch-all)                                |
 
 `app/agent/layout.tsx` is the layout for **every** `/agent` route, including the a-listings
-(`/agent/listings/**`) and a-inbox (`/agent/requests/**`, `/agent/inquiries`,
-`/agent/notifications`) groups:
+(`/agent/listings/**`) and a-inbox (`/agent/requests/**`, `/agent/notifications`) groups
+(`/agent/inquiries` only redirects to `/agent`, D5):
 
 - It reads the session with `getServerSession()` and **does not redirect** — every page guards
   itself with its own path (`requireAgent(AGENT_ROUTES.profile)`, `requireUser('/agent/apply')` …),
@@ -162,16 +162,16 @@ isLicensed, licenseNumber?, joinedAt?, inviteCode?, inviteExpiresAt?, activeList
    `{ listings: { active, reserved, draft, closed30d, coBrokered },
 views: { total7d, changeRatio: number|null, daily: [{ date: "YYYY-MM-DD", views }], profileViews7d, favorites7d },
 dealRequests: { newCount, newSellCount, newWantedCount, items: [{ id, type: DealRequestType, title, summary, createdAt, proposed }] },
-inquiries: { unreadCount, items: [{ id, listingId?, listingTitle, customerName (masked), preview, createdAt, read }] },
 expiringListings: [{ id, title, summary?, dealType, price?, deposit?, monthlyRent?, expiresAt, verifiedAt? }],
 verificationDue: [{ …same, verifiedAt?, verificationDueAt }] }`.
    `newSellCount` / `newWantedCount` split `newCount` by type (the `items` feed is truncated, so the
    client cannot count it); the KPI chips are hidden when they are absent. `verificationDue`
    includes **overdue** listings (shown "n일 지남", same helper as a-listings). Money is 만원.
-   `customerName` must already be masked by the API (no contact data before consent). Sidebar /
-   tab-bar badges: `dealRequests.newCount`, `inquiries.unreadCount`, `verificationDue.length`.
+   The API also sends `inquiries: { unreadCount: 0, items: [] }` (D5: no inquiry backend for
+   launch); the schema does not read it and the console has no inquiry widget. Sidebar / tab-bar
+   badges: `dealRequests.newCount`, `verificationDue.length`.
    Deep links: 실매물 확인 KPI / "전체" → `/agent/listings?due=1&sort=VERIFY_DUE`, "확인 기록" →
-   `/agent/listings/:id/edit?step=verify`, inquiries → `/agent/inquiries?id=:id`. If the backend
+   `/agent/listings/:id/edit?step=verify`. If the backend
    prefers separate endpoints, only `fetchDashboard()` in `features/a-agency/api/queries.ts` has to
    change.
 7. **Duplicate registration** — `409 AGENCY_REGISTRATION_DUPLICATE` is mapped to the 등록번호 field.
@@ -179,6 +179,14 @@ verificationDue: [{ …same, verifiedAt?, verificationDueAt }] }`.
 8. **Role change after approval / join** — the frontend expects the session role to become
    AGENCY_OWNER (approval) or AGENT (join) without re-login (`SessionService.update`). After a
    successful join the page does a full navigation to `/agent` so every server guard re-runs.
+   **사무소 나가기** (소속 중개사 only — the account menu of the console top bar shows it when
+   `myRole === AGENT`): confirm dialog → `POST /agencies/membership/leave` (204; the server sets the
+   session to role USER without an acting agency and hands the member's ads to the 대표; the owner
+   gets `400 AGENCY_OWNER_NOT_REMOVABLE`) → every cached query except the session is dropped, the
+   session is re-read, then `router.replace('/agent/apply')` + `router.refresh()` so the console
+   layout re-resolves the user on the server and shows the apply / join state
+   (`shell/LeaveAgencyDialog.tsx`; mock `agencies/membership/leave/route.ts` switches the mock
+   session to USER).
 9. **Consents** — the application form has two separate required checkboxes: a truthfulness
    declaration ("입력 내용과 제출 서류가 사실과 같습니다") and **[필수] 개인정보 수집·이용 동의**
    with an inline notice (items, purpose, retention, right to refuse). The join form has the same

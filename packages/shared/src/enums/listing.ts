@@ -368,3 +368,92 @@ export const BUILDING_USE_LABEL: Record<BuildingUse, string> = {
   FUNERAL: '장례시설',
   CAMPING: '야영장 시설',
 };
+
+/**
+ * 방 구성 (원룸·투룸 검색 필터). Stated by the broker (1.5룸 = 원룸 + 분리형 공간) or derived from
+ * the room count for 원룸·투룸 listings (see `effectiveRoomType`).
+ */
+export const RoomType = {
+  ONE_ROOM: 'ONE_ROOM',
+  ONE_HALF_ROOM: 'ONE_HALF_ROOM',
+  TWO_ROOM: 'TWO_ROOM',
+  THREE_ROOM_PLUS: 'THREE_ROOM_PLUS',
+} as const;
+export type RoomType = EnumValue<typeof RoomType>;
+
+export const ROOM_TYPE_LABEL: Record<RoomType, string> = {
+  ONE_ROOM: '원룸',
+  ONE_HALF_ROOM: '1.5룸',
+  TWO_ROOM: '투룸',
+  THREE_ROOM_PLUS: '쓰리룸+',
+};
+
+/**
+ * 용도지역 대분류 (국토의 계획 및 이용에 관한 법률 제36조) — the search group of the free-text
+ * `Property.zoning` ("제2종일반주거지역" → RESIDENTIAL, "계획관리지역" → MANAGEMENT).
+ */
+export const LandZone = {
+  RESIDENTIAL: 'RESIDENTIAL',
+  COMMERCIAL: 'COMMERCIAL',
+  INDUSTRIAL: 'INDUSTRIAL',
+  GREEN: 'GREEN',
+  MANAGEMENT: 'MANAGEMENT',
+  AGRICULTURAL: 'AGRICULTURAL',
+  CONSERVATION: 'CONSERVATION',
+} as const;
+export type LandZone = EnumValue<typeof LandZone>;
+
+export const LAND_ZONE_LABEL: Record<LandZone, string> = {
+  RESIDENTIAL: '주거지역',
+  COMMERCIAL: '상업지역',
+  INDUSTRIAL: '공업지역',
+  GREEN: '녹지지역',
+  MANAGEMENT: '관리지역',
+  AGRICULTURAL: '농림지역',
+  CONSERVATION: '자연환경보전지역',
+};
+
+/**
+ * 지목 search group (공간정보관리법 제67조; the most traded ones, the rest = ETC) of the free-text
+ * `Property.landCategory` ("대", "전", "답", "과수원", "임야", "잡종지", …).
+ */
+export const LandCategory = {
+  DAE: 'DAE',
+  JEON: 'JEON',
+  DAP: 'DAP',
+  GWASUWON: 'GWASUWON',
+  IMYA: 'IMYA',
+  JAPJONGJI: 'JAPJONGJI',
+  ETC: 'ETC',
+} as const;
+export type LandCategory = EnumValue<typeof LandCategory>;
+
+export const LAND_CATEGORY_LABEL: Record<LandCategory, string> = {
+  DAE: '대',
+  JEON: '전',
+  DAP: '답',
+  GWASUWON: '과수원',
+  IMYA: '임야',
+  JAPJONGJI: '잡종지',
+  ETC: '기타',
+};
+
+/** Sort keys of the broker console list (GET /agency/listings). */
+export const AgencyListingSort = {
+  UPDATED: 'UPDATED',
+  LATEST: 'LATEST',
+  VERIFY_DUE: 'VERIFY_DUE',
+  PRICE_DESC: 'PRICE_DESC',
+  PRICE_ASC: 'PRICE_ASC',
+  VIEWS: 'VIEWS',
+} as const;
+export type AgencyListingSort = EnumValue<typeof AgencyListingSort>;
+
+export const AGENCY_LISTING_SORT_LABEL: Record<AgencyListingSort, string> = {
+  UPDATED: '최근 수정순',
+  LATEST: '최근 등록순',
+  VERIFY_DUE: '확인 만료 임박순',
+  PRICE_DESC: '높은 가격순',
+  PRICE_ASC: '낮은 가격순',
+  VIEWS: '조회 많은순',
+};

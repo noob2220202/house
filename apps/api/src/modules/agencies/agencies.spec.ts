@@ -1,6 +1,6 @@
 import { AGENCY_INVITE_CODE_ALPHABET, AGENCY_INVITE_CODE_LENGTH } from '@house/shared';
 import { Prisma } from '@prisma/client';
-import { escapeLike } from './agency-search.repository';
+import { escapeLike, kstClock } from './agency-search.repository';
 import {
   BrokerRegistryUnavailableError,
   parseRegistryResponse,
@@ -255,6 +255,12 @@ describe('map helpers', () => {
 
   it('escapes LIKE wildcards', () => {
     expect(escapeLike('100%_\\')).toBe('100\\%\\_\\\\');
+  });
+
+  it('reads the 영업시간 clock in Asia/Seoul (weekday key + HH:MM)', () => {
+    // Sunday 2026-11-22 23:30Z = Monday 08:30 KST.
+    expect(kstClock(new Date('2026-11-22T23:30:00Z'))).toEqual({ day: 'mon', time: '08:30' });
+    expect(kstClock(new Date('2026-11-24T09:05:00Z'))).toEqual({ day: 'tue', time: '18:05' });
   });
 });
 

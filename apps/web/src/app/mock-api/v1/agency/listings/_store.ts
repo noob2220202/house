@@ -71,7 +71,7 @@ export function listingsContext(
   if (!role) return mockUnauthenticated();
   if (role === 'USER') return mockForbidden();
   if (options.mutation && !mockCsrfOk(req)) {
-    return mockError(403, 'CSRF_TOKEN_INVALID', '요청을 확인할 수 없습니다.');
+    return mockError(403, 'CSRF_FAILED', '요청을 확인할 수 없습니다.');
   }
   if (options.ownerOnly && role !== 'AGENCY_OWNER') {
     return mockError(403, 'FORBIDDEN', '대표(개업공인중개사)만 할 수 있는 작업입니다.');

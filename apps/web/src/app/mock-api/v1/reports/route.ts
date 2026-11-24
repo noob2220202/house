@@ -19,8 +19,7 @@ export async function POST(req: NextRequest) {
   if (off) return off;
   await mockDelay(req, 400);
   if (!mockSessionRole(req)) return mockUnauthenticated();
-  if (!mockCsrfOk(req))
-    return mockError(403, 'CSRF_TOKEN_INVALID', '보안 토큰이 올바르지 않습니다.');
+  if (!mockCsrfOk(req)) return mockError(403, 'CSRF_FAILED', '보안 토큰이 올바르지 않습니다.');
   const body: unknown = await req.json().catch(() => null);
   const parsed = reportCreateSchema.safeParse(body);
   if (!parsed.success) {

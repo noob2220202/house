@@ -26,6 +26,16 @@ export interface AgencySummary {
   activeListingCount: number;
 }
 
+/**
+ * Row of GET /agencies (office search): the summary plus what the result card shows — 영업시간
+ * (the client renders 영업 중 from it) and whether the office handles 분양권.
+ */
+export interface AgencySearchItem extends AgencySummary {
+  businessHours: BusinessHours | null;
+  /** Advertises at least one public 분양권 listing (own or co-brokered). */
+  handlesPresale: boolean;
+}
+
 export interface AgencyPublicMember {
   id: string;
   displayName: string;
@@ -60,6 +70,8 @@ export interface AgencyListingCard {
 }
 
 export interface AgencyProfile extends AgencySummary {
+  /** Public URL of the cover image (large variant); null when none is set. */
+  coverUrl: string | null;
   mobile: string | null;
   email: string | null;
   jibunAddress: string | null;
@@ -103,6 +115,9 @@ export interface MyAgency extends Omit<AgencySummary, 'activeListingCount'> {
   intro: string | null;
   businessHours: BusinessHours | null;
   logoMediaId: string | null;
+  /** Cover image of the public page (purpose AGENCY_COVER) and its public URL (large variant). */
+  coverMediaId: string | null;
+  coverUrl: string | null;
   status: AgencyStatus;
   statusReason: string | null;
   approvedAt: string | null;

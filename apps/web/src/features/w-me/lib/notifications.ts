@@ -38,22 +38,13 @@ export const NOTIFICATION_META: Record<NotificationType, NotificationMeta> = {
   SYSTEM: { label: '알림', icon: 'megaphone', tone: 'neutral' },
 };
 
-const INQUIRY_META: NotificationMeta = { label: '매물 문의', icon: 'chat', tone: 'brand' };
-
 function str(data: Notification['data'], key: string): string | null {
   const value = data?.[key];
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
-/**
- * Category meta of a notification. Pass `data` when you have it: a SYSTEM row that carries an
- * `inquiryId` (매물 문의 sent to an agency) gets its own caption.
- */
-export function notificationMeta(
-  type: NotificationType,
-  data?: Notification['data'],
-): NotificationMeta {
-  if (type === NotificationType.SYSTEM && str(data, 'inquiryId')) return INQUIRY_META;
+/** Category meta of a notification (by type only — there is no 매물 문의 caption for launch, D5). */
+export function notificationMeta(type: NotificationType): NotificationMeta {
   return NOTIFICATION_META[type] ?? NOTIFICATION_META.SYSTEM;
 }
 
@@ -87,7 +78,6 @@ function safeUrl(data: Notification['data']): string | null {
 /** Console destination of an agency event, or null when the type decides (승인, 경고 …). */
 function agencyHref(n: Pick<Notification, 'type' | 'data'>): string | null {
   const dealRequestId = str(n.data, 'dealRequestId');
-  const inquiryId = str(n.data, 'inquiryId');
   const listingId = str(n.data, 'listingId');
   switch (n.type) {
     case NotificationType.LISTING_EXPIRED:
@@ -104,7 +94,7 @@ function agencyHref(n: Pick<Notification, 'type' | 'data'>): string | null {
     case NotificationType.AGENCY_WARNED:
       return null;
     default:
-      if (inquiryId) return INBOX_ROUTES.inquiry(inquiryId);
+      // A payload `inquiryId` is ignored: there is no 문의함 for launch (D5).
       if (dealRequestId) return INBOX_ROUTES.request(dealRequestId);
       return safeUrl(n.data);
   }
@@ -113,7 +103,7 @@ function agencyHref(n: Pick<Notification, 'type' | 'data'>): string | null {
 /**
  * Where a notification leads. Built from `type` + the deep-link payload in `data`; returns null
  * when there is nothing to open. Agency events (see `isAgencyNotification`) open the broker console
- * (`/agent/requests/{id}`, `/agent/inquiries?id=`), everything else the my-page / public pages.
+ * (`/agent/requests/{id}`, `/agent/listings/{id}/edit`), everything else the my-page / public pages.
  * `data.url` is only followed when it is a site-relative path.
  */
 export function notificationHref(n: Pick<Notification, 'type' | 'data'>): string | null {

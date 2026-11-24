@@ -11,12 +11,7 @@ import {
   phoneSchema,
 } from '@house/shared';
 import { z } from 'zod';
-import {
-  agencyDealRequestSchema,
-  inquirySchema,
-  type AgencyDealRequest,
-  type Inquiry,
-} from '@/features/a-inbox/api/schemas';
+import { agencyDealRequestSchema, type AgencyDealRequest } from '@/features/a-inbox/api/schemas';
 import { businessHoursSchema } from '../lib/business-hours';
 import { SERVICE_AREA, SERVICE_AREA_MESSAGE } from '../lib/location';
 import {
@@ -88,24 +83,32 @@ export const agencyStatusHistorySchema = z.object({
 export type AgencyStatusHistory = z.infer<typeof agencyStatusHistorySchema>;
 
 /**
- * The API's `MyAgency` names the logo by `logoMediaId` + `logoUrl` (no media object): turn them
- * into the console's `logo` media so the profile editor shows and keeps it.
+ * The API's `MyAgency` names the logo by `logoMediaId` + `logoUrl` and the cover by
+ * `coverMediaId` + `coverUrl` (no media objects): turn them into the console's `logo` / `cover`
+ * media so the profile editor shows and keeps them.
  */
-function myAgencyInput(v: unknown): unknown {
-  if (!isRecord(v) || v.logo !== undefined || typeof v.logoUrl !== 'string') return v;
-  const url = v.logoUrl;
+function wireMedia(id: unknown, url: string, purpose: MediaPurpose) {
   const variant = { url, width: 0, height: 0 };
   return {
-    ...v,
-    logo: {
-      id: typeof v.logoMediaId === 'string' ? v.logoMediaId : url,
-      purpose: MediaPurpose.AGENCY_LOGO,
-      mimeType: 'image/*',
-      width: null,
-      height: null,
-      variants: { thumb: variant, medium: variant },
-    },
+    id: typeof id === 'string' ? id : url,
+    purpose,
+    mimeType: 'image/*',
+    width: null,
+    height: null,
+    variants: { thumb: variant, medium: variant, large: variant },
   };
+}
+
+function myAgencyInput(v: unknown): unknown {
+  if (!isRecord(v)) return v;
+  const out: Record<string, unknown> = { ...v };
+  if (v.logo === undefined && typeof v.logoUrl === 'string') {
+    out.logo = wireMedia(v.logoMediaId, v.logoUrl, MediaPurpose.AGENCY_LOGO);
+  }
+  if (v.cover === undefined && typeof v.coverUrl === 'string') {
+    out.cover = wireMedia(v.coverMediaId, v.coverUrl, MediaPurpose.AGENCY_COVER);
+  }
+  return out;
 }
 
 /** GET /agencies/mine — the caller's agency (owner, applicant or staff) incl. private fields. */
@@ -287,14 +290,17 @@ const dashboardListingSchema = z.object({
 export type DashboardListing = z.infer<typeof dashboardListingSchema>;
 
 /**
- * Feed rows of the dashboard = the first rows of the a-inbox lists, in the same shapes
- * (`GET /agency/deal-requests`, `GET /agency/inquiries`), so the home and the inbox describe a
- * request with the same words (`a-inbox/lib/request-text`). No dashboard-only `title`/`summary`.
+ * Feed rows of the dashboard = the first rows of the a-inbox list, in the same shape
+ * (`GET /agency/deal-requests`), so the home and the inbox describe a request with the same words
+ * (`a-inbox/lib/request-text`). No dashboard-only `title`/`summary`.
  */
 export type DashboardRequest = AgencyDealRequest;
-export type DashboardInquiry = Inquiry;
 
-/** GET /agencies/mine/dashboard — one aggregate for the console home + sidebar badges. */
+/**
+ * GET /agencies/mine/dashboard — one aggregate for the console home + sidebar badges.
+ * The API also answers `inquiries: { unreadCount: 0, items: [] }` (D5: no inquiry backend for
+ * launch); it is not parsed — the console has no inquiry widgets.
+ */
 export const agencyDashboardSchema = z.object({
   listings: z.object({
     active: z.number(),
@@ -322,13 +328,6 @@ export const agencyDashboardSchema = z.object({
     /** Latest requests (a few only). */
     items: z.array(agencyDealRequestSchema),
   }),
-  /** No inquiry backend for launch (D5): always empty, the console hides the widgets. */
-  inquiries: z
-    .object({
-      unreadCount: z.number(),
-      items: z.array(inquirySchema),
-    })
-    .default({ unreadCount: 0, items: [] }),
   expiringListings: z.array(dashboardListingSchema),
   verificationDue: z.array(dashboardListingSchema),
 });

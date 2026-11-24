@@ -260,9 +260,10 @@ describe('notifications', () => {
     expect(
       notificationHref({ type: 'PROPOSAL_RECEIVED', data: { agencyId: 'a1', dealRequestId: 'x' } }),
     ).toBe('/agent/requests/x');
-    expect(notificationHref({ type: 'SYSTEM', data: { agencyId: 'a1', inquiryId: 'inq 1' } })).toBe(
-      '/agent/inquiries?id=inq%201',
-    );
+    // No 문의함 for launch (D5): an inquiry payload leads nowhere.
+    expect(
+      notificationHref({ type: 'SYSTEM', data: { agencyId: 'a1', inquiryId: 'inq 1' } }),
+    ).toBeNull();
     expect(
       notificationHref({
         type: 'LISTING_HIDDEN',
@@ -307,7 +308,6 @@ describe('notifications', () => {
     expect(notificationMeta('PROPOSAL_ACCEPTED').label).toBe('제안 수락됨');
     expect(notificationMeta('CONTACT_GRANTED').label).toBe('연락처 공개됨');
     expect(notificationMeta('SYSTEM').label).toBe('알림');
-    expect(notificationMeta('SYSTEM', { agencyId: 'a1', inquiryId: 'i1' }).label).toBe('매물 문의');
     expect(unreadBadge(0)).toBeNull();
     expect(unreadBadge(undefined)).toBeNull();
     expect(unreadBadge(7)).toBe('7');

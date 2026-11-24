@@ -10,7 +10,7 @@ export function ownerGuard(
   if (off) return off;
   if (!mockSessionRole(req)) return mockUnauthenticated();
   if (opts.mutation && !mockCsrfOk(req))
-    return mockError(403, 'CSRF_INVALID', '보안 토큰이 올바르지 않습니다.');
+    return mockError(403, 'CSRF_FAILED', '보안 토큰이 올바르지 않습니다.');
   return null;
 }
 

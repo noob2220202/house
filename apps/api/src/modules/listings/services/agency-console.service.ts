@@ -2,6 +2,8 @@ import {
   AgencyStatus,
   applicablePrices,
   FloorDisplay,
+  formatListingNo,
+  parseListingNo,
   ListingAgencyStatus,
   ListingStatus,
   PUBLIC_LISTING_STATUSES,
@@ -42,8 +44,8 @@ export interface AgencyListingSummaryView {
 /** Row of GET /agency/listings/co-broker-candidates (web `coBrokerCandidateSchema`). */
 export interface CoBrokerCandidateView {
   id: string;
-  /** No 매물번호 in the model yet. */
-  listingNo: null;
+  /** 매물번호 (public). */
+  listingNo: string | null;
   status: ListingStatus;
   dealType: DealType;
   assetType: AssetType;
@@ -88,6 +90,7 @@ export function verificationDueBefore(now: Date): Date {
 
 const CANDIDATE_SELECT = {
   id: true,
+  listingNo: true,
   status: true,
   dealType: true,
   assetType: true,
@@ -203,10 +206,12 @@ export class AgencyConsoleService {
       and.push({ property: { dong: { in: [stem, `${stem}동`] } } });
     }
     if (q.q) {
+      const listingNo = parseListingNo(q.q);
       and.push({
         OR: [
           { property: { dong: { contains: q.q, mode: 'insensitive' } } },
           { title: { contains: q.q, mode: 'insensitive' } },
+          ...(listingNo === null ? [] : [{ listingNo }]),
         ],
       });
     }
@@ -253,7 +258,7 @@ export class AgencyConsoleService {
     const cover = r.photos[0];
     return {
       id: r.id,
-      listingNo: null,
+      listingNo: formatListingNo(r.listingNo),
       status: r.status,
       dealType: r.dealType,
       assetType: r.assetType,

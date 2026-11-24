@@ -1,6 +1,7 @@
+import { ErrorCode } from '@house/shared';
 import type { z } from 'zod';
 import { apiUrl, type QueryParams } from './config';
-import { CSRF_HEADER, getCsrfToken } from './csrf';
+import { CSRF_HEADER, forgetCsrfToken, getCsrfToken, rememberCsrfToken } from './csrf';
 import { ApiError, ERROR_CODES, normalizeError, toApiError } from './errors';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -24,6 +25,8 @@ export interface ApiRequestOptions<S extends z.ZodType | undefined = undefined> 
 type Result<S extends z.ZodType | undefined, T> = S extends z.ZodType ? z.infer<S> : T;
 
 const MUTATING = new Set<HttpMethod>(['POST', 'PUT', 'PATCH', 'DELETE']);
+/** Successful calls that end the session: the remembered CSRF token is dropped with it. */
+const SESSION_ENDING = new Set(['/auth/logout', '/auth/logout-all', '/me/withdraw']);
 
 async function parseBody(res: Response): Promise<unknown> {
   if (res.status === 204) return undefined;
@@ -39,6 +42,10 @@ async function parseBody(res: Response): Promise<unknown> {
 /**
  * The one typed API call. Sends credentials, JSON, the CSRF header on mutations, parses the response
  * with the given zod schema and throws `ApiError { code, message, status }` on any failure.
+ *
+ * CSRF (browser only): the header carries the in-memory token (`./csrf`). A `csrfToken` in any
+ * successful response body (signup, GET /auth/csrf) replaces it; a 403 `CSRF_FAILED` fetches a
+ * fresh one from GET /auth/csrf and retries the mutation once.
  *
  *   const page = await apiFetch('/listings', { query: { page: 1 }, schema: listingPageSchema });
  */
@@ -79,23 +86,32 @@ export async function apiFetch<T = unknown, S extends z.ZodType | undefined = un
     return fetch(apiUrl(path, query), init);
   };
 
+  const browserMutation = MUTATING.has(method) && typeof window !== 'undefined';
   let res: Response;
   try {
     res = await send(false);
-    // The CSRF cookie may have expired — refresh once and retry.
-    if (res.status === 403 && MUTATING.has(method) && typeof window !== 'undefined') {
+    // The remembered token belongs to a session that was rotated or ended — refresh once and retry.
+    if (res.status === 403 && browserMutation) {
       const peek: unknown = await res
         .clone()
         .json()
         .catch(() => null);
-      const code = (peek as { code?: string } | null)?.code ?? '';
-      if (code.includes('CSRF')) res = await send(true);
+      if ((peek as { code?: unknown } | null)?.code === ErrorCode.CSRF_FAILED) {
+        res = await send(true);
+      }
     }
   } catch (error) {
     throw normalizeError(error);
   }
 
   const data = await parseBody(res);
+  if (typeof window !== 'undefined') {
+    if (res.status === 401 || (res.ok && browserMutation && SESSION_ENDING.has(path))) {
+      forgetCsrfToken();
+    } else if (res.ok) {
+      rememberCsrfToken(data);
+    }
+  }
   if (!res.ok) throw toApiError(res.status, data);
   if (!schema) return data as Result<S, T>;
   const parsed = schema.safeParse(data);

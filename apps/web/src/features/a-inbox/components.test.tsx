@@ -9,13 +9,11 @@ import {
   maskName,
   stageOf,
 } from '@/app/mock-api/v1/agency/deal-requests/_store';
-import { inquiryStore } from '@/app/mock-api/v1/agency/inquiries/_store';
 import type { Notification } from '@/features/w-me/schemas';
 import {
   agencyDealRequestDetailSchema,
   agencyDealRequestSchema,
   inboxListingSchema,
-  inquirySchema,
   type AgencyDealRequestDetail,
 } from './api/schemas';
 import { AgentNotificationRow } from './notifications/AgentNotificationsView';
@@ -73,14 +71,9 @@ describe('a-inbox schemas ↔ mock fixtures', () => {
     expect(counts).toEqual({ NEW: 3, PROPOSED: 2, ACCEPTED: 2, ENDED: 4 });
   });
 
-  it('parses the office listings and the inquiries (2 unread, like the dashboard badge)', () => {
+  it('parses the office listings', () => {
     for (const l of OFFICE_LISTINGS)
       expect(inboxListingSchema.safeParse(l).success, l.title).toBe(true);
-    const inquiries = inquiryStore().items;
-    for (const i of inquiries) expect(inquirySchema.safeParse(i).success, i.id).toBe(true);
-    expect(inquiries.filter((i) => !i.readAt)).toHaveLength(2);
-    // Written replies are only offered for messages left on the site.
-    expect(inquiries.every((i) => i.canReply === (i.channel === 'MESSAGE'))).toBe(true);
   });
 });
 

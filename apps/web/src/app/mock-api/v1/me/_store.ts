@@ -81,7 +81,7 @@ export function meGuard(req: NextRequest, options: { mutation?: boolean } = {}):
     return {
       fail: mockError(
         403,
-        'CSRF_TOKEN_INVALID',
+        'CSRF_FAILED',
         '보안 토큰이 올바르지 않습니다. 새로고침 후 다시 시도해 주세요.',
       ),
     };

@@ -8,6 +8,7 @@ export const MEDIA_REFERENCE_RELATIONS = [
   'dealRequestPhotos',
   'agencyDocuments',
   'agencyLogos',
+  'agencyCovers',
   'bannersPc',
   'bannersMobile',
   'popups',

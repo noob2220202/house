@@ -1,4 +1,4 @@
-import { COOKIE_NAMES, ErrorCode } from '@house/shared';
+import { ErrorCode } from '@house/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { joinAgency, registerAgency } from '@/features/a-agency/api/queries';
 import { dealApi } from '@/features/w-deal/api/client';
@@ -22,6 +22,7 @@ const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
       ? json(200, { id: 'd', type: terms[1], version, title: 't', isRequired: true })
       : json(404, { code: 'AUTH_TERMS_NOT_FOUND', message: '약관을 찾을 수 없습니다.' });
   }
+  if (path === '/auth/csrf') return json(200, { csrfToken: 'csrf-token' });
   const body = typeof init?.body === 'string' ? init.body : 'null';
   posted.push({ path, body: JSON.parse(body) as unknown });
   if (path === '/deal-requests') return json(201, { id: 'req-1' });
@@ -44,7 +45,6 @@ beforeEach(() => {
     DEAL_REQUEST_PROVIDE: '2.0',
   };
   posted.length = 0;
-  document.cookie = `${COOKIE_NAMES.CSRF}=csrf-token; path=/`;
   vi.stubGlobal('fetch', fetchMock);
 });
 

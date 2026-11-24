@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { MAX_LISTING_PHOTOS } from '../constants/media';
 import { canonicalRegionCode } from '../constants/region';
 import {
+  AgencyListingSort,
   AssetType,
   BuildingUse,
   DealType,
@@ -10,6 +11,8 @@ import {
   DirectionBasis,
   FloorClass,
   FloorDisplay,
+  LandCategory,
+  LandZone,
   ListingOption,
   ListingSort,
   ListingStatus,
@@ -17,6 +20,7 @@ import {
   MaintenanceFeeKind,
   MoveInType,
   RecentViewTarget,
+  RoomType,
   VerificationMethod,
 } from '../enums/listing';
 import { AGENCY_SETTABLE_STATUSES } from '../listings/rules';
@@ -69,6 +73,12 @@ export const listingFilterSchema = z.object({
   /** Listing must have every option given. */
   options: csvArray(z.enum(ListingOption)),
   verifiedOnly: queryBoolean,
+  /** 방 구성 (원룸·투룸): the stated one, else derived from the room count (`effectiveRoomType`). */
+  roomTypes: csvArray(z.enum(RoomType)),
+  /** 용도지역 group of the property's 용도지역 (`landZoneOf`). */
+  landZones: csvArray(z.enum(LandZone)),
+  /** 지목 group of the property's 지목 (`landCategoryOf`). */
+  landCategories: csvArray(z.enum(LandCategory)),
   complexId: idSchema.optional(),
   agencyId: idSchema.optional(),
   /** 법정동 code prefix (5 = 시군구, 8 = 읍면동, 10 = full). */
@@ -148,6 +158,8 @@ const propertyShape = {
   landArea: areaSqmSchema,
   totalFloorArea: areaSqmSchema,
   rooms: intRange(0, 50),
+  /** 방 구성 (원룸·투룸). Needed only for 1.5룸; otherwise derived from `rooms`. */
+  roomType: z.enum(RoomType),
   baths: intRange(0, 50),
   direction: z.enum(Direction),
   directionBasis: z.enum(DirectionBasis),
@@ -359,12 +371,29 @@ export type CoBrokerJoinInput = z.infer<typeof coBrokerJoinSchema>;
 
 export const coBrokerParamSchema = z.object({ id: idSchema, agencyId: idSchema });
 
+/** GET /agency/listings — the console's list of the acting agency's listings (own + co-brokered). */
 export const agencyListingListQuerySchema = z.object({
   ...paginationQuerySchema.shape,
   statuses: csvArray(z.enum(ListingStatus)),
   dealTypes: csvArray(z.enum(DealType)),
+  assetTypes: csvArray(z.enum(AssetType)),
+  /**
+   * 단지·건물명, 주소, 동, 제목, 매물번호 (spaces ignored); 호 only on listings the agency is the
+   * primary of. Empty = no text filter.
+   */
+  q: z
+    .string()
+    .trim()
+    .max(60)
+    .transform((v) => v || undefined)
+    .optional(),
+  /** true = 광고중·계약중 listings whose 실매물 확인 is missing or runs out within the reminder window. */
+  verificationDue: queryBoolean,
+  /** true = only listings the agency co-brokers (another agency is the primary). */
+  coBrokered: queryBoolean,
   /** true = only listings where the acting agency is the primary (대표) agency. */
   primaryOnly: queryBoolean,
+  sort: z.enum(AgencyListingSort).default(AgencyListingSort.UPDATED),
 });
 export type AgencyListingListQuery = z.infer<typeof agencyListingListQuerySchema>;
 

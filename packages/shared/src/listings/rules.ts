@@ -5,12 +5,18 @@ import {
   DealType,
   FloorClass,
   FloorDisplay,
+  LandCategory,
+  LandZone,
   ListingStatus,
+  RoomType,
   type AssetType as AssetTypeValue,
   type BuildingUse as BuildingUseValue,
   type DealType as DealTypeValue,
   type FloorClass as FloorClassValue,
+  type LandCategory as LandCategoryValue,
+  type LandZone as LandZoneValue,
   type ListingStatus as ListingStatusValue,
+  type RoomType as RoomTypeValue,
 } from '../enums/listing';
 
 const FLOOR_CLASS_SHORT: Record<FloorClassValue, string> = {
@@ -175,3 +181,93 @@ export const AGENCY_EDITABLE_STATUSES: readonly ListingStatusValue[] = [
   ListingStatus.ACTIVE,
   ListingStatus.RESERVED,
 ];
+
+/**
+ * 방 구성 used by the 원룸·투룸 filter: the one the broker stated (only for buildings), else — for
+ * 원룸·투룸 listings — derived from the room count (1 → 원룸, 2 → 투룸, 3+ → 쓰리룸+). 1.5룸 can only
+ * be stated. Null when unknown.
+ */
+export function effectiveRoomType(
+  assetType: AssetTypeValue | null | undefined,
+  roomType: RoomTypeValue | null | undefined,
+  rooms: number | null | undefined,
+): RoomTypeValue | null {
+  if (!assetType || !isBuildingAsset(assetType)) return null;
+  if (roomType) return roomType;
+  if (assetType !== AssetType.ONEROOM || typeof rooms !== 'number' || rooms < 1) return null;
+  if (rooms === 1) return RoomType.ONE_ROOM;
+  if (rooms === 2) return RoomType.TWO_ROOM;
+  return RoomType.THREE_ROOM_PLUS;
+}
+
+const squash = (s: string): string => s.replace(/\s+/g, '');
+const LAND_ZONES: readonly string[] = Object.values(LandZone);
+const LAND_CATEGORIES: readonly string[] = Object.values(LandCategory);
+
+/**
+ * Words of each 용도지역 group, checked in this order: 자연환경보전지역 before 녹지/관리 ("보전관리지역"
+ * is a 관리지역), 녹지 before 주거/상업/공업 ("자연녹지지역").
+ */
+const LAND_ZONE_WORDS: readonly (readonly [LandZoneValue, string])[] = [
+  [LandZone.CONSERVATION, '자연환경보전'],
+  [LandZone.GREEN, '녹지'],
+  [LandZone.RESIDENTIAL, '주거'],
+  [LandZone.COMMERCIAL, '상업'],
+  [LandZone.INDUSTRIAL, '공업'],
+  [LandZone.MANAGEMENT, '관리'],
+  [LandZone.AGRICULTURAL, '농림'],
+];
+
+/**
+ * 용도지역 group of the free-text 용도지역 ("제2종일반주거지역" → RESIDENTIAL, "계획관리지역" →
+ * MANAGEMENT). A LandZone code is accepted as is; unknown text → null.
+ */
+export function landZoneOf(zoning: string | null | undefined): LandZoneValue | null {
+  if (!zoning) return null;
+  const text = squash(zoning);
+  if (LAND_ZONES.includes(text)) return text as LandZoneValue;
+  return LAND_ZONE_WORDS.find(([, word]) => text.includes(word))?.[0] ?? null;
+}
+
+const LAND_CATEGORY_BY_NAME: Readonly<Record<string, LandCategoryValue>> = {
+  대: LandCategory.DAE,
+  대지: LandCategory.DAE,
+  전: LandCategory.JEON,
+  답: LandCategory.DAP,
+  과수원: LandCategory.GWASUWON,
+  임야: LandCategory.IMYA,
+  잡종지: LandCategory.JAPJONGJI,
+};
+
+/**
+ * 지목 group of the free-text 지목 ("대" → DAE, "임야" → IMYA); any other 지목 (공장용지, 목장용지,
+ * 도로 …) → ETC. A LandCategory code is accepted as is; empty → null.
+ */
+export function landCategoryOf(category: string | null | undefined): LandCategoryValue | null {
+  if (!category) return null;
+  const text = squash(category);
+  if (!text) return null;
+  if (LAND_CATEGORIES.includes(text)) return text as LandCategoryValue;
+  return Object.hasOwn(LAND_CATEGORY_BY_NAME, text)
+    ? (LAND_CATEGORY_BY_NAME[text] as LandCategoryValue)
+    : LandCategory.ETC;
+}
+
+/** 매물번호 as shown to people ("100412"): the listing's sequential number. */
+export function formatListingNo(no: number | null | undefined): string | null {
+  return typeof no === 'number' && Number.isInteger(no) && no > 0 ? String(no) : null;
+}
+
+/** Largest value of the listing number column (Postgres INTEGER). */
+const LISTING_NO_MAX = 2_147_483_647;
+
+/**
+ * The 매물번호 a search text names ("100412", "매물번호 100412", "#100412"), else null — lets the
+ * console and admin searches match the number exactly besides their text fields.
+ */
+export function parseListingNo(q: string | null | undefined): number | null {
+  const m = /^\s*(?:매물\s*번호\s*)?#?\s*(\d{1,10})\s*$/.exec(q ?? '');
+  if (!m) return null;
+  const n = Number(m[1]);
+  return n > 0 && n <= LISTING_NO_MAX ? n : null;
+}

@@ -29,7 +29,6 @@ describe('agent console nav', () => {
     expect(findAgentNav('/agent/notifications')?.item.label).toBe('알림');
     expect(AGENT_ROUTES.notifications).toBe('/agent/notifications');
     expect(AGENT_ROUTES.listingVerify('L 1')).toBe('/agent/listings/L%201/edit?step=verify');
-    expect(AGENT_ROUTES.inquiry('inq-01')).toBe('/agent/inquiries?id=inq-01');
   });
   it('does not treat the dashboard as active on sub pages', () => {
     const all = AGENT_NAV.flatMap((g) => g.items);

@@ -92,7 +92,8 @@ consents; `auth/signup`, `auth/withdraw` are new. Mock-only start parameters
 (`/mock-api/v1/auth/oauth/{provider}/start`): `as=user|agent|owner`, `as=new` (pending signup),
 `as=auto` (new on the first visit of a browser), `as=reconsent` (PRIVACY not agreed),
 `as=suspended`, `fail=<code>` (`access_denied` → `AUTH_OAUTH_CANCELLED`). In mock mode `/login`
-shows these as a dashed "MOCK" row. `GET /me/profile` is mock-only (the backend has no GET there).
+shows these as a dashed "MOCK" row. There is no `GET /me/profile` (backend and mock alike): the
+profile is `GET /auth/me`.
 
 ## Shared pieces for other groups (`@/features/w-auth`)
 

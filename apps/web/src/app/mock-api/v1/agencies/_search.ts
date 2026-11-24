@@ -1,4 +1,4 @@
-import { agencySearchQuerySchema, type AgencySummary as WireAgencySummary } from '@house/shared';
+import { agencySearchQuerySchema, type AgencySearchItem as WireAgencySearchItem } from '@house/shared';
 import type { NextRequest } from 'next/server';
 import { isOpenAt } from '@/features/w-agencies/lib/hours';
 import type { AgencySummary } from '@/features/w-agencies/api/schemas';
@@ -7,8 +7,11 @@ import { AGENCY_SUMMARIES } from './_fixtures';
 
 const normalize = (s: string) => s.replace(/\s+/g, '').toLowerCase();
 
-/** Fixture office → `AgencySummary` of the agencies module (the fixture's display extras dropped). */
-export function toAgencySummaryWire(a: AgencySummary): WireAgencySummary {
+/**
+ * Fixture office → `AgencySearchItem` of the agencies module (`AgencySummary` + 영업시간 +
+ * 분양권 취급; the fixture's other display extras dropped).
+ */
+export function toAgencySummaryWire(a: AgencySummary): WireAgencySearchItem {
   return {
     id: a.id,
     name: a.name,
@@ -23,14 +26,17 @@ export function toAgencySummaryWire(a: AgencySummary): WireAgencySummary {
     specialties: a.specialties,
     logoUrl: a.logoUrl ?? null,
     activeListingCount: a.activeListingCount,
+    businessHours: a.businessHours ?? null,
+    handlesPresale: a.handlesPresale ?? false,
   };
 }
 
 /**
- * GET /api/v1/agencies?q&emdCode&bbox&specialties&sort&page&pageSize — public broker office
- * search → Paginated<AgencySummary>. The query is validated with the backend's own
- * `agencySearchQuerySchema` (sort RELEVANCE|LISTINGS|NEWEST|NAME, default RELEVANCE).
- * Mock-only extras (not applied by the backend): `openNow`, `handlesPresale`.
+ * GET /api/v1/agencies?q&emdCode&bbox&specialties&openNow&handlesPresale&sort&page&pageSize —
+ * public broker office search → Paginated<AgencySearchItem>. The query is validated with the
+ * backend's own `agencySearchQuerySchema` (sort RELEVANCE|LISTINGS|NEWEST|NAME, default
+ * RELEVANCE). `openNow` = open now by the 영업시간 (Asia/Seoul), `handlesPresale` = has a public
+ * 분양권 listing — both applied by the backend too.
  */
 export async function searchAgencies(req: NextRequest) {
   const off = mockGuard();
@@ -52,9 +58,7 @@ export async function searchAgencies(req: NextRequest) {
         message: i.message,
       })),
     );
-  const { q, emdCode, bbox, specialties, sort } = parsed.data;
-  const openNow = sp.get('openNow') === 'true' || sp.get('openNow') === '1';
-  const presale = sp.get('handlesPresale') === 'true' || sp.get('handlesPresale') === '1';
+  const { q, emdCode, bbox, specialties, sort, openNow, handlesPresale: presale } = parsed.data;
   const needle = q ? normalize(q) : '';
   const now = new Date();
 

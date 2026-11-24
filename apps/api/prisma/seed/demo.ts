@@ -33,6 +33,7 @@ import {
   PopupPage,
   type Prisma,
   type PrismaClient,
+  RoomType,
   TradeDealType,
   TradeSyncKind,
   UserRole,
@@ -420,6 +421,7 @@ function emptyProperty(assetType: AssetType, sggCode: string): PropertyState {
     landArea: null,
     totalFloorArea: null,
     rooms: null,
+    roomType: null,
     baths: null,
     direction: null,
     directionBasis: null,
@@ -603,6 +605,8 @@ function planListings(
       p.totalFloors = Math.max(p.floor, intBetween(r, 4, 6));
       p.exclusiveArea = Number((two ? 33 + r() * 12 : 18 + r() * 10).toFixed(2));
       p.rooms = two ? 2 : 1;
+      // Some larger 원룸 have a separate sleeping space: 1.5룸 (stated; not derivable from rooms).
+      if (!two && i % 5 === 2) p.roomType = RoomType.ONE_HALF_ROOM;
       p.baths = 1;
       p.direction = pick(r, DIRECTIONS);
       p.directionBasis = DirectionBasis.MAIN_ROOM;
@@ -823,6 +827,7 @@ async function seedListings(
           landArea: p.landArea,
           totalFloorArea: p.totalFloorArea,
           rooms: p.rooms,
+          roomType: p.roomType,
           baths: p.baths,
           direction: p.direction,
           directionBasis: p.directionBasis,

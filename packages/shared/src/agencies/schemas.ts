@@ -170,6 +170,8 @@ export const agencyUpdateSchema = z
     lng: lngSchema.optional(),
     /** PUBLIC media (purpose AGENCY_LOGO) uploaded by the owner; null removes the logo. */
     logoMediaId: idSchema.nullable().optional(),
+    /** PUBLIC media (purpose AGENCY_COVER) uploaded by the owner; null removes the cover. */
+    coverMediaId: idSchema.nullable().optional(),
   })
   .refine(nonEmpty, { message: '변경할 항목을 입력해 주세요.' })
   .refine(latLngTogether, { message: '위도와 경도를 함께 입력해 주세요.', path: ['lng'] });
@@ -191,6 +193,10 @@ export const agencySearchQuerySchema = paginationQuerySchema.extend({
   emdCode: regionCodeSchema.optional(),
   bbox: bboxSchema.optional(),
   specialties: csvArray(z.enum(AssetType)),
+  /** true = open right now by the office's 영업시간 (Asia/Seoul); offices without hours drop out. */
+  openNow: queryBoolean,
+  /** true = advertises at least one public 분양권 listing (own or co-brokered). */
+  handlesPresale: queryBoolean,
   sort: z.enum(AgencySearchSort).default(AgencySearchSort.RELEVANCE),
 });
 export type AgencySearchQuery = z.infer<typeof agencySearchQuerySchema>;

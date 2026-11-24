@@ -14,6 +14,7 @@ import type {
   PropertyInput,
   PropertyUpdateInput,
   PublishCheckInput,
+  RoomType,
 } from '@house/shared';
 import { Prisma, type Listing, type Property } from '@prisma/client';
 import { decimalToNumber } from '../../../common/utils/decimal';
@@ -48,6 +49,7 @@ export interface PropertyState {
   landArea: number | null;
   totalFloorArea: number | null;
   rooms: number | null;
+  roomType: RoomType | null;
   baths: number | null;
   direction: Direction | null;
   directionBasis: DirectionBasis | null;
@@ -101,6 +103,7 @@ export function propertyStateFromInput(p: PropertyInput, sggCode: string): Prope
     landArea: orNull(p.landArea),
     totalFloorArea: orNull(p.totalFloorArea),
     rooms: orNull(p.rooms),
+    roomType: orNull(p.roomType),
     baths: orNull(p.baths),
     direction: orNull(p.direction),
     directionBasis: orNull(p.directionBasis),
@@ -134,6 +137,7 @@ export function propertyStateFromRow(p: Property): PropertyState {
     landArea: decimalToNumber(p.landArea),
     totalFloorArea: decimalToNumber(p.totalFloorArea),
     rooms: p.rooms,
+    roomType: p.roomType,
     baths: p.baths,
     direction: p.direction,
     directionBasis: p.directionBasis,

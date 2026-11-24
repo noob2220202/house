@@ -273,16 +273,6 @@ export function ensureAgencyNotifications(role: MockRole) {
     ],
     [
       {
-        type: 'SYSTEM',
-        title: '매물 문의가 도착했어요',
-        body: '신대 레이크파크 1단지 103동 · 매매 4억 4,500 — “이번 주 토요일 오전에 집 볼 수 있을까요?”',
-        data: { agencyId, inquiryId: 'inq-01' },
-      },
-      25 * MIN,
-      false,
-    ],
-    [
-      {
         type: 'DEAL_REQUEST_RECEIVED',
         title: '새 구하기 요청이 도착했어요',
         body: '신대지구 아파트 · 매매 · 4억 5,000 이하. 조건에 맞는 내 매물을 추천해 보세요.',

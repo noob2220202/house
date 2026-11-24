@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ImgHTMLAttributes, ReactNode } from 'react';
+import { Modal } from '@house/ui';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState, type ImgHTMLAttributes, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Popup } from '../../api/schemas';
 import { popupStorageKey } from '../../lib/popup';
@@ -43,14 +44,29 @@ const popup = (id: string, over: Partial<Popup> = {}): Popup => ({
   ...over,
 });
 
-function mount() {
+function mount(extra?: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <NoticePopupHost />
+      {extra}
     </QueryClientProvider>,
   );
 }
+
+/** A page modal (any `@house/ui` Modal / ConfirmDialog) the test opens and closes. */
+let setOtherModal: (open: boolean) => void = () => undefined;
+function OtherModal({ initiallyOpen = false }: { initiallyOpen?: boolean }) {
+  const [open, setOpen] = useState(initiallyOpen);
+  setOtherModal = setOpen;
+  return (
+    <Modal open={open} onClose={() => setOpen(false)} title="사무소 나가기">
+      확인
+    </Modal>
+  );
+}
+
+const notice = () => screen.queryByRole('dialog', { name: /^공지:/ });
 
 describe('NoticePopupHost', () => {
   beforeEach(() => {
@@ -125,6 +141,35 @@ describe('NoticePopupHost', () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(fetchPopups).not.toHaveBeenCalled();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('waits while another modal is open and never stacks on top of it', async () => {
+    state.popups = [popup('a')];
+    mount(<OtherModal initiallyOpen />);
+    await waitFor(() => expect(fetchPopups).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.getByRole('dialog', { name: '사무소 나가기' })).toBeInTheDocument();
+    expect(notice()).not.toBeInTheDocument();
+
+    act(() => setOtherModal(false));
+    expect(await screen.findByRole('dialog', { name: '공지: 공지 a' })).toBeInTheDocument();
+  });
+
+  it('steps aside (without being closed) when a modal opens over it', async () => {
+    state.popups = [popup('a'), popup('b')];
+    mount(<OtherModal />);
+    await screen.findByRole('dialog', { name: '공지: 공지 a' });
+
+    act(() => setOtherModal(true));
+    await waitFor(() => expect(notice()).not.toBeInTheDocument());
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    // Esc belongs to the modal now: it closes the modal, not the (hidden) popup.
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(window.sessionStorage.length).toBe(0);
+
+    // Same popup, same queue position once the modal is gone.
+    const back = await screen.findByRole('dialog', { name: '공지: 공지 a' });
+    expect(back).toHaveTextContent('1 / 2');
   });
 
   it('maps other pages to their popup target', async () => {

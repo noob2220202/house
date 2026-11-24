@@ -26,8 +26,9 @@ import { COMPLEX_SUMMARIES, REGIONS, headlinePrice, type MockListing } from './_
 
 /**
  * Search logic shared by the map mock (`GET /map/search`) and the list mock (`GET /listings`).
- * Filters are exactly `listingFilterSchema` from @house/shared plus three ASSUMED extras the UI
- * needs (`roomTypes`, `landZones`, `landCategories` — see docs/frontend-integration/w-map.md).
+ * Filters are exactly `listingFilterSchema` from @house/shared, including `roomTypes`,
+ * `landZones` and `landCategories` (the API matches them against the listing's effective 방 구성
+ * and the 용도지역 / 지목 groups — shared `effectiveRoomType`, `landZoneOf`, `landCategoryOf`).
  */
 export interface MockFilter extends ListingFilter {
   roomTypes?: RoomType[];

@@ -5,8 +5,10 @@ import {
   FloorDisplay,
   ListingAgencyStatus,
   floorLabel,
+  formatListingNo,
   sqmToPyeong,
   type AgencyListingDetail,
+  type AgencyListingRow,
   type ListingAgencyDisclosure,
   type ListingDetail,
   type ListingSummary,
@@ -14,10 +16,12 @@ import {
 } from '@house/shared';
 import { Inject, Injectable } from '@nestjs/common';
 import { decimalToNumber } from '../../common/utils/decimal';
-import { dateToDateOnly } from './domain/dates';
+import { LISTING_AD_TTL_DAYS } from './constants';
+import { addDaysToDateOnly, dateToDateOnly, kstToday } from './domain/dates';
 import { maintenanceFeeFromJson } from './domain/listing-state';
 import type {
   ListingAgencyDetailRow,
+  ListingAgencyRow,
   ListingPublicDetailRow,
   ListingSummaryRow,
 } from './listing.selects';
@@ -27,6 +31,14 @@ const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() 
 /** Same rule as DISCLOSABLE_AGENCY_WHERE. */
 const isDisclosable = (a: { status: string; deletedAt: Date | null }): boolean =>
   a.status === AgencyStatus.APPROVED && !a.deletedAt;
+
+/**
+ * KST date by which the 실매물 확인 must be renewed: the 확인일 (KST) + the ad period it keeps the
+ * listing up for (LISTING_AD_TTL_DAYS). Null when never verified.
+ */
+export function verificationDueAt(verifiedAt: Date | null | undefined): string | null {
+  return verifiedAt ? addDaysToDateOnly(kstToday(verifiedAt), LISTING_AD_TTL_DAYS) : null;
+}
 
 interface PhotoRow {
   mediaId: string;
@@ -76,6 +88,7 @@ export class ListingMapper {
     const cover = row.photos[0];
     return {
       id: row.id,
+      listingNo: formatListingNo(row.listingNo),
       dealType: row.dealType,
       assetType: row.assetType,
       status: row.status,
@@ -91,6 +104,9 @@ export class ListingMapper {
       floorClass: row.floorClass,
       rooms: row.rooms,
       baths: row.baths,
+      roomType: row.roomType,
+      landZone: row.landZone,
+      landCategory: row.landCategory,
       direction: row.direction,
       builtYear: row.builtYear,
       roadAddress: row.property.roadAddress,
@@ -110,6 +126,30 @@ export class ListingMapper {
       agencyCount,
       viewCount: row.viewCount,
       favoriteCount: row.favoriteCount,
+    };
+  }
+
+  /**
+   * Console list row (agency-private view): 호 and the hidden reason only for the primary agency;
+   * `missingCount` is computed by the caller for drafts (null otherwise).
+   */
+  agencyRow(
+    row: ListingAgencyRow,
+    actingAgencyId: string,
+    agencyCount: number,
+    emdName: string | null,
+    missingCount: number | null,
+  ): AgencyListingRow {
+    const isPrimary = row.primaryAgencyId === actingAgencyId;
+    return {
+      ...this.summary(row, agencyCount, emdName),
+      ho: isPrimary ? row.property.ho : null,
+      landArea: decimalToNumber(row.property.landArea),
+      verificationDueAt: verificationDueAt(row.verifiedAt),
+      expiresAt: iso(row.expiresAt),
+      updatedAt: row.updatedAt.toISOString(),
+      hiddenReason: isPrimary ? row.hiddenReason : null,
+      missingCount,
     };
   }
 
@@ -169,6 +209,7 @@ export class ListingMapper {
         landArea: decimalToNumber(p.landArea),
         totalFloorArea: decimalToNumber(p.totalFloorArea),
         rooms: p.rooms,
+        roomType: p.roomType,
         baths: p.baths,
         direction: p.direction,
         directionBasis: p.directionBasis,
@@ -224,6 +265,7 @@ export class ListingMapper {
       hiddenReason: isPrimary ? row.hiddenReason : null,
       closedAt: iso(row.closedAt),
       expiresAt: iso(row.expiresAt),
+      verificationDueAt: verificationDueAt(row.verifiedAt),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       version: row.version,
