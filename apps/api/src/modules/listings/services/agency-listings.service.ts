@@ -183,11 +183,7 @@ export class AgencyListingsService {
           ...args,
         });
         const drafts = rows.filter((r) => r.status === ListingStatus.DRAFT).map((r) => r.id);
-        return this.summaries.mapForAgency(
-          rows,
-          actor.agencyId,
-          await this.missingCounts(drafts),
-        );
+        return this.summaries.mapForAgency(rows, actor.agencyId, await this.missingCounts(drafts));
       },
       () => this.prisma.listing.count({ where }),
     );

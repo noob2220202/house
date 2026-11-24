@@ -3,6 +3,7 @@ export type {
   ComplexMarker,
   LatLng,
   MapBounds,
+  MapImpl,
   MapMarker,
   MapViewChange,
   MapViewState,
@@ -34,4 +35,11 @@ export {
   type FilterSpec,
   type FilterValues,
 } from './url-state';
+export {
+  KAKAO_LEVEL,
+  kakaoLevelToZoom,
+  kakaoMetresPerPx,
+  kakaoPixelOffset,
+  zoomToKakaoLevel,
+} from './kakao-level';
 export { useMapUrlState, type MapUrlState } from './useMapUrlState';

@@ -40,9 +40,9 @@ const LABELS: readonly { text: string; x: number; y: number; kind?: 'water' | 'p
 ];
 
 /**
- * Fallback map used when no Naver key is configured (dev, tests, CI): the stylized Suncheon SVG
+ * Fallback map used when no Kakao map key is configured (dev, tests, CI): the stylized Suncheon SVG
  * from the design with markers projected from lat/lng onto its bbox. Supports drag-pan,
- * wheel/keyboard zoom and emits the same `onViewChange` (with bounds) as the Naver map.
+ * wheel/keyboard zoom and emits the same `onViewChange` (with bounds) as the Kakao map.
  */
 export default function StaticMapView({
   center,

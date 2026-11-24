@@ -13,10 +13,12 @@ import {
 import type { Notification } from '@/features/w-me/schemas';
 import {
   agencyDealRequestDetailSchema,
+  agencyDealRequestPageSchema,
   agencyDealRequestSchema,
   inboxListingSchema,
   type AgencyDealRequestDetail,
 } from './api/schemas';
+import { wantedPlaces } from './lib/request-text';
 import { AgentNotificationRow } from './notifications/AgentNotificationsView';
 import { ContactCard, lockedHint } from './requests/ContactCard';
 import { MatchNote } from './requests/ListingPicker';
@@ -93,7 +95,8 @@ describe('<RequestRow>', () => {
     expect(link).toHaveTextContent('신대 레이크파크 1단지 · 매매');
     expect(link).toHaveTextContent('희망 매매가');
     expect(link).toHaveTextContent('4억 5,000');
-    expect(link).toHaveTextContent('이*훈 님');
+    // No requester name before consent (the API sends none in the list).
+    expect(link).not.toHaveTextContent('님');
     expect(link).toHaveTextContent('제안 전');
     expect(link).toHaveTextContent('다른 사무소 제안 1곳');
     expect(link).not.toHaveTextContent('1803호');
@@ -127,9 +130,10 @@ describe('<RequestRow>', () => {
 });
 
 describe('<ContactCard>', () => {
-  it('shows only the masked name while the contact is not granted', () => {
+  it('shows no name or number while the contact is not granted', () => {
     render(<ContactCard request={detail('req-01')} />);
-    expect(screen.getByText('이*훈 님 · 연락처 비공개')).toBeInTheDocument();
+    expect(screen.getByText('요청자 · 연락처 비공개')).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('이*훈');
     expect(screen.getByText(/제안을 보내면/)).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(document.body).not.toHaveTextContent('010');
@@ -235,12 +239,62 @@ describe('<RequestSummary>', () => {
     expect(after.photos[0]?.variants.thumb?.url).toBe('/m/thumb.webp');
   });
 
+  it('parses a real list page: no requester name, 단지 names or stage counters', () => {
+    const wanted = {
+      id: 'r2',
+      type: 'WANTED',
+      status: 'OPEN',
+      assetType: 'APT',
+      dealTypes: ['SALE'],
+      visibility: 'ALL_AGENCIES_IN_REGION',
+      sggCode: '12150',
+      emdCode: null,
+      roadAddress: null,
+      complex: null,
+      lat: null,
+      lng: null,
+      regionCodes: ['12150132'],
+      complexIds: ['c1', 'c2'],
+      priceMax: 43000,
+      photos: [],
+      photoCount: 0,
+      proposalCount: 1,
+      createdAt: '2026-11-20T00:00:00.000Z',
+      targeted: false,
+      myProposal: { id: 'p1', status: 'SENT', createdAt: '2026-11-21T00:00:00.000Z' },
+      contact: null,
+      detailsShared: false,
+      areaRange: null,
+    };
+    const page = agencyDealRequestPageSchema.parse({
+      items: [wanted],
+      page: 1,
+      pageSize: 10,
+      total: 1,
+      totalPages: 1,
+    });
+    const [item] = page.items;
+    expect(item).toBeDefined();
+    expect(item).not.toHaveProperty('requesterName');
+    expect(item).not.toHaveProperty('complexNames');
+    expect(page).not.toHaveProperty('stageCounts');
+    expect(item?.myProposal).toMatchObject({ id: 'p1', status: 'SENT', message: '', listings: [] });
+    expect(wantedPlaces(item!)).toEqual([expect.any(String), '선택한 단지 2곳']);
+    render(
+      <ul>
+        <RequestRow request={item!} now={new Date('2026-11-22T00:00:00Z')} />
+      </ul>,
+    );
+    expect(screen.getByRole('link')).toHaveTextContent('제안 보냄');
+  });
+
   it('renders the wanted regions, complexes and conditions of a 구하기 request', () => {
     render(<RequestSummary request={detail('req-03')} />);
     expect(screen.getByText('매매 예산')).toBeInTheDocument();
     expect(screen.getByText('4억 3,000 이하')).toBeInTheDocument();
     expect(screen.getByText('선월지구')).toBeInTheDocument();
-    expect(screen.getByText('선월 하이츠 2차')).toBeInTheDocument();
+    // Wanted 단지 arrive as ids only: counted, not named.
+    expect(screen.getByText('선택한 단지 1곳')).toBeInTheDocument();
     expect(screen.getByText('요청자가 고른 중개사무소')).toBeInTheDocument();
   });
 });

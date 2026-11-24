@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { MapView, MapZoomControl } from '@/components/map';
 import { env } from '@/config/env';
 import { projectToScreen } from '@/lib/map/geo';
-import type { LatLng } from '@/lib/map/types';
+import { kakaoPixelOffset } from '@/lib/map/kakao-level';
+import type { LatLng, MapImpl } from '@/lib/map/types';
 import { NEARBY_CATEGORY_LABEL, type NearbyPlace } from '../api/schemas';
 import { Glyph, NEARBY_GLYPH } from './icons';
 import styles from './page.module.css';
@@ -37,23 +38,13 @@ export function formatDistance(m: number): string {
 
 type Size = { width: number; height: number };
 
-/** Web-Mercator offset in px from the map centre (Naver map). */
-function mercatorOffset(p: LatLng, c: LatLng, zoom: number): { x: number; y: number } {
-  const world = 256 * 2 ** zoom;
-  const y = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
-  return {
-    x: ((p.lng - c.lng) / 360) * world,
-    y: (-(y(p.lat) - y(c.lat)) / (2 * Math.PI)) * world,
-  };
-}
-
 /** Screen position of nearby places that fit inside the mini map without covering the pin. */
 export function placePois(
   places: readonly NearbyPlace[],
   center: LatLng,
   zoom: number,
   size: Size,
-  impl: 'naver' | 'static',
+  impl: MapImpl,
   max = 3,
 ): { place: NearbyPlace; x: number; y: number }[] {
   if (size.width === 0) return [];
@@ -72,7 +63,7 @@ export function placePois(
     if (impl === 'static') {
       ({ x, y } = projectToScreen(p, center, zoom, size, SUNCHEON_MAP_VIEWBOX));
     } else {
-      const o = mercatorOffset(p, center, zoom);
+      const o = kakaoPixelOffset(p, center, zoom);
       x = size.width / 2 + o.x;
       y = size.height / 2 + o.y;
     }
@@ -99,7 +90,7 @@ export function LocationSection({
   shortTitle,
 }: LocationSectionProps) {
   const [zoom, setZoom] = useState(ZOOM_DEFAULT);
-  const [impl, setImpl] = useState<'naver' | 'static'>(env.naverMapKeyId ? 'naver' : 'static');
+  const [impl, setImpl] = useState<MapImpl>(env.kakaoMapKey ? 'kakao' : 'static');
   const [size, setSize] = useState<Size>({ width: 0, height: 0 });
   const boxRef = useRef<HTMLDivElement>(null);
 

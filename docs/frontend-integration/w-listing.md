@@ -51,7 +51,8 @@ verifiedAt?, agencyCount, coverPhotoUrl? }`. The page shows the first 4 cards pe
 2. **`POST /listings/:id/view`** → `204`. Public, deduplicated server-side (Redis counter →
    `counters-flush`), and for signed-in users it should upsert `RecentView(LISTING, id)`. The page is
    ISR-cached and fetched anonymously, so the detail GET itself can no longer record who viewed it —
-   hence the separate beacon. It is sent with the CSRF header like every mutation; if it should be
+   hence the separate beacon. The API ignores the SSR detail read for counting (loopback +
+   `x-house-ssr: 1`), so only the beacon counts a page view. It is sent with the CSRF header like every mutation; if it should be
    CSRF-exempt (like the banner impression beacon) nothing changes on the client. Signed-out visitors
    additionally get a `localStorage` list (`house:recent-listings:v1`, max 20,
    `features/w-listing/lib/recent.ts`) that other pages may read.
@@ -64,7 +65,7 @@ verifiedAt?, agencyCount, coverPhotoUrl? }`. The page shows the first 4 cards pe
 
    ```jsonc
    {
-     "id", "listingNo"?,            // "26-0412" — human-friendly number; falls back to the id's first 8 chars
+     "id", "listingNo"?,            // "100412" — plain sequential number; falls back to the id's first 8 chars
      "status", "dealType", "assetType", "title"?, "description"?,
      "highlights": ["호수공원 정면 조망"], // optional chips above the description (not in Prisma yet)
      "salePrice"?, "deposit"?, "monthlyRent"?, "presalePrice"?, "premium"?, // 만원; 분양권 total = presalePrice + premium
@@ -75,7 +76,9 @@ verifiedAt?, agencyCount, coverPhotoUrl? }`. The page shows the first 4 cards pe
        "roadAddress", "jibunAddress"?, "buildingName"?, "dong"?, "emdCode"?, "emdName"?, "lat", "lng",
        "floor"?,                    // MUST be null when floorDisplay = CLASS
        "totalFloors"?, "exclusiveArea"?, "supplyArea"?, "landArea"?, "totalFloorArea"?, "areaTypeId"?,
-       "rooms"?, "baths"?, "direction"?, "directionBasis"?, "approvalDate"?, "parkingSpaces"?,
+       "rooms"?, "roomType"?,        // 방 구성 as stated (ONE_HALF_ROOM = 1.5룸); the facts grid shows it,
+                                    // else derives 원룸·투룸 from rooms (shared effectiveRoomType)
+       "baths"?, "direction"?, "directionBasis"?, "approvalDate"?, "parkingSpaces"?,
        "heatingType"?, "zoning"?, "landCategory"?, "buildingUse"?
        // never: ho (호수), owner contact, documents
      },

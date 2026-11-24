@@ -13,6 +13,9 @@ export interface MapBounds {
   neLng: number;
 }
 
+/** Map implementation behind `MapView`: the Kakao Maps SDK, or the stylized static fallback. */
+export type MapImpl = 'kakao' | 'static';
+
 export interface MapViewState {
   center: LatLng;
   zoom: number;

@@ -1212,7 +1212,7 @@ export function Gallery() {
           id="map"
           no="07 · MAP"
           title="지도 컴포넌트"
-          lead="키가 없으면 StaticMapView(디자인의 순천 SVG)로, NEXT_PUBLIC_NAVER_MAP_KEY_ID 가 있으면 NaverMapView 로 같은 props 를 그립니다. 끌어서 이동, 휠·+/− 로 확대/축소."
+          lead="키가 없으면 StaticMapView(디자인의 순천 SVG)로, NEXT_PUBLIC_KAKAO_MAP_KEY(카카오 JavaScript 키)가 있으면 KakaoMapView 로 같은 props 를 그립니다. 끌어서 이동, 휠·+/− 로 확대/축소."
         >
           <div className={s.mapFrame}>
             <MapView

@@ -65,10 +65,12 @@ assumptions. Each is parsed by one zod schema — fix the schema and the mock fi
 - Browser calls are same-origin: nginx must proxy `/api/v1/**` to the API and serve `/media/**`.
   `next.config.mjs` rewrites cover dev (`INTERNAL_API_URL`, `MEDIA_ORIGIN`). For `next/image` to
   optimise `/media/*` in production, `MEDIA_ORIGIN` must point at the origin that serves media
-  (nginx), or use absolute media URLs listed in `NEXT_PUBLIC_MEDIA_HOSTS`.
+  (nginx), or use absolute media URLs listed in `NEXT_PUBLIC_MEDIA_HOSTS` (`remotePatterns`: that host
+  - port under the listed path, no query strings, https only in production builds; none by default).
+    Both apps set `compress: false`: nginx gzips responses.
 - CSP is intentionally minimal (`frame-ancestors`, `base-uri`, `form-action`, `object-src`). A full
-  script/style CSP needs nonces plus allow-listing the Naver Maps and (later) Daum postcode / Kakao
-  SDK hosts — do it once those integrations are final.
-- Naver Maps: set `NEXT_PUBLIC_NAVER_MAP_KEY_ID` and register the site URL in the NCP console;
-  without it the static Suncheon map is used.
+  script/style CSP needs nonces plus allow-listing the Kakao Maps and Daum postcode SDK hosts — the
+  user site's policy is now `apps/web/csp.mjs` (superseded note).
+- Kakao Maps (D13): set `NEXT_PUBLIC_KAKAO_MAP_KEY` (카카오 앱 JavaScript 키) and register the site
+  domain under 플랫폼 → Web; without it the static Suncheon map is used.
 - `/dev/ui` and `/mock-api/**` answer 404 in production builds (mock mode off).

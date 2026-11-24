@@ -95,7 +95,7 @@ viewCount, favoriteCount, createdAt, updatedAt`) plus `listingNo?`, `verificatio
    - `agencies: [{ agencyId, isPrimary, name, representativeName, registrationNumber, phone,
 roadAddress, addressDetail?, logoUrl?, contactName?, contactPhone?, joinedAt? }]` — ACTIVE
      co-brokering offices with their 명시사항 (the preview's disclosure block reads these).
-     **Not in Prisma yet:** `listingNo` (human-friendly number such as `26-0412`, shown in the list,
+     **Not in Prisma yet:** `listingNo` (plain sequential number such as `100412`, shown in the list,
      wizard header and co-broker search; the UI copes with `null`) and `verificationDueAt` (see 6).
 3. **`POST` / `PATCH /agency/listings[/:id]`** — the wizard always sends the **whole**
    `listingDraftSchema` object and omits what is empty or does not apply (e.g. no `salePrice` for a
@@ -236,8 +236,8 @@ co-broker page); `USER` gets `403` and the console shell's "not an agent" gate.
   with hint), `FormGroup` / `FormRow` (lettered fieldset + label column, same anatomy as the
   DealRequest form), `LegalHint`, the photo grid with reorder (`StepPhotos`), `PinPicker`
   ("move the map under the pin" on top of `MapView`), the row "⋯" menu (`RowMenu`).
-- **Naver map** — `PinPicker` uses `MapView`, so it switches to Naver Maps automatically when
-  `NEXT_PUBLIC_NAVER_MAP_KEY_ID` is set; it was only exercised with `StaticMapView`.
+- **Kakao map** — `PinPicker` uses `MapView`, so it switches to Kakao Maps automatically when
+  `NEXT_PUBLIC_KAKAO_MAP_KEY` is set (D13); it was only exercised with `StaticMapView`.
 - **Responsive** — the layouts follow the width of their own box (container queries), not only the
   viewport: the table becomes cards when its panel is narrower than 760px (phones, and tablets where
   the console sidebar takes the room; bulk selection is table-only, cards keep the per-row actions

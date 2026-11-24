@@ -2,9 +2,9 @@ import { AdminRole } from '@house/shared';
 import {
   GEOCODER,
   GeocoderUnavailableError,
-  type GeocodeHit,
   type Geocoder,
-} from '../../../src/modules/home/clients/naver-geocode.client';
+  type GeocoderHit,
+} from '../../../src/modules/home/clients/kakao-geocode.client';
 import { RegionsService } from '../../../src/modules/complexes/services/regions.service';
 import {
   createAdmin,
@@ -26,20 +26,23 @@ export class FakeGeocoder implements Geocoder {
   configured = true;
   failWith: Error | null = null;
   readonly queries: string[] = [];
-  readonly hits = new Map<string, GeocodeHit[]>();
+  /** "lat,lng" of every reverse lookup (coord2regioncode). */
+  readonly reverseLookups: string[] = [];
+  readonly hits = new Map<string, GeocoderHit[]>();
   readonly codes = new Map<string, string>();
 
   isConfigured(): boolean {
     return this.configured;
   }
 
-  async geocode(query: string): Promise<GeocodeHit[]> {
+  async geocode(query: string): Promise<GeocoderHit[]> {
     this.queries.push(query);
     if (this.failWith) throw this.failWith;
     return this.hits.get(query) ?? [];
   }
 
   async legalCode(lat: number, lng: number): Promise<string | null> {
+    this.reverseLookups.push(`${lat},${lng}`);
     return this.codes.get(`${lat},${lng}`) ?? null;
   }
 
@@ -47,6 +50,7 @@ export class FakeGeocoder implements Geocoder {
     this.configured = true;
     this.failWith = null;
     this.queries.length = 0;
+    this.reverseLookups.length = 0;
     this.hits.clear();
     this.codes.clear();
   }

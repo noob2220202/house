@@ -6,7 +6,8 @@
 
 - 소셜 로그인: **카카오 · 네이버 · Google** (Apple 로그인 없음)
 - **SMS 발송·휴대폰 인증 없음** — 휴대폰 번호는 형식만 검증하는 연락처 필드입니다.
-- 현재 단계: 백엔드(API + 작업 워커) + 인프라 + 배포 키트. 사용자 사이트·관리자 화면은 디자인 확정 후 구현합니다.
+- 서비스 이름: **순천부동산지도** (suncheonmap.kr · 관리자 admin.suncheonmap.kr). 지도: 카카오맵.
+- 현재 단계: 사용자 사이트 · 중개사 콘솔 · 관리자 · API · 배포 키트 모두 구현 완료, 출시 준비 단계([docs/STATUS.md](docs/STATUS.md)).
 
 진행 현황: [docs/STATUS.md](docs/STATUS.md) · 설계 문서: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · 개발 규칙(영문): [docs/CONVENTIONS.md](docs/CONVENTIONS.md) ·
 배포: [docs/DEPLOY.md](docs/DEPLOY.md) · 운영: [docs/OPERATIONS.md](docs/OPERATIONS.md)
@@ -21,13 +22,15 @@ apps/
     src/common/         가드·데코레이터·파이프·필터·감사로그·캐시·지오·페이지네이션
     src/modules/        auth, listings, complexes, agencies, deal-requests, ads, media, admin
     test/               e2e 러너, 모듈별 env(test/env), 테스트 유틸·팩토리, e2e 스펙
-  web/        Next.js 15 사용자 사이트 (포트 3000, /healthz)
-  admin/      Next.js 15 관리자 (포트 3001, /healthz)
+  web/        Next.js 15 사용자 사이트 + 중개사 콘솔(/agent) (포트 3000, /healthz)
+  admin/      Next.js 15 관리자 백오피스 (포트 3001, /healthz)
 packages/
   shared/     zod 스키마 · enum · 상수 · 에러 코드 · 유틸 (api와 프론트 공용)
+  ui/         디자인 토큰 + 공용 React 컴포넌트 (web·admin 공용)
   config/     tsconfig / ESLint 프리셋
 deploy/       VPS 설치·배포·롤백·백업 스크립트 (install.sh, deploy.sh, rollback.sh …, PM2 + nginx)
-docs/         ARCHITECTURE.md, CONVENTIONS.md, DEPLOY.md, OPERATIONS.md
+docs/         STATUS.md, ARCHITECTURE.md, CONVENTIONS.md, FRONTEND.md, DEPLOY.md, OPERATIONS.md, E2E.md, KEY_SETUP.md
+e2e/          Playwright 실제 API 브라우저 테스트 (scripts/e2e-stack.sh, docs/E2E.md)
 ecosystem.config.cjs  PM2 프로세스 정의 (house-api, house-worker, house-web, house-admin)
 ```
 

@@ -271,9 +271,10 @@ Known mock inconsistencies between page groups (data only — the code paths are
 
 ## Behaviour notes for the integrator
 
-- **Map implementations.** `MapView` picks Naver when `NEXT_PUBLIC_NAVER_MAP_KEY_ID` is set. The
+- **Map implementations.** `MapView` picks Kakao when `NEXT_PUBLIC_KAKAO_MAP_KEY` is set (D13). The
   static fallback does not report programmatic moves, so in static mode the page derives the bounds
-  from the URL view (`staticViewBounds`); with Naver it uses the bounds of `onViewChange`. Popovers
+  from the URL view (`staticViewBounds`); with Kakao it uses the bounds of `onViewChange` (its zoom
+  is `kakaoLevelToZoom(level)`, so the `MAP_ZOOM` bands keep their map scale). Popovers
   are placed by projecting lat/lng through the visible bounds (works for both).
 - **Zoom bands** follow `MAP_ZOOM` (≤ 12 region clusters, ≤ 15 grid clusters, ≥ 16 markers), except
   that city views up to zoom 13 ask for `zoom=12` (named 동 bubbles, as on the designs) — see "Grid
@@ -302,12 +303,12 @@ Known mock inconsistencies between page groups (data only — the code paths are
   "내 위치" dot.
 - **Keyboard.** The selection popover is a non-modal dialog: it takes focus when opened from a marker
   or list row, Escape (or its close button) closes it and returns focus to the opener.
-- **Naver path — verify with a real key before launch** (`NEXT_PUBLIC_NAVER_MAP_KEY_ID`):
+- **Kakao path — verify with the real JavaScript 키 on suncheonmap.kr before launch**
+  (`NEXT_PUBLIC_KAKAO_MAP_KEY`; the SDK refuses unregistered domains, so it cannot be exercised in CI):
   `/map/apt` and `/map/oneroom` at 1440 and 390 — a marker click must not also deselect through
-  `onMapClick` (the page waits 60 ms for that), popover placement, sheet stops, bbox refetch after
-  pans, the mobile landing shift. `NaverMapView` (foundation) has no `ResizeObserver` →
-  `map.autoResize()`; the w-map page no longer resizes the map on sheet moves, but desktop window
-  resizes still depend on it.
+  `onMapClick` (overlays are `clickable`, and the page waits 60 ms anyway), popover placement, sheet
+  stops, bbox refetch after pans, the mobile landing shift, zoom buttons at level 1/14.
+  `KakaoMapView` calls `map.relayout()` from a `ResizeObserver` on desktop window resizes.
 - **SEO.** Each asset type has its own title / description / canonical (bare path — query variations
   canonicalise to it) and BreadcrumbList JSON-LD. The interactive screen is client-rendered inside
   Suspense (URL state); the fallback is a layout-matched skeleton with the page heading.

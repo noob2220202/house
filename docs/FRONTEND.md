@@ -5,9 +5,9 @@ groups stay inside their own routes/features and reuse what is described here.
 
 Hard product rules: social login is **카카오 / 네이버 / Google only** (no Apple button anywhere —
 the Login design draft shows one; drop it). There is **no SMS / phone verification**; phone numbers
-are plain validated fields. The service name is **순천부동산** (decided 2026-11-24; it replaced the
+are plain validated fields. The service name is **순천부동산지도** (decided 2026-11-24; it replaced the
 `BRAND` placeholder) and must only come from the brand config (`BRAND.name`), never be typed into
-pages. Particles after it take the final-consonant form (순천부동산은 / 을 / 이).
+pages. Particles after it take the vowel-final form (순천부동산지도는 / 를 / 가); use `josa()`.
 
 ## 0. If your page group already has files (interrupted run)
 
@@ -45,7 +45,7 @@ apps/web/                          user site + broker console (/agent/**)
   src/app/mock-api/v1/<resource>/  mock backend (one folder per resource)
   src/app/dev/ui/                  component gallery (dev only, 404 in production)
   src/components/layout/           SiteShell, SiteHeader, SiteFooter, MobileHeader, MobileTabBar
-  src/components/map/              MapView (Naver + static), markers, map chrome
+  src/components/map/              MapView (Kakao Maps SDK + static fallback), markers, map chrome
   src/components/{brand,providers,system}/
   src/features/<group-key>/        ← page-specific components of each page group (you create this)
   src/lib/api/                     typed API client, errors, CSRF, server fetch helpers, QueryClient
@@ -372,8 +372,10 @@ const [bbox, setBbox] = useState<string>();
 </div>
 ```
 
-- One abstraction, two implementations with identical props: `NaverMapView` (Naver Maps JS v3,
-  loaded with `ncpKeyId=NEXT_PUBLIC_NAVER_MAP_KEY_ID`, custom HTML marker overlays) and
+- One abstraction, two implementations with identical props: `KakaoMapView` (Kakao Maps JS SDK,
+  `dapi.kakao.com/v2/maps/sdk.js?appkey=NEXT_PUBLIC_KAKAO_MAP_KEY&autoload=false`, markers as
+  `CustomOverlay`s with React-portalled DOM; app zoom ↔ Kakao level via `lib/map/kakao-level.ts`,
+  level = 20 − zoom) and
   `StaticMapView` (the design's stylized Suncheon SVG, markers projected from lat/lng) used when no
   key is set and as an automatic fallback if the SDK fails. Both are code-split and client-only; give
   the parent an explicit height.

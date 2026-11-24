@@ -4,7 +4,7 @@ const id = (group: string, n: number) =>
 
 export const SEARCH_LISTINGS = [
   [
-    '26110001',
+    '100001',
     '신대 레이크파크 1단지 103동 34평',
     'SALE',
     44500,
@@ -15,7 +15,7 @@ export const SEARCH_LISTINGS = [
     '해룡면 신대리',
   ],
   [
-    '26110002',
+    '100002',
     '선월 하이츠 2차 205동 33평',
     'PRESALE',
     41900,
@@ -26,7 +26,7 @@ export const SEARCH_LISTINGS = [
     '해룡면 선월리',
   ],
   [
-    '26110003',
+    '100003',
     '연향 센트럴 108동 32평',
     'JEONSE',
     24000,
@@ -37,7 +37,7 @@ export const SEARCH_LISTINGS = [
     '연향동',
   ],
   [
-    '26110004',
+    '100004',
     '조례 호수마을 102동 24평',
     'MONTHLY',
     null,
@@ -48,7 +48,7 @@ export const SEARCH_LISTINGS = [
     '조례동',
   ],
   [
-    '26110005',
+    '100005',
     '오천 그린빌 107동 24평',
     'SALE',
     25200,
@@ -59,7 +59,7 @@ export const SEARCH_LISTINGS = [
     '오천동',
   ],
   [
-    '26110006',
+    '100006',
     '신대 레이크파크 3단지 301동 39평',
     'SALE',
     46000,
@@ -70,7 +70,7 @@ export const SEARCH_LISTINGS = [
     '해룡면 신대리',
   ],
   [
-    '26110007',
+    '100007',
     '선월 하이츠 2차 210동 25평',
     'PRESALE',
     33800,
@@ -81,7 +81,7 @@ export const SEARCH_LISTINGS = [
     '해룡면 선월리',
   ],
   [
-    '26110008',
+    '100008',
     '왕지 숲속마을 104동 25평',
     'JEONSE',
     16500,
@@ -92,7 +92,7 @@ export const SEARCH_LISTINGS = [
     '왕지동',
   ],
   [
-    '26110021',
+    '100021',
     '석현동 해오름빌 투룸',
     'MONTHLY',
     null,
@@ -103,7 +103,7 @@ export const SEARCH_LISTINGS = [
     '석현동',
   ],
   [
-    '26110022',
+    '100022',
     '덕월동 청암하우스 원룸',
     'MONTHLY',
     null,
@@ -114,7 +114,7 @@ export const SEARCH_LISTINGS = [
     '덕월동',
   ],
   [
-    '26110023',
+    '100023',
     '석현동 그린캠퍼스 1.5룸',
     'MONTHLY',
     null,
@@ -125,7 +125,7 @@ export const SEARCH_LISTINGS = [
     '석현동',
   ],
   [
-    '26110024',
+    '100024',
     '조례동 호수뷰 오피스텔 원룸',
     'MONTHLY',
     null,
@@ -136,7 +136,7 @@ export const SEARCH_LISTINGS = [
     '조례동',
   ],
   [
-    '26110025',
+    '100025',
     '연향동 센트로빌 투룸',
     'JEONSE',
     9500,
@@ -147,7 +147,7 @@ export const SEARCH_LISTINGS = [
     '연향동',
   ],
   [
-    '26110026',
+    '100026',
     '장천동 역세권 스테이 원룸',
     'MONTHLY',
     null,

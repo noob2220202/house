@@ -1,5 +1,9 @@
 import type { Metadata } from 'next';
-import { agencyDealRequestPageSchema } from '@/features/a-inbox/api/schemas';
+import {
+  inboxNewCountSchema,
+  proposalTotalSchema,
+  WAITING_PROPOSALS_QUERY,
+} from '@/features/a-inbox/api/schemas';
 import {
   AgentNotificationsView,
   type InboxSummary,
@@ -21,17 +25,23 @@ async function orNull<T>(promise: Promise<T>): Promise<T | null> {
   }
 }
 
-/** Inbox counters for the tiles above the feed (cheapest list call: one row). */
+/**
+ * Inbox counters for the tiles above the feed: 새 요청 from the console dashboard aggregate,
+ * 응답 대기 = total of our SENT / VIEWED proposals (one-row page).
+ */
 async function loadSummary(): Promise<InboxSummary> {
-  const requests = await orNull(
-    serverGetAuthed('/agency/deal-requests', {
-      query: { page: 1, pageSize: 1 },
-      schema: agencyDealRequestPageSchema,
-    }),
-  );
+  const [dashboard, waiting] = await Promise.all([
+    orNull(serverGetAuthed('/agencies/mine/dashboard', { schema: inboxNewCountSchema })),
+    orNull(
+      serverGetAuthed('/agency/proposals', {
+        query: WAITING_PROPOSALS_QUERY,
+        schema: proposalTotalSchema,
+      }),
+    ),
+  ]);
   return {
-    newRequests: requests?.stageCounts?.NEW ?? null,
-    waitingProposals: requests?.stageCounts?.PROPOSED ?? null,
+    newRequests: dashboard?.dealRequests.newCount ?? null,
+    waitingProposals: waiting?.total ?? null,
   };
 }
 

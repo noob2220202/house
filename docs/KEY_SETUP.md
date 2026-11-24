@@ -31,19 +31,30 @@
 
 ---
 
-## 1. 카카오 로그인 — developers.kakao.com
+## 1. 카카오 로그인 + 카카오맵 — developers.kakao.com
+
+로그인과 지도(지도 표시 + 주소 검색)는 **같은 카카오 앱 하나**를 씁니다.
 
 1. [ ] 내 애플리케이션 → **애플리케이션 추가** (앱 이름: 순천부동산지도)
-2. [ ] 플랫폼 → **Web** → 사이트 도메인: `https://suncheonmap.kr`
+2. [ ] 플랫폼 → **Web** → 사이트 도메인 (지도 JavaScript SDK도 이 목록으로 허용 여부를 판단합니다):
+       `https://suncheonmap.kr`, `https://www.suncheonmap.kr`, `https://admin.suncheonmap.kr`
 3. [ ] 카카오 로그인 → **활성화 ON**
 4. [ ] Redirect URI: `https://suncheonmap.kr/api/v1/auth/oauth/kakao/callback`
 5. [ ] 동의항목: **닉네임(필수)**, 프로필 사진(선택), 카카오계정 이메일(선택 — 사업자등록번호로 **비즈 앱 전환** 필요)
 6. [ ] 보안 → **Client Secret** 코드 생성 → 활성화 상태 **사용함**
+7. [ ] **카카오맵** → 사용 설정 **ON** (제품 설정 → 카카오맵. 꺼져 있으면 지도와 주소 검색이 모두 거부됩니다)
 
-| 저장할 이름           | 값이 있는 곳            |
-| --------------------- | ----------------------- |
-| `KAKAO_CLIENT_ID`     | 앱 키 → **REST API 키** |
-| `KAKAO_CLIENT_SECRET` | 보안 → Client Secret    |
+| 저장할 이름                 | 값이 있는 곳                                                                        |
+| --------------------------- | ----------------------------------------------------------------------------------- |
+| `KAKAO_CLIENT_ID`           | 앱 키 → **REST API 키** (로그인 + 서버 주소 검색 `GET /geo/geocode`에 함께 쓰임)    |
+| `KAKAO_CLIENT_SECRET`       | 보안 → Client Secret                                                                |
+| `NEXT_PUBLIC_KAKAO_MAP_KEY` | 앱 키 → **JavaScript 키** (브라우저 지도. 공개값 — 위 사이트 도메인에서만 동작해요) |
+
+- 서버에서는 `sudo /srv/house/set-keys.sh kakao` 가 이 3개를 차례로 묻습니다.
+- 주소 검색에 로그인과 다른 REST 키를 쓰고 싶을 때만 `KAKAO_REST_API_KEY`를 따로 넣습니다
+  (비워 두면 `KAKAO_CLIENT_ID`를 씁니다).
+- JavaScript 키가 비어 있거나 도메인이 등록되지 않았으면 사이트는 **간이 지도(순천 일러스트)** 로
+  대신 보여 줍니다. 키를 넣은 뒤 `deploy.sh`가 웹을 다시 빌드해야 반영됩니다.
 
 _메뉴 이름은 카카오 화면 개편에 따라 조금 다를 수 있습니다._
 
@@ -85,17 +96,11 @@ _검수 요청은 사이트 오픈 후에 합니다(검수 전에는 등록한 �
 
 ---
 
-## 4. 네이버 클라우드 지도 — ncloud.com
+## 4. 지도 — 1번 카카오 앱으로 끝 (네이버 클라우드 가입 필요 없음)
 
-1. [ ] 회원가입 → **결제수단 등록** (무료 사용량 안에서는 대부분 무료)
-2. [ ] 콘솔 → Services → **Maps** → Application 등록
-3. [ ] 사용 API: **Dynamic Map, Geocoding, Reverse Geocoding** 3개 체크
-4. [ ] Web 서비스 URL: `https://suncheonmap.kr`, `https://www.suncheonmap.kr`, `https://admin.suncheonmap.kr`
-
-| 저장할 이름               | 값이 있는 곳                                                 |
-| ------------------------- | ------------------------------------------------------------ |
-| `NAVER_MAP_CLIENT_ID`     | Client ID (**같은 값을 `NEXT_PUBLIC_NAVER_MAP_KEY_ID`에도**) |
-| `NAVER_MAP_CLIENT_SECRET` | Client Secret                                                |
+지도는 **카카오맵**으로 바뀌었습니다(DECISIONS D13). 네이버 클라우드 플랫폼(ncloud.com) 가입·결제수단 등록은
+하지 않아도 됩니다. 예전 `.env`에 `NAVER_MAP_CLIENT_ID`/`NAVER_MAP_CLIENT_SECRET`/`NEXT_PUBLIC_NAVER_MAP_KEY_ID`
+줄이 남아 있어도 무시되니 지워도 됩니다.
 
 ---
 
@@ -147,16 +152,15 @@ _없어도 중개사무소 가입·승인은 정상 동작합니다(자동 대�
 
 ## 확인용 표 — 다 모이면 체크
 
-| 저장할 이름                                                                         | 어디서          | ✔  |
-| ----------------------------------------------------------------------------------- | --------------- | --- |
-| `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`                                            | 카카오          | ☐   |
-| `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`                                            | 네이버 로그인   | ☐   |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`                                          | Google          | ☐   |
-| `NAVER_MAP_CLIENT_ID`, `NAVER_MAP_CLIENT_SECRET` (+ `NEXT_PUBLIC_NAVER_MAP_KEY_ID`) | 네이버 클라우드 | ☐   |
-| `DATA_GO_KR_SERVICE_KEY`                                                            | 공공데이터포털  | ☐   |
-| `VWORLD_API_KEY` (선택)                                                             | 브이월드        | ☐   |
-| `GITHUB_TOKEN`                                                                      | GitHub          | ☐   |
-| 서버 IP · root 접속 정보                                                            | VPS             | ☐   |
-| 관리자 이메일 · OTP 앱                                                              | —               | ☐   |
+| 저장할 이름                                                           | 어디서         | ✔  |
+| --------------------------------------------------------------------- | -------------- | --- |
+| `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `NEXT_PUBLIC_KAKAO_MAP_KEY` | 카카오         | ☐   |
+| `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`                              | 네이버 로그인  | ☐   |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`                            | Google         | ☐   |
+| `DATA_GO_KR_SERVICE_KEY`                                              | 공공데이터포털 | ☐   |
+| `VWORLD_API_KEY` (선택)                                               | 브이월드       | ☐   |
+| `GITHUB_TOKEN`                                                        | GitHub         | ☐   |
+| 서버 IP · root 접속 정보                                              | VPS            | ☐   |
+| 관리자 이메일 · OTP 앱                                                | —              | ☐   |
 
 **SMS 키, Apple 키는 필요 없습니다.** (Apple 로그인·SMS 발송 기능 없음)

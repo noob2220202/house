@@ -82,9 +82,9 @@ export function shortAddress(agency: AddressLike): string {
   return fullAddress(agency).replace(CITY_PREFIX, '');
 }
 
-/** 길찾기 link (Naver Map search by the office's public address). */
+/** 길찾기 link (카카오맵 search by the office's public address — the map provider of the site). */
 export function directionsUrl(agency: Pick<AgencySummary, 'roadAddress' | 'name'>): string {
-  return `https://map.naver.com/p/search/${encodeURIComponent(agency.roadAddress.trim())}`;
+  return `https://map.kakao.com/link/search/${encodeURIComponent(agency.roadAddress.trim())}`;
 }
 
 /** `tel:` href from any phone format; null when there is no dialable number. */

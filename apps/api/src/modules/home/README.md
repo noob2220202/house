@@ -19,7 +19,7 @@ All paths are under `/api/v1`.
 | GET                | `/home/summary`                                                       | Public               | counters + 지역 현황; Redis 2 min                                                        |
 | GET                | `/home/popular-regions?assetTypes&limit`                              | Public               | 지역 ranking by this week's listing views; Redis 2 min                                   |
 | GET                | `/search/suggest?q&limit`                                             | Public               | 지역 → 단지 → 중개사무소; `popular` keywords; Redis 1 min                                |
-| GET                | `/geo/geocode?query`                                                  | User (30/min)        | Naver geocoding proxy, service region only; 503 `GEOCODE_UNAVAILABLE`; Redis 24 h        |
+| GET                | `/geo/geocode?query`                                                  | User (30/min)        | Kakao Local 주소 검색 proxy, service region only; 503 `GEOCODE_UNAVAILABLE`; Redis 24 h  |
 | GET                | `/policies/:slug`                                                     | Public               | version in force; 404 `POLICY_NOT_FOUND` "정책 문서를 찾을 수 없습니다." until published |
 | GET · POST         | `/admin/policies?slug&page` · `/admin/policies`                       | Admin `TERMS_MANAGE` | versions (drafts editable, published immutable); audited                                 |
 | GET · PATCH/DELETE | `/admin/policies/:id`                                                 | Admin `TERMS_MANAGE` | PATCH / DELETE drafts only (409 once published)                                          |
@@ -56,11 +56,14 @@ popular: string[] }`. `q` is whitespace-collapsed and cut to 50 characters, `lim
 - `GET /geo/geocode?query` → `{ items[{ roadAddress, jibunAddress, zipCode, buildingName, lat, lng,
 emdCode }] }` (≤ 10). `query`: control characters stripped, whitespace collapsed, 2–100 characters
   (400 `VALIDATION_FAILED` "검색어를 2자 이상 입력해 주세요."). A query without "순천" is sent as
-  "순천시 …" and biased to the city centre. Each hit's 법정동 code (reverse geocoding, `legalcode`)
-  goes through `canonicalRegionCode` (46150… → 12150…); hits outside `REGION_SGG_CODE` are dropped
+  "순천시 …". Upstream: Kakao Local `GET /v2/local/search/address.json` (`size=10`), header
+  `Authorization: KakaoAK <REST API 키>` (`KAKAO_REST_API_KEY`, else `KAKAO_CLIENT_ID`; the 카카오 앱
+  needs 카카오맵 사용 ON). Each hit's 법정동 code — the answer's `address.b_code`, else
+  `GET /v2/local/geo/coord2regioncode.json` (`region_type` `B`) — goes through `canonicalRegionCode`
+  (46150… → 12150…); hits outside `REGION_SGG_CODE` are dropped
   (without a code: kept only when the address says 순천시). `emdCode` is an extra field the web schema
-  ignores today — the agency application can send it as `emdCode`. Without
-  `NAVER_MAP_CLIENT_ID`/`NAVER_MAP_CLIENT_SECRET`, or when Naver fails, 503 `GEOCODE_UNAVAILABLE`
+  ignores today — the agency application can send it as `emdCode`. Without a REST API 키
+  (`KAKAO_REST_API_KEY` / `KAKAO_CLIENT_ID`), or when Kakao fails, 503 `GEOCODE_UNAVAILABLE`
   "지금은 주소 검색을 사용할 수 없습니다. …".
 - `GET /policies/:slug` → `{ slug, title, version, effectiveAt, content }` — the latest published
   version whose `effectiveAt` has passed (`policy_documents`). Content is plain text with light

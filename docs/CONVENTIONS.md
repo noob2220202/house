@@ -106,6 +106,9 @@ move the shared read into the owning module's exported service.
   X-Forwarded-For and clearing X-House-SSR on every proxied location. Tests:
   `src/bootstrap/trust-proxy.spec.ts`, `common/throttle/house-throttler.guard.spec.ts`, core e2e
   "throttle" (`/__probe/ip`).
+- **SSR reads never count listing views.** `GET /listings/:id` from a loopback peer with
+  `x-house-ssr: 1` (`isLocalSsrRequest`, cached or forwarding a visitor) records no view and no
+  recent view; the detail page's browser beacon `POST /listings/:id/view` counts instead.
 - Swagger is on only when `SWAGGER_ENABLED=true` (`/api/v1/docs`). Decorate with
   `@ApiTags('<module>')`.
 
@@ -189,7 +192,7 @@ inside the transaction.
 
 ## 9. External APIs
 
-OAuth providers, data.go.kr, Naver geocoding, the broker registry lookup: define an interface + DI
+OAuth providers, data.go.kr, Kakao Local geocoding, the broker registry lookup: define an interface + DI
 token in your module (`export const TRADE_API = Symbol('TRADE_API')`), a real HTTP implementation,
 and a fake with fixtures (`test/e2e/<module>/fixtures/`). Tests never touch the network: override with
 `createTestApp({ override: (b) => b.overrideProvider(TRADE_API).useValue(fake) })`.

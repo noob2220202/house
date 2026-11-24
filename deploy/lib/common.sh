@@ -94,6 +94,29 @@ die() {
 
 have() { command -v "$1" >/dev/null 2>&1; }
 has_systemd() { [[ -d /run/systemd/system ]]; }
+# retry <tries> <command...>: runs the command once a second until it succeeds, at most <tries> times.
+retry() {
+  local tries="$1" i
+  shift
+  for ((i = 1; i <= tries; i++)); do
+    "$@" && return 0
+    ((i < tries)) && sleep 1
+  done
+  return 1
+}
+
+# Starts Redis on <port> without an init system that manages it (containers). A Redis that was
+# told to stop keeps answering PING until its shutdown finishes, and a new one started meanwhile
+# cannot bind the port and exits; the old one then exits too, leaving no Redis. So wait for the
+# old instance to be gone before starting the new one.
+redis_gone() { ! pgrep -u redis -f "redis-server .*:$1" >/dev/null 2>&1; }
+redis_start_unmanaged() {
+  local port="$1"
+  pkill -u redis -f "redis-server .*:${port}" 2>/dev/null || true
+  retry 15 redis_gone "$port" || return 1
+  install -d -m 0755 -o redis -g redis /run/redis /var/log/redis
+  runuser -u redis -- redis-server /etc/redis/redis.conf --daemonize yes --supervised no
+}
 
 # ─── deploy.conf ────────────────────────────────────────────────────────────────────────────
 is_port() { [[ "$1" =~ ^[0-9]{1,5}$ ]] && (($1 >= 1 && $1 <= 65535)); }
@@ -255,7 +278,7 @@ frontend_env_defaults() {
   printf '%s\n' \
     "NEXT_PUBLIC_SITE_URL=${scheme}://${DOMAIN}" \
     "MEDIA_ORIGIN=$(media_origin_default)" \
-    "NEXT_PUBLIC_NAVER_MAP_KEY_ID=$(env_get NAVER_MAP_CLIENT_ID)" \
+    "NEXT_PUBLIC_KAKAO_MAP_KEY=" \
     "NEXT_PUBLIC_NAVER_SITE_VERIFICATION=" \
     "NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION="
 }
@@ -536,6 +559,54 @@ worker_uses_http() {
 http_ok() {
   local url="$1"
   curl -fs --noproxy '*' -o /dev/null --max-time 5 "$url"
+}
+
+# carry_image_cache <previous release> <new release>: copies only each frontend's optimized-image
+# cache (.next/cache/images) forward, so photos are not re-optimized after every deploy. Nothing
+# else of .next/cache: turbo caches the build outputs, stale webpack/SWC caches only grow, and the
+# runtime fetch cache holds old API data (it is rebuilt as pages render).
+carry_image_cache() {
+  local prev="$1" next="$2" app
+  for app in web admin; do
+    [[ -d "$prev/apps/$app/.next/cache/images" ]] || continue
+    mkdir -p "$next/apps/$app/.next/cache/images"
+    rsync -a "$prev/apps/$app/.next/cache/images/" "$next/apps/$app/.next/cache/images/"
+  done
+}
+
+# media_sample_path [public upload dir]: one stored upload nginx serves under /media (same name
+# rule as house-media.conf), relative to the dir; empty when nothing has been uploaded yet.
+media_sample_path() {
+  local root="${1:-$UPLOAD_ROOT/public}"
+  [[ -d "$root" ]] || return 0
+  find "$root" -type f -size +0 -printf '%P\n' 2>/dev/null |
+    grep -m1 -E '^[a-z0-9][a-z0-9/_.-]*\.(webp|avif|jpe?g|png|gif)$' || true
+}
+
+# image_smoke <web port> [public upload dir] [tries] [delay]: GET /_next/image for one stored
+# upload on the web server; passes on 200 + image/*. Proves the optimizer reaches the media
+# origin baked into the build (MEDIA_ORIGIN → nginx's loopback media port). Skipped (passes)
+# while no photo has been uploaded (fresh install, empty DB).
+image_smoke() {
+  local port="$1" root="${2:-$UPLOAD_ROOT/public}" tries="${3:-3}" delay="${4:-2}" rel url out="" i
+  rel="$(media_sample_path "$root")"
+  if [[ -z "$rel" ]]; then
+    log "사진 최적화 점검 생략 (아직 올린 사진 없음)"
+    return 0
+  fi
+  # The name rule above leaves only "/" to encode.
+  url="http://127.0.0.1:${port}/_next/image?url=%2Fmedia%2F${rel//\//%2F}&w=64&q=75"
+  for ((i = 1; i <= tries; i++)); do
+    out="$(curl -s --noproxy '*' -o /dev/null --max-time 20 -w '%{http_code} %{content_type}' "$url" || true)"
+    if [[ "$out" =~ ^200\ image/ ]]; then
+      ok "사진 최적화 점검 통과 (/media/${rel} → ${out#200 })"
+      return 0
+    fi
+    ((i < tries)) && sleep "$delay"
+  done
+  warn "사진 최적화 점검 실패: /_next/image?url=/media/${rel} → ${out:-응답 없음}"
+  warn "  .env 의 MEDIA_ORIGIN(기본 http://127.0.0.1:${MEDIA_PORT:-8088})과 curl -sI http://127.0.0.1:${MEDIA_PORT:-8088}/media/${rel} 을 확인하세요."
+  return 1
 }
 
 # Every app must be "online" in PM2 and every HTTP probe must pass, within the retry budget.

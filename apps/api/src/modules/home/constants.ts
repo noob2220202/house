@@ -18,10 +18,12 @@ export const HOME_CACHE_TTL_SECONDS = {
 /** 관심 지역: at most this many keys per user (web MAX_INTEREST_REGIONS). */
 export const MAX_INTEREST_REGIONS = 5;
 
-/** Naver Cloud Maps (NCP API Gateway) endpoints. */
-export const NAVER_MAPS = {
-  GEOCODE: 'https://maps.apigw.ntruss.com/map-geocode/v2/geocode',
-  REVERSE_GEOCODE: 'https://maps.apigw.ntruss.com/map-reversegeocode/v2/gc',
+/** Kakao Local API endpoints (header `Authorization: KakaoAK <REST API 키>`). */
+export const KAKAO_LOCAL = {
+  /** 주소 검색: address → coordinates + 도로명/지번 + 법정동 code (`address.b_code`). */
+  ADDRESS_SEARCH: 'https://dapi.kakao.com/v2/local/search/address.json',
+  /** 좌표 → 행정구역: the 법정동 (`region_type: 'B'`) code of a point. */
+  COORD_TO_REGION: 'https://dapi.kakao.com/v2/local/geo/coord2regioncode.json',
   TIMEOUT_MS: 5_000,
 } as const;
 

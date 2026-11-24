@@ -30,17 +30,14 @@ import {
 import type { Notification } from '@/features/w-me/schemas';
 import { errorMessage } from '@/lib/api';
 import { formatCount, formatRelativeTime } from '@/lib/format';
-import { fetchRequestSummary, inboxKeys } from '../api/queries';
+import { fetchInboxCounts, inboxKeys, type InboxCounts } from '../api/queries';
 import { agentNotificationHref } from '../lib/notifications';
 import { INBOX_ROUTES } from '../routes';
 import ui from '../ui/inbox.module.css';
 import styles from './Notifications.module.css';
 
 /** Counters of the inbox, resolved on the server so the tiles paint with the page. */
-export interface InboxSummary {
-  newRequests: number | null;
-  waitingProposals: number | null;
-}
+export type InboxSummary = InboxCounts;
 
 /** The console shows the agency audience of the feed (B5 `scope=agency`). */
 const SCOPE = 'agency' as const;
@@ -102,15 +99,15 @@ function SummaryTiles({ initial }: { initial: InboxSummary }) {
   // Server values first; the client keeps them fresh (same cache as the list pages).
   const requests = useQuery({
     queryKey: inboxKeys.requestSummary,
-    queryFn: ({ signal }) => fetchRequestSummary(signal),
+    queryFn: ({ signal }) => fetchInboxCounts(signal),
     staleTime: 30_000,
   });
-  const counts = requests.data?.stageCounts;
+  const counts = requests.data;
   const tiles = [
     {
       href: `${INBOX_ROUTES.requests}?stage=new`,
       label: '제안 전 새 요청',
-      value: counts?.NEW ?? initial.newRequests,
+      value: counts?.newRequests ?? initial.newRequests,
       icon: 'home-up' as const,
       tone: 'brand' as const,
       detail: '먼저 제안할수록 선택받기 쉬워요',
@@ -118,7 +115,7 @@ function SummaryTiles({ initial }: { initial: InboxSummary }) {
     {
       href: `${INBOX_ROUTES.requests}?stage=proposed`,
       label: '응답 대기 중인 제안',
-      value: counts?.PROPOSED ?? initial.waitingProposals,
+      value: counts?.waitingProposals ?? initial.waitingProposals,
       icon: 'clock' as const,
       tone: 'neutral' as const,
       detail: '요청자가 검토하고 있어요',

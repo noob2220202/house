@@ -178,10 +178,10 @@ describe('topbar search suggestions', () => {
     listings: {
       total: 5,
       items: [
-        { id: 'l1', listingNo: '26110001', title: '신대 레이크파크 1단지 103동 34평' },
-        { id: 'l2', listingNo: '26110006', title: '신대 레이크파크 3단지 301동 39평' },
-        { id: 'l3', listingNo: '26110009', title: '신대 센트럴 84A' },
-        { id: 'l4', listingNo: '26110010', title: '신대 센트럴 84B' },
+        { id: 'l1', listingNo: '100001', title: '신대 레이크파크 1단지 103동 34평' },
+        { id: 'l2', listingNo: '100006', title: '신대 레이크파크 3단지 301동 39평' },
+        { id: 'l3', listingNo: '100009', title: '신대 센트럴 84A' },
+        { id: 'l4', listingNo: '100010', title: '신대 센트럴 84B' },
       ],
     },
     agencies: { total: 1, items: [{ id: 'a1', name: '신대중앙 공인중개사사무소' }] },
@@ -203,7 +203,7 @@ describe('topbar search suggestions', () => {
       value: 'listing:l1',
       kind: 'listing',
       label: '신대 레이크파크 1단지 103동 34평',
-      description: '매물 26110001',
+      description: '매물 100001',
       href: '/listings/l1',
     });
     expect(rows[3]).toMatchObject({ description: '중개사', href: '/agencies/a1' });

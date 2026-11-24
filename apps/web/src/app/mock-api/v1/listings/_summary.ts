@@ -33,7 +33,7 @@ const ROOM_TYPE_BY_LABEL = new Map<string, RoomType>(
   Object.entries(ROOM_TYPE_LABEL).map(([value, label]) => [label, value as RoomType]),
 );
 
-function roomTypeOf(value: string | null | undefined): RoomType | null {
+export function roomTypeOf(value: string | null | undefined): RoomType | null {
   if (!value) return null;
   if (value in RoomType) return value as RoomType;
   return ROOM_TYPE_BY_LABEL.get(value) ?? null;

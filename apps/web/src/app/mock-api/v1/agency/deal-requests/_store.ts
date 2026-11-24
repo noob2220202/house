@@ -23,16 +23,7 @@ import { agencyByKey } from '../../deal-requests/_fixtures';
 import { dealStore, type MockDealRequest, type MockProposal } from '../../deal-requests/_store';
 import { meState } from '../../me/_store';
 import { officeListing } from './_listings';
-import {
-  ago,
-  COMPLEX_NAMES,
-  DAY,
-  HOUR,
-  MIN,
-  MY_AGENCY_ID,
-  proposalListing,
-  seedInboxRequests,
-} from './_seed';
+import { ago, DAY, HOUR, MIN, MY_AGENCY_ID, proposalListing, seedInboxRequests } from './_seed';
 
 /**
  * Agency side of the deal-requests mock (a-inbox).
@@ -142,7 +133,6 @@ export function agencyRequestDto(r: MockDealRequest, withBody = false): AgencyDe
     dealTypes: r.dealTypes as AgencyDealRequest['dealTypes'],
     visibility: r.visibility,
     targeted: r.visibility === 'SELECTED_AGENCIES',
-    requesterName: maskName(r.contactName),
     description: reduce ? publicDealRequestDescription(r.description) : r.description,
     emdCode: r.emdCode,
     emdName: r.emdName,
@@ -158,7 +148,6 @@ export function agencyRequestDto(r: MockDealRequest, withBody = false): AgencyDe
     photoCount: r.photos.length,
     regionCodes: r.regionCodes,
     complexIds: r.complexIds,
-    complexNames: r.complexIds.map((id) => COMPLEX_NAMES.get(id) ?? '선택한 단지'),
     priceMin: r.priceMin,
     priceMax: r.priceMax,
     depositMin: r.depositMin,

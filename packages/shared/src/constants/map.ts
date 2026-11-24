@@ -1,12 +1,15 @@
 /**
- * Map clustering bands (Naver map zoom levels, larger = closer).
+ * Map clustering bands, in web-map zoom levels (larger = closer, ×2 per step; the URL `z=` and the
+ * `/map/search` `zoom`). The site draws with Kakao Maps, whose *level* runs the other way: level =
+ * 20 − zoom at the same ground scale (apps/web `lib/map/kakao-level.ts`), so MIN 6 ↔ level 14
+ * (Kakao's farthest) and MAX 19 ↔ level 1 (its closest).
  * - zoom <= REGION_MAX: cluster by 읍면동 (region aggregation)
  * - zoom <= GRID_MAX:   grid clustering (ST_SnapToGrid)
  * - otherwise:          individual complex / listing markers
  */
 export const MAP_ZOOM = {
   MIN: 6,
-  MAX: 21,
+  MAX: 19,
   REGION_MAX: 12,
   GRID_MAX: 15,
 } as const;

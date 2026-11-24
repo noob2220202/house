@@ -363,7 +363,7 @@ fi
 upgrade_env_to_https() {
   [[ "$(env_get PUBLIC_BASE_URL)" == "http://${DOMAIN}" ]] || return 0
   local d="${DOMAIN//./\\.}" a="${ADMIN_DOMAIN//./\\.}"
-  sed -i -E "/^(PUBLIC_BASE_URL|ADMIN_BASE_URL|API_BASE_URL|CORS_ORIGINS|NEXT_PUBLIC_SITE_URL|[A-Z]+_REDIRECT_URI)=/ s#http://(${d}|${a})([/,]|\$)#https://\\1\\2#g" "$ENV_FILE"
+  sed -i -E "/^(PUBLIC_BASE_URL|ADMIN_BASE_URL|API_BASE_URL|CORS_ORIGINS|ADMIN_CORS_ORIGINS|NEXT_PUBLIC_SITE_URL|[A-Z]+_REDIRECT_URI)=/ s#http://(${d}|${a})([/,]|\$)#https://\\1\\2#g" "$ENV_FILE"
   ok ".env 의 사이트 주소를 https:// 로 변경 (재배포 필요: ./deploy.sh)"
 }
 
@@ -671,20 +671,21 @@ if ! grep -q '^include /etc/redis/house.conf' /etc/redis/redis.conf; then
   REDIS_CHANGED=true
 fi
 redis_ping() { REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h 127.0.0.1 -p "$REDIS_PORT" ping 2>/dev/null; }
-if $REDIS_CHANGED || [[ "$(redis_ping)" != PONG ]]; then
+redis_up() { [[ "$(redis_ping)" == PONG ]]; }
+if $REDIS_CHANGED || ! redis_up; then
   if has_systemd; then
     systemctl enable redis-server >/dev/null 2>&1 || true
     systemctl restart redis-server
   elif [[ -x /etc/init.d/redis-server ]]; then
     service redis-server restart >/dev/null 2>&1 || service redis-server start >/dev/null 2>&1 || true
   fi
-  if [[ "$(redis_ping)" != PONG ]]; then
+  # An init script can return before the daemon listens: give it a few seconds first.
+  if ! retry 5 redis_up; then
     # No init system that manages redis: start it with the packaged config.
-    pkill -u redis -f "redis-server .*:${REDIS_PORT}" 2>/dev/null || true
-    install -d -m 0755 -o redis -g redis /run/redis /var/log/redis
-    runuser -u redis -- redis-server /etc/redis/redis.conf --daemonize yes --supervised no
+    redis_start_unmanaged "$REDIS_PORT" ||
+      die "이전 Redis(127.0.0.1:${REDIS_PORT})가 종료되지 않아 새로 시작할 수 없습니다."
   fi
-  for _ in 1 2 3 4 5 6 7 8 9 10; do [[ "$(redis_ping)" == PONG ]] && break; sleep 1; done
+  retry 10 redis_up || true
 fi
 [[ "$(redis_ping)" == PONG ]] || die "Redis(127.0.0.1:${REDIS_PORT})에 비밀번호로 접속할 수 없습니다. 같은 포트를 쓰는 다른 Redis가 있는지 확인하세요."
 ok "Redis 응답 확인 (maxmemory ${MAXMEM_MB}mb, noeviction, AOF)"
@@ -710,7 +711,9 @@ else
     [NODE_ENV]=production [HOST]=127.0.0.1 [PORT]="$API_PORT" [TRUST_PROXY]=loopback
     [LOG_LEVEL]=info [LOG_PRETTY]=false [SWAGGER_ENABLED]=false
     [PUBLIC_BASE_URL]="$BASE" [ADMIN_BASE_URL]="$ADMIN_BASE" [API_BASE_URL]="$BASE"
-    [CORS_ORIGINS]="${BASE},${ADMIN_BASE}"
+    # Extra browser origins only: the API always accepts PUBLIC_BASE_URL's origin on user routes
+    # and ADMIN_BASE_URL's on /api/v1/admin/** (apps/api/.env.example).
+    [CORS_ORIGINS]="" [ADMIN_CORS_ORIGINS]=""
     [DATABASE_URL]="postgresql://${DB_USER}:${DB_PASSWORD}@127.0.0.1:${PG_PORT}/${DB_NAME}?schema=public"
     [REDIS_URL]="redis://:${REDIS_PASSWORD}@127.0.0.1:${REDIS_PORT}/0"
     [COOKIE_SECRET]="$(rand_b64 48)" [COOKIE_DOMAIN]="" [COOKIE_SECURE]=""
@@ -852,7 +855,7 @@ if $ENV_EXISTS; then
   ENV_ADMIN_HOST="$(url_host "$(env_get ADMIN_BASE_URL)")"
   ENV_SITE_HOST="$(url_host "$(env_get NEXT_PUBLIC_SITE_URL)")"
   if [[ "$ENV_HOST" != "$DOMAIN" || "$ENV_ADMIN_HOST" != "$ADMIN_DOMAIN" || "$ENV_SITE_HOST" != "$DOMAIN" ]]; then
-    note_warn ".env 의 주소(${ENV_HOST:-없음}, ${ENV_ADMIN_HOST:-없음})가 새 도메인(${DOMAIN}, ${ADMIN_DOMAIN})과 다릅니다. sudo nano ${ENV_FILE} 에서 PUBLIC_BASE_URL, ADMIN_BASE_URL, API_BASE_URL, CORS_ORIGINS, NEXT_PUBLIC_SITE_URL, KAKAO_REDIRECT_URI, NAVER_REDIRECT_URI, GOOGLE_REDIRECT_URI 를 ${SCHEME}://${DOMAIN} / ${SCHEME}://${ADMIN_DOMAIN} 기준으로 고치고, 각 로그인 콘솔의 Redirect URI도 바꾼 뒤 sudo ${HOUSE_ROOT}/deploy.sh"
+    note_warn ".env 의 주소(${ENV_HOST:-없음}, ${ENV_ADMIN_HOST:-없음})가 새 도메인(${DOMAIN}, ${ADMIN_DOMAIN})과 다릅니다. sudo nano ${ENV_FILE} 에서 PUBLIC_BASE_URL, ADMIN_BASE_URL, API_BASE_URL, NEXT_PUBLIC_SITE_URL, KAKAO_REDIRECT_URI, NAVER_REDIRECT_URI, GOOGLE_REDIRECT_URI 를 ${SCHEME}://${DOMAIN} / ${SCHEME}://${ADMIN_DOMAIN} 기준으로 고치고 (CORS_ORIGINS, ADMIN_CORS_ORIGINS 에 옛 주소가 있으면 지워 비워 두세요), 각 로그인 콘솔의 Redirect URI도 바꾼 뒤 sudo ${HOUSE_ROOT}/deploy.sh"
   fi
 fi
 
@@ -970,7 +973,9 @@ ${C_GRN}════════════════════════
 
 ${C_BLU}▶ 다음 할 일${C_RST}
  1) 외부 서비스 키 입력 (하나씩 물어봅니다):   sudo ${HOUSE_ROOT}/set-keys.sh
-    카카오 · 네이버 로그인 · Google · 네이버 클라우드 지도 · 공공데이터포털 · 브이월드(선택)
+    카카오(로그인 REST API 키 · 지도 JavaScript 키) · 네이버 로그인 · Google · 공공데이터포털 · 브이월드(선택)
+    카카오 앱 → 플랫폼 → Web 사이트 도메인 (지도 JavaScript SDK): ${SCHEME}://${DOMAIN}, ${SCHEME}://www.${DOMAIN}
+      + 카카오맵 사용 설정 ON (지도 표시와 주소 검색에 필요)
     각 콘솔에 등록할 로그인 Redirect URI:
       ${SCHEME}://${DOMAIN}/api/v1/auth/oauth/kakao/callback
       ${SCHEME}://${DOMAIN}/api/v1/auth/oauth/naver/callback

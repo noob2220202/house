@@ -3,8 +3,11 @@ import { requestFiltersToQuery, type RequestFilters } from '../lib/params';
 import {
   agencyDealRequestDetailSchema,
   agencyDealRequestPageSchema,
+  inboxNewCountSchema,
   listingCandidatePageSchema,
   myProposalSchema,
+  proposalTotalSchema,
+  WAITING_PROPOSALS_QUERY,
 } from './schemas';
 
 /** Query keys of the broker inbox: `[resource, scope, params]` (invalidate by resource). */
@@ -30,13 +33,29 @@ export function fetchAgencyRequests(filters: RequestFilters, signal?: AbortSigna
   });
 }
 
-/** Cheapest call that still returns the stage counters (used for summary tiles). */
-export function fetchRequestSummary(signal?: AbortSignal) {
-  return api.get('/agency/deal-requests', {
-    query: { page: 1, pageSize: 1 },
-    schema: agencyDealRequestPageSchema,
-    signal,
-  });
+/** Counters of the /agent/notifications tiles; null = that call failed (the tile shows "–"). */
+export interface InboxCounts {
+  newRequests: number | null;
+  waitingProposals: number | null;
+}
+
+/**
+ * 새 요청 from the console dashboard aggregate (GET /agencies/mine/dashboard) and 응답 대기 from
+ * GET /agency/proposals?status=SENT,VIEWED (its total). Each counter fails on its own.
+ */
+export async function fetchInboxCounts(signal?: AbortSignal): Promise<InboxCounts> {
+  const [dashboard, waiting] = await Promise.allSettled([
+    api.get('/agencies/mine/dashboard', { schema: inboxNewCountSchema, signal }),
+    api.get('/agency/proposals', {
+      query: WAITING_PROPOSALS_QUERY,
+      schema: proposalTotalSchema,
+      signal,
+    }),
+  ]);
+  return {
+    newRequests: dashboard.status === 'fulfilled' ? dashboard.value.dealRequests.newCount : null,
+    waitingProposals: waiting.status === 'fulfilled' ? waiting.value.total : null,
+  };
 }
 
 /** GET /agency/deal-requests/:id — `contact` is only present while the requester's grant is active. */

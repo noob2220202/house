@@ -42,12 +42,27 @@ if (isProd && !process.env.MEDIA_ORIGIN && process.env.NEXT_PUBLIC_API_MOCK !== 
   );
 }
 
-/** Extra absolute media hosts, comma separated: "https://cdn.example.kr,https://media.example.kr". */
-const mediaHosts = (process.env.NEXT_PUBLIC_MEDIA_HOSTS || '')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean)
-  .map((origin) => new URL(origin));
+/**
+ * remotePatterns for NEXT_PUBLIC_MEDIA_HOSTS (comma separated absolute URLs, e.g. a CDN:
+ * "https://cdn.example.kr/media"): exactly each listed host + port, under the listed path only
+ * ("/media/**"; a bare origin allows "/**"), without query strings. Production builds accept
+ * https hosts only. Nothing is listed by default, so the optimizer fetches no remote image.
+ */
+export function mediaRemotePatterns(csv, { production = false } = {}) {
+  return (csv || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => new URL(s))
+    .filter((u) => u.protocol === 'https:' || (!production && u.protocol === 'http:'))
+    .map((u) => ({
+      protocol: /** @type {'http' | 'https'} */ (u.protocol.replace(':', '')),
+      hostname: u.hostname,
+      port: u.port,
+      pathname: `${u.pathname.replace(/\/+$/, '')}/**`,
+      search: '',
+    }));
+}
 
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -68,6 +83,9 @@ const nextConfig = {
   distDir,
   reactStrictMode: true,
   poweredByHeader: false,
+  // nginx gzips responses (deploy/nginx/snippets/house-server-common.conf); compressing in Node too only costs CPU.
+  // Dev / e2e without nginx are served uncompressed, which is fine on loopback.
+  compress: false,
   // Keep screenshots clean; build errors still show in the overlay.
   devIndicators: false,
   // Lint runs separately via `pnpm lint` (flat config); don't run it twice during build.
@@ -82,12 +100,9 @@ const nextConfig = {
     // loopback API host or /api/v1/*: the optimizer must not become a request path into the API.
     localPatterns: [{ pathname: '/media/**' }, { pathname: '/mock-api/**' }],
     // Absolute media hosts only when configured (NEXT_PUBLIC_MEDIA_HOSTS, e.g. a CDN).
-    remotePatterns: mediaHosts.map((u) => ({
-      protocol: /** @type {'http' | 'https'} */ (u.protocol.replace(':', '')),
-      hostname: u.hostname,
-      port: u.port,
-      pathname: '/**',
-    })),
+    remotePatterns: mediaRemotePatterns(process.env.NEXT_PUBLIC_MEDIA_HOSTS, {
+      production: isProd,
+    }),
   },
   async rewrites() {
     // In production nginx proxies /api/v1 and serves /media before a browser request reaches Next;

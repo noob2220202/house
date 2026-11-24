@@ -43,7 +43,8 @@ const listingPage = z.object({
  */
 export function mockListingNo(id: string): string {
   const tail = Number((id.split('-').pop() ?? '').replace(/\D/g, '')) || 0;
-  return `2611${String(tail % 10_000).padStart(4, '0')}`;
+  // Plain sequential 6-digit numbers like the API's (shared formatListingNo).
+  return String(100_000 + (tail % 900_000));
 }
 
 const pyeong = (sqm: number) => `${Math.round(sqm / 3.305785)}평`;

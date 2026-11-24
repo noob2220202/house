@@ -9,7 +9,9 @@ import {
   LISTING_STATUS_LABEL,
   MOVE_IN_TYPE_LABEL,
   MoveInType,
+  ROOM_TYPE_LABEL,
   VERIFICATION_METHOD_LABEL,
+  effectiveRoomType,
   type VerificationMethod,
 } from '@house/shared';
 import type { DealKind, IconName } from '@house/ui';
@@ -270,6 +272,15 @@ const areaBoth = (sqm: number, unit: AreaUnit) =>
 const areaOther = (sqm: number, unit: AreaUnit) =>
   unit === 'sqm' ? `${sqmToPyeong(sqm, 1)}평` : formatSqm(sqm);
 
+/**
+ * 방 구성 label (원룸 · 1.5룸 · 투룸 · 쓰리룸+): the broker's stated `property.roomType`, else derived
+ * from the room count for 원룸·투룸 listings (shared `effectiveRoomType`, same as the search filter).
+ */
+export function roomTypeText(l: ListingDetail): string | null {
+  const type = effectiveRoomType(l.assetType, l.property.roomType, l.property.rooms);
+  return type ? ROOM_TYPE_LABEL[type] : null;
+}
+
 /** The 8 headline facts of the grid (fewer for 토지 / 상가). */
 export function buildFacts(l: ListingDetail, unit: AreaUnit): Fact[] {
   const p = l.property;
@@ -298,14 +309,18 @@ export function buildFacts(l: ListingDetail, unit: AreaUnit): Fact[] {
       sub: areaOther(p.landArea, unit),
     });
   }
+  const roomType = roomTypeText(l);
   if (p.rooms !== null && p.rooms !== undefined) {
     facts.push({
       key: 'rooms',
       icon: 'room',
       label: '방 / 욕실',
       value: `${p.rooms}개 / ${p.baths ?? 0}개`,
-      sub: null,
+      sub: roomType ? `방 구성 ${roomType}` : null,
+      compact: roomType ? { label: '방 / 욕실', sub: roomType } : undefined,
     });
+  } else if (roomType) {
+    facts.push({ key: 'rooms', icon: 'room', label: '방 구성', value: roomType, sub: null });
   }
   const dir = directionText(l);
   if (dir) facts.push({ key: 'direction', icon: 'compass', label: '방향', ...dir });

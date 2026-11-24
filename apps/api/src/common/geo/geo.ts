@@ -38,7 +38,7 @@ export function withinRadius(
 
 /**
  * Grid cell size in degrees for mid-zoom clustering (ST_SnapToGrid on geometry).
- * Roughly 60 px cells for Naver map zoom levels.
+ * Roughly 60 px cells at web-map zoom levels (the Kakao map's level is 20 − zoom, same scale).
  */
 export function gridSizeForZoom(zoom: number): number {
   return 360 / 2 ** Math.round(zoom) / 4;

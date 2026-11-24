@@ -107,7 +107,13 @@ describe('listing state', () => {
       dealType: 'MONTHLY',
       deposit: 300,
       monthlyRent: 30,
-      property: { assetType: 'ONEROOM', roadAddress: '순천시 1', lat: 34.95, lng: 127.49, rooms: 2 },
+      property: {
+        assetType: 'ONEROOM',
+        roadAddress: '순천시 1',
+        lat: 34.95,
+        lng: 127.49,
+        rooms: 2,
+      },
     });
     const p = propertyStateFromInput(room.property, '12150');
     const l = listingStateFromInput(room);

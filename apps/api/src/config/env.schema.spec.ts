@@ -36,6 +36,18 @@ describe('parseEnv', () => {
     expect(parseEnv(example).REGION_SGG_CODE).toBe('12150');
   });
 
+  it('reads the Kakao Local REST key and ignores the retired Naver map keys', () => {
+    const env = parseEnv({
+      ...base,
+      KAKAO_REST_API_KEY: ' ',
+      NAVER_MAP_CLIENT_ID: 'old',
+      NAVER_MAP_CLIENT_SECRET: 'old',
+    });
+    expect(env.KAKAO_REST_API_KEY).toBeUndefined();
+    expect(env).not.toHaveProperty('NAVER_MAP_CLIENT_ID');
+    expect(parseEnv({ ...base, KAKAO_REST_API_KEY: 'rest' }).KAKAO_REST_API_KEY).toBe('rest');
+  });
+
   it('maps a legacy REGION_SGG_CODE (46150, before 2026-07-01) to the current code', () => {
     expect(parseEnv({ ...base, REGION_SGG_CODE: '46150' }).REGION_SGG_CODE).toBe('12150');
     expect(parseEnv({ ...base, REGION_SGG_CODE: ' 12150 ' }).REGION_SGG_CODE).toBe('12150');

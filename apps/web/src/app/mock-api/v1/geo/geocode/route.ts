@@ -23,7 +23,7 @@ const emdCodeOf = (jibun: string): string | null =>
 /**
  * GET /api/v1/geo/geocode?query=<address> → `{ items: [{ roadAddress, jibunAddress?, zipCode?,
  * buildingName?, lat, lng, emdCode }] }` (max 10). Address search with coordinates — the API
- * proxies Naver geocoding server-side, limited to the service region, and adds the canonical
+ * proxies Kakao Local (주소 검색) server-side, limited to the service region, and adds the canonical
  * 10-digit 법정동코드 of each hit (null when the reverse lookup fails).
  */
 export async function GET(req: NextRequest) {

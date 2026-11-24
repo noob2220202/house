@@ -71,18 +71,58 @@ PNPM_INSTALL_TIMEOUT=abc
 eval "$(grep -E '^\[\[ "\$PNPM_INSTALL_TIMEOUT" =~' "$d")"
 assert_eq "invalid PNPM_INSTALL_TIMEOUT falls back to 900" "$PNPM_INSTALL_TIMEOUT" "900"
 
-# Next caches: build caches reused, the unbounded runtime fetch cache never copied forward.
+# Next caches: only the optimized images are carried forward (carry_image_cache).
 bld="$(awk '/─── 5. build/,/─── 6. migrate/' "$d")"
-assert_contains "previous .next/cache reused without fetch-cache" "$bld" "rsync -a --exclude=/fetch-cache/"
-assert_not_contains "no whole-cache cp -a" "$bld" 'cp -a "$PREV_RELEASE/apps/$app/.next/cache"'
+assert_contains "build stage carries the previous image cache" "$bld" 'carry_image_cache "$PREV_RELEASE" "$RELEASE"'
+assert_not_contains "no whole .next/cache copy" "$bld" '.next/cache/"'
+load_common
 if have_cmd rsync; then
-  prev="$T_TMP/prev/.next/cache" new="$T_TMP/new/.next/cache"
-  mkdir -p "$prev/fetch-cache" "$prev/images/x" "$prev/webpack" "$new"
-  touch "$prev/fetch-cache/q1" "$prev/images/x/a.webp" "$prev/webpack/pack"
-  rsync -a --exclude=/fetch-cache/ "$prev/" "$new/"
-  [[ -f "$new/images/x/a.webp" && -f "$new/webpack/pack" && ! -e "$new/fetch-cache" ]] &&
-    pass "cache copy keeps images + webpack, drops fetch-cache" || fail "cache copy result" "$(find "$new")"
+  prev="$T_TMP/prev" new="$T_TMP/new"
+  mkdir -p "$prev/apps/web/.next/cache/"{fetch-cache,images/x,webpack,swc} "$prev/apps/admin/.next/cache/webpack" "$new"
+  touch "$prev/apps/web/.next/cache/fetch-cache/q1" "$prev/apps/web/.next/cache/images/x/a.webp" \
+    "$prev/apps/web/.next/cache/webpack/pack" "$prev/apps/web/.next/cache/swc/s" "$prev/apps/admin/.next/cache/webpack/pack"
+  carry_image_cache "$prev" "$new"
+  assert_eq "cache copy keeps only .next/cache/images" \
+    "$(cd "$new" && find . -mindepth 1 | sort | tr '\n' ' ')" \
+    "./apps ./apps/web ./apps/web/.next ./apps/web/.next/cache ./apps/web/.next/cache/images ./apps/web/.next/cache/images/x ./apps/web/.next/cache/images/x/a.webp "
 fi
+
+# Post-deploy image smoke: GET /_next/image for a stored upload, 200 + image/*; skipped when empty.
+up="$T_TMP/uploads"
+mkdir -p "$up/tmp" "$up/listings/2026"
+assert_eq "no upload yet: no sample" "$(media_sample_path "$up")" ""
+check "no upload yet: image smoke skips (passes)" image_smoke 1 "$up" 1 0
+touch "$up/listings/2026/empty.webp" # 0 bytes: not a sample
+printf 'x' >"$up/tmp/UPPER.webp"     # nginx would not serve this name
+printf 'x' >"$up/listings/notes.txt"
+assert_eq "only names nginx serves under /media" "$(media_sample_path "$up")" ""
+printf 'RIFF' >"$up/listings/2026/a_b-1.webp"
+assert_eq "sample upload path" "$(media_sample_path "$up")" "listings/2026/a_b-1.webp"
+if have_cmd node && have_cmd curl; then
+  SP=$((40000 + RANDOM % 20000))
+  node -e 'require("http").createServer((q, r) => {
+    const ok = q.url === "/_next/image?url=%2Fmedia%2Flistings%2F2026%2Fa_b-1.webp&w=64&q=75";
+    r.statusCode = ok ? 200 : 400;
+    r.setHeader("content-type", ok && process.argv[2] === "image" ? "image/webp" : "text/html");
+    r.end(ok ? "img" : "bad " + q.url);
+  }).listen(+process.argv[1], "127.0.0.1")' "$SP" image &
+  img_pid=$!
+  node -e 'require("http").createServer((q, r) => { r.setHeader("content-type", "text/html"); r.end("x"); })
+    .listen(+process.argv[1], "127.0.0.1")' "$((SP + 1))" &
+  html_pid=$!
+  t_on_exit "kill $img_pid $html_pid"
+  for _ in $(seq 1 25); do curl -s -o /dev/null "http://127.0.0.1:$SP/" && curl -s -o /dev/null "http://127.0.0.1:$((SP + 1))/" && break; sleep 0.2; done
+  check "image smoke passes on 200 image/* (encoded /media URL)" image_smoke "$SP" "$up" 1 0
+  check_fails "image smoke fails on 200 text/html" image_smoke "$((SP + 1))" "$up" 2 0
+  check_fails "image smoke fails when the web server is down" image_smoke "$((SP + 2))" "$up" 1 0
+fi
+sm="$(grep -n 'image_smoke "\$WEB_PORT"' "$d" | head -1 | cut -d: -f1)"
+hc="$(grep -n 'health_check "\$RELEASE" 45 2' "$d" | head -1 | cut -d: -f1)"
+tr_="$(grep -n '^trap - ERR INT TERM HUP' "$d" | tail -1 | cut -d: -f1)"
+[[ -n "$sm" && -n "$hc" && -n "$tr_" ]] && ((sm > hc && sm > tr_)) &&
+  pass "image smoke runs after the health check, outside the rollback trap" ||
+  fail "image smoke placement" "smoke=$sm health=$hc trap=$tr_"
+assert_contains "image smoke failure is repeated in the summary" "$(cat "$d")" '[[ -n "$IMAGE_SMOKE_NOTE" ]] && warn "$IMAGE_SMOKE_NOTE"'
 
 if is_root; then
   check "deploy.sh --help works" bash "$d" --help

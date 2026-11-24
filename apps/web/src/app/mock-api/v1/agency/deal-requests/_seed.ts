@@ -23,7 +23,6 @@ const dateAhead = (days: number) =>
 const C01 = { id: mockUuid('C01'), name: '신대 레이크파크 1단지' };
 const C03 = { id: mockUuid('C03'), name: '선월 하이츠 2차' };
 const C06 = { id: mockUuid('C06'), name: '신대 레이크파크 3단지' };
-export const COMPLEX_NAMES = new Map([C01, C03, C06].map((c) => [c.id, c.name]));
 
 /** w-deal's ProposalListing shape (what the requester's page renders). */
 export function proposalListing(l: InboxListing): Record<string, unknown> {

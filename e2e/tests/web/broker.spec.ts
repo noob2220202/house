@@ -64,7 +64,7 @@ test.describe('broker console', () => {
       );
     const emd = regions.find((r) => r.level === 'EMD' && r.name.endsWith('동'))!;
     const road = `전남광주통합특별시 순천시 e2e원룸길 ${Math.floor(Math.random() * 900) + 100}`;
-    // Stub only the external geocoder boundary (NAVER_MAP_* keys are not configured in e2e).
+    // Stub only the external geocoder boundary (no KAKAO_REST_API_KEY / KAKAO_CLIENT_ID geocoding key in e2e).
     await page.route('**/api/v1/geo/geocode**', (route) =>
       route.fulfill({
         status: 200,

@@ -71,7 +71,7 @@ describe('map url state', () => {
     expect(parseMapView(new URLSearchParams('c=abc&z=xyz'), fallback)).toEqual(fallback);
     expect(parseMapView(new URLSearchParams('c=10,10&z=99'), fallback)).toEqual({
       center: fallback.center,
-      zoom: 21,
+      zoom: 19, // MAP_ZOOM.MAX (Kakao level 1)
     });
     expect(parseSelected(new URLSearchParams('sel=c01'))).toBe('c01');
     expect(parseSelected(new URLSearchParams(''))).toBeNull();

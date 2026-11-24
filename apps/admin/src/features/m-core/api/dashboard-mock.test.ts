@@ -364,11 +364,11 @@ describe('search mock · corpus from the sibling mocks', () => {
       ],
     });
     const rows = await remoteListings(req);
-    expect(mockListingNo('b7000000-0000-4000-8000-000000000010')).toBe('26110010');
+    expect(mockListingNo('b7000000-0000-4000-8000-000000000010')).toBe('100010');
     expect(rows?.map((r) => r.item)).toEqual([
       {
         id: 'b7000000-0000-4000-8000-000000000001',
-        listingNo: '26110001',
+        listingNo: '100001',
         title: '신대 레이크파크 1단지 103동 34평',
         dealType: 'SALE',
         price: 44500,
@@ -380,7 +380,7 @@ describe('search mock · corpus from the sibling mocks', () => {
       },
       {
         id: 'b7000000-0000-4000-8000-000000000010',
-        listingNo: '26110010',
+        listingNo: '100010',
         title: '순천대 정문 도보 6분 투룸',
         dealType: 'MONTHLY',
         price: null,

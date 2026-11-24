@@ -11,6 +11,7 @@ import {
   MaintenanceFeeBillingType,
   MaintenanceFeeKind,
   MoveInType,
+  RoomType,
   TradeDealType,
   VerificationMethod,
 } from '@house/shared';
@@ -147,6 +148,8 @@ export const listingPropertySchema = z.object({
   totalFloorArea: nullish(decimal),
   areaTypeId: nullish(z.string()),
   rooms: nullish(z.number()),
+  /** 방 구성 as stated by the broker (1.5룸 …); null = derive from `rooms` (원룸·투룸). */
+  roomType: nullish(z.enum(RoomType)).catch(null),
   baths: nullish(z.number()),
   direction: nullish(z.enum(Direction)),
   directionBasis: nullish(z.enum(DirectionBasis)),
@@ -176,7 +179,7 @@ export type MaintenanceFeeView = z.infer<typeof maintenanceFeeViewSchema>;
 
 export const listingDetailObjectSchema = z.object({
   id: z.string(),
-  /** Human-friendly listing number ("26-0412"); falls back to the id when absent. */
+  /** 매물번호: plain sequential number ("100412", shared `formatListingNo`); falls back to the id when absent. */
   listingNo: nullish(z.string()),
   status: z.enum(ListingStatus),
   dealType: z.enum(DealType),

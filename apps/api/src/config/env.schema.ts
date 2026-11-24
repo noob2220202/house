@@ -85,9 +85,13 @@ export const envSchema = z
     GOOGLE_CLIENT_SECRET: optionalString,
     GOOGLE_REDIRECT_URI: optionalString,
 
-    /** Naver Cloud Maps (map JS key is public; geocoding uses id+secret server-side). */
-    NAVER_MAP_CLIENT_ID: optionalString,
-    NAVER_MAP_CLIENT_SECRET: optionalString,
+    /**
+     * Kakao Local API (주소 검색 → GET /geo/geocode): the 카카오 앱's REST API 키, sent server-side as
+     * `Authorization: KakaoAK …`. Unset → KAKAO_CLIENT_ID (the login uses the same REST API 키).
+     * The browser map uses the app's JavaScript 키 instead (web NEXT_PUBLIC_KAKAO_MAP_KEY).
+     * Retired NAVER_MAP_CLIENT_ID/SECRET lines in an old .env are ignored (unknown keys are dropped).
+     */
+    KAKAO_REST_API_KEY: optionalString,
     /** 공공데이터포털 service key (국토교통부 아파트 매매/전월세 실거래가). Decoded form. */
     DATA_GO_KR_SERVICE_KEY: optionalString,
     /**

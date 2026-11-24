@@ -20,13 +20,14 @@ import {
   metaDescription,
   priceLabel,
   pricePerPyeong,
+  roomTypeText,
   summaryMeta,
 } from './view';
 
 /** L01 of mockdata.md as the API would send it (Decimal columns as strings on purpose). */
 const RAW = {
   id: '11111111-0000-4000-8000-000000000001',
-  listingNo: '26-0412',
+  listingNo: '100412',
   status: 'ACTIVE',
   dealType: 'SALE',
   assetType: 'APT',
@@ -179,7 +180,7 @@ describe('title and address', () => {
     expect(addressLine(l, true)).toBe('해룡면 신대리 · 1,412세대 · 2019년 준공');
     // 계량법: the legal unit (㎡) of the 전용면적, 평 alongside.
     expect(areaLabel(l)).toBe('전용 84.98㎡ (25.7평)');
-    expect(listingNo(l)).toBe('26-0412');
+    expect(listingNo(l)).toBe('100412');
     expect(listingNo({ id: 'abcdef12-3456', listingNo: null })).toBe('ABCDEF12');
   });
 
@@ -197,6 +198,33 @@ describe('title and address', () => {
 });
 
 describe('facts and 표시·광고 명시사항', () => {
+  it('shows 방 구성: the stated property.roomType, else derived for 원룸·투룸', () => {
+    const oneHalf = make(
+      { assetType: 'ONEROOM' },
+      { rooms: 1, baths: 1, roomType: 'ONE_HALF_ROOM' },
+    );
+    expect(oneHalf.property.roomType).toBe('ONE_HALF_ROOM');
+    expect(roomTypeText(oneHalf)).toBe('1.5룸');
+    expect(buildFacts(oneHalf, 'sqm').find((f) => f.key === 'rooms')).toMatchObject({
+      label: '방 / 욕실',
+      value: '1개 / 1개',
+      sub: '방 구성 1.5룸',
+      compact: { label: '방 / 욕실', sub: '1.5룸' },
+    });
+    // Not stated: a 원룸·투룸 listing derives it from the room count; an apartment shows none.
+    expect(roomTypeText(make({ assetType: 'ONEROOM' }, { rooms: 2 }))).toBe('투룸');
+    expect(roomTypeText(make())).toBeNull();
+    expect(buildFacts(make(), 'sqm').find((f) => f.key === 'rooms')?.sub).toBeNull();
+    // Stated without a room count: its own cell. Unknown values from a newer API are dropped.
+    expect(
+      buildFacts(
+        make({ assetType: 'OFFICETEL' }, { rooms: null, roomType: 'TWO_ROOM' }),
+        'sqm',
+      ).find((f) => f.key === 'rooms'),
+    ).toMatchObject({ label: '방 구성', value: '투룸' });
+    expect(make({}, { roomType: 'FIVE_ROOM' }).property.roomType).toBeNull();
+  });
+
   it('lists the eight headline facts for an apartment', () => {
     const facts = buildFacts(make(), 'sqm');
     expect(facts.map((f) => f.key)).toEqual([

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Enter the external service keys one by one, without opening an editor.
 #   sudo /srv/house/set-keys.sh          → asks for every key (Enter keeps the current value)
-#   sudo /srv/house/set-keys.sh kakao    → only one service: kakao|naver|google|map|data|vworld
+#   sudo /srv/house/set-keys.sh kakao    → only one service: kakao|naver|google|data|vworld
+#     (kakao = 로그인 REST API 키 + 시크릿 + 지도 JavaScript 키 — one 카카오 앱, docs/KEY_SETUP.md)
 # Secrets are typed hidden and written only to /srv/house/shared/.env (root:house 0640).
 # Run deploy.sh afterwards so the apps pick the new values up.
 set -Eeuo pipefail
@@ -17,18 +18,20 @@ source "$SCRIPT_DIR/lib/common.sh"
 FIELDS=(
   "kakao|KAKAO_CLIENT_ID|0|카카오 REST API 키|developers.kakao.com → 앱 → 플랫폼 키 → REST API 키|^[0-9a-f]{32}$"
   "kakao|KAKAO_CLIENT_SECRET|1|카카오 클라이언트 시크릿|REST API 키 카드 → 클라이언트 시크릿 (사용함으로 켜기)|^[A-Za-z0-9]{16,64}$"
+  "kakao|NEXT_PUBLIC_KAKAO_MAP_KEY|0|카카오 JavaScript 키 (지도, 공개값)|같은 앱 → 플랫폼 키 → JavaScript 키 (사이트 도메인 등록 + 카카오맵 ON)|^[0-9a-f]{32}$"
   "naver|NAVER_CLIENT_ID|0|네이버 로그인 Client ID|developers.naver.com → Application → 내 애플리케이션|^[A-Za-z0-9_-]{8,64}$"
   "naver|NAVER_CLIENT_SECRET|1|네이버 로그인 Client Secret|같은 화면의 Client Secret|^[A-Za-z0-9_-]{6,64}$"
   "google|GOOGLE_CLIENT_ID|0|Google 클라이언트 ID|console.cloud.google.com → Google 인증 플랫폼 → 클라이언트|^[0-9]+-[a-z0-9]+\.apps\.googleusercontent\.com$"
   "google|GOOGLE_CLIENT_SECRET|1|Google 클라이언트 보안 비밀번호|같은 클라이언트의 보안 비밀번호 (GOCSPX-…)|^[A-Za-z0-9_-]{20,64}$"
-  "map|NAVER_MAP_CLIENT_ID|0|네이버 클라우드 지도 Client ID|ncloud.com → Maps → Application → 인증 정보|^[A-Za-z0-9]{6,64}$"
-  "map|NAVER_MAP_CLIENT_SECRET|1|네이버 클라우드 지도 Client Secret|같은 화면의 Client Secret|^[A-Za-z0-9]{20,128}$"
   "data|DATA_GO_KR_SERVICE_KEY|1|공공데이터포털 일반 인증키 (Decoding)|data.go.kr → 마이페이지 → 인증키 → Decoding|^[A-Za-z0-9+/=]{40,200}$"
   "vworld|VWORLD_API_KEY|1|브이월드 인증키 (선택)|vworld.kr → 오픈API → 인증키 관리|^[A-Za-z0-9-]{20,64}$"
 )
 ONLY="${1:-}"
-if [[ -n "$ONLY" && ! "$ONLY" =~ ^(kakao|naver|google|map|data|vworld)$ ]]; then
-  die "알 수 없는 항목: $ONLY (kakao|naver|google|map|data|vworld 중 하나)"
+if [[ "$ONLY" == map ]]; then
+  die "지도는 이제 카카오맵입니다 (네이버 클라우드 지도 키는 쓰지 않습니다): sudo $HOUSE_ROOT/set-keys.sh kakao"
+fi
+if [[ -n "$ONLY" && ! "$ONLY" =~ ^(kakao|naver|google|data|vworld)$ ]]; then
+  die "알 수 없는 항목: $ONLY (kakao|naver|google|data|vworld 중 하나)"
 fi
 
 mask() {
@@ -87,12 +90,14 @@ for f in "${FIELDS[@]}"; do
   done
 done
 
-# The browser map SDK uses the same Client ID; it is inlined into the web build (NEXT_PUBLIC_*).
-map_id="$(env_get NAVER_MAP_CLIENT_ID)"
-if [[ -n "$map_id" && "$(env_get NEXT_PUBLIC_NAVER_MAP_KEY_ID)" != "$map_id" ]]; then
-  env_set NEXT_PUBLIC_NAVER_MAP_KEY_ID "$map_id"
-  changed=1
-  ok "NEXT_PUBLIC_NAVER_MAP_KEY_ID 저장 (브라우저 지도 = NAVER_MAP_CLIENT_ID)"
+# Maps moved from Naver Cloud to Kakao (DECISIONS D13): old lines are harmless and left as they are.
+legacy=()
+for key in NAVER_MAP_CLIENT_ID NAVER_MAP_CLIENT_SECRET NEXT_PUBLIC_NAVER_MAP_KEY_ID; do
+  if [[ -n "$(env_get "$key")" ]]; then legacy+=("$key"); fi
+done
+if ((${#legacy[@]})); then
+  printf '\n%s참고: %s 는 더 이상 쓰지 않습니다 (지도 = 카카오맵). 지워도 됩니다: sudo nano %s%s\n' \
+    "$C_DIM" "${legacy[*]}" "$ENV_FILE" "$C_RST"
 fi
 
 step "현재 상태"

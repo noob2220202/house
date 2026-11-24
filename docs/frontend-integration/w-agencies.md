@@ -123,7 +123,7 @@ All responses are parsed by the zod schemas in
 
 - 문의하기 → `/deal?agencyId=<id>` (see blocking item 3).
 - Listing cards link to `ROUTES.listing(id)`, "전문 단지" chips to `ROUTES.complex(id)`.
-- 길찾기 opens `https://map.naver.com/p/search/<road address>` in a new tab.
+- 길찾기 opens `https://map.kakao.com/link/search/<road address>` in a new tab.
 - Signed-out 관심 → `loginUrl(currentPath)`.
 
 ## Mock resources (apps/web/src/app/mock-api/v1)
@@ -148,7 +148,7 @@ All responses are parsed by the zod schemas in
 
 ## Notes for the integrator
 
-- Without `NEXT_PUBLIC_NAVER_MAP_KEY_ID` (or when the SDK fails at runtime) the stylized map is
+- Without `NEXT_PUBLIC_KAKAO_MAP_KEY` (or when the Kakao SDK fails at runtime) the stylized map is
   used; its initial view is the 조례·연향 area of the design instead of `DEFAULT_MAP_CENTER`. The
   shared `StaticMapView` does not emit `onViewChange` for prop-driven moves (zoom buttons, cluster
   click, 지역, 내 위치), so `/agencies` derives the static map's bounds from the URL view + map size

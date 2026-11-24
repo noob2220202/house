@@ -26,6 +26,16 @@ export function isLoopbackAddress(address: string | undefined): boolean {
 }
 
 /**
+ * A server-side call by a Next.js server on this host: a loopback peer with `x-house-ssr: 1`
+ * (cached or forwarding a visitor). nginx clears X-House-SSR on every proxied request, so a
+ * browser can never produce this; listing detail reads use it to leave view counting to the
+ * browser beacon (POST /listings/:id/view).
+ */
+export function isLocalSsrRequest(req: Request): boolean {
+  return req.headers[SSR_HEADER] === '1' && isLoopbackAddress(req.socket?.remoteAddress);
+}
+
+/**
  * A cached (visitor-less) read by a Next.js server on this host: GET/HEAD from a loopback peer
  * with `x-house-ssr: 1` and no X-Forwarded-For. Next shares the response with every visitor
  * (ISR / fetch cache), so there is no client to key it by; nginx rate-limits the page requests
@@ -38,9 +48,8 @@ export function isLoopbackAddress(address: string | undefined): boolean {
 export function isLocalSsrCachedRead(req: Request): boolean {
   return (
     (req.method === 'GET' || req.method === 'HEAD') &&
-    req.headers[SSR_HEADER] === '1' &&
     req.headers['x-forwarded-for'] === undefined &&
-    isLoopbackAddress(req.socket?.remoteAddress)
+    isLocalSsrRequest(req)
   );
 }
 

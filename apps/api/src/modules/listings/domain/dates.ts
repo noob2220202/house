@@ -22,5 +22,7 @@ export function kstToday(now: Date = new Date()): string {
 
 /** "YYYY-MM-DD" + `days` calendar days. */
 export function addDaysToDateOnly(value: string, days: number): string {
-  return new Date(Date.parse(`${value}T00:00:00.000Z`) + days * 86_400_000).toISOString().slice(0, 10);
+  return new Date(Date.parse(`${value}T00:00:00.000Z`) + days * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
 }

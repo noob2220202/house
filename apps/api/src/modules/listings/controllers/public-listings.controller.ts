@@ -1,9 +1,20 @@
 import type { ListingDetail, ListingPage, MapSearchResult } from '@house/shared';
-import { Controller, Get, HttpCode, HttpStatus, Param, Post, Query, Res } from '@nestjs/common';
-import type { Response } from 'express';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { ApiTags } from '@nestjs/swagger';
 import type { Principal } from '../../../common/auth/principal';
 import { CurrentPrincipal, Public } from '../../../common/decorators';
+import { isLocalSsrRequest } from '../../../common/throttle/house-throttler.guard';
 import { SkipTermsCheck } from '../../auth';
 import { IdParamDto, ListingListQueryDto, MapSearchQueryDto } from '../dto';
 import { ListingQueryService } from '../services/listing-query.service';
@@ -37,13 +48,19 @@ export class PublicListingsController {
     return this.listings.list(q);
   }
 
+  /**
+   * The server-side render of the detail page (loopback peer + `x-house-ssr: 1`) does not count a
+   * view or record a recent view: the page's browser beacon (POST :id/view) does, so cached
+   * renders, prefetches and bots that never run scripts are not counted.
+   */
   @Public()
   @Get(':id')
   detail(
     @Param() p: IdParamDto,
     @CurrentPrincipal() principal: Principal | undefined,
+    @Req() req: Request,
   ): Promise<ListingDetail> {
-    return this.listings.detail(p.id, principal);
+    return this.listings.detail(p.id, principal, { recordView: !isLocalSsrRequest(req) });
   }
 
   /** 비슷한 매물: 같은 단지 · 같은 지역 같은 평형 · 같은 가격대 (first cards + totals). */
@@ -54,8 +71,9 @@ export class PublicListingsController {
   }
 
   /**
-   * View beacon of the detail page: counts a deduped view (same viewer key as GET /listings/:id,
-   * so the SSR read and the beacon count once) and records the recent view of a signed-in user.
+   * View beacon of the detail page: counts a deduped view (same viewer key as a non-SSR
+   * GET /listings/:id, so a direct read and the beacon count once) and records the recent view
+   * of a signed-in user.
    * Not a member action: it still counts while the member has terms pending (TermsConsentGuard).
    */
   @Public()

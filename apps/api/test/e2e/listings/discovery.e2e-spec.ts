@@ -158,6 +158,43 @@ describe('listings: similar, view beacon, broker console (e2e)', () => {
       expect(await t.redis.zscore(day, `APT|${EMD_CODE.slice(0, 8)}`)).toBe('2');
     });
 
+    it('the Next.js SSR read (loopback + x-house-ssr: 1) counts nothing; the beacon counts', async () => {
+      const a = await agencyWithOwner(t);
+      const { listing } = await seedListing(t, a.agency.id, { listing: { viewCount: 7 } });
+      const user = await createUser(t.prisma);
+      const s = await loginUser(t.app, user);
+
+      // SSR forwarding the visitor (session cookie + X-Forwarded-For) and a cached SSR read.
+      const forwarded = await withSession(t.http().get(`/api/v1/listings/${listing.id}`), s)
+        .set('x-house-ssr', '1')
+        .set('X-Forwarded-For', '198.51.100.30')
+        .set('User-Agent', UA)
+        .expect(200);
+      expect(forwarded.body.viewCount).toBe(7);
+      await t.http().get(`/api/v1/listings/${listing.id}`).set('x-house-ssr', '1').expect(200);
+      expect(await t.redis.hget('listings:views:totals', listing.id)).toBeNull();
+      expect(await t.redis.zcard(`listings:views:region-daily:${kstDayKey(new Date())}`)).toBe(0);
+      expect(
+        await t.prisma.recentView.count({ where: { userId: user.id, targetId: listing.id } }),
+      ).toBe(0);
+
+      // The browser beacon counts the view and records the recent view …
+      await withSession(t.http().post(`/api/v1/listings/${listing.id}/view`), s)
+        .set('X-Forwarded-For', '198.51.100.30')
+        .set('User-Agent', UA)
+        .expect(204);
+      expect(await t.redis.hget('listings:views:totals', listing.id)).toBe('8');
+      expect(
+        await t.prisma.recentView.count({ where: { userId: user.id, targetId: listing.id } }),
+      ).toBe(1);
+      // … and the next SSR read shows the new total without counting again.
+      const again = await withSession(t.http().get(`/api/v1/listings/${listing.id}`), s)
+        .set('x-house-ssr', '1')
+        .expect(200);
+      expect(again.body.viewCount).toBe(8);
+      expect(await t.redis.hget('listings:views:totals', listing.id)).toBe('8');
+    });
+
     it('bots count on the listing but not in the region ranking; 404 for non-public', async () => {
       const a = await agencyWithOwner(t);
       const { listing } = await seedListing(t, a.agency.id);

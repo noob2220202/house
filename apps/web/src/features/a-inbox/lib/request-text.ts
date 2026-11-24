@@ -133,9 +133,11 @@ export function requestHeadlinePrice(r: AgencyDealRequest): PriceLine | null {
     : first;
 }
 
-/** Names of the wanted regions + complexes ("신대지구", "선월 하이츠 2차"). */
-export function wantedPlaces(r: Pick<AgencyDealRequest, 'regionCodes' | 'complexNames'>): string[] {
-  return [...r.regionCodes.map(regionName), ...r.complexNames];
+/** Wanted regions by name + the number of wanted 단지 ("신대지구", "선택한 단지 2곳"). */
+export function wantedPlaces(r: Pick<AgencyDealRequest, 'regionCodes' | 'complexIds'>): string[] {
+  // The API sends the wanted 단지 as ids only: they are counted, not named.
+  const complexes = r.complexIds.length > 0 ? [`선택한 단지 ${r.complexIds.length}곳`] : [];
+  return [...r.regionCodes.map(regionName), ...complexes];
 }
 
 export const VISIBILITY_TEXT: Record<DealRequestVisibility, string> = {

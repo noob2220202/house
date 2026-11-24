@@ -74,7 +74,7 @@ describe('address / phone', () => {
   });
   it('links directions to a map search of the road address', () => {
     expect(directionsUrl(a)).toBe(
-      `https://map.naver.com/p/search/${encodeURIComponent('전라남도 순천시 조례동 호수공원길 24')}`,
+      `https://map.kakao.com/link/search/${encodeURIComponent('전라남도 순천시 조례동 호수공원길 24')}`,
     );
   });
   it('builds tel links only for dialable numbers', () => {

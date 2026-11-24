@@ -19,13 +19,23 @@ describe('user-site Content-Security-Policy (csp.mjs)', () => {
     expect(script).toEqual(
       expect.arrayContaining([
         "'self'",
-        'https://oapi.map.naver.com', // Naver Maps JS v3
+        'https://dapi.kakao.com', // Kakao Maps loader (sdk.js)
         'https://t1.kakaocdn.net', // Kakao 우편번호 (default host)
         'https://t1.daumcdn.net', // its retired host
       ]),
     );
     expect(script).not.toContain("'unsafe-eval'");
+    // The Naver map is gone (D13): no Naver script / connect host is left.
+    expect(prod.get('script-src')?.some((s) => /naver|pstatic|ntruss/.test(s))).toBe(false);
+    expect(prod.get('connect-src')?.some((s) => /naver|pstatic|ntruss/.test(s))).toBe(false);
     expect(script.some((s) => s === '*' || s === 'https:' || s === 'http:')).toBe(false);
+  });
+
+  it('allows the Kakao map tiles and SDK sprites as images', () => {
+    expect(prod.get('img-src')).toEqual(expect.arrayContaining(['https://*.daumcdn.net']));
+    // The map core (t1.daumcdn.net/mapjsapi/js/main/…/kakao.js) is a script.
+    expect(prod.get('script-src')).toContain('https://t1.daumcdn.net');
+    expect(prod.get('connect-src')).toEqual(["'self'"]);
   });
 
   it('allows the postcode and YouTube iframes, and nothing can frame or plug in', () => {

@@ -51,7 +51,6 @@ export function RequestRow({ request: r, now }: RequestRowProps) {
           </span>
           <span className={styles.rowSub}>{requestSubtitle(r)}</span>
           <span className={ui.meta}>
-            {r.requesterName && <span>{r.requesterName} 님</span>}
             <time dateTime={r.createdAt}>{formatRelativeTime(r.createdAt, now)}</time>
             {deadline && (
               <span className={deadline.hot ? ui.hot : undefined}>마감 {deadline.label}</span>

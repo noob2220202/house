@@ -12,6 +12,7 @@ import {
   ListingOption,
   ListingStatus,
   MoveInType,
+  type RoomType,
   VerificationMethod,
 } from '@house/shared';
 import type {
@@ -33,7 +34,7 @@ import {
 import { findMockListing as findComplexListing, type MockListing } from '../complexes/_listings';
 import { listingDisplayName } from '@/lib/api/schemas/listing';
 import { findMockListingSummary, type MockSummaryHit } from './_catalog';
-import { toListingSummary } from './_summary';
+import { roomTypeOf, toListingSummary } from './_summary';
 
 // ---- complexes (owned by w-complex — ids, coordinates and 평형 come from its fixtures) ----------
 
@@ -199,6 +200,8 @@ interface Seed {
   supply?: number;
   land?: number;
   rooms?: number;
+  /** 방 구성 as stated by the broker (원룸·투룸·1.5룸). */
+  roomType?: RoomType | null;
   baths?: number;
   direction?: Direction;
   /** 매매가 / 전세 보증금 / 분양권 매매가 (만원). */
@@ -442,6 +445,7 @@ function room(
     excl,
     supply: Math.round(excl * 132) / 100,
     rooms: kind === '투룸' ? 2 : 1,
+    roomType: roomTypeOf(kind),
     baths: 1,
     direction: D.SOUTH,
     ...money,
@@ -1034,6 +1038,7 @@ function toDetail(seed: Seed, id = mockListingId(seed.code)): ListingDetail {
       totalFloorArea: null,
       areaTypeId: c && seed.type !== undefined ? areaTypeIdOf(c.code, c.areas[seed.type]!) : null,
       rooms: seed.rooms ?? null,
+      roomType: seed.roomType ?? null,
       baths: seed.baths ?? null,
       direction: seed.direction ?? null,
       directionBasis: seed.direction
@@ -1142,7 +1147,7 @@ function seedFromComplexListing(l: MockListing): Seed | undefined {
   const n = [...l.id].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
   return apt(
     `G${String(n % 90).padStart(2, '0')}`,
-    `26-${String(1000 + (n % 9000))}`,
+    String(110_000 + (n % 90_000)),
     c.code,
     type,
     l.dong ?? '',
@@ -1246,7 +1251,7 @@ function seedFromSummary(hit: MockSummaryHit): Seed {
   return {
     ...base,
     code: `${base.code}${String(n % 900).padStart(3, '0')}`,
-    no: `26-${String(1000 + (n % 9000))}`,
+    no: String(110_000 + (n % 90_000)),
     asset: l.assetType,
     deal: l.dealType,
     status: l.status,
@@ -1267,6 +1272,7 @@ function seedFromSummary(hit: MockSummaryHit): Seed {
     supply: l.supplyArea ?? undefined,
     land: l.landArea ?? undefined,
     rooms: l.rooms ?? base.rooms,
+    roomType: l.roomType ?? base.roomType,
     baths: l.baths ?? base.baths,
     direction: l.direction ?? base.direction,
     price: undefined,

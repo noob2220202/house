@@ -12,7 +12,7 @@ export const DEFAULT_SIDO_CODE = '12';
 export const DEFAULT_SIDO_NAME = '전남광주통합특별시';
 export const DEFAULT_REGION_NAME = '전남광주통합특별시 순천시';
 
-/** Map center (순천시청 부근) and default zoom for the Naver map. */
+/** Map center (순천시청 부근) and default zoom (13 = Kakao level 7). */
 export const DEFAULT_MAP_CENTER = { lat: 34.950637, lng: 127.487214 } as const;
 export const DEFAULT_MAP_ZOOM = 13;
 

@@ -24,6 +24,7 @@ import {
   roundCoord,
   type LatLng,
   type MapBounds,
+  type MapImpl,
   type MapMarker,
   type MapViewChange,
   type MapViewState,
@@ -64,10 +65,10 @@ import styles from './AgencySearch.module.css';
 import { formatCount } from '@/lib/format';
 
 /**
- * Initial view. With the Naver map: the city centre. With the stylized fallback map (no key):
+ * Initial view. With the Kakao map: the city centre. With the stylized fallback map (no key):
  * the 조례·연향 area the Agents design is framed on.
  */
-const INITIAL_VIEW: MapViewState = env.naverMapKeyId
+const INITIAL_VIEW: MapViewState = env.kakaoMapKey
   ? { center: DEFAULT_MAP_CENTER, zoom: DEFAULT_MAP_ZOOM }
   : { center: { lat: 34.9475, lng: 127.5454 }, zoom: 13 };
 
@@ -155,9 +156,7 @@ export function AgencySearch({
 
   // ---- map -------------------------------------------------------------------------------------
   const mapRef = useRef<HTMLElement>(null);
-  const [mapImpl, setMapImpl] = useState<'naver' | 'static'>(
-    env.naverMapKeyId ? 'naver' : 'static',
-  );
+  const [mapImpl, setMapImpl] = useState<MapImpl>(env.kakaoMapKey ? 'kakao' : 'static');
   const [reportedBounds, setReportedBounds] = useState<MapBounds | null>(null);
   // The map section remounts when the mobile layout switches (DOM order follows the visual order).
   const mapSize = useElementSize(mapRef, isMobile);
@@ -368,7 +367,7 @@ export function AgencySearch({
     update(patch, 'replace');
   };
 
-  // The Naver map draws its own scale control; the fallback map gets ours.
+  // The Kakao map draws its own scale bar (next to its logo); the fallback map gets ours.
   const scale = bounds && isStatic ? scaleBar(bounds, mapWidth) : null;
   const sort = agencySortOf(filters.sort);
   const caption = resultCaption(filters);

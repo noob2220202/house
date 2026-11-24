@@ -106,7 +106,7 @@ web과 admin 병렬). 루트 `package.json` 스크립트는 건드리지 않았�
 
 외부 의존 대체 · External boundaries replaced in the browser only:
 카카오 우편번호 스크립트(`e2e/lib/postcode.ts`: 버튼 하나를 그리는 가짜 `daum.Postcode`),
-broker 원룸 주소 검색 `GET /api/v1/geo/geocode`(네이버 지오코더 키 없음 → 응답 스텁). 그 밖에는 모두 실제
+broker 원룸 주소 검색 `GET /api/v1/geo/geocode`(카카오 로컬 API 키 없음 → 응답 스텁). 그 밖에는 모두 실제
 API입니다. 브이월드 키가 없어서 사무소 등록번호 대조는 MATCHED가 아니며, 승인 대화상자의 확인 체크를 거칩니다.
 
 ## 브라우저 · Browser

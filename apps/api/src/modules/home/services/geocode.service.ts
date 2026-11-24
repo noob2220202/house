@@ -1,10 +1,5 @@
 import { createHash } from 'node:crypto';
-import {
-  canonicalRegionCode,
-  DEFAULT_MAP_CENTER,
-  DEFAULT_SGG_CODE,
-  ErrorCode,
-} from '@house/shared';
+import { canonicalRegionCode, DEFAULT_SGG_CODE, ErrorCode } from '@house/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CacheService } from '../../../common/cache/cache.service';
 import { AppException } from '../../../common/errors/app.exception';
@@ -14,7 +9,8 @@ import {
   GeocoderUnavailableError,
   type GeocodeHit,
   type Geocoder,
-} from '../clients/naver-geocode.client';
+  type GeocoderHit,
+} from '../clients/kakao-geocode.client';
 import { GEOCODE_MAX_RESULTS, HOME_CACHE_TTL_SECONDS } from '../constants';
 
 /** Item of GET /geo/geocode (web a-agency `geocodeItemSchema`) + the canonical 법정동 code. */
@@ -51,12 +47,9 @@ export class GeocodeService {
     const cached = await this.cache.get<GeocodeItemView[]>(key);
     if (cached) return { items: cached };
 
-    let hits: GeocodeHit[];
+    let hits: GeocoderHit[];
     try {
-      hits = await this.geocoder.geocode(
-        anchored,
-        sgg === DEFAULT_SGG_CODE ? DEFAULT_MAP_CENTER : null,
-      );
+      hits = await this.geocoder.geocode(anchored);
     } catch (err) {
       if (!(err instanceof GeocoderUnavailableError)) throw err;
       this.logger.warn({ err: err.message }, 'geocoding failed');
@@ -64,8 +57,10 @@ export class GeocodeService {
     }
     const coded = await Promise.all(
       hits.slice(0, GEOCODE_MAX_RESULTS).map(async (h): Promise<GeocodeItemView> => {
-        const code = await this.geocoder.legalCode(h.lat, h.lng);
-        return { ...h, emdCode: code ? canonicalRegionCode(code) : null };
+        // The address answer usually carries the 법정동 code (b_code); else look the point up.
+        const { legalCode: known, ...hit } = h;
+        const code = known ?? (await this.geocoder.legalCode(h.lat, h.lng));
+        return { ...hit, emdCode: code ? canonicalRegionCode(code) : null };
       }),
     );
     const items = coded.filter((h) =>

@@ -18,10 +18,11 @@ orig="$(cat "$ENV_FILE")"
 mapfile -t defaults < <(frontend_env_defaults https)
 assert_eq "defaults: site URL from the domain" "${defaults[0]}" "NEXT_PUBLIC_SITE_URL=https://suncheonmap.kr"
 assert_eq "defaults: MEDIA_ORIGIN is nginx's loopback media origin" "${defaults[1]}" "MEDIA_ORIGIN=http://127.0.0.1:8088"
-assert_eq "defaults: browser map key mirrors NAVER_MAP_CLIENT_ID" "${defaults[2]}" "NEXT_PUBLIC_NAVER_MAP_KEY_ID=mapid42"
+assert_eq "defaults: Kakao map JavaScript 키 slot (filled by set-keys.sh kakao)" "${defaults[2]}" "NEXT_PUBLIC_KAKAO_MAP_KEY="
+assert_not_contains "defaults: no Naver map key any more" "${defaults[*]}" "NAVER_MAP"
 added="$(env_add_missing "$ENV_FILE" "$group" "${defaults[@]}")"
 assert_eq "only missing keys are added (commented-out ones count as missing)" "${added//$'\n'/ }" \
-  "MEDIA_ORIGIN NEXT_PUBLIC_NAVER_MAP_KEY_ID NEXT_PUBLIC_NAVER_SITE_VERIFICATION NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION"
+  "MEDIA_ORIGIN NEXT_PUBLIC_KAKAO_MAP_KEY NEXT_PUBLIC_NAVER_SITE_VERIFICATION NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION"
 assert_eq "existing NEXT_PUBLIC_SITE_URL is not clobbered" "$(env_get NEXT_PUBLIC_SITE_URL)" "https://custom.example"
 assert_eq "MEDIA_ORIGIN added" "$(env_get MEDIA_ORIGIN)" "http://127.0.0.1:8088"
 assert_eq "original lines kept (last line without newline intact)" "$(head -n 5 "$ENV_FILE")" "$orig"
@@ -54,9 +55,14 @@ assert_contains "install.sh uses frontend_env_defaults" "$(cat "$i")" 'frontend_
 eval "$(awk '/^upgrade_env_to_https\(\) \{/,/^\}/' "$i")"
 ADMIN_DOMAIN=admin.suncheonmap.kr
 printf '%s\n' PUBLIC_BASE_URL=http://suncheonmap.kr NEXT_PUBLIC_SITE_URL=http://suncheonmap.kr \
-  MEDIA_ORIGIN=http://127.0.0.1:8088 >"$ENV_FILE"
+  MEDIA_ORIGIN=http://127.0.0.1:8088 CORS_ORIGINS=http://suncheonmap.kr,http://other.example \
+  ADMIN_CORS_ORIGINS=http://admin.suncheonmap.kr >"$ENV_FILE"
 upgrade_env_to_https >/dev/null
 assert_eq "upgrade to https: NEXT_PUBLIC_SITE_URL" "$(env_get NEXT_PUBLIC_SITE_URL)" "https://suncheonmap.kr"
+assert_eq "upgrade to https: CORS_ORIGINS (own domain only)" "$(env_get CORS_ORIGINS)" "https://suncheonmap.kr,http://other.example"
+assert_eq "upgrade to https: ADMIN_CORS_ORIGINS" "$(env_get ADMIN_CORS_ORIGINS)" "https://admin.suncheonmap.kr"
+# A new .env lists no extra origins: the API derives both sites' origins from the base URLs.
+assert_contains "install.sh writes CORS_ORIGINS / ADMIN_CORS_ORIGINS empty" "$(cat "$i")" '[CORS_ORIGINS]="" [ADMIN_CORS_ORIGINS]=""'
 assert_eq "upgrade to https: loopback MEDIA_ORIGIN untouched" "$(env_get MEDIA_ORIGIN)" "http://127.0.0.1:8088"
 
 # ─── build_env_lines ───
@@ -65,14 +71,14 @@ cat >"$ENV_FILE" <<'EOF'
 COOKIE_SECRET=s3cret-value
 DATABASE_URL=postgresql://u:pw@127.0.0.1/db
 NEXT_PUBLIC_SITE_URL=https://suncheonmap.kr/
-NEXT_PUBLIC_NAVER_MAP_KEY_ID="abc123"
+NEXT_PUBLIC_KAKAO_MAP_KEY="abc123"
 NEXT_PUBLIC_API_MOCK=1
 export NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=g-token # inline comment
 NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=g-token
 EOF
 out="$(build_env_lines 2>/dev/null)"
 assert_contains "NODE_ENV=production" "$out" "NODE_ENV=production"
-assert_contains "NEXT_PUBLIC_* from .env (quotes stripped)" "$out" "NEXT_PUBLIC_NAVER_MAP_KEY_ID=abc123"
+assert_contains "NEXT_PUBLIC_* from .env (quotes stripped)" "$out" "NEXT_PUBLIC_KAKAO_MAP_KEY=abc123"
 assert_contains "export-prefixed key with comment" "$out" "NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=g-token"
 assert_eq "duplicate keys passed once" "$(grep -c '^NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=' <<<"$out")" "1"
 assert_contains "site URL without trailing slash" "$out" "NEXT_PUBLIC_SITE_URL=https://suncheonmap.kr"$'\n'
@@ -87,7 +93,7 @@ fp_rev="$(build_env_lines 2>/dev/null | tac | build_env_fingerprint)"
 assert_eq "fingerprint ignores line order" "$fp_rev" "$fp1"
 sed -i 's/^COOKIE_SECRET=.*/COOKIE_SECRET=rotated/' "$ENV_FILE"
 assert_eq "fingerprint unchanged by runtime-only keys" "$(build_env_lines 2>/dev/null | build_env_fingerprint)" "$fp1"
-sed -i 's/^NEXT_PUBLIC_NAVER_MAP_KEY_ID=.*/NEXT_PUBLIC_NAVER_MAP_KEY_ID=new456/' "$ENV_FILE"
+sed -i 's/^NEXT_PUBLIC_KAKAO_MAP_KEY=.*/NEXT_PUBLIC_KAKAO_MAP_KEY=new456/' "$ENV_FILE"
 fp2="$(build_env_lines 2>/dev/null | build_env_fingerprint)"
 [[ "$fp2" != "$fp1" ]] && pass "fingerprint changes with a NEXT_PUBLIC_* value" || fail "fingerprint ignores NEXT_PUBLIC_* changes"
 printf 'MEDIA_ORIGIN=http://media.internal:9000/\n' >>"$ENV_FILE"

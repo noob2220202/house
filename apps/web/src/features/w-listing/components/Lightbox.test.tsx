@@ -127,13 +127,15 @@ describe('gallery / location helpers', () => {
       { category: 'TRANSIT' as const, name: '먼 역', distanceM: 9000, lat: 34.9457, lng: 127.5035 },
       { category: 'MART' as const, name: '좌표 없음', distanceM: 500 },
     ];
-    const naver = placePois(places, center, 16, size, 'naver');
-    expect(naver.map((p) => p.place.name)).toEqual(['서쪽 공원']);
-    expect(naver[0]?.x).toBeLessThan(size.width / 2);
-    expect(Math.round(naver[0]?.y ?? 0)).toBe(size.height / 2);
+    const kakao = placePois(places, center, 16, size, 'kakao');
+    expect(kakao.map((p) => p.place.name)).toEqual(['서쪽 공원']);
+    // zoom 16 = Kakao level 4 = 2 m/px: ~411 m west → ~205 px left of the centre.
+    expect(kakao[0]?.x).toBeGreaterThan(size.width / 2 - 215);
+    expect(kakao[0]?.x).toBeLessThan(size.width / 2 - 195);
+    expect(Math.round(kakao[0]?.y ?? 0)).toBe(size.height / 2);
     expect(placePois(places, center, 16, size, 'static').map((p) => p.place.name)).toEqual([
       '서쪽 공원',
     ]);
-    expect(placePois(places, center, 16, { width: 0, height: 0 }, 'naver')).toEqual([]);
+    expect(placePois(places, center, 16, { width: 0, height: 0 }, 'kakao')).toEqual([]);
   });
 });

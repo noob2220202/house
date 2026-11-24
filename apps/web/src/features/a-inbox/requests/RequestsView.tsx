@@ -21,7 +21,6 @@ import { ConsolePage, ConsolePageHeader } from '@/features/a-agency/shell';
 import { SUNCHEON_REGIONS, regionSummary } from '@/features/w-deal/lib/regions';
 import { ApiError, errorMessage } from '@/lib/api';
 import { fetchAgencyRequests, inboxKeys } from '../api/queries';
-import type { StageCounts } from '../api/schemas';
 import {
   DEFAULT_REQUEST_FILTERS,
   activeRequestFilterCount,
@@ -41,16 +40,14 @@ import { formatCount } from '@/lib/format';
 const TABS_ID = 'agent-requests';
 const ASSET_OPTIONS = Object.values(AssetType) as AssetType[];
 
-function stageTabs(counts: StageCounts | undefined) {
-  const total = counts ? counts.NEW + counts.PROPOSED + counts.ACCEPTED + counts.ENDED : undefined;
-  return [
-    { value: 'all', label: '전체', count: total },
-    { value: 'new', label: '새 요청', count: counts?.NEW },
-    { value: 'proposed', label: '응답 대기', count: counts?.PROPOSED },
-    { value: 'accepted', label: '수락됨', count: counts?.ACCEPTED },
-    { value: 'ended', label: '종료', count: counts?.ENDED },
-  ] satisfies { value: RequestStageTab; label: string; count?: number }[];
-}
+/** Stage tabs, without counters: the API has no per-stage counts (only the list's `total`). */
+const STAGE_TABS = [
+  { value: 'all', label: '전체' },
+  { value: 'new', label: '새 요청' },
+  { value: 'proposed', label: '응답 대기' },
+  { value: 'accepted', label: '수락됨' },
+  { value: 'ended', label: '종료' },
+] satisfies { value: RequestStageTab; label: string }[];
 
 interface CheckFilterProps<T extends string> {
   field: string;
@@ -169,7 +166,7 @@ export function RequestsView() {
           className={ui.tabs}
           label="요청 진행 단계"
           idBase={TABS_ID}
-          items={stageTabs(data?.stageCounts)}
+          items={STAGE_TABS}
           value={filters.stage}
           onChange={(stage) => update({ stage })}
         />

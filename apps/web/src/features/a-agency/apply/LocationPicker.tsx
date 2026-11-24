@@ -45,7 +45,7 @@ function useCoarsePointer(): boolean {
 
 /**
  * "Move the map under the pin" position picker: the pin stays in the centre of the map and the
- * chosen position is the map centre. Works the same on the Naver map and the static fallback, with
+ * chosen position is the map centre. Works the same on the Kakao map and the static fallback, with
  * mouse, touch and keyboard (arrow keys pan the map).
  *
  * Embedded in a long form, the map must not trap scrolling: a plain mouse wheel scrolls the page

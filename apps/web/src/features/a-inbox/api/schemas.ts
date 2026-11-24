@@ -120,8 +120,7 @@ const agencyDealRequestObjectSchema = z.object({
   visibility: z.enum(DealRequestVisibility),
   /** True when the requester picked this agency (SELECTED_AGENCIES). */
   targeted: z.boolean().default(false),
-  /** Masked by the API ("김*늘") — never the full name before consent. */
-  requesterName: nullish(z.string()),
+  // No requester name before consent: the API sends the name only in `contact` (detail, grant).
   description: nullish(z.string()),
 
   // 내놓기 — before the requester shares details with this agency (`contactGranted`): 읍면동 /
@@ -144,9 +143,8 @@ const agencyDealRequestObjectSchema = z.object({
 
   // 구하기
   regionCodes: z.array(z.string()).default([]),
+  /** Wanted 단지 (ids only — the API sends no names; the UI shows the count). */
   complexIds: z.array(z.string()).default([]),
-  /** Display names matching `complexIds`. */
-  complexNames: z.array(z.string()).default([]),
   priceMin: nullish(z.number()),
   priceMax: nullish(z.number()),
   depositMin: nullish(z.number()),
@@ -187,19 +185,20 @@ export type AgencyDealRequestDetail = z.infer<typeof agencyDealRequestDetailObje
 export const INBOX_STAGES = ['NEW', 'PROPOSED', 'ACCEPTED', 'ENDED'] as const;
 export type InboxStage = (typeof INBOX_STAGES)[number];
 
-export const stageCountsSchema = z.object({
-  NEW: z.number().default(0),
-  PROPOSED: z.number().default(0),
-  ACCEPTED: z.number().default(0),
-  ENDED: z.number().default(0),
-});
-export type StageCounts = z.infer<typeof stageCountsSchema>;
-
-export const agencyDealRequestPageSchema = pageOf(agencyDealRequestSchema).extend({
-  /** Facet counts for the stage tabs (same type / region / asset filters, any stage). */
-  stageCounts: stageCountsSchema.optional(),
-});
+/** The list carries no stage counters (the API has none); the tabs show no counts. */
+export const agencyDealRequestPageSchema = pageOf(agencyDealRequestSchema);
 export type AgencyDealRequestPage = z.infer<typeof agencyDealRequestPageSchema>;
+
+// ---------- inbox counters (/agent/notifications tiles) ----------
+
+/** GET /agencies/mine/dashboard — only the 새 요청 counter is read here. */
+export const inboxNewCountSchema = z.object({ dealRequests: z.object({ newCount: z.number() }) });
+
+/** GET /agency/proposals — only the total is read (with `WAITING_PROPOSALS_QUERY`). */
+export const proposalTotalSchema = z.object({ total: z.number() });
+
+/** Our proposals the requester has not answered yet (응답 대기). One row: only `total` is used. */
+export const WAITING_PROPOSALS_QUERY = { status: 'SENT,VIEWED', page: 1, pageSize: 1 } as const;
 
 export const listingCandidatePageSchema = pageOf(inboxListingSchema);
 export type ListingCandidatePage = z.infer<typeof listingCandidatePageSchema>;

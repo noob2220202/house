@@ -7,7 +7,7 @@
 #   sudo /srv/house/deploy.sh                 # deploy the configured branch (deploy.conf BRANCH)
 #   sudo /srv/house/deploy.sh --branch hotfix
 #   sudo /srv/house/deploy.sh --skip-migrate  # code-only deploy (no DB migration, no seed)
-#   sudo /srv/house/deploy.sh --skip-build-cache  # full rebuild (ignore turbo/Next caches)
+#   sudo /srv/house/deploy.sh --skip-build-cache  # full rebuild (ignore the turbo cache)
 #
 # Runs as the 'house' user (root re-execs itself as house) in its own session, so a dropped SSH
 # connection cannot interrupt it. The deploy kit itself (/srv/house/bin) is root-owned and is
@@ -24,7 +24,7 @@ usage() {
   --branch <이름>       배포할 브랜치 (기본: deploy.conf 의 BRANCH)
   --ref <커밋>          특정 커밋을 배포 (브랜치 최신 대신)
   --skip-migrate        DB 마이그레이션/시드를 건너뜀
-  --skip-build-cache    빌드 캐시(turbo, Next.js) 없이 처음부터 빌드
+  --skip-build-cache    빌드 캐시(turbo) 없이 처음부터 빌드
   --skip-seed           마이그레이션 후 기본 시드(멱등)를 건너뜀
   --force               이미 배포된 커밋이어도 새로 빌드
   --foreground          별도 세션으로 분리하지 않고 현재 터미널에서 실행
@@ -240,19 +240,10 @@ ok "pnpm $(pnpm --version)"
 FAILED_STAGE="build"
 step "빌드 (turbo)"
 TURBO_ARGS=(--cache-dir="$SHARED_DIR/turbo-cache" --output-logs=errors-only)
-if $SKIP_BUILD_CACHE; then
-  TURBO_ARGS+=(--force)
-elif [[ -n "$PREV_RELEASE" ]]; then
-  # Reuse the Next.js build caches (webpack/SWC, optimized images) of the previous release. The
-  # runtime fetch cache is not carried over: it holds old data and grows with every distinct
-  # query string (it is rebuilt from the API as pages render).
-  for app in web admin; do
-    if [[ -d "$PREV_RELEASE/apps/$app/.next/cache" ]]; then
-      mkdir -p "apps/$app/.next/cache"
-      rsync -a --exclude=/fetch-cache/ "$PREV_RELEASE/apps/$app/.next/cache/" "apps/$app/.next/cache/"
-    fi
-  done
-fi
+$SKIP_BUILD_CACHE && TURBO_ARGS+=(--force)
+# Only the optimized images (.next/cache/images) of the previous release are carried over, so
+# photos are not re-optimized after every deploy (carry_image_cache, lib/common.sh).
+[[ -n "$PREV_RELEASE" ]] && carry_image_cache "$PREV_RELEASE" "$RELEASE"
 # Only public build-time settings reach the frontends' build (build_env_lines, computed above).
 log "빌드 설정: $(printf '%s ' "${BUILD_ENV[@]%%=*}")"
 env "${BUILD_ENV[@]}" pnpm exec turbo run build "${TURBO_ARGS[@]}"
@@ -352,6 +343,10 @@ fi
 trap - ERR INT TERM HUP
 save_last_good_env
 
+# Post-deploy smoke (not a rollback reason: the release is healthy, but photos would be broken).
+IMAGE_SMOKE_NOTE=""
+image_smoke "$WEB_PORT" || IMAGE_SMOKE_NOTE="사진 최적화(/_next/image) 점검 실패 — 위 안내를 확인하세요 (docs/DEPLOY.md 15단계 '사진이 안 보임')."
+
 # ─── 9. prune ───────────────────────────────────────────────────────────────────────────────
 step "이전 릴리스 정리 (최근 ${KEEP_RELEASES}개 보관)"
 # Failed builds go first; then only the newest KEEP_RELEASES remain.
@@ -388,4 +383,5 @@ ${C_GRN}✔ 배포 성공${C_RST}  ${RELEASE_NAME}  (${ELAPSED}초)
   되돌리기  sudo $HOUSE_ROOT/rollback.sh
 EOF
 [[ -n "$KIT_NOTICE" ]] && warn "$KIT_NOTICE"
+[[ -n "$IMAGE_SMOKE_NOTE" ]] && warn "$IMAGE_SMOKE_NOTE"
 exit 0

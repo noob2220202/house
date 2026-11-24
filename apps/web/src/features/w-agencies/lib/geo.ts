@@ -1,7 +1,7 @@
 import { MAP_MAX_BBOX_SPAN_DEG } from '@house/shared';
 import { SUNCHEON_MAP_VIEWBOX } from '@house/ui';
 import { boundsToBboxParam, staticViewBounds } from '@/lib/map/geo';
-import type { LatLng, MapBounds, MapViewState } from '@/lib/map/types';
+import type { LatLng, MapBounds, MapImpl, MapViewState } from '@/lib/map/types';
 
 /** Metres per degree of longitude at a latitude. */
 const mPerDegLng = (lat: number) => 111_320 * Math.cos((lat * Math.PI) / 180);
@@ -31,18 +31,18 @@ export function boundsToQueryBbox(bounds: MapBounds): string {
 
 /**
  * Visible bounds of the map for the marker query, "이 지역에서 다시 검색" and the scale bar.
- * - Naver map: the bounds it last reported (it reports after every move, programmatic ones too).
+ * - Kakao map: the bounds it last reported (it reports after every move, programmatic ones too).
  * - Stylized fallback map: derived from the controlled view + the map size. That map only reports
  *   moves the user makes (drag / wheel), not prop changes (zoom buttons, cluster click, 지역,
  *   내 위치, pan on select), so its last report goes stale after those.
  */
 export function currentMapBounds(
-  impl: 'naver' | 'static',
+  impl: MapImpl,
   view: MapViewState,
   size: { width: number; height: number },
   reported: MapBounds | null,
 ): MapBounds | null {
-  if (impl === 'naver') return reported;
+  if (impl === 'kakao') return reported;
   if (!(size.width > 0) || !(size.height > 0)) return null;
   return staticViewBounds(view.center, view.zoom, size, SUNCHEON_MAP_VIEWBOX);
 }

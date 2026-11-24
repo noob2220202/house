@@ -38,9 +38,7 @@ export function ContactCard({ request: r }: ContactCardProps) {
             <Icon name="lock" size={22} />
           </span>
           <p className={styles.contactText}>
-            <span className={styles.contactName}>
-              {r.requesterName ? `${r.requesterName} 님` : '요청자'} · 연락처 비공개
-            </span>
+            <span className={styles.contactName}>요청자 · 연락처 비공개</span>
             <span className={styles.contactHint}>{lockedHint(r)}</span>
           </p>
         </div>

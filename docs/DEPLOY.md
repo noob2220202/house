@@ -167,6 +167,9 @@ cd /root/house-setup
   - 웹·관리자 빌드 설정도 함께 넣습니다: `NEXT_PUBLIC_SITE_URL=https://<도메인>`(캐노니컬 주소·사이트맵), `MEDIA_ORIGIN`
     (이미지 최적화가 원본 사진을 읽는 서버 내부 주소, `http://127.0.0.1:8088`), 지도·검색 등록 키 자리(`NEXT_PUBLIC_*`).
     이미 있는 `.env`에 다시 실행하면 **빠진 키만 끝에 추가**하고 기존 값은 그대로 둡니다.
+  - `CORS_ORIGINS=`·`ADMIN_CORS_ORIGINS=`는 **비워 둡니다**. API가 `PUBLIC_BASE_URL`(사용자 사이트)과 `ADMIN_BASE_URL`(관리자 사이트)에서
+    허용할 주소를 스스로 계산하므로, 다른 주소(예: 별도 앱 도메인)를 추가로 허용할 때만 쉼표로 적습니다.
+    관리자 주소를 `CORS_ORIGINS`에 넣어도 사용자 API에서는 허용되지 않습니다(사이트별로 분리).
 - 매일 새벽 3시 30분 **자동 백업** 등록
 
 끝나면 한국어 요약이 나옵니다. 스크립트는 **여러 번 실행해도 안전**합니다. 중간에 실패했으면 원인을 고치고 같은 명령을 다시 실행하세요.
@@ -193,13 +196,15 @@ cd /root/house-setup
 편집기 없이 키를 하나씩 붙여 넣을 수 있습니다. Enter만 누르면 지금 값을 그대로 둡니다. 비밀값은 화면에 보이지 않습니다.
 
 ```bash
-sudo /srv/house/set-keys.sh          # 전체 (카카오 → 네이버 → Google → 지도 → 공공데이터 → 브이월드)
-sudo /srv/house/set-keys.sh map      # 한 가지만: kakao | naver | google | map | data | vworld
+sudo /srv/house/set-keys.sh          # 전체 (카카오(로그인·지도) → 네이버 → Google → 공공데이터 → 브이월드)
+sudo /srv/house/set-keys.sh kakao    # 한 가지만: kakao | naver | google | data | vworld
 ```
 
 - 따옴표·공백·역슬래시가 섞인 값은 받지 않고 다시 묻습니다(복사할 때 딸려 온 글자). 형식이 예상과 다르면 저장할지 한 번 더 묻습니다.
 - 다른 줄은 건드리지 않고 그 키만 바꾸거나 추가합니다. 파일 권한(`root:house` 0640)도 그대로입니다.
-- 네이버 지도 Client ID(`NAVER_MAP_CLIENT_ID`)는 브라우저 지도용 `NEXT_PUBLIC_NAVER_MAP_KEY_ID`에도 자동으로 같은 값을 넣습니다.
+- `kakao`는 REST API 키 · Client Secret · **지도 JavaScript 키**(`NEXT_PUBLIC_KAKAO_MAP_KEY`) 3개를 묻습니다.
+  예전 네이버 지도 키 줄(`NAVER_MAP_*`, `NEXT_PUBLIC_NAVER_MAP_KEY_ID`)이 남아 있으면 "더 이상 쓰지 않음"이라고 알려 줄 뿐
+  지우지는 않습니다(남아 있어도 무시됩니다). `set-keys.sh map`은 없어졌습니다.
 - 끝나면 `sudo /srv/house/deploy.sh`로 반영합니다. `NEXT_PUBLIC_*` 값이 바뀌었으면 같은 커밋이어도 웹·관리자를 **자동으로 다시 빌드**합니다.
 
 직접 편집하려면:
@@ -226,15 +231,23 @@ https://example.com/api/v1/auth/oauth/google/callback
 순천부동산지도: `https://suncheonmap.kr/api/v1/auth/oauth/kakao/callback`, `.../naver/callback`, `.../google/callback`
 (관리자 주소나 한글 도메인은 Redirect URI로 등록하지 않습니다).
 
-### 카카오 로그인 → `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`
+### 카카오 로그인 + 카카오맵 → `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `NEXT_PUBLIC_KAKAO_MAP_KEY`
+
+로그인과 지도는 같은 카카오 앱 하나를 씁니다(DECISIONS D13 — 지도 = 카카오맵, 네이버 클라우드 가입 불필요).
 
 1. [Kakao Developers](https://developers.kakao.com) 로그인 → **내 애플리케이션 → 애플리케이션 추가하기** (앱 이름, 사업자명)
-2. **앱 키**의 **REST API 키** → `KAKAO_CLIENT_ID`
-3. **플랫폼 → Web**: 사이트 도메인 `https://example.com` 등록
+2. **앱 키**의 **REST API 키** → `KAKAO_CLIENT_ID` (로그인 + 서버의 주소 검색 `GET /geo/geocode`가 함께 씁니다.
+   주소 검색에 다른 REST 키를 쓰려면 `KAKAO_REST_API_KEY`에 넣습니다 — 비우면 `KAKAO_CLIENT_ID`)
+3. **플랫폼 → Web**: 사이트 도메인 `https://example.com`, `https://www.example.com` 등록
+   (예: `https://suncheonmap.kr`, `https://www.suncheonmap.kr`, `https://admin.suncheonmap.kr`). 지도 JavaScript SDK는
+   이 목록에 있는 도메인에서만 열립니다.
 4. **카카오 로그인**: 활성화 **ON**, **Redirect URI**에 위 kakao 주소 등록
 5. **카카오 로그인 → 동의항목**: 닉네임, 프로필 사진, 카카오계정(이메일)을 필요에 맞게 설정
    (전화번호 등 일부 항목은 비즈 앱 전환·검수가 필요합니다. 없어도 로그인은 됩니다.)
 6. **보안 → Client Secret**: 코드 생성 → 활성화 상태 **사용함** → 값 → `KAKAO_CLIENT_SECRET`
+7. **카카오맵 → 사용 설정 ON** (꺼져 있으면 지도 SDK와 주소 검색 API가 모두 거부됩니다)
+8. **앱 키**의 **JavaScript 키** → `NEXT_PUBLIC_KAKAO_MAP_KEY` (브라우저 지도. 공개되는 값이라 비밀이 아닙니다.
+   웹 빌드에 들어가므로 바꾼 뒤 `deploy.sh`가 웹을 다시 빌드합니다. 비어 있으면 사이트는 간이 지도(순천 일러스트)로 보입니다.)
 
 ### 네이버 로그인 → `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`
 
@@ -251,16 +264,6 @@ https://example.com/api/v1/auth/oauth/google/callback
 3. 게시 상태를 **프로덕션**으로 전환 (테스트 상태면 등록한 테스트 사용자만 로그인됩니다)
 4. **사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID** → 유형 **웹 애플리케이션**
 5. **승인된 리디렉션 URI**에 위 google 주소 → 생성된 **클라이언트 ID / 보안 비밀** → `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`
-
-### 네이버 지도 → `NAVER_MAP_CLIENT_ID`, `NAVER_MAP_CLIENT_SECRET`
-
-1. [네이버 클라우드 플랫폼](https://www.ncloud.com) 가입 → 결제 수단 등록(무료 사용량 이후 과금)
-2. 콘솔 → **Services → Application Services → Maps** → **Application 등록**
-3. 사용할 API: **Dynamic Map**(지도 표시), **Geocoding**(주소 → 좌표), 필요 시 **Reverse Geocoding**
-4. **Web 서비스 URL**에 `https://example.com`, `https://admin.example.com` 등록 (예: `https://suncheonmap.kr`, `https://admin.suncheonmap.kr`)
-5. 인증 정보의 **Client ID** → `NAVER_MAP_CLIENT_ID`, **Client Secret** → `NAVER_MAP_CLIENT_SECRET`
-   (브라우저 지도는 같은 Client ID를 `NEXT_PUBLIC_NAVER_MAP_KEY_ID`로 씁니다. `set-keys.sh map`은 두 줄을 함께 넣습니다.
-   `nano`로 넣을 때는 두 줄 모두 같은 값으로 적으세요.)
 
 ### 공공데이터포털(실거래가) → `DATA_GO_KR_SERVICE_KEY`
 
@@ -420,6 +423,9 @@ https://example.com/api/v1/auth/oauth/google/callback
   인터넷이 자주 끊기는 곳이라면 `tmux` 안에서 실행하면 화면도 유지됩니다: `tmux new -s deploy` → 배포 → 끊긴 뒤 `tmux attach -t deploy`.
 - 배포 스크립트(`deploy/` 폴더)가 바뀐 커밋이면 마지막에 안내가 나옵니다. 보안상 배포 스크립트는 자동으로 바뀌지 않으므로 안내된 명령
   `sudo /srv/house/bin/install.sh --kit-only --kit-ref <커밋>` 을 실행하세요 (18단계).
+- 배포가 끝나면 **사진 최적화 점검**을 합니다: 서버에 올라온 사진 하나를 `/_next/image`로 요청해 `200`과 이미지가 돌아오는지 봅니다.
+  아직 올린 사진이 없으면 건너뜁니다. 실패해도 배포는 되돌리지 않고(사이트는 정상) 마지막에 경고만 나옵니다 — 15단계 "사진이 안 보임"을 확인하세요.
+- 이전 버전에서 넘겨받는 캐시는 **최적화된 사진(`.next/cache/images`)뿐**입니다. 그래서 배포 직후에도 사진을 다시 변환하지 않습니다.
 - 배포 기록: `/var/log/house/deploy.log`
 
 ## 12. 되돌리기 (롤백)
@@ -488,28 +494,30 @@ tail -f /var/log/house/deploy.log          # 배포 기록
 
 ## 15. 문제 해결
 
-| 증상                                | 확인할 것                                                                                                                                         |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 인증서 발급 실패                    | `nslookup`으로 DNS 확인 → 6단계 명령 다시 실행. Cloudflare 주황 구름이면 회색으로.                                                                |
-| `502 Bad Gateway`                   | 앱이 꺼짐: `/srv/house/status.sh`, `sudo -u house pm2 logs --err --lines 100`                                                                     |
-| 소셜 로그인 후 오류                 | 콘솔의 Redirect URI가 7단계 주소와 **글자 하나까지** 같은지(https, 도메인). `.env`의 CLIENT_ID/SECRET 확인 후 `deploy.sh`                         |
-| 로그인이 유지되지 않음              | HTTPS로 접속했는지 (HTTP에서는 로그인 쿠키가 동작하지 않음)                                                                                       |
-| `다른 배포가 진행 중입니다`         | 다른 창에서 배포 중인지 확인. 진행 중인 것이 없다면 잠시 후 다시 실행                                                                             |
-| 배포 중 `preflight api: FAILED`     | 새 코드가 켜지지 않음 (서비스는 이전 버전 그대로). 화면의 오류 내용 또는 `.env` 값 확인                                                           |
-| `Invalid environment configuration` | `.env` 값 형식 오류 (줄에 표시된 키 확인). 서비스는 그대로이며, 화면의 명령으로 직전 정상 `.env`로 되돌릴 수 있음                                 |
-| `deploy.conf N번째 줄 ...`          | 그 줄의 키 이름 또는 값 형식 오류: `sudo nano /srv/house/shared/deploy.conf`                                                                      |
-| `잠금 파일이 없습니다`              | 이전 버전으로 설치된 서버: 18단계의 "기존 서버 업그레이드" 실행                                                                                   |
-| 사진이 안 보임(`/_next/image` 오류) | `.env`의 `MEDIA_ORIGIN`(기본 `http://127.0.0.1:8088`)과 `curl -sI http://127.0.0.1:8088/media/<사진경로>` 확인. 바꿨다면 `deploy.sh`(자동 재빌드) |
-| 사이트 페이지에서 `429`             | 한 IP에서 초당 10페이지 이상(순간 80까지 허용)을 계속 요청함 — 크롤러·스크래퍼. 정상 사용자는 해당 없음 (OPERATIONS.md "요청 제한")               |
-| 디스크 가득 참                      | `df -h`, `du -sh /var/backups/house /var/log/house /srv/house/releases` (OPERATIONS.md 참고)                                                      |
-| 저장소를 가져오지 못함              | 6-1 배포 키 등록 확인: `sudo -u house ssh -T git@github.com` (환영 메시지가 나오면 정상)                                                          |
+| 증상                                                                   | 확인할 것                                                                                                                                                                 |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 인증서 발급 실패                                                       | `nslookup`으로 DNS 확인 → 6단계 명령 다시 실행. Cloudflare 주황 구름이면 회색으로.                                                                                        |
+| `502 Bad Gateway`                                                      | 앱이 꺼짐: `/srv/house/status.sh`, `sudo -u house pm2 logs --err --lines 100`                                                                                             |
+| 소셜 로그인 후 오류                                                    | 콘솔의 Redirect URI가 7단계 주소와 **글자 하나까지** 같은지(https, 도메인). `.env`의 CLIENT_ID/SECRET 확인 후 `deploy.sh`                                                 |
+| 로그인이 유지되지 않음                                                 | HTTPS로 접속했는지 (HTTP에서는 로그인 쿠키가 동작하지 않음)                                                                                                               |
+| `다른 배포가 진행 중입니다`                                            | 다른 창에서 배포 중인지 확인. 진행 중인 것이 없다면 잠시 후 다시 실행                                                                                                     |
+| 배포 중 `preflight api: FAILED`                                        | 새 코드가 켜지지 않음 (서비스는 이전 버전 그대로). 화면의 오류 내용 또는 `.env` 값 확인                                                                                   |
+| `Invalid environment configuration`                                    | `.env` 값 형식 오류 (줄에 표시된 키 확인). 서비스는 그대로이며, 화면의 명령으로 직전 정상 `.env`로 되돌릴 수 있음                                                         |
+| `deploy.conf N번째 줄 ...`                                             | 그 줄의 키 이름 또는 값 형식 오류: `sudo nano /srv/house/shared/deploy.conf`                                                                                              |
+| `잠금 파일이 없습니다`                                                 | 이전 버전으로 설치된 서버: 18단계의 "기존 서버 업그레이드" 실행                                                                                                           |
+| 사진이 안 보임(`/_next/image` 오류, 배포 끝의 `사진 최적화 점검 실패`) | `.env`의 `MEDIA_ORIGIN`(기본 `http://127.0.0.1:8088`)과 `curl -sI http://127.0.0.1:8088/media/<사진경로>` 확인. 바꿨다면 `deploy.sh`(자동 재빌드)                         |
+| 사이트 페이지에서 `429`                                                | 한 IP에서 초당 10페이지 이상(순간 80까지 허용)을 계속 요청함 — 크롤러·스크래퍼. 정상 사용자는 해당 없음 (OPERATIONS.md "요청 제한")                                       |
+| 디스크 가득 참                                                         | `df -h`, `du -sh /var/backups/house /var/log/house /srv/house/releases` (OPERATIONS.md 참고)                                                                              |
+| 빌드 단계 실패 `Failed to fetch ... from Google Fonts`                 | 빌드할 때 글꼴(Inter, Noto Sans KR)을 `fonts.googleapis.com`에서 받습니다. 서버에서 `curl -sI https://fonts.googleapis.com` 확인 후 다시 배포 (서비스는 이전 버전 그대로) |
+| 저장소를 가져오지 못함                                                 | 6-1 배포 키 등록 확인: `sudo -u house ssh -T git@github.com` (환영 메시지가 나오면 정상)                                                                                  |
 
 ## 16. 서버 설정 바꾸기
 
 - **도메인/관리자 주소 변경**: 3단계 DNS를 먼저 바꾸고, 6단계 명령을 새 `--domain`(필요하면 `--admin-subdomain`)으로 다시 실행합니다.
   install.sh가 기존 인증서에 새 이름이 없음을 알아채고 **새 이름으로 인증서를 다시 발급**합니다.
-  `.env`는 덮어쓰지 않으므로, 요약의 경고에 나온 키(`PUBLIC_BASE_URL`, `ADMIN_BASE_URL`, `API_BASE_URL`, `CORS_ORIGINS`,
-  `NEXT_PUBLIC_SITE_URL`, `KAKAO_REDIRECT_URI`, `NAVER_REDIRECT_URI`, `GOOGLE_REDIRECT_URI`)를 `sudo nano /srv/house/shared/.env`로 고치고,
+  `.env`는 덮어쓰지 않으므로, 요약의 경고에 나온 키(`PUBLIC_BASE_URL`, `ADMIN_BASE_URL`, `API_BASE_URL`,
+  `NEXT_PUBLIC_SITE_URL`, `KAKAO_REDIRECT_URI`, `NAVER_REDIRECT_URI`, `GOOGLE_REDIRECT_URI`)를 `sudo nano /srv/house/shared/.env`로 고치고
+  (`CORS_ORIGINS`·`ADMIN_CORS_ORIGINS`에 옛 주소가 남아 있으면 지워서 비워 두세요),
   각 로그인 콘솔의 Redirect URI도 새 주소로 바꾼 뒤 `/srv/house/deploy.sh` (`NEXT_PUBLIC_SITE_URL`이 바뀌었으므로 자동으로 다시 빌드합니다).
 - **저장소/브랜치 변경**: 6단계 명령을 새 `--repo`/`--branch`로 다시 실행
 - **프로세스 수** (`API_INSTANCES`, `WEB_INSTANCES`, `ADMIN_INSTANCES`): `sudo nano /srv/house/shared/deploy.conf`에서 고친 뒤 **중단 없이**
@@ -560,7 +568,8 @@ root가 실행하거나 읽는 파일은 모두 root 소유입니다.
   한 번 배포하세요(관리자 사이트가 무중단 모드로 다시 등록되며 이때만 수 초 끊깁니다).
 - **2026-11 배포 키트 갱신 후** (빌드 파일 nginx 직접 제공, 페이지 요청 제한, 이미지 원본 내부 주소, `.env` 웹 빌드 설정):
   `install.sh --kit-only` 로 키트를 갱신한 뒤 6단계 install.sh를 한 번 다시 실행하면 nginx 설정이 새로 만들어지고 `.env`에
-  `NEXT_PUBLIC_SITE_URL`·`MEDIA_ORIGIN` 등 빠진 키가 추가됩니다(기존 값 유지). 이어서 `/srv/house/deploy.sh` — 빌드 설정이 바뀌었으므로 자동으로 다시 빌드합니다.
+  `NEXT_PUBLIC_SITE_URL`·`MEDIA_ORIGIN` 등 빠진 키가 추가됩니다(기존 값 유지). 예전에 만든 `.env`의
+  `CORS_ORIGINS=https://<도메인>,https://admin.<도메인>`은 그대로 둬도 동작하지만, 비워 두는 것이 새 기준입니다. 이어서 `/srv/house/deploy.sh` — 빌드 설정이 바뀌었으므로 자동으로 다시 빌드합니다.
 
 ## 부록: 컨테이너 종단 검증 기록 (2026-11-23)
 
@@ -581,3 +590,24 @@ systemd 없는 Ubuntu 24.04 컨테이너에서 저장소 복사본(로컬 경로
 
 검증하지 못한 부분: 실제 도메인의 인증서 발급(certbot), systemd 서비스 등록·UFW·fail2ban, `restore.sh` 전체 교체
 (배포 키트 자체 테스트 `pnpm test:deploy` 범위), `--no-tls`에서는 Secure 쿠키 때문에 관리자 로그인 흐름을 nginx 경유로 확인하지 않았습니다.
+
+## 부록: 최종 게이트 배포 리허설 (2026-11-24)
+
+같은 컨테이너(systemd 없음)에서 저장소 복사본(`REPO_URL=/tmp/house-deploytest`)으로, 11-23에 설치해 둔 서버를 **업그레이드**하는 순서로 실행했습니다
+(도메인 `suncheonmap.kr` / `admin.suncheonmap.kr`, `--no-tls`, Redis 6380).
+
+1. `install.sh --domain suncheonmap.kr --no-tls …` 재실행 → 도메인이 바뀌었다는 경고(고칠 `.env` 키 목록)대로 `.env`의 주소 7개를 고치고 `CORS_ORIGINS`를 비움.
+   `install.sh --kit-only`로 `/srv/house/bin` 갱신(설치본 = 체크아웃의 `deploy/`).
+2. 첫 `deploy.sh`: 11-23 DB에 새 마이그레이션 9개 적용(마이그레이션 전 백업 생성) → 사전 점검에서 **API가 Redis에 접속하지 못해 중단**(전환 없음, 서비스 영향 없음).
+   원인: systemd 없는 서버에서 install.sh가 Redis를 재시작할 때, 종료 중인 이전 Redis가 PING에 답하는 사이 새 Redis를 띄워 포트 충돌로 둘 다 꺼짐.
+   **수정**: 이전 Redis가 완전히 끝난 뒤 새로 시작(`deploy/lib/common.sh` `redis_start_unmanaged`, 테스트 `deploy/tests/test_redis_start.sh`). 수정본으로 install.sh 재실행 → Redis 정상.
+3. `deploy.sh` 성공(PM2: `house-api` ×2, `house-worker`, `house-web` ×2, `house-admin`). nginx 경유(Host 헤더) 확인:
+   `suncheonmap.kr/api/v1/health/ready` 200(db·redis ok), web·admin `/healthz` 200, `/`·`/suncheon`·`/map/apt`·`admin…/login` 200, `www` → apex 301,
+   사이트 도메인의 `/api/v1/admin/*` 404, `/robots.txt`·`/sitemap.xml`·`/llms.txt` 200, 두 도메인 모두 `Content-Security-Policy` 헤더(관리자는 nonce + `frame-ancestors 'none'`),
+   `/media/...png` 200(immutable 캐시), `/_next/image?url=/media/...` 200 `image/webp`(640×336).
+4. 두 번째 배포(문서만 바뀐 커밋) → `rollback.sh -y`(마이그레이션 호환 확인 → 사전 점검 → 전환) → 다시 `deploy.sh`(배포 끝 사진 최적화 점검 통과).
+   0.25초 간격 폴링(api·web·admin·매물 목록): 롤백 160건, 재배포 340건 모두 200. (0.05초 간격으로 두드리면 nginx 페이지 요청 제한 429가 나오는 것은 정상 동작)
+5. 정리: PM2·nginx·리허설 Redis 중지, 리허설 DB(`house_prod`)·역할 삭제, 백업 cron 해제.
+
+컨테이너 사정으로만 생긴 일(일반 VPS에는 해당 없음): 이 컨테이너는 외부 HTTPS를 인증서를 다시 서명하는 프록시로 내보내서, `house` 사용자의 pnpm 다운로드와
+빌드 때 Google Fonts 받기가 인증서 오류로 실패했습니다. 리허설에서만 그 CA를 `NODE_EXTRA_CA_CERTS`로 넘겨 진행했습니다(복사본 저장소에만 넣은 임시 커밋, 실제 저장소에는 없음).

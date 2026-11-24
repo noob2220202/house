@@ -110,8 +110,7 @@ export function toListingDetailWire(d: ListingDetail): WireListingDetail {
       landArea: p.landArea ?? null,
       totalFloorArea: p.totalFloorArea ?? null,
       rooms: p.rooms ?? null,
-      // As stated by the broker; the fixtures carry only the effective type (in the summary).
-      roomType: null,
+      roomType: p.roomType ?? null,
       baths: p.baths ?? null,
       direction: p.direction ?? null,
       directionBasis: p.directionBasis ?? null,

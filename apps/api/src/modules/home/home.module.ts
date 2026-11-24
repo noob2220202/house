@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ComplexesModule } from '../complexes/complexes.module';
 import { ListingsModule } from '../listings/listings.module';
 import { MediaModule } from '../media/media.module';
-import { GEOCODER, NaverGeocoder } from './clients/naver-geocode.client';
+import { GEOCODER, KakaoGeocoder } from './clients/kakao-geocode.client';
 import { GeoController } from './controllers/geo.controller';
 import { HomeController } from './controllers/home.controller';
 import { FavoriteAgenciesController, InterestRegionsController } from './controllers/me.controller';
@@ -34,7 +34,7 @@ import { SearchSuggestService } from './services/search-suggest.service';
     InterestRegionsController,
   ],
   providers: [
-    { provide: GEOCODER, useClass: NaverGeocoder },
+    { provide: GEOCODER, useClass: KakaoGeocoder },
     HomeStatsService,
     SearchSuggestService,
     GeocodeService,

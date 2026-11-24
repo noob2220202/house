@@ -150,17 +150,24 @@ assert_eq "150 rapid /_next/image requests: no 429" "$(count429 web.test '/_next
 
 # ─── client IP headers for the Next upstreams ───
 start >/dev/null
-for path in /listing/abc '/_next/image?url=%2Fmedia%2Fa.webp&w=64&q=75' /_next/static/chunks/gone.js; do
-  assert_eq "web upstream gets X-Real-IP ($path)" "$(hdr web.test "$path" x-up-real-ip -H 'X-Real-IP: 6.6.6.6')" "127.0.0.1"
-  assert_eq "web upstream gets X-Forwarded-For = client only ($path)" "$(hdr web.test "$path" x-up-xff -H 'X-Forwarded-For: 6.6.6.6')" "127.0.0.1"
+# Every proxied location (pages, API, OAuth, image optimizer, static fallback) on both hosts:
+# X-Forwarded-For is overwritten with the client address and a client X-House-SSR never reaches
+# the upstream. The API's cached-SSR throttle exemption and "SSR reads count no views" rely on it.
+WEB_PROXIED=(/listing/abc /api/v1/listings /api/v1/auth/oauth/kakao/start
+  '/_next/image?url=%2Fmedia%2Fa.webp&w=64&q=75' /_next/static/chunks/gone.js)
+ADMIN_PROXIED=(/members /api/v1/admin/members /api/v1/admin/auth/login
+  '/_next/image?url=%2Fmedia%2Fa.webp&w=64&q=75' /_next/static/chunks/gone.js)
+for path in "${WEB_PROXIED[@]}"; do
+  assert_eq "web: upstream gets X-Real-IP ($path)" "$(hdr web.test "$path" x-up-real-ip -H 'X-Real-IP: 6.6.6.6')" "127.0.0.1"
+  assert_eq "web: X-Forwarded-For = client only ($path)" "$(hdr web.test "$path" x-up-xff -H 'X-Forwarded-For: 6.6.6.6')" "127.0.0.1"
+  # X-House-SSR marks the Next servers' own loopback API calls; a client must never get it through.
+  assert_eq "web: client X-House-SSR is stripped ($path)" "$(hdr web.test "$path" x-up-ssr -H 'X-House-SSR: 1')" "-"
 done
-assert_eq "admin upstream gets X-Real-IP" "$(hdr admin.web.test /members x-up-real-ip)" "127.0.0.1"
-assert_eq "admin upstream gets X-Forwarded-For" "$(hdr admin.web.test /members x-up-xff -H 'X-Forwarded-For: 6.6.6.6')" "127.0.0.1"
-# X-House-SSR marks the Next servers' own loopback API calls; a client must never get it through.
-for path in /listing/abc /api/v1/listings; do
-  assert_eq "client X-House-SSR is stripped ($path)" "$(hdr web.test "$path" x-up-ssr -H 'X-House-SSR: 1')" "-"
+for path in "${ADMIN_PROXIED[@]}"; do
+  assert_eq "admin: upstream gets X-Real-IP ($path)" "$(hdr admin.web.test "$path" x-up-real-ip)" "127.0.0.1"
+  assert_eq "admin: X-Forwarded-For = client only ($path)" "$(hdr admin.web.test "$path" x-up-xff -H 'X-Forwarded-For: 6.6.6.6')" "127.0.0.1"
+  assert_eq "admin: client X-House-SSR is stripped ($path)" "$(hdr admin.web.test "$path" x-up-ssr -H 'X-House-SSR: 1')" "-"
 done
-assert_eq "client X-House-SSR is stripped (admin)" "$(hdr admin.web.test /members x-up-ssr -H 'X-House-SSR: 1')" "-"
 # The pages' CSP comes from the apps (web: csp.mjs, admin: per-request nonce); nginx adds none.
 for host in web.test admin.web.test; do
   hdr "$host" /listing/abc content-security-policy >/dev/null

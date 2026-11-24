@@ -35,16 +35,18 @@ URL. `INBOX_ROUTES` (`features/a-inbox/routes.ts`) holds the paths; `/agent/noti
 
 ## Endpoints used
 
-| Method | Path                                         | Used by                                             | Backend status                                                            |
-| ------ | -------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------- |
-| GET    | `/api/v1/agency/deal-requests`               | request list, stage counters, notification tiles    | README (`?type&page`) — extra query params + response: assumptions 1–3    |
-| GET    | `/api/v1/agency/deal-requests/:id`           | request detail                                      | README ("contact only if granted") — response: assumptions 2, 4           |
-| POST   | `/api/v1/agency/deal-requests/:id/proposals` | send proposal — body `proposalCreateSchema`         | README + shared schema — response: assumption 5; price: assumption 6      |
-| POST   | `/api/v1/agency/proposals/:id/withdraw`      | 제안 철회                                           | README — response: assumption 5                                           |
-| GET    | `/api/v1/me/notifications` (cursor)          | notification feed + unread counter (w-me's hooks)   | README — shapes documented in `w-me.md` (6); agency payload: assumption 9 |
-| POST   | `/api/v1/me/notifications/read`              | mark one / all read                                 | README — `w-me.md` (7)                                                    |
-| GET    | `/api/v1/agencies/mine`                      | office name for the greeting template               | a-agency                                                                  |
-| GET    | `/api/v1/agencies/mine/dashboard`            | only **invalidated** (sidebar badges) after actions | a-agency (assumed there)                                                  |
+| Method | Path                                          | Used by                                             | Backend status                                                            |
+| ------ | --------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------- |
+| GET    | `/api/v1/agency/deal-requests`                | request list (stage tabs without counters)          | API (`?scope&type&assetType&dealType&page`) — assumptions 1–3             |
+| GET    | `/api/v1/agency/proposals?status=SENT,VIEWED` | 응답 대기 tile (`total` only)                       | API (`AgencyProposalView` page)                                           |
+| GET    | `/api/v1/agencies/mine/dashboard`             | 새 요청 tile (`dealRequests.newCount`)              | API (a-agency)                                                            |
+| GET    | `/api/v1/agency/deal-requests/:id`            | request detail                                      | README ("contact only if granted") — response: assumptions 2, 4           |
+| POST   | `/api/v1/agency/deal-requests/:id/proposals`  | send proposal — body `proposalCreateSchema`         | README + shared schema — response: assumption 5; price: assumption 6      |
+| POST   | `/api/v1/agency/proposals/:id/withdraw`       | 제안 철회                                           | README — response: assumption 5                                           |
+| GET    | `/api/v1/me/notifications` (cursor)           | notification feed + unread counter (w-me's hooks)   | README — shapes documented in `w-me.md` (6); agency payload: assumption 9 |
+| POST   | `/api/v1/me/notifications/read`               | mark one / all read                                 | README — `w-me.md` (7)                                                    |
+| GET    | `/api/v1/agencies/mine`                       | office name for the greeting template               | a-agency                                                                  |
+| GET    | `/api/v1/agencies/mine/dashboard`             | only **invalidated** (sidebar badges) after actions | a-agency (assumed there)                                                  |
 
 Error codes handled explicitly (from `packages/shared/src/errors/deal-requests.ts`):
 `DEAL_REQUEST_NOT_FOUND` (404 → "요청을 찾을 수 없어요"), `DEAL_REQUEST_CLOSED`,
@@ -70,10 +72,10 @@ on mutations.
    If the backend keeps only `type&page`, the stage tabs / region / asset filters need a client-side
    fallback (not built — the list is paginated).
 2. **Request as an agency sees it** → `agencyDealRequestSchema`:
-   `{ id, type, status, assetType, dealTypes[], visibility, targeted, requesterName (MASKED, "김*늘"),
+   `{ id, type, status, assetType, dealTypes[], visibility, targeted,
 description?, emdCode?, emdName?, complexId?, complexName?, exclusiveArea?, floor?,
 desiredSalePrice?, desiredDeposit?, desiredMonthlyRent?, photos: MediaDto[], regionCodes[],
-complexIds[], complexNames[], priceMin?, priceMax?, depositMin?, depositMax?, rentMin?, rentMax?,
+complexIds[], priceMin?, priceMax?, depositMin?, depositMax?, rentMin?, rentMax?,
 areaMin?, areaMax?, roomsMin?, moveInDate?, expiresAt?, closedAt?, createdAt, updatedAt?,
 proposalCount, myProposal: MyProposal | null, contactGranted }`.
    - **Privacy**: before consent the API must send only the masked name and the location down to
@@ -81,17 +83,21 @@ proposalCount, myProposal: MyProposal | null, contactGranted }`.
      The UI renders exactly what it receives and reconstructs nothing (unit-tested against the
      fixtures).
    - `targeted` = the requester picked this agency (`SELECTED_AGENCIES`) → "지정 요청" chip.
-   - `complexNames` (display names for `complexIds`), `emdName`, `complexName` are denormalised so
-     the list needs no extra lookups. Region names for `regionCodes` come from w-deal's
-     `SUNCHEON_REGIONS` table.
+   - The API sends **no requester name** before consent (only `contact.name` with a grant) and
+     **no names for `complexIds`**: the UI shows "요청자 · 연락처 비공개" and "선택한 단지 N곳".
+     `complexName` comes from the backend `complex{id,name}` (내놓기), `emdName` and the names of
+     `regionCodes` from w-deal's `SUNCHEON_REGIONS` table.
    - `proposalCount` = proposals from all agencies ("다른 사무소 제안 N곳" = count − ours).
    - `expiresAt` drives "마감 D-n" (the README mentions expiry via the cleanup job; the field name
      is assumed).
-3. **`stageCounts`** on the list response: `{ NEW, PROPOSED, ACCEPTED, ENDED }` for the current
-   type / region / asset filters, ignoring `stage` (tab counters; also the tiles on
-   `/agent/notifications`, fetched with `pageSize=1`). The stage is derived (`lib/stage.ts`):
+3. **No stage counters.** The API list has no `stageCounts`, so the stage tabs show no numbers.
+   The `/agent/notifications` tiles read 새 요청 from `GET /agencies/mine/dashboard`
+   (`dealRequests.newCount`) and 응답 대기 from `GET /agency/proposals?status=SENT,VIEWED&pageSize=1`
+   (`total`). The stage is derived (`lib/stage.ts`):
    ENDED = request not OPEN/MATCHED, or our proposal DECLINED/WITHDRAWN · ACCEPTED = our proposal
    ACCEPTED or contact granted · PROPOSED = our proposal SENT/VIEWED · NEW = no proposal yet.
+   **Open:** the real list query is `scope&type&assetType&dealType&page&pageSize`; the inbox's
+   `stage`, `regionCodes`, `assetTypes` and `sort` are honoured only by the mock.
 4. **Detail** → `agencyDealRequestDetailSchema` = the list item with the full `myProposal` plus
    `contact: { name, phone, roadAddress?, addressDetail?, grantedAt? } | null` — present **only
    while the DealRequestContactGrant for this agency is active** (revocation makes it `null` again).
@@ -133,12 +139,13 @@ exclusiveArea?, floorLabel?, rooms?, emdCode?, emdName?, complexId?, thumbUrl?, 
 
 | Folder / file                                    | What                                                                                                                                                  |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `deal-requests/route.ts`, `[id]/route.ts`        | List (+ `stageCounts`) and detail. Dev switches: `?_empty=1`, `?_fail=1`, `?_delay=ms`.                                                               |
+| `deal-requests/route.ts`, `[id]/route.ts`        | List and detail. Dev switches: `?_empty=1`, `?_fail=1`, `?_delay=ms`.                                                                                 |
 | `deal-requests/[id]/proposals/route.ts`          | Create a proposal (validates with `proposalCreateSchema`, 409 duplicate / closed, own ACTIVE listings only).                                          |
 | `deal-requests/[id]/listing-candidates/route.ts` | Picker source.                                                                                                                                        |
 | `deal-requests/_seed.ts`, `_listings.ts`         | 11 seeded requests of fictional people covering every stage (req-01 … req-11) and 16 ACTIVE listings of the mock office (ids reuse the public mocks). |
-| `deal-requests/_store.ts`                        | Agency view of the store, DTO mapping (name masking, contact only with a grant), guards, agency notifications.                                        |
+| `deal-requests/_store.ts`                        | Agency view of the store, DTO mapping (no requester name, contact only with a grant), guards, agency notifications.                                   |
 | `proposals/[id]/withdraw/route.ts`               | Withdraw.                                                                                                                                             |
+| `proposals/route.ts`                             | `GET` list (`?status` CSV, `AgencyProposalView` shape) — the 응답 대기 tile reads its `total`.                                                        |
 
 `agency/listings/**` belongs to a-listings and is not touched.
 

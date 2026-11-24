@@ -7,6 +7,7 @@ import { resolveSessionOnce } from '../auth/session-resolver';
 import {
   HouseThrottlerGuard,
   isLocalSsrCachedRead,
+  isLocalSsrRequest,
   isLoopbackAddress,
   principalTracker,
 } from './house-throttler.guard';
@@ -92,6 +93,17 @@ describe('isLocalSsrCachedRead (Next.js cached reads on this host)', () => {
     ).toBe(false);
     expect(isLocalSsrCachedRead(ssr({ headers: {} }))).toBe(false);
     expect(isLocalSsrCachedRead(ssr({ headers: { 'x-house-ssr': 'yes' } }))).toBe(false);
+  });
+
+  it('isLocalSsrRequest: any method, with or without a forwarded visitor, loopback + marker only', () => {
+    expect(isLocalSsrRequest(ssr())).toBe(true);
+    expect(
+      isLocalSsrRequest(ssr({ headers: { 'x-house-ssr': '1', 'x-forwarded-for': '203.0.113.9' } })),
+    ).toBe(true);
+    expect(isLocalSsrRequest(ssr({ method: 'POST', peer: '::1' }))).toBe(true);
+    expect(isLocalSsrRequest(ssr({ peer: '203.0.113.9' }))).toBe(false);
+    expect(isLocalSsrRequest(ssr({ headers: {} }))).toBe(false);
+    expect(isLocalSsrRequest(ssr({ headers: { 'x-house-ssr': '0' } }))).toBe(false);
   });
 
   it('recognizes loopback addresses only', () => {

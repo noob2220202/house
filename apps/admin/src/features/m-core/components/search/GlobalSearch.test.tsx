@@ -27,8 +27,8 @@ const RESULT = {
   listings: {
     total: 2,
     items: [
-      { id: 'l1', listingNo: '26110001', title: '신대 레이크파크 1단지 103동 34평' },
-      { id: 'l2', listingNo: '26110006', title: '신대 레이크파크 3단지 301동 39평' },
+      { id: 'l1', listingNo: '100001', title: '신대 레이크파크 1단지 103동 34평' },
+      { id: 'l2', listingNo: '100006', title: '신대 레이크파크 3단지 301동 39평' },
     ],
   },
   agencies: { total: 1, items: [{ id: 'a1', name: '신대중앙 공인중개사사무소' }] },
@@ -55,8 +55,8 @@ describe('<GlobalSearch>', () => {
     await userEvent.type(input, '신대');
     const options = await screen.findAllByRole('option');
     expect(options.map((o) => o.textContent)).toEqual([
-      '신대 레이크파크 1단지 103동 34평매물 26110001',
-      '신대 레이크파크 3단지 301동 39평매물 26110006',
+      '신대 레이크파크 1단지 103동 34평매물 100001',
+      '신대 레이크파크 3단지 301동 39평매물 100006',
       '신대중앙 공인중개사사무소중개사',
       '‘신대’ 전체 결과 보기3건',
     ]);

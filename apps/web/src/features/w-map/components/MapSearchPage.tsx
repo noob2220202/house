@@ -81,10 +81,10 @@ import { SearchBox, useFavorite } from './shared';
 import s from './MapSearchPage.module.css';
 
 /**
- * City view. The stylized static map (no Naver key) is centred on its own artwork so the whole
+ * City view. The stylized static map (no Kakao key) is centred on its own artwork so the whole
  * city is visible; the real map opens on the shared default centre (순천시청).
  */
-const FALLBACK_VIEW: MapViewState = env.naverMapKeyId
+const FALLBACK_VIEW: MapViewState = env.kakaoMapKey
   ? { center: DEFAULT_MAP_CENTER, zoom: DEFAULT_MAP_ZOOM }
   : {
       center: {
@@ -156,8 +156,8 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
   const [mapRef, mapSize] = useElementSize<HTMLDivElement>();
   const [panelRef, panelSize] = useElementSize<HTMLElement>();
   const [adRef, adSize] = useElementSize<HTMLDivElement>();
-  const [naverView, setNaverView] = useState<{ bounds: MapBounds; zoom: number } | null>(null);
-  const [naverFailed, setNaverFailed] = useState(false);
+  const [kakaoView, setKakaoView] = useState<{ bounds: MapBounds; zoom: number } | null>(null);
+  const [kakaoFailed, setKakaoFailed] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const { locate: requestLocation, locating, dialog: locationDialog } = useMyLocation();
   const [myPos, setMyPos] = useState<LatLng | null>(null);
@@ -185,14 +185,14 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
 
   // ---- visible bounds --------------------------------------------------------------------------
   // The static map does not report programmatic moves, so its bounds are derived from the URL view
-  // (same linear projection it draws with). The Naver map reports its own bounds on every idle.
-  const isStatic = !env.naverMapKeyId || naverFailed;
+  // (same linear projection it draws with). The Kakao map reports its own bounds on every idle.
+  const isStatic = !env.kakaoMapKey || kakaoFailed;
   const bounds = useMemo<MapBounds | null>(() => {
-    if (!isStatic) return naverView?.bounds ?? null;
+    if (!isStatic) return kakaoView?.bounds ?? null;
     if (mapSize.width === 0 || mapSize.height === 0) return null;
     return staticViewBounds(view.center, view.zoom, mapSize, SUNCHEON_MAP_VIEWBOX);
-  }, [isStatic, naverView, mapSize, view]);
-  const queryZoom = isStatic ? view.zoom : (naverView?.zoom ?? view.zoom);
+  }, [isStatic, kakaoView, mapSize, view]);
+  const queryZoom = isStatic ? view.zoom : (kakaoView?.zoom ?? view.zoom);
   // Mobile: the map element keeps the full page height and the sheet lies over its lower part, so
   // nothing resizes when the sheet moves. Queries cover only what stays visible above the sheet.
   const coveredPx = isMobile ? sheetHeightPx(openStop, mapSize.height) : 0;
@@ -393,7 +393,7 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
   // ---- handlers --------------------------------------------------------------------------------
   const onViewChange = useCallback(
     (change: MapViewChange) => {
-      setNaverView({ bounds: change.bounds, zoom: change.zoom });
+      setKakaoView({ bounds: change.bounds, zoom: change.zoom });
       let center = change.center;
       if (isMobile && !landed.current) {
         landed.current = true;
@@ -646,7 +646,7 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
       onMarkerClick={onMarkerClick}
       onViewChange={onViewChange}
       onMapClick={onMapClick}
-      onError={() => setNaverFailed(true)}
+      onError={() => setKakaoFailed(true)}
     >
       {myDot && myDotInView && (
         <div className={s.meLayer} data-moving={moving || undefined}>

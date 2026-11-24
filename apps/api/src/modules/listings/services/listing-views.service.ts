@@ -131,6 +131,17 @@ export class ListingViewsService {
     }
   }
 
+  /** Current total without counting (Redis total, else `dbCount`; `dbCount` on Redis errors). */
+  async current(listingId: string, dbCount: number): Promise<number> {
+    try {
+      const v = Number(await this.redis.hget(LISTINGS_REDIS_KEYS.viewTotals, listingId));
+      return Number.isFinite(v) ? Math.max(v, dbCount) : dbCount;
+    } catch (err) {
+      this.logger.warn({ err, listingId }, 'view count read failed');
+      return dbCount;
+    }
+  }
+
   /**
    * Counted listing views per (asset type, 지역) summed over the KST days `fromAge` … `toAge`
    * days ago (0 = today), e.g. (0, 6) = this week, (7, 13) = the week before. Empty on Redis errors.

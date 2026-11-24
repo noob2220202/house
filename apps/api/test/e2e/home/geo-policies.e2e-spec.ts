@@ -49,7 +49,7 @@ describe('home: GET /geo/geocode + policies (e2e)', () => {
           lng: 127.66,
         },
       ]);
-      // Naver still answers the legacy 46150 code for 신대리; 여수 is outside the region.
+      // The geocoder may still answer the legacy 46150 code for 신대리; 여수 is outside the region.
       geocoder.codes.set('34.9362,127.5551', '4615031022');
       geocoder.codes.set('34.76,127.66', '4613010100');
 
@@ -70,6 +70,34 @@ describe('home: GET /geo/geocode + policies (e2e)', () => {
       // Cached: a repeat does not call the geocoder again.
       await get('신대1로 18').expect(200);
       expect(geocoder.queries).toEqual(['순천시 신대1로 18']);
+    });
+
+    it('uses the 법정동 code of the address answer (Kakao b_code) without a reverse lookup', async () => {
+      geocoder.hits.set('순천시 연향3로 41', [
+        {
+          roadAddress: '전남 순천시 연향3로 41',
+          jibunAddress: '전남 순천시 연향동 1350',
+          zipCode: '57990',
+          buildingName: null,
+          lat: 34.9466,
+          lng: 127.5161,
+          legalCode: '4615011400',
+        },
+      ]);
+      const res = await get('연향3로 41').expect(200);
+      expect(res.body.items).toEqual([
+        {
+          roadAddress: '전남 순천시 연향3로 41',
+          jibunAddress: '전남 순천시 연향동 1350',
+          zipCode: '57990',
+          buildingName: null,
+          lat: 34.9466,
+          lng: 127.5161,
+          emdCode: '1215011400',
+        },
+      ]);
+      expect(res.body.items[0]).not.toHaveProperty('legalCode');
+      expect(geocoder.reverseLookups).toEqual([]);
     });
 
     it('400 for a too short / too long query, 401 anonymous', async () => {

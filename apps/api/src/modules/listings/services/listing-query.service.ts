@@ -83,8 +83,17 @@ export class ListingQueryService {
     );
   }
 
-  /** Public detail of an ACTIVE/RESERVED listing; counts a deduped view and a recent view. */
-  async detail(id: string, principal: Principal | undefined): Promise<ListingDetail> {
+  /**
+   * Public detail of an ACTIVE/RESERVED listing; counts a deduped view and a recent view unless
+   * `recordView` is false (the Next.js SSR read: the browser beacon counts instead), in which case
+   * `viewCount` is the current total without counting.
+   */
+  async detail(
+    id: string,
+    principal: Principal | undefined,
+    opts: { recordView?: boolean } = {},
+  ): Promise<ListingDetail> {
+    const recordView = opts.recordView ?? true;
     const row = await this.prisma.listing.findFirst({
       where: {
         id,
@@ -97,17 +106,21 @@ export class ListingQueryService {
     if (!row) throw AppException.notFound(ErrorCode.LISTING_NOT_FOUND);
     const userId = principal?.kind === 'USER' ? principal.userId : null;
     const [viewCount, isFavorite, emdName] = await Promise.all([
-      this.views.record(row.id, this.views.viewerKey(principal), row.viewCount, row),
+      recordView
+        ? this.views.record(row.id, this.views.viewerKey(principal), row.viewCount, row)
+        : this.views.current(row.id, row.viewCount),
       userId ? this.favorites.isFavorite(userId, row.id) : Promise.resolve(false),
       this.regionNames.nameOf(row.emdCode),
-      userId ? this.recent.record(userId, RecentViewTarget.LISTING, row.id) : Promise.resolve(),
+      userId && recordView
+        ? this.recent.record(userId, RecentViewTarget.LISTING, row.id)
+        : Promise.resolve(),
     ]);
     return { ...this.mapper.publicDetail(row, isFavorite, emdName), viewCount };
   }
 
   /**
    * POST /listings/:id/view — the browser-side view beacon: counts a view (same per-viewer dedupe
-   * as the detail read, so SSR + beacon count once) and, for a signed-in user, the recent view.
+   * as a counting detail read, so a direct read + beacon count once) and, for a signed-in user, the recent view.
    */
   async recordView(id: string, principal: Principal | undefined): Promise<void> {
     const row = await this.prisma.listing.findFirst({

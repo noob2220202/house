@@ -187,11 +187,11 @@ describe('map geometry', () => {
       z13,
     );
     expect(panned!.swLng).toBeGreaterThan(z13!.swLng);
-    // Unknown size → no query yet; the Naver map keeps using what it reported.
+    // Unknown size → no query yet; the Kakao map keeps using what it reported.
     expect(
       currentMapBounds('static', { center, zoom: 13 }, { width: 0, height: 0 }, null),
     ).toBeNull();
-    expect(currentMapBounds('naver', { center, zoom: 15 }, size, z13)).toBe(z13);
+    expect(currentMapBounds('kakao', { center, zoom: 15 }, size, z13)).toBe(z13);
   });
 
   it('knows the service area', () => {

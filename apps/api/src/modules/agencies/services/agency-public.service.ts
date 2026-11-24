@@ -23,11 +23,7 @@ import { toPaginated, toSkipTake } from '../../../common/pagination/pagination';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AgencyMapper, toBusinessHours } from '../agency.mapper';
 import { agencyProfileSelect, agencySummarySelect } from '../agency.selects';
-import {
-  AgencySearchRepository,
-  kstClock,
-  type AgencyFilter,
-} from '../agency-search.repository';
+import { AgencySearchRepository, kstClock, type AgencyFilter } from '../agency-search.repository';
 import {
   MAP_CACHE_TTL_SECONDS,
   PROFILE_CACHE_TTL_SECONDS,

@@ -21,7 +21,7 @@ All paths are under the global prefix `/api/v1`. Default is authenticated; publi
 | ------ | --------------------------------------------------------- | ----------------------------------------- |
 | GET    | `/map/search?bbox&zoom&…filters`                          | Public (Redis tile cache, 30 s + version) |
 | GET    | `/listings?…filters&bbox&sort&page&pageSize`              | Public                                    |
-| GET    | `/listings/:id` (counts a deduped view + recent view)     | Public                                    |
+| GET    | `/listings/:id` (counts a view, except the SSR read)      | Public                                    |
 | GET    | `/listings/:id/similar` (같은 단지 / 평형 / 가격대)       | Public (Redis 2 min + search version)     |
 | POST   | `/listings/:id/view` → 204 (view beacon, same dedupe)     | Public                                    |
 | GET    | `/agency/listings/summary` (status tabs + reminders)      | AGENT / AGENCY_OWNER (own agency)         |
@@ -55,10 +55,15 @@ total, items: ListingSummary[] }] }` (`SimilarListingsService`). 같은 단지 =
     type; 같은 평형 = same deal type, 전용 ±16㎡ (토지: 대지 ±20 %), same 지역, other 단지; 같은 가격대 =
     same deal type, `priceSort` ±20 % (≥ ±500만원), other 단지. First 8 cards each; empty groups are
     dropped; same asset type and public visibility rules as search.
-  - `POST /listings/:id/view` (204, `Cache-Control: no-store`): same viewer key as the detail read
-    (user id, else hash of IP + UA — the SSR frontend forwards `X-Forwarded-For` / `User-Agent`), so
-    SSR read + beacon count once; records the recent view of a signed-in user. CSRF applies as usual
-    to cookie sessions.
+  - `POST /listings/:id/view` (204, `Cache-Control: no-store`): the browser beacon of the detail
+    page — it is what counts a page view. Same viewer key as a counting detail read (user id, else
+    hash of IP + UA), so a direct `GET /listings/:id` + beacon count once; records the recent view of
+    a signed-in user. CSRF applies as usual to cookie sessions.
+  - `GET /listings/:id` from the Next.js server (loopback peer + `x-house-ssr: 1`,
+    `isLocalSsrRequest`, with or without a forwarded visitor) counts nothing: no view, no region
+    view, no recent view; `viewCount` is the current Redis total (else the DB count). Cached
+    renders, prefetches and script-less bots therefore never inflate the counter. Other callers
+    (apps, scripts, direct API use) still count a deduped view + recent view.
   - Every counted view (detail or beacon) also adds 1 to `listings:views:region-daily:<KST day>`
     (member `ASSET_TYPE|regionKey`, `domain/region-key.ts`: 8-digit 읍면동 / 10-digit 리) for the home
     "많이 찾는 지역" ranking (`ListingViewsService.regionViews`). Admins and bot UAs (anonymous) are
