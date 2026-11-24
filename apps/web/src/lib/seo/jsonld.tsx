@@ -185,8 +185,13 @@ export interface ListingJsonLdInput {
   name: string;
   description?: string;
   images?: readonly string[];
-  /** Price in 원 (KRW). For 월세 pass the monthly rent. */
+  /**
+   * Price in 원 (KRW): 매매가 / 분양가, 전세 보증금, and for 월세 the 보증금 (the rent goes in
+   * `monthlyRentWon`) — the same figures the page's 거래 금액 shows.
+   */
   priceWon?: number | null;
+  /** 월세 only: monthly rent in 원. The offer then carries 보증금 + 월세 as two price specs. */
+  monthlyRentWon?: number | null;
   address?: { region?: string; locality?: string; street?: string };
   geo?: { lat: number; lng: number } | null;
   floorSizeSqm?: number | null;
@@ -213,22 +218,7 @@ export function listingJsonLd(l: ListingJsonLdInput): JsonLdNode {
     url: absoluteUrl(l.path),
     image: l.images?.map((i) => absoluteUrl(i)),
     datePosted: l.datePosted,
-    offers:
-      l.priceWon !== null && l.priceWon !== undefined
-        ? {
-            '@type': 'Offer',
-            price: l.priceWon,
-            priceCurrency: 'KRW',
-            businessFunction:
-              l.offerType === 'sale'
-                ? 'http://purl.org/goodrelations/v1#Sell'
-                : 'http://purl.org/goodrelations/v1#LeaseOut',
-            availability:
-              l.availability === 'reserved'
-                ? 'https://schema.org/Reserved'
-                : 'https://schema.org/InStock',
-          }
-        : undefined,
+    offers: listingOffer(l),
     about: {
       '@type': itemType,
       address: l.address
@@ -246,6 +236,44 @@ export function listingJsonLd(l: ListingJsonLdInput): JsonLdNode {
       containedInPlace: l.complexPath ? { '@id': complexNodeId(l.complexPath) } : undefined,
     },
   };
+}
+
+/**
+ * The Offer of a listing, with the prices the page states: one `price` for 매매 / 분양 / 전세; for
+ * 월세 no single price (the rent alone would understate it) but 보증금 and 월세 (per month) as
+ * separate price specifications. 계약중 = Reserved. Omitted when the price is undisclosed.
+ */
+function listingOffer(l: ListingJsonLdInput): JsonLdNode | undefined {
+  const deal = {
+    '@type': 'Offer',
+    priceCurrency: 'KRW',
+    businessFunction:
+      l.offerType === 'sale'
+        ? 'http://purl.org/goodrelations/v1#Sell'
+        : 'http://purl.org/goodrelations/v1#LeaseOut',
+    availability:
+      l.availability === 'reserved' ? 'https://schema.org/Reserved' : 'https://schema.org/InStock',
+  } satisfies JsonLdNode;
+  const has = (n: number | null | undefined): n is number => n !== null && n !== undefined;
+  if (has(l.monthlyRentWon)) {
+    return {
+      ...deal,
+      priceSpecification: [
+        ...(has(l.priceWon)
+          ? [{ '@type': 'PriceSpecification', name: '보증금', price: l.priceWon, priceCurrency: 'KRW' }]
+          : []),
+        {
+          '@type': 'UnitPriceSpecification',
+          name: '월세',
+          price: l.monthlyRentWon,
+          priceCurrency: 'KRW',
+          unitCode: 'MON',
+          referenceQuantity: { '@type': 'QuantitativeValue', value: 1, unitCode: 'MON' },
+        },
+      ],
+    };
+  }
+  return has(l.priceWon) ? { ...deal, price: l.priceWon } : undefined;
 }
 
 export const complexNodeId = (path: string) => `${absoluteUrl(path)}#complex`;

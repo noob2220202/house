@@ -182,8 +182,9 @@ export function listingFullTitle(l: ListingDetail): string {
 export function regionLine(l: ListingDetail): string {
   const emd = l.property.emdName ?? l.complex?.emdName;
   if (emd) return `순천시 ${emd}`;
+  // 시도 prefix: 전남광주통합특별시 since 2026-07-01 (D1); older addresses may still say 전라남도.
   return l.property.roadAddress
-    .replace(/^전라남도\s*/, '')
+    .replace(/^(전남광주통합특별시|전라남도)\s*/, '')
     .split(/\s+/)
     .slice(0, 2)
     .join(' ');

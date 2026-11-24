@@ -31,8 +31,8 @@ describe('user-site Content-Security-Policy (csp.mjs)', () => {
   it('allows the postcode and YouTube iframes, and nothing can frame or plug in', () => {
     expect(prod.get('frame-src')).toEqual(
       expect.arrayContaining([
-        'https://postcode.map.kakao.com',
-        'https://postcode.map.daum.net',
+        'postcode.map.kakao.com',
+        'postcode.map.daum.net',
         'https://www.youtube-nocookie.com',
       ]),
     );

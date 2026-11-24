@@ -310,6 +310,8 @@ describe('content: notices / FAQ / videos / site settings (e2e)', () => {
       privacyOfficer: '김개인',
       phone: '061-123-4567',
       email: 'help@example.com',
+      // 전자상거래법 시행령 제7조 표시사항, rendered in the user-site footer.
+      hostingProvider: '테스트클라우드 주식회사',
     };
 
     it('ADMIN reads/writes settings; public bundle is cached and invalidated', async () => {

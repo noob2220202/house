@@ -38,7 +38,10 @@ const NAVER_SCRIPT = [
   'https://*.pstatic.net',
 ];
 const POSTCODE_SCRIPT = ['https://t1.kakaocdn.net', 'https://t1.daumcdn.net'];
-const POSTCODE_FRAME = ['https://postcode.map.kakao.com', 'https://postcode.map.daum.net'];
+// Scheme-less on purpose: the postcode script frames its search page with the page's own scheme,
+// so this allows https on the site (https only, CSP never downgrades) and http on a local http dev
+// server.
+const POSTCODE_FRAME = ['postcode.map.kakao.com', 'postcode.map.daum.net'];
 const YOUTUBE_FRAME = ['https://www.youtube-nocookie.com', 'https://www.youtube.com'];
 /** Map tiles/markers, YouTube thumbnails, OAuth profile pictures (Kakao, Naver, Google). */
 const IMAGE_HOSTS = [

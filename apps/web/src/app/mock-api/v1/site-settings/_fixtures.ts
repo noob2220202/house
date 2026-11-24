@@ -12,6 +12,7 @@ export const PUBLIC_SITE_SETTINGS = {
     privacyOfficer: '[개인정보보호책임자]',
     phone: '[대표번호]',
     email: '[이메일]',
+    hostingProvider: '[호스팅서비스 제공자]',
   },
   CONTACT: {
     phone: '[대표번호]',

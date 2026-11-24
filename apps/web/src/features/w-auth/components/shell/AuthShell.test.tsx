@@ -21,6 +21,7 @@ vi.mock('@/lib/site/settings', () => ({
     privacyOfficer: '김보호',
     phone: '061-000-0000',
     email: 'help@example.com',
+    hostingProvider: '테스트클라우드(주)',
   }),
 }));
 
@@ -32,6 +33,7 @@ describe('<MiniFooter> (login, signup, auth pages)', () => {
       ['사업자등록번호', '000-00-00000'],
       ['통신판매업 신고', '2026-전남순천-0000'],
       ['개인정보보호책임자', '김보호'],
+      ['호스팅서비스 제공', '테스트클라우드(주)'],
     ] as const) {
       expect(screen.getByText(label, { selector: 'dt' }).parentElement).toHaveTextContent(value);
     }

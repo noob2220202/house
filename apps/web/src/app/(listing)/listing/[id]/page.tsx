@@ -8,6 +8,7 @@ import {
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect, redirect } from 'next/navigation';
 import { cache } from 'react';
+import { BRAND } from '@/config/brand';
 import { ROUTES } from '@/config/nav';
 import {
   EMPTY_SIMILAR,
@@ -172,15 +173,18 @@ export default async function ListingDetailPage({ params }: Props) {
             name: listingFullTitle(listing),
             description: metaDescription(listing),
             images: listing.photos.slice(0, 6).map((p) => p.url),
-            priceWon:
-              listing.dealType === DealType.MONTHLY
-                ? listing.monthlyRent !== null && listing.monthlyRent !== undefined
-                  ? listing.monthlyRent * 10_000
-                  : null
-                : amount !== null
-                  ? amount * 10_000
-                  : null,
-            address: { locality: '순천시', street: regionLine(listing).replace(/^순천시\s*/, '') },
+            // Same figures as the page's 거래 금액: 월세 = 보증금 + 월세, never the rent alone.
+            priceWon: amount !== null ? amount * 10_000 : null,
+            monthlyRentWon:
+              listing.dealType === DealType.MONTHLY &&
+              listing.monthlyRent !== null &&
+              listing.monthlyRent !== undefined
+                ? listing.monthlyRent * 10_000
+                : null,
+            address: {
+              locality: BRAND.region,
+              street: regionLine(listing).replace(new RegExp(`^${BRAND.region}\\s*`), ''),
+            },
             geo: { lat: listing.property.lat, lng: listing.property.lng },
             floorSizeSqm: listing.property.exclusiveArea ?? listing.property.landArea,
             rooms: listing.property.rooms,

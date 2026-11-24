@@ -1,4 +1,6 @@
 'use client';
+// First: zod must know about the CSP before anything parses (see the module).
+import '@/lib/security/zod-csp';
 import { ToastProvider } from '@house/ui';
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';

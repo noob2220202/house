@@ -148,6 +148,7 @@ export const businessInfoValueSchema = z
     privacyOfficer: z.string().default(''),
     phone: z.string().default(''),
     email: z.string().default(''),
+    hostingProvider: z.string().optional(),
   })
   .loose();
 export type BusinessInfoValue = z.infer<typeof businessInfoValueSchema>;

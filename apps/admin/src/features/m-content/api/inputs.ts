@@ -192,6 +192,8 @@ export const businessInfoFormSchema = z.object({
   privacyOfficer: required('개인정보보호책임자', 50),
   phone,
   email,
+  /** 호스팅서비스 제공자 (전자상거래법 시행령 제7조). Optional like the shared schema. */
+  hostingProvider: z.string().trim().max(100, '100자까지 입력할 수 있어요.').optional(),
 });
 export type BusinessInfoForm = z.infer<typeof businessInfoFormSchema>;
 

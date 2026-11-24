@@ -23,6 +23,7 @@ const FIELDS = [
   'privacyOfficer',
   'phone',
   'email',
+  'hostingProvider',
 ] as const;
 
 /** Same items, order and placeholders as the user-site footer (apps/web SiteFooter). */
@@ -35,6 +36,11 @@ function FooterPreview({ values }: { values: Values }) {
     { label: '주소', value: values.address, fallback: '[주소]' },
     { label: '개인정보보호책임자', value: values.privacyOfficer, fallback: '[개인정보보호책임자]' },
     { label: '이메일', value: values.email, fallback: '[이메일]' },
+    {
+      label: '호스팅서비스 제공',
+      value: values.hostingProvider ?? '',
+      fallback: '[호스팅서비스 제공자]',
+    },
   ];
   return (
     <div className={styles.footerPreview}>
@@ -74,6 +80,7 @@ export function BusinessInfoForm() {
       privacyOfficer: stored?.privacyOfficer ?? '',
       phone: stored?.phone ?? '',
       email: stored?.email ?? '',
+      hostingProvider: stored?.hostingProvider ?? '',
     }),
     [stored],
   );
@@ -97,7 +104,11 @@ export function BusinessInfoForm() {
   const businessNumber = register('businessNumber');
   const onSubmit = (v: Values) =>
     save.mutate(
-      { ...v, mailOrderNumber: v.mailOrderNumber?.trim() || undefined },
+      {
+        ...v,
+        mailOrderNumber: v.mailOrderNumber?.trim() || undefined,
+        hostingProvider: v.hostingProvider?.trim() || undefined,
+      },
       {
         onSuccess: () => toast('사업자 정보를 저장했어요. 사용자 화면 푸터에는 5분 안에 반영돼요.'),
         onError: (e) => {
@@ -117,7 +128,7 @@ export function BusinessInfoForm() {
         <Panel title="사업자 정보" description="전자상거래법 표시사항 · 사용자 화면 푸터에 보여요">
           {query.isPending ? (
             <div className={s.formGrid} aria-busy="true">
-              {Array.from({ length: 8 }, (_, i) => (
+              {Array.from({ length: 9 }, (_, i) => (
                 <Skeleton key={i} height={72} radius={12} />
               ))}
             </div>
@@ -205,6 +216,16 @@ export function BusinessInfoForm() {
                     placeholder="help@example.com"
                     error={errors.email?.message}
                     {...register('email')}
+                  />
+                </div>
+                <div className={s.spanAll}>
+                  <Input
+                    label="호스팅서비스 제공자"
+                    maxLength={100}
+                    placeholder="예: ○○클라우드 주식회사"
+                    help="서버를 빌려 쓰는 업체(호스팅·클라우드)의 상호예요. 전자상거래법상 표시사항이에요."
+                    error={errors.hostingProvider?.message}
+                    {...register('hostingProvider')}
                   />
                 </div>
               </div>

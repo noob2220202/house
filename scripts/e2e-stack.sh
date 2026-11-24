@@ -232,10 +232,14 @@ ADMIN_BOOTSTRAP_PASSWORD=$E2E_ADMIN_PASSWORD" ./node_modules/.bin/prisma db seed
 }
 
 build_all() {
-  local shared_dist="$ROOT/packages/shared/dist/index.js"
-  if [[ ! -f "$shared_dist" ]] || [[ -n "$(find "$ROOT/packages/shared/src" -newer "$shared_dist" -print -quit)" ]]; then
+  # Both builds: CommonJS dist/ (api) and ES modules dist/esm/ (Next bundles, `module` export condition).
+  local shared_dist="$ROOT/packages/shared/dist/index.js" shared_esm="$ROOT/packages/shared/dist/esm/index.js"
+  if [[ ! -f "$shared_dist" ]] || [[ ! -f "$shared_esm" ]] ||
+    [[ -n "$(find "$ROOT/packages/shared/src" -newer "$shared_dist" -print -quit)" ]] ||
+    [[ -n "$(find "$ROOT/packages/shared/src" -newer "$shared_esm" -print -quit)" ]]; then
     log "building @house/shared"
-    (cd "$ROOT/packages/shared" && ./node_modules/.bin/tsc -p tsconfig.build.json) >"$LOG_DIR/build-shared.log" 2>&1 || {
+    (cd "$ROOT/packages/shared" && ./node_modules/.bin/tsc -p tsconfig.build.json &&
+      ./node_modules/.bin/tsc -p tsconfig.esm.json) >"$LOG_DIR/build-shared.log" 2>&1 || {
       tail -n 30 "$LOG_DIR/build-shared.log" >&2
       die "@house/shared build failed"
     }
