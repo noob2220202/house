@@ -1,0 +1,46 @@
+.btn {
+  position: relative;
+  width: var(--hit);
+  height: var(--hit);
+  padding: 0;
+  border-radius: var(--r-md);
+  display: inline-grid;
+  place-items: center;
+  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  flex: none;
+  cursor: pointer;
+  transition:
+    background var(--dur-1),
+    color var(--dur-1),
+    border-color var(--dur-1);
+}
+.btn:hover {
+  background: var(--surface-2);
+}
+.btn:disabled {
+  color: var(--icon-muted);
+  cursor: not-allowed;
+}
+.plain {
+  border-color: transparent;
+  background: transparent;
+}
+.floating {
+  border: 0;
+  box-shadow: var(--sh-1);
+}
+.round {
+  border-radius: 50%;
+}
+.on,
+.on:hover {
+  color: var(--danger);
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+}
+.floating.on {
+  border: 0;
+  background: var(--surface);
+}

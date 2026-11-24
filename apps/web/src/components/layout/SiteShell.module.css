@@ -1,0 +1,44 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--surface);
+}
+.ground {
+  background: var(--ground);
+}
+.main {
+  flex: 1;
+  min-width: 0;
+  outline: none;
+}
+.fill {
+  height: 100dvh;
+}
+.fill .main {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.skip {
+  position: absolute;
+  left: 12px;
+  top: -80px;
+  z-index: calc(var(--z-header) + 1);
+  padding: 10px 16px;
+  border-radius: var(--r-md);
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+  font-size: 14px;
+  font-weight: 700;
+  transition: top var(--dur-1);
+}
+.skip:focus {
+  top: 12px;
+}
+@media (max-width: 720px) {
+  .withTabBar {
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  }
+}

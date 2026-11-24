@@ -1,0 +1,60 @@
+/* MobileHome `.deal2` / `.d2` */
+.section {
+  padding-block: 16px 26px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 14px 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+.icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.chev {
+  margin-left: auto;
+  color: var(--icon-muted);
+}
+.sub {
+  padding-top: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-3);
+}
+.ink {
+  border-color: var(--surface-ink);
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+}
+.ink .icon {
+  background: rgba(233, 215, 168, 0.16);
+  color: var(--accent);
+}
+.ink .sub,
+.ink .chev {
+  color: var(--text-on-ink-2);
+}

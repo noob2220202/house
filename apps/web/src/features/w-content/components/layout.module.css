@@ -1,0 +1,38 @@
+/* Shared page scaffolding of the w-content routes. */
+.page {
+  padding-bottom: 96px;
+}
+.narrow {
+  max-width: 920px;
+}
+.tabs {
+  margin-top: 28px;
+}
+.body {
+  margin-top: 32px;
+}
+.state {
+  display: grid;
+  place-items: center;
+  padding: 56px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+}
+@media (max-width: 720px) {
+  .page {
+    padding-bottom: 56px;
+  }
+  .tabs {
+    margin-top: 20px;
+    margin-inline: calc(var(--gutter) * -1);
+    padding-inline: calc(var(--gutter) - 8px);
+  }
+  .body {
+    margin-top: 24px;
+  }
+  .state {
+    padding: 40px 16px;
+    border-radius: var(--r-lg);
+  }
+}

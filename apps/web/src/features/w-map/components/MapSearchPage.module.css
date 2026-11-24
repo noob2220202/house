@@ -1,0 +1,342 @@
+/* Map search page shell (MapApt / OneRoom `.app`, `.bodyx`, `.lp`, `.mapv`). The page fills the
+   <main> of <SiteShell fill>, so it never scrolls the document. */
+.page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+.body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+}
+.bodyComplex {
+  grid-template-columns: 400px minmax(0, 1fr);
+}
+.bodyListing {
+  grid-template-columns: 560px minmax(0, 1fr);
+}
+.panel {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+}
+.panelSearch {
+  padding: 16px 16px 4px;
+  flex: none;
+}
+.map {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+/* ---- overlays inside <MapView> (its overlay layer spans the map; children are positioned here) ---- */
+.mapTop {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  /* Leaves the right column free: the ad card (300px) … */
+  max-width: calc(100% - 360px);
+}
+/* … the collapsed ad pill above the tools … */
+.mapTop[data-ad='pill'] {
+  max-width: calc(100% - 300px);
+}
+/* … or only the 44px tool buttons (the pill sits in this row, under the breadcrumb). */
+.mapTop[data-ad='inline'] {
+  max-width: calc(100% - 96px);
+}
+.adSlot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.mapTop > .adSlot {
+  flex: none;
+  align-items: flex-start;
+}
+/* Right column: ad card → layers → zoom / locate, stacked as on the design. The column itself never
+   blocks the map. On short maps the page folds the ad into a pill (< AD_CARD_MIN_MAP_H) and the
+   layer panel into one button (< LAYERS_MIN_MAP_H); should the stack still not fit (an unusually
+   tall creative), only the ad slot gives way, so zoom and my-location always stay on screen. */
+.right.right {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  bottom: 16px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 20px;
+  pointer-events: none;
+}
+.right > * {
+  pointer-events: auto;
+  flex: none;
+}
+.right > .adSlot {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+/* A pill expanded on a short map opens beside the column (left of the layer / zoom buttons) instead
+   of pushing them down or squeezing the card. */
+.right > .adSlot[data-compact]:has(> aside) {
+  position: absolute;
+  top: 0;
+  right: 84px;
+}
+.tools {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+/* Overlays the page places from the visible bounds (selection popover, my-location dot). They span
+   the map without blocking it and fade out while the map moves (their position lags behind). */
+.popLayer.popLayer,
+.meLayer.meLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-1) var(--ease);
+}
+.popLayer > * {
+  pointer-events: auto;
+}
+.popLayer[data-moving],
+.meLayer[data-moving] {
+  opacity: 0;
+}
+.popLayer[data-moving] > * {
+  pointer-events: none;
+}
+.locate {
+  color: var(--brand);
+}
+.bottomLeft.bottomLeft {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.statusWrap.statusWrap {
+  position: absolute;
+  left: 50%;
+  top: 176px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  pointer-events: none;
+}
+.statusWrap > * {
+  pointer-events: auto;
+}
+
+/* Narrow maps: the page trims the summary pill (no title, fewer stats) instead of dropping it. */
+.mapSum {
+  max-width: 100%;
+}
+@media (max-width: 1100px) {
+  .bodyListing {
+    grid-template-columns: minmax(340px, 42%) minmax(0, 1fr);
+  }
+  .bodyComplex {
+    grid-template-columns: minmax(320px, 38%) minmax(0, 1fr);
+  }
+}
+
+/* ---- mobile (MobileMap design): full-bleed map, floating top, bottom sheet ---- */
+.mobile {
+  position: relative;
+  overflow: hidden;
+  background: var(--map-land);
+  /* Sheet stops — mirrored by sheetHeightPx() in lib/geo.ts (change both together). The half stop
+     always leaves the floating search + chips and about 170px of map above it (short phones). */
+  --sheet-h: max(112px, min(56%, calc(100% - 340px)));
+}
+.mobile[data-sheet='peek'] {
+  --sheet-h: 112px;
+}
+.mobile[data-sheet='full'] {
+  --sheet-h: max(112px, calc(100% - 124px));
+}
+/* The map keeps the full page size whatever the sheet does (a map SDK does not follow container
+   resizes reliably); the sheet lies over its lower part. The page centres selections in the band
+   the chrome leaves free and queries only that band (centerForTarget / cropBottom). */
+.mMap {
+  position: absolute;
+  inset: 0;
+}
+.mAd {
+  position: absolute;
+  left: 16px;
+  top: 124px;
+  z-index: 4;
+}
+/* Expanded ad: above the floating 목록 / 내 위치 buttons and never under the (lowered) sheet. */
+.mAd:has(aside) {
+  z-index: 7;
+  max-height: calc(100% - var(--sheet-h) - 140px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--r-lg);
+}
+.mTools {
+  position: absolute;
+  right: 16px;
+  top: 124px;
+  z-index: 4;
+}
+.mFloat {
+  position: absolute;
+  right: 16px;
+  bottom: calc(var(--sheet-h) + 12px);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: bottom var(--dur-2) var(--ease);
+}
+.mList {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 16px 0 13px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow:
+    var(--sh-2),
+    0 0 0 1px rgba(10, 18, 34, 0.05);
+}
+.mList svg {
+  color: var(--brand);
+}
+.mList:focus-visible {
+  outline: none;
+  box-shadow: var(--focus), var(--sh-2);
+}
+.mLocate {
+  border-radius: 50%;
+  color: var(--brand);
+  box-shadow:
+    var(--sh-2),
+    0 0 0 1px rgba(10, 18, 34, 0.05);
+}
+/* List mode: the toggle floats over the list as an ink "지도" button. */
+.mobile[data-sheet='full'] .mFloat {
+  left: 50%;
+  right: auto;
+  bottom: 16px;
+  z-index: 7;
+  transform: translateX(-50%);
+}
+.mobile[data-sheet='full'] .mList {
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+  box-shadow: var(--sh-3);
+}
+.mobile[data-sheet='full'] .mList svg {
+  color: var(--text-on-ink);
+}
+.mobile[data-sheet='full'] .mLocate {
+  display: none;
+}
+.mHd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px 2px 20px;
+  flex: none;
+}
+.mTitle {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.mTitle b {
+  color: var(--brand);
+  font-family: var(--font-brand);
+}
+.mSort {
+  padding: 0 6px;
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+.mScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.mobile[data-sheet='full'] .mScroll {
+  padding-bottom: 68px;
+}
+.mPicked {
+  border-bottom: 8px solid var(--surface-2);
+  background: var(--brand-soft);
+}
+.mPicked article {
+  background: transparent;
+}
+.mPickedHd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px 0 20px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.mPickedHd b {
+  color: var(--brand);
+}
+.mPickedHd button {
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.mPicked li + li {
+  border-top: 1px solid var(--brand-line);
+}
+/* Empty ad slot (no live banner / closed for the session) takes no room in the column. */
+.right > div:empty {
+  display: none;
+}
+
+/* Price markers: the shared marker stylesheet lets the deal class tint the whole label; the design
+   keeps the text ink (white when selected) and colours only the dot. */
+.map button:has(> i[aria-hidden='true']:first-child),
+.mMap button:has(> i[aria-hidden='true']:first-child) {
+  color: var(--text);
+}
+.map button[aria-pressed='true']:has(> i[aria-hidden='true']:first-child),
+.mMap button[aria-pressed='true']:has(> i[aria-hidden='true']:first-child) {
+  color: var(--text-on-ink);
+}

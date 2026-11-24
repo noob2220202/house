@@ -1,0 +1,218 @@
+/* Shared bits of the broker inbox (type chips, meta rows, panel toolbars, list skeletons). */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--r-xs);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.chipSell {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.chipWant {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.chipTarget {
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+}
+/*
+ * "a · b · c" row. The dot lives in each item's left padding and every item is pulled left by the
+ * same amount, so a dot that would start a wrapped line falls outside the box and is clipped.
+ */
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: 2px;
+  font-size: 13px;
+  color: var(--text-muted);
+  min-width: 0;
+  overflow: hidden;
+}
+.meta > * {
+  position: relative;
+  min-width: 0;
+  margin: 0 0 0 -15px;
+  padding-left: 15px;
+}
+.meta > *:not(:last-child) {
+  margin-right: 15px;
+}
+.meta > *::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  width: 3px;
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: 50%;
+  background: var(--grey-300);
+}
+.meta b {
+  font-weight: 700;
+  color: var(--text-2);
+}
+.hot {
+  color: var(--danger);
+  font-weight: 700;
+}
+.tabs {
+  padding: 0 20px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line-soft);
+  min-width: 0;
+}
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* Room for focus rings inside the scroller. */
+  padding: 3px;
+  margin: -3px;
+}
+.filters::-webkit-scrollbar {
+  display: none;
+}
+.filters > * {
+  flex: none;
+}
+.toolbarEnd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.sort {
+  height: 36px;
+  padding: 0 30px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")
+    no-repeat right 10px center;
+  appearance: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.sort:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.resultBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--ground);
+  border-bottom: 1px solid var(--line-soft);
+}
+.resultBar b {
+  color: var(--text);
+  font-weight: 800;
+  font-family: var(--font-num);
+}
+.reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+  border-radius: var(--r-xs);
+}
+.reset:hover {
+  color: var(--brand);
+}
+.pager {
+  display: flex;
+  justify-content: center;
+  padding: 16px 20px;
+  border-top: 1px solid var(--line-soft);
+}
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line-soft);
+}
+/* The text column only — the <Skeleton> blocks are spans too and keep their own size. */
+.skeletonText {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.stale {
+  opacity: 0.6;
+  transition: opacity var(--dur-2);
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  align-self: flex-start;
+  min-height: 32px;
+  margin-bottom: -8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+  border-radius: var(--r-xs);
+}
+.back:hover {
+  color: var(--brand);
+}
+@media (max-width: 720px) {
+  .tabs {
+    padding: 0 12px;
+  }
+  .toolbar {
+    padding: 10px 16px;
+    flex-wrap: wrap;
+  }
+  /*
+   * Phones: no sideways scroller that hides the last filter behind the edge — the filters, the sort
+   * and the search join the toolbar's own wrapping row instead.
+   */
+  .filters {
+    display: contents;
+  }
+  .toolbarEnd {
+    margin-left: auto;
+  }
+  .resultBar {
+    padding: 10px 16px;
+  }
+  .skeletonRow {
+    padding: 16px;
+  }
+}

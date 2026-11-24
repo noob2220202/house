@@ -1,0 +1,217 @@
+/* =====================================================================
+   BRAND Design System v1.0 — tokens (ported 1:1 from design/drafts/system/system.css)
+   Direction "B · Crisp Blue". Components use ONLY the semantic tokens.
+   Rename / recolour the brand = edit the "Brand" block below.
+   ===================================================================== */
+
+/* ---------- Palette (raw values — do not use directly in components) ---------- */
+:root {
+  --cobalt-900: #0b1f73;
+  --cobalt-800: #102c99;
+  --cobalt-700: #1539c4;
+  --cobalt-600: #1d4ff2;
+  --cobalt-200: #b9ccff;
+  --cobalt-100: #dce6ff;
+  --cobalt-50: #eef3ff;
+  --ink-950: #070d19;
+  --ink-900: #0a1222;
+  --ink-800: #111b2e;
+  --ink-700: #1b2740;
+  --ink-600: #2a3752;
+  --grey-800: #1f2836;
+  --grey-700: #333d4b;
+  --grey-600: #4e5968;
+  --grey-500: #646f7c;
+  --grey-400: #8b95a1;
+  --grey-300: #b0b8c1;
+  --grey-200: #d1d6db;
+  --grey-150: #e5e8eb;
+  --grey-100: #f2f4f6;
+  --grey-50: #f8f9fb;
+  --champagne-300: #e9d7a8;
+  --champagne-200: #f3e8cc;
+  --reed-700: #7a5c14;
+  --navy-ad: #0f1b3a;
+}
+
+/* ---------- Semantic tokens ---------- */
+:root {
+  /* Brand — the only accent for actions, links, focus, selected state */
+  --brand: #1d4ff2; /* white text 6.1:1 */
+  --brand-hover: #1539c4;
+  --brand-press: #102c99;
+  --brand-soft: #eef3ff; /* brand text on it 5.5:1 */
+  --brand-soft-2: #dce6ff;
+  --brand-line: #b9ccff;
+  --brand-contrast: #ffffff;
+  --focus: 0 0 0 3px rgba(29, 79, 242, 0.32);
+
+  /* Surfaces */
+  --ground: #f8f9fb; /* page background behind cards */
+  --surface: #ffffff; /* cards, panels, inputs */
+  --surface-2: #f2f4f6; /* inset wells, hover rows, segmented tracks */
+  --surface-ink: #0a1222; /* dark premium surface: admin sidebar, app band, map broker card */
+  --surface-ink-2: #111b2e;
+  --surface-ink-3: #1b2740;
+
+  /* Text */
+  --text: #0a1222; /* 18.7:1 */
+  --text-2: #333d4b; /* body copy 11.6:1 */
+  --text-3: #4e5968; /* secondary 7.4:1 */
+  --text-muted: #646f7c; /* smallest captions, 12px min · 5.1:1 on white */
+  --icon-muted: #8b95a1; /* icons & decorative only — never text on white */
+  --text-on-ink: #ffffff;
+  --text-on-ink-2: #b0b8c1; /* 9.3:1 on ink */
+  --text-on-ink-muted: #8b95a1; /* 6.2:1 on ink */
+
+  /* Lines */
+  --line: #e5e8eb;
+  --line-soft: #f2f4f6;
+  --line-strong: #d1d6db;
+  --line-ink: rgba(255, 255, 255, 0.1);
+
+  /* Local warmth — champagne / reed. Decorative on ink; accent-text is the text-safe version */
+  --accent: #e9d7a8;
+  --accent-soft: #f7f0de;
+  --accent-text: #7a5c14; /* 6.2:1 on white */
+
+  /* Status */
+  --success: #067a50;
+  --success-soft: #e6f4ee;
+  --success-on-ink: #5bd6a0;
+  --warn: #a35200;
+  --warn-soft: #fff3e2;
+  --danger: #c81e2c;
+  --danger-soft: #fdecee;
+  --danger-line: #f4c5ca;
+
+  /* Deal types — fixed meaning, NEVER equal to --brand.
+     Lightness ladder: 분양 darkest → 월세 → 전세 → 매매 lightest. Label text always accompanies colour. */
+  --deal-presale: #4a26a8;
+  --deal-presale-soft: #f1ecfd; /* 분양·분양권 */
+  --deal-monthly: #8f2466;
+  --deal-monthly-soft: #fbedf5; /* 월세 */
+  --deal-jeonse: #06664a;
+  --deal-jeonse-soft: #e8f5ef; /* 전세 */
+  --deal-sale: #c2410c;
+  --deal-sale-soft: #fff1e8; /* 매매 */
+
+  /* Price movement / 분양권 premium (Korean convention: up red, down blue) */
+  --up: #c81e2c;
+  --up-soft: #fdecee;
+  --down: #1c46d8;
+  --down-soft: #eef3ff;
+
+  /* Social login providers — each provider's official colours, kept out of the theme palette.
+     Use only for the provider's own mark / tile / button (SocialButton, ProviderTile). */
+  --kakao: #fee500;
+  --kakao-ink: #191919;
+  --naver: #03c75a;
+  --naver-ink: #ffffff;
+  --google-line: var(--line);
+
+  /* Ads — inside the fixed ad frame the advertiser's own palette is used; this is the house sample */
+  --ad-ground: #0f1b3a;
+  --ad-accent: #e9d7a8;
+
+  /* Map */
+  --map-land: #f3f5f8;
+  --map-block: #e7eaef;
+  --map-park: #e1eee5;
+  --map-park-text: #3f6b50;
+  --map-water: #c9dcf5;
+  --map-water-2: #d9e7f8;
+  --map-water-text: #3e6497;
+  --map-road: #ffffff;
+  --map-road-casing: #dce2ea;
+  --map-rail: #8c97a8;
+  --map-boundary: #b8c2cf;
+  --map-label: #5e6977;
+
+  /* Type — apps set --font-latin / --font-kr with next/font (Inter + Noto Sans KR) */
+  --font:
+    var(--font-latin, 'Inter'), var(--font-kr, 'Noto Sans KR'), system-ui, -apple-system,
+    'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --font-num: var(--font-latin, 'Inter'), var(--font-kr, 'Noto Sans KR'), sans-serif;
+  --font-brand: var(--font-latin, 'Inter'), sans-serif;
+  --fs-display: clamp(36px, 3.9vw, 56px);
+  --fs-h1: clamp(28px, 2.6vw, 40px);
+  --fs-h2: clamp(22px, 1.9vw, 28px);
+  --fs-h3: 20px;
+  --fs-title: 17px;
+  --fs-body: 15px;
+  --fs-sm: 14px;
+  --fs-cap: 12px; /* floor — no text below 12px */
+  --fs-price-xl: 40px;
+  --fs-price: 30px;
+  --fs-price-sm: 20px;
+
+  /* Radii */
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+  --r-2xl: 32px;
+  --r-pill: 999px;
+
+  /* Elevation */
+  --sh-1: 0 1px 2px rgba(10, 18, 34, 0.06), 0 0 0 1px rgba(10, 18, 34, 0.04);
+  --sh-2: 0 2px 4px rgba(10, 18, 34, 0.04), 0 6px 16px rgba(10, 18, 34, 0.07);
+  --sh-3: 0 4px 8px rgba(10, 18, 34, 0.05), 0 16px 40px rgba(10, 18, 34, 0.12);
+  --sh-brand: 0 6px 18px rgba(29, 79, 242, 0.3);
+  --scrim: rgba(10, 18, 34, 0.48);
+
+  /* Spacing */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-14: 56px;
+  --s-20: 80px;
+  --container: 1288px;
+  --gutter: 24px;
+  --section: 56px;
+  --hit: 44px; /* minimum touch target */
+
+  /* Layout chrome heights (used for sticky offsets / mobile safe areas) */
+  --header-h: 109px; /* utility bar 36 + GNB 72 + border */
+  --mobile-header-h: 56px;
+  --tabbar-h: 64px;
+
+  /* Z-index scale */
+  --z-base: 0;
+  --z-raised: 1;
+  --z-sticky: 50;
+  --z-header: 100;
+  --z-tabbar: 110;
+  --z-dropdown: 1000;
+  --z-scrim: 1100;
+  --z-modal: 1200;
+  --z-popover: 1300;
+  --z-toast: 1400;
+  --z-tooltip: 1500;
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-1: 0.15s;
+  --dur-2: 0.24s;
+
+  /* Breakpoints (reference only — CSS custom properties cannot be used in media queries):
+     mobile ≤ 720px  ·  tablet 721–1080px  ·  desktop ≥ 1081px.
+     Use `@media (max-width: 720px)` exactly like the design system. JS: BREAKPOINTS from @house/ui. */
+  --bp-mobile: 720px;
+  --bp-tablet: 1080px;
+}
+
+@media (max-width: 720px) {
+  :root {
+    --gutter: 16px;
+    --section: 40px;
+    --header-h: 56px;
+  }
+}

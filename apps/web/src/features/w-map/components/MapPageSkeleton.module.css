@@ -1,0 +1,96 @@
+.page {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+.bar {
+  display: flex;
+  gap: 8px;
+  padding: 12px var(--gutter);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+  flex: none;
+}
+.bodyComplex,
+.bodyListing {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+}
+.bodyComplex {
+  grid-template-columns: 400px minmax(0, 1fr);
+}
+.bodyListing {
+  grid-template-columns: 560px minmax(0, 1fr);
+}
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  border-right: 1px solid var(--line);
+  overflow: hidden;
+}
+.row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 14px;
+}
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.map {
+  background: var(--map-land);
+}
+.sheet {
+  display: none;
+}
+@media (max-width: 1100px) {
+  .bodyListing {
+    grid-template-columns: minmax(340px, 42%) minmax(0, 1fr);
+  }
+  .bodyComplex {
+    grid-template-columns: minmax(320px, 38%) minmax(0, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .page {
+    background: var(--map-land);
+  }
+  .bar,
+  .panel {
+    display: none;
+  }
+  .bodyComplex,
+  .bodyListing {
+    display: block;
+  }
+  .sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 56%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 20px;
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
+    background: var(--surface);
+    box-shadow: 0 -10px 30px rgba(10, 18, 34, 0.12);
+  }
+  .handle {
+    align-self: center;
+    width: 40px;
+    height: 5px;
+    margin: 9px 0 2px;
+    border-radius: 3px;
+    background: var(--grey-200);
+    flex: none;
+  }
+}

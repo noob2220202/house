@@ -1,0 +1,192 @@
+/* Main.dc.html `.deal-band` / `.db` / `.req` */
+.band {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+  padding: 36px;
+  border-radius: var(--r-2xl);
+}
+.cta {
+  align-self: flex-start;
+  margin-top: auto;
+}
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 8px;
+  border-radius: var(--r-lg);
+}
+.kicker {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--brand);
+}
+.title {
+  font-size: clamp(24px, 2.2vw, 30px);
+  line-height: 1.3;
+  letter-spacing: -0.04em;
+}
+.lead {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+.sell {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+}
+.sell .icon {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.steps {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+.steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.step b {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+.step span {
+  font-size: 14px;
+  color: var(--text-3);
+}
+.no {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: var(--brand-contrast);
+  font-family: var(--font-num);
+  font-size: 13px;
+  font-weight: 800;
+}
+.find {
+  border: 1px solid var(--brand-soft-2);
+  background: var(--brand-soft);
+}
+.find .icon {
+  background: var(--surface);
+  color: var(--brand);
+  box-shadow: var(--sh-1);
+}
+.req {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--sh-2);
+}
+.reqHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.reqHead b {
+  font-size: 15px;
+  font-weight: 800;
+}
+.reqChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.reqChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--brand);
+  border-radius: var(--r-pill);
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.reqChip b {
+  font-weight: 800;
+}
+.reqTo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--grey-100);
+  font-size: 14px;
+  color: var(--text-3);
+}
+.reqTo b {
+  font-weight: 800;
+  color: var(--text);
+}
+.avatars {
+  display: inline-flex;
+  flex: none;
+}
+.avatars i {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-left: -8px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--surface-ink);
+  color: var(--accent);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+.avatars i:first-child {
+  margin-left: 0;
+}
+.avatars i:nth-child(2) {
+  background: var(--brand);
+  color: var(--brand-contrast);
+}
+.avatars i:nth-child(3) {
+  background: var(--grey-700);
+  color: var(--text-on-ink);
+}
+.avatars .more {
+  background: var(--surface-2);
+  color: var(--text-2);
+}

@@ -2,26 +2,40 @@
   "name": "@house/web",
   "version": "0.0.0",
   "private": true,
-  "description": "사용자 사이트 (Next.js placeholder)",
+  "description": "사용자 사이트 + 중개사 콘솔 (Next.js App Router)",
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start --port 3000",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "@hookform/resolvers": "7.0.8",
     "@house/shared": "workspace:*",
+    "@house/ui": "workspace:*",
+    "@tanstack/react-query": "5.108.3",
     "next": "15.5.29",
     "react": "19.1.10",
-    "react-dom": "19.1.10"
+    "react-dom": "19.1.10",
+    "react-hook-form": "7.92.0",
+    "server-only": "0.0.1",
+    "zod": "4.1.13"
   },
   "devDependencies": {
     "@house/config": "workspace:*",
+    "@testing-library/jest-dom": "8.0.0",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.13",
     "@types/node": "22.20.5",
     "@types/react": "19.1.17",
     "@types/react-dom": "19.1.11",
+    "@vitejs/plugin-react": "6.3.0",
     "eslint": "9.39.5",
-    "typescript": "5.9.3"
+    "jsdom": "31.0.1",
+    "typescript": "5.9.3",
+    "vitest": "5.1.1"
   }
 }

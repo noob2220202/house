@@ -28,6 +28,7 @@
     "test:deploy": "bash deploy/tests/run.sh"
   },
   "devDependencies": {
+    "playwright": "1.65.1",
     "prettier": "3.6.2",
     "turbo": "2.11.13",
     "typescript": "5.9.3"

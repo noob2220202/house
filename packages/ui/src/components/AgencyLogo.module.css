@@ -1,0 +1,32 @@
+.logo {
+  position: relative; /* next/image `fill` + the illustration fill this box */
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  overflow: hidden;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+}
+.logo img {
+  object-fit: cover;
+}
+.brand {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.accent {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.grey {
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.art {
+  background: var(--surface-2);
+}

@@ -1,0 +1,89 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  min-width: 0;
+}
+.control {
+  flex: 0 1 220px;
+  min-width: 160px;
+  max-width: 100%;
+}
+.full .control {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+.input.input {
+  font-family: var(--font-num);
+  font-feature-settings: 'tnum' 1;
+  font-variant-numeric: tabular-nums;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-align: right;
+  padding-right: 56px;
+}
+.input.input::placeholder {
+  font-size: 15px;
+  font-weight: 500;
+}
+.unit {
+  font-size: 14px;
+}
+.readout {
+  min-height: 22px;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.readout b {
+  font-family: var(--font-num);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--brand);
+}
+.full .readout {
+  flex-basis: 100%;
+  font-size: 14px;
+}
+.full .readout b {
+  font-size: 15px;
+}
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.step {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+  font-family: var(--font-num);
+  transition: background var(--dur-1);
+}
+.step:hover:not(:disabled) {
+  background: var(--grey-150);
+}
+.step:disabled {
+  color: var(--text-muted);
+  opacity: 0.6;
+  cursor: default;
+}
+@media (max-width: 720px) {
+  .step {
+    height: 36px;
+    padding: 0 14px;
+  }
+}

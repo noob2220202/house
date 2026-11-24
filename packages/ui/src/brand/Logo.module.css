@@ -1,0 +1,19 @@
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  min-height: var(--hit);
+  border-radius: var(--r-sm);
+}
+.word {
+  font-family: var(--font-brand);
+  font-weight: 800;
+  font-size: 21px;
+  letter-spacing: -0.045em;
+  color: var(--text);
+  line-height: 1;
+}
+.ink .word {
+  color: var(--text-on-ink);
+}

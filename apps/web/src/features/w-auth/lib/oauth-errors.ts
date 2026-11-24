@@ -1,0 +1,199 @@
+/**
+ * Korean copy for every failure the OAuth landing page (/auth/callback?error=…) can receive:
+ * backend AuthErrorCode values, raw OAuth2 `error` values passed through from the provider, and a
+ * few client-side situations (no session after the round trip).
+ */
+export interface OAuthErrorInfo {
+  /**
+   * Code shown small for support: a known code, or an unknown one only when it looks like an error
+   * code (letters and single underscores) — free text and digits are never echoed back, so a crafted
+   * link cannot print a phone number or a message on our page.
+   */
+  code: string;
+  title: string;
+  description: string;
+  /** Offer "다시 로그인" (or "계정 설정으로" when linking). False when retrying cannot help. */
+  canRetry: boolean;
+  /** Offer a link to the support page. */
+  support: boolean;
+  /** `notice` = user-initiated / harmless (cancel), `error` = something failed. */
+  tone: 'notice' | 'error';
+  /** The failed round trip was linking a provider to a signed-in account, not a login. */
+  linking: boolean;
+}
+
+type Entry = Omit<OAuthErrorInfo, 'code' | 'linking'>;
+
+const CANCELLED: Entry = {
+  title: '로그인을 취소했어요',
+  description: '동의 화면에서 취소를 누르셨어요. 다시 시도하려면 아래 버튼을 눌러 주세요.',
+  canRetry: true,
+  support: false,
+  tone: 'notice',
+};
+const EXPIRED: Entry = {
+  title: '로그인 요청이 만료됐어요',
+  description:
+    '로그인 창을 오래 열어 두었거나 뒤로 가기로 다시 들어온 경우예요. 처음부터 다시 시도해 주세요.',
+  canRetry: true,
+  support: false,
+  tone: 'error',
+};
+const PROVIDER_FAILED: Entry = {
+  title: '소셜 로그인에 실패했어요',
+  description:
+    '로그인 서비스에서 응답을 받지 못했어요. 잠시 후 다시 시도하거나 다른 계정으로 로그인해 주세요.',
+  canRetry: true,
+  support: true,
+  tone: 'error',
+};
+const NO_SESSION: Entry = {
+  title: '로그인이 완료되지 않았어요',
+  description:
+    '브라우저가 쿠키를 차단하고 있으면 로그인 상태를 유지할 수 없어요. 쿠키 설정을 확인한 뒤 다시 시도해 주세요.',
+  canRetry: true,
+  support: true,
+  tone: 'error',
+};
+
+const TABLE: Record<string, Entry> = {
+  // --- provider (OAuth2 / OIDC) error values
+  ACCESS_DENIED: CANCELLED,
+  USER_CANCELLED: CANCELLED,
+  CONSENT_REQUIRED: CANCELLED,
+  INTERACTION_REQUIRED: CANCELLED,
+  LOGIN_REQUIRED: CANCELLED,
+  SERVER_ERROR: PROVIDER_FAILED,
+  TEMPORARILY_UNAVAILABLE: PROVIDER_FAILED,
+  INVALID_REQUEST: PROVIDER_FAILED,
+  INVALID_SCOPE: PROVIDER_FAILED,
+  UNAUTHORIZED_CLIENT: PROVIDER_FAILED,
+  // --- backend codes (packages/shared/src/errors/auth.ts)
+  AUTH_OAUTH_STATE_INVALID: EXPIRED,
+  AUTH_OAUTH_PROVIDER_ERROR: PROVIDER_FAILED,
+  AUTH_SESSION_EXPIRED: NO_SESSION,
+  UNAUTHENTICATED: NO_SESSION,
+  NO_SESSION,
+  AUTH_ACCOUNT_SUSPENDED: {
+    title: '이용이 정지된 계정이에요',
+    description:
+      '운영 정책 위반 등의 사유로 이용이 제한된 계정이에요. 자세한 내용은 고객센터로 문의해 주세요.',
+    canRetry: false,
+    support: true,
+    tone: 'error',
+  },
+  AUTH_ACCOUNT_LOCKED: {
+    title: '잠시 후 다시 시도해 주세요',
+    description: '로그인 시도가 너무 많아 잠시 제한됐어요. 몇 분 뒤 다시 시도해 주세요.',
+    canRetry: true,
+    support: false,
+    tone: 'error',
+  },
+  AUTH_TERMS_REQUIRED: {
+    title: '약관 동의가 필요해요',
+    description:
+      '필수 약관에 동의해야 서비스를 이용할 수 있어요. 다시 로그인하면 동의 화면이 열려요.',
+    canRetry: true,
+    support: false,
+    tone: 'notice',
+  },
+  // --- assumed codes (not in AuthErrorCode yet — see docs/frontend-integration/w-auth.md)
+  AUTH_ACCOUNT_WITHDRAWN: {
+    title: '탈퇴 처리된 계정이에요',
+    description:
+      '탈퇴한 계정으로는 로그인할 수 없어요. 개인정보 파기가 끝난 뒤 같은 계정으로 다시 가입할 수 있어요.',
+    canRetry: false,
+    support: true,
+    tone: 'error',
+  },
+  AUTH_IDENTITY_ALREADY_LINKED: {
+    title: '이미 다른 회원에 연결된 계정이에요',
+    description:
+      '이 소셜 계정은 다른 회원 정보에 연결돼 있어요. 해당 계정으로 로그인하거나, 연결을 해제한 뒤 다시 시도해 주세요.',
+    canRetry: true,
+    support: true,
+    tone: 'error',
+  },
+  RATE_LIMITED: {
+    title: '요청이 너무 많아요',
+    description: '짧은 시간에 여러 번 시도했어요. 잠시 후 다시 시도해 주세요.',
+    canRetry: true,
+    support: false,
+    tone: 'error',
+  },
+};
+
+const FALLBACK: Entry = {
+  title: '로그인하지 못했어요',
+  description:
+    '일시적인 문제일 수 있어요. 다시 시도해도 같은 화면이 보이면 고객센터로 알려 주세요.',
+  canRetry: true,
+  support: true,
+  tone: 'error',
+};
+
+/** Codes are compared case-insensitively; anything unexpected is clamped to a short safe token. */
+export function normalizeOAuthErrorCode(raw: string | null | undefined): string {
+  const code = (raw ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9_]/g, '_')
+    .slice(0, 48);
+  return code || 'UNKNOWN';
+}
+
+/** Shape of an OAuth2 / backend error code: letters in underscore-separated words. */
+const CODE_SHAPE = /^[A-Z]+(?:_[A-Z]+)*$/;
+const MAX_SHOWN_CODE = 40;
+
+/** Copy of a failed *link* round trip (계정 설정 → 연결하기): it is not a login, so no "다시 로그인". */
+const LINK_CANCELLED: Entry = {
+  title: '계정 연결을 취소했어요',
+  description: '연결 화면에서 취소를 누르셨어요. 계정 설정에서 언제든 다시 연결할 수 있어요.',
+  canRetry: true,
+  support: false,
+  tone: 'notice',
+};
+const LINK_FAILED: Entry = {
+  title: '계정을 연결하지 못했어요',
+  description:
+    '일시적인 문제일 수 있어요. 계정 설정에서 다시 시도하고, 같은 화면이 보이면 고객센터로 알려 주세요.',
+  canRetry: true,
+  support: true,
+  tone: 'error',
+};
+/** Errors that read the same for a login and a link (they are about the account, not the flow). */
+const ACCOUNT_CODES = new Set([
+  'AUTH_ACCOUNT_SUSPENDED',
+  'AUTH_ACCOUNT_LOCKED',
+  'AUTH_ACCOUNT_WITHDRAWN',
+  'AUTH_IDENTITY_ALREADY_LINKED',
+  'RATE_LIMITED',
+]);
+
+export interface OAuthErrorContext {
+  /** `/auth/callback?…&link=1` — the round trip was started from 계정 설정 → 연결하기. */
+  linking?: boolean;
+}
+
+export function oauthErrorInfo(
+  raw: string | null | undefined,
+  { linking: linkParam = false }: OAuthErrorContext = {},
+): OAuthErrorInfo {
+  const normalized = normalizeOAuthErrorCode(raw);
+  const known = TABLE[normalized];
+  const code =
+    known || (CODE_SHAPE.test(normalized) && normalized.length <= MAX_SHOWN_CODE)
+      ? normalized
+      : 'UNKNOWN';
+  // An identity that belongs to someone else can only come out of a link attempt.
+  const linking = linkParam || normalized === 'AUTH_IDENTITY_ALREADY_LINKED';
+  if (!linking) return { code, ...(known ?? FALLBACK), linking };
+  const entry =
+    ACCOUNT_CODES.has(normalized) && known
+      ? known
+      : known === CANCELLED
+        ? LINK_CANCELLED
+        : LINK_FAILED;
+  return { code, ...entry, linking };
+}

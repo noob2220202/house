@@ -1,0 +1,51 @@
+.root {
+  display: flex;
+  justify-content: center;
+}
+.list {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.item {
+  display: inline-grid;
+  place-items: center;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 8px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-num);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+  cursor: pointer;
+  transition:
+    background var(--dur-1),
+    color var(--dur-1);
+}
+.item:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.on,
+.on:hover {
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+  font-weight: 800;
+}
+.nav {
+  color: var(--text-2);
+}
+.disabled,
+.disabled:hover {
+  color: var(--grey-300);
+  background: none;
+  cursor: not-allowed;
+}
+.gap {
+  min-width: 24px;
+  text-align: center;
+  color: var(--text-muted);
+}

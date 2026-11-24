@@ -1,0 +1,171 @@
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  min-width: 0;
+}
+.card {
+  padding: var(--s-6);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  min-width: 0;
+}
+.cardTitle {
+  font-size: var(--fs-title);
+  font-weight: 800;
+  line-height: 1.45;
+  letter-spacing: -0.03em;
+}
+.cardDesc {
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+.optional {
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+  vertical-align: 2px;
+}
+.who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: var(--s-5);
+  padding: 14px 16px;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+}
+.whoText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.4;
+}
+.whoText b {
+  font-size: 15px;
+  font-weight: 800;
+}
+.whoText span {
+  font-size: 13px;
+  color: var(--text-3);
+}
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: var(--s-5);
+}
+.notes li {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.noteIc {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-md);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.noteText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 1px;
+}
+.noteText b {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.noteText span {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-3);
+}
+.block {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: var(--r-lg);
+  background: var(--warn-soft);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-2);
+  scroll-margin-top: calc(var(--header-h, 64px) + 16px);
+}
+.block:focus {
+  outline: none;
+}
+.block:focus-visible {
+  box-shadow: var(--focus);
+}
+.block svg {
+  margin-top: 2px;
+  flex: none;
+  color: var(--warn);
+}
+.block b {
+  display: block;
+  font-weight: 800;
+  color: var(--text);
+}
+.block a {
+  font-weight: 700;
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.reasons {
+  margin-top: var(--s-4);
+}
+.detail {
+  margin-top: var(--s-3);
+}
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 16px;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+}
+.confirm label {
+  font-weight: 700;
+  color: var(--text);
+}
+.confirmError {
+  padding: 0 0 8px 32px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+@media (max-width: 720px) {
+  .card {
+    padding: var(--s-5);
+    border-radius: var(--r-lg);
+  }
+  .actions {
+    flex-direction: column-reverse;
+  }
+  .actions > * {
+    width: 100%;
+  }
+}

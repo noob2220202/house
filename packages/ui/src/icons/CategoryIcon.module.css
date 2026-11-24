@@ -1,0 +1,16 @@
+.icon {
+  flex: none;
+  display: block;
+}
+.icon [data-accent] {
+  fill: var(--brand);
+  stroke: var(--brand);
+}
+.tile {
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-lg);
+  background: var(--grey-100);
+  color: var(--text);
+  flex: none;
+}

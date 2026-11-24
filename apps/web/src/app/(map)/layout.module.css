@@ -1,0 +1,9 @@
+/* The shared <SiteHeader> has no compact variant yet, so the map layout trims it from outside
+   (structure: .mapChrome > SiteShell root > header > [utility bar, GNB]): the utility bar is
+   hidden and the GNB container goes edge to edge, like the MapApt / OneRoom designs. */
+.mapChrome > div > :global(header) > div:first-child:not(:only-child) {
+  display: none;
+}
+.mapChrome > div > :global(header .container) {
+  max-width: none;
+}

@@ -10,3 +10,6 @@ next-env.d.ts
 design/
 .claude/
 tools/
+.next-*
+.tmp
+tsconfig.next*.json

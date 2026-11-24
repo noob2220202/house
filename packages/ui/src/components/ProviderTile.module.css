@@ -1,0 +1,36 @@
+.tile {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  line-height: 0;
+}
+.sm {
+  width: 20px;
+  height: 20px;
+}
+.md {
+  width: 32px;
+  height: 32px;
+}
+.lg {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+}
+/* Provider colours are fixed by each provider's guideline (tokens.css, outside the theme). */
+.kakao {
+  background: var(--kakao);
+  border-color: var(--kakao);
+  color: var(--kakao-ink);
+}
+.naver {
+  background: var(--naver);
+  border-color: var(--naver);
+  color: var(--naver-ink);
+}
+.google {
+  background: var(--surface);
+  border-color: var(--google-line);
+}

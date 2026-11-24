@@ -1,0 +1,430 @@
+/* Marker pieces ported from system.css §13. Every marker is anchored at its geographic point:
+   the wrapper is a zero-size positioned box, the marker translates itself above/around it. */
+.anchor {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.anchor.selected {
+  z-index: 3;
+}
+.anchor:hover,
+.anchor:focus-within {
+  z-index: 4;
+}
+.marker {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  font-family: var(--font);
+}
+.marker:focus-visible {
+  outline: none;
+  box-shadow: var(--focus), var(--sh-2);
+}
+
+/* District cluster (zoomed out) */
+.cluster {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: var(--brand-contrast);
+  box-shadow:
+    0 0 0 8px rgba(29, 79, 242, 0.16),
+    var(--sh-2);
+  text-align: center;
+  line-height: 1.15;
+  transition: transform var(--dur-1);
+}
+.cluster:hover {
+  transform: translate(-50%, -50%) scale(1.05);
+}
+.clusterName {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.92;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.clusterCount {
+  font-family: var(--font-brand);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.cluster.outer {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow:
+    0 0 0 6px rgba(10, 18, 34, 0.06),
+    var(--sh-2);
+}
+.cluster.outer .clusterCount {
+  color: var(--brand);
+}
+.cluster.sm {
+  width: 64px;
+  height: 64px;
+}
+.cluster.sm .clusterCount {
+  font-size: 17px;
+}
+.cluster.on {
+  background: var(--surface-ink);
+  box-shadow:
+    0 0 0 8px rgba(10, 18, 34, 0.12),
+    var(--sh-3);
+}
+
+/* Complex marker: count badge + name + 평형·price */
+.mk {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 5px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow:
+    var(--sh-2),
+    0 0 0 1px rgba(10, 18, 34, 0.06);
+  white-space: nowrap;
+  margin-top: -8px;
+}
+.mk::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 2px;
+  box-shadow: 2px 2px 2px rgba(10, 18, 34, 0.05);
+}
+.mkCount {
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border-radius: var(--r-sm);
+  background: var(--brand);
+  color: var(--brand-contrast);
+  font-family: var(--font-brand);
+  font-size: 14px;
+  font-weight: 800;
+}
+.mkText {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  text-align: left;
+}
+.mkName {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.mkPrice {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  font-feature-settings: 'tnum' 1;
+}
+.mkPrice b {
+  font-family: var(--font-brand);
+  font-weight: 800;
+  color: var(--text);
+}
+.mk.presale .mkCount {
+  background: var(--deal-presale);
+}
+.mk.on {
+  background: var(--surface-ink);
+  box-shadow: var(--sh-3);
+}
+.mk.on .mkName,
+.mk.on .mkPrice b {
+  color: var(--text-on-ink);
+}
+.mk.on .mkPrice {
+  color: var(--text-on-ink-2);
+}
+.mk.on .mkCount {
+  background: var(--accent);
+  color: var(--ink-900);
+}
+
+/* Count-only pin (mobile / dense zoom) */
+.pin {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: grid;
+  place-items: center;
+  min-width: 36px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 10px;
+  background: var(--brand);
+  color: var(--brand-contrast);
+  font-family: var(--font-brand);
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: var(--sh-2);
+  margin-top: -6px;
+}
+.pin::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 2px;
+}
+.pin.on {
+  background: var(--surface-ink);
+}
+
+/* Price marker (one-room / land single listing) */
+.pmk {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow:
+    var(--sh-2),
+    0 0 0 1px rgba(10, 18, 34, 0.06);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  margin-top: -4px;
+}
+.pmk i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--deal-monthly);
+  flex: none;
+}
+.pmk.sale i {
+  background: var(--deal-sale);
+}
+.pmk.jeonse i {
+  background: var(--deal-jeonse);
+}
+.pmk.presale i {
+  background: var(--deal-presale);
+}
+.pmk.on {
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+  box-shadow: var(--sh-3);
+}
+
+/* Selected-complex card */
+.pop {
+  width: 280px;
+  max-width: calc(100vw - 32px);
+  padding: 16px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--sh-3);
+}
+.popHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.popTitle {
+  font-size: var(--fs-title);
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: -0.025em;
+  min-width: 0;
+}
+.popCap {
+  font-size: var(--fs-cap);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.popTiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0;
+}
+.popTile {
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  min-width: 0;
+}
+.popTile em {
+  display: block;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+}
+.popTile b {
+  font-family: var(--font-num);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+}
+.sale {
+  color: var(--deal-sale);
+}
+.jeonse {
+  color: var(--deal-jeonse);
+}
+.monthly {
+  color: var(--deal-monthly);
+}
+.presale {
+  color: var(--deal-presale);
+}
+
+/* Map chrome: breadcrumb, summary, zoom, tools */
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 44px;
+  padding: 0 6px 0 14px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  box-shadow: var(--sh-2);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.crumb > svg {
+  color: var(--icon-muted);
+  flex: none;
+}
+.crumbItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.crumbItem > svg {
+  color: var(--icon-muted);
+}
+.crumbBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  font: inherit;
+  color: inherit;
+}
+.crumbBtn:hover {
+  background: var(--surface-2);
+}
+.crumbBtn svg {
+  color: var(--icon-muted);
+}
+.crumbOn {
+  color: var(--text);
+  font-weight: 800;
+}
+.sum {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  background: var(--surface-ink);
+  color: var(--text-on-ink-2);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.sum b {
+  color: var(--text-on-ink);
+  font-family: var(--font-brand);
+  font-weight: 800;
+}
+.sum i {
+  width: 1px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.22);
+}
+.zoom {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--sh-2);
+  overflow: hidden;
+}
+.zoom button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  color: var(--text-2);
+}
+.zoom button:hover {
+  background: var(--surface-2);
+}
+.zoom button:disabled {
+  color: var(--grey-300);
+  cursor: not-allowed;
+}
+.zoom button + button {
+  border-top: 1px solid var(--line);
+}
+.tool {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--sh-2);
+  color: var(--text-2);
+}
+.tool:hover {
+  background: var(--surface-2);
+}
+.tool[aria-pressed='true'] {
+  color: var(--brand);
+}
+/* The own shadow would replace the global focus ring (same property) — keep both. */
+.tool:focus-visible {
+  box-shadow: var(--focus), var(--sh-2);
+}
+/* .zoom clips outer shadows (overflow: hidden), so its buttons draw the ring inside. */
+.zoom button:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--brand);
+}

@@ -1,0 +1,25 @@
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  min-height: 36px;
+  padding: 0 10px 0 4px;
+  margin-left: -4px; /* optically aligns the chevron with the content edge */
+  border-radius: var(--r-sm);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-3);
+  transition:
+    background var(--dur-1),
+    color var(--dur-1);
+}
+.back:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.back:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+  color: var(--text);
+}

@@ -1,0 +1,20 @@
+.pending.pending {
+  color: var(--brand);
+  /* Do not flicker on navigations that finish at once. */
+  animation-delay: 0s, 120ms;
+  animation-name: spin, appear;
+  animation-duration: 0.7s, 160ms;
+  animation-timing-function: linear, ease-out;
+  animation-iteration-count: infinite, 1;
+  animation-fill-mode: none, backwards;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+}

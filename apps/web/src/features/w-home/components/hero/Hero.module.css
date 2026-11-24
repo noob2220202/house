@@ -1,0 +1,161 @@
+/* Home hero — Main.dc.html `.hero` (≥ 721px) and MobileHome `.mh-hero` (≤ 720px). */
+.hero {
+  padding-block: 48px 40px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.02fr);
+  gap: 56px;
+  align-items: center;
+}
+.copy {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+.pill {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px 0 10px;
+  border-radius: var(--r-pill);
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 13px;
+  font-weight: 700;
+}
+.title {
+  font-size: clamp(38px, 4.3vw, 62px);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.045em;
+}
+.hl {
+  color: var(--brand);
+}
+.lead {
+  max-width: 520px;
+  font-size: 17px;
+  line-height: 1.65;
+  color: var(--text-3);
+}
+.promise {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.promise li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.promise svg {
+  color: var(--brand);
+}
+
+/* search block */
+.search {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 4px;
+  min-width: 0;
+}
+.field input::placeholder {
+  text-overflow: ellipsis;
+}
+.optIcon {
+  flex: none;
+  color: var(--icon-muted);
+}
+.quick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.quickLabel {
+  margin-right: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.quickList {
+  display: contents;
+}
+
+@media (max-width: 1100px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .hero {
+    padding-block: 12px 0;
+  }
+  .grid {
+    gap: 0;
+  }
+  .copy {
+    gap: 16px;
+  }
+  .pill,
+  .lead,
+  .promise,
+  .search .deals {
+    display: none;
+  }
+  .title {
+    font-size: 26px;
+    line-height: 1.3;
+  }
+  .search {
+    gap: 16px;
+    margin-top: 0;
+  }
+  /* horizontal chip row that bleeds to the screen edges */
+  .quick {
+    flex-wrap: nowrap;
+    margin-inline: calc(var(--gutter) * -1);
+    padding: 2px var(--gutter) 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .quick::-webkit-scrollbar {
+    display: none;
+  }
+  .quickLabel {
+    flex: none;
+    margin-right: 0;
+    padding-right: 2px;
+    color: var(--text-3);
+  }
+  .quickList > li {
+    flex: none;
+  }
+  .quick .chip {
+    position: relative;
+    height: 38px;
+    border-color: transparent;
+    background: var(--surface-2);
+    font-weight: 700;
+  }
+  .quick .chip::after {
+    content: '';
+    position: absolute;
+    inset: -3px 0;
+  }
+  .quick .chipHot {
+    background: var(--brand-soft);
+    color: var(--brand);
+  }
+}

@@ -1,0 +1,66 @@
+/* 간편 로그인 연동: one @house/ui ProviderTile per provider (the tile carries the provider colours). */
+.sns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sns li {
+  display: grid;
+  border-radius: 50%;
+}
+.sns li.off {
+  opacity: 0.35;
+}
+.sns li.bad {
+  box-shadow:
+    0 0 0 2px var(--surface-ink-2),
+    0 0 0 3.5px var(--accent);
+}
+
+/* Reserves the topbar search footprint while <GlobalSearch> is suspended (same sizes as its pill). */
+.searchFallback {
+  width: 300px;
+  height: 44px;
+  flex: none;
+  border-radius: var(--r-pill);
+  background: var(--surface-2);
+}
+@media (max-width: 1100px) {
+  .searchFallback {
+    width: 240px;
+  }
+}
+@media (max-width: 960px) {
+  .searchFallback {
+    flex: 0 1 240px;
+    width: auto;
+    min-width: 140px;
+  }
+}
+@media (max-width: 720px) {
+  .searchFallback {
+    width: 44px;
+    min-width: 44px;
+    flex: none;
+    background: none;
+  }
+}
+
+/* Stale-session hop to the login page (SessionRedirect) — visible only for a moment. */
+.redirect {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  min-height: 100dvh;
+  padding: 24px 16px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 14px;
+  text-align: center;
+}
+.redirect a {
+  color: var(--brand);
+  font-weight: 700;
+  text-decoration: underline;
+}

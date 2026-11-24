@@ -1,0 +1,605 @@
+/* 사이트 설정 · 약관 · 간편로그인 · 관리자 계정 · 작업 기록 */
+
+/* Footer preview (mirrors apps/web SiteFooter .biz) */
+.footerPreview {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--grey-50);
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.footerCs {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--text-3);
+}
+.footerCs b {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+.footerBiz {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin: 0;
+  color: var(--text-muted);
+}
+.footerBiz div {
+  display: inline-flex;
+  gap: 4px;
+  min-width: 0;
+}
+.footerBiz dt,
+.footerBiz dd {
+  display: inline;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.placeholder {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.metaNote {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Search result preview (SEO) */
+.serp {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  min-width: 0;
+}
+.serpSite {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+  min-width: 0;
+}
+.serpIcon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.serpUrl {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.serpTitle {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+  color: var(--brand-pressed, var(--brand));
+  overflow-wrap: anywhere;
+}
+.serpDesc {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.counter {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+.counterWarn {
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+/* Contact preview */
+.csCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.csPhone {
+  font-family: var(--font-num);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+.csLine {
+  font-size: 13px;
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+.csChannel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+/* Feature switches: unknown flags keep their raw key */
+.flagKey {
+  font-family: var(--font-num);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ---------- 약관 ---------- */
+.termsHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.version {
+  font-family: var(--font-num);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.versionLink:hover {
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.readDoc {
+  max-height: 640px;
+  overflow-y: auto;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+.docTitle {
+  margin-bottom: 4px;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+.docMeta {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.publishList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 16px;
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+.publishList li {
+  position: relative;
+  padding-left: 16px;
+}
+.publishList li::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 0.7em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--icon-muted);
+}
+.publishList strong {
+  color: var(--text);
+  font-weight: 700;
+}
+.gapTop {
+  margin-top: 16px;
+}
+
+/* ---------- 간편로그인 ---------- */
+.providers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.provider {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  min-width: 0;
+}
+.providerHd {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.providerName {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.providerStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.pStat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--grey-50);
+  min-width: 0;
+}
+.pStatLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.pStatValue {
+  font-family: var(--font-num);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+.pStatBad {
+  color: var(--danger);
+}
+.codeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.code {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-family: var(--font-num);
+  font-size: 12px;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fieldLabel {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* ---------- 관리자 계정 ---------- */
+.person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 0;
+}
+.personText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.personName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.personSub {
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.roleGuide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.roleCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: var(--r-md);
+  background: var(--grey-50);
+  min-width: 0;
+}
+.roleCard h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+.roleCard p {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-3);
+}
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line-soft);
+}
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.actionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.actionText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.actionText b {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+/* Password field: the generator sits on the label row, right aligned */
+.pwField {
+  position: relative;
+}
+.pwGenerate {
+  position: absolute;
+  top: -6px;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand);
+}
+.pwGenerate:hover {
+  background: var(--brand-soft);
+}
+
+/* ---------- 작업 기록 ---------- */
+.dateRange {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dateRange input {
+  height: 40px;
+  width: 150px;
+  font-size: 14px;
+}
+.actor {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.actorName {
+  font-weight: 700;
+  color: var(--text);
+}
+.target {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  white-space: normal;
+  padding: 8px 0;
+}
+.targetType {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.targetLabel {
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+}
+.diff {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 13px;
+}
+.diff th,
+.diff td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.diff thead th {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--grey-50);
+  border-bottom: 1px solid var(--line);
+}
+.diff tbody th {
+  width: 30%;
+  font-weight: 700;
+  color: var(--text-2);
+}
+.diffKind {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-cap);
+  font-weight: 700;
+}
+.kindAdded {
+  color: var(--success);
+}
+.kindRemoved {
+  color: var(--danger);
+}
+.kindChanged {
+  color: var(--brand);
+}
+.before {
+  color: var(--text-muted);
+}
+.rowChanged .before,
+.rowRemoved .before {
+  background: var(--danger-soft);
+  color: var(--text-2);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--danger) 50%, transparent);
+}
+.rowChanged .after,
+.rowAdded .after {
+  background: var(--success-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+.nil {
+  display: inline-block;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.diffEmpty {
+  padding: 16px;
+  border-radius: var(--r-md);
+  background: var(--grey-50);
+  font-size: 13px;
+  color: var(--text-3);
+  line-height: 1.55;
+}
+.drawerHd {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.drawerTitle {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.diffHd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+@media (max-width: 1180px) {
+  .providers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .roleGuide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dateRange {
+    width: 100%;
+  }
+  .dateRange input {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+  .actionRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .readDoc {
+    padding: 16px;
+    max-height: none;
+  }
+}
+
+/* Audit log card (phones): the whole card opens the detail drawer */
+.logCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+}
+.logCard .target {
+  padding: 0;
+}
+
+/* Site settings: each opened tab keeps its form mounted; the active one fills the body so the
+   form's SaveBar can rest at the bottom. ([hidden] wins: base.css sets it !important.) */
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+  min-width: 0;
+}

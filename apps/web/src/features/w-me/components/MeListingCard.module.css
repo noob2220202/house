@@ -1,0 +1,58 @@
+.cell {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+.card {
+  flex: 1;
+}
+/* 거래완료 / 광고 종료: the photo goes grey and the price steps back, but every text keeps an
+   AA-contrast colour token (no opacity on text — the card is still a link people read). */
+.inactive > :first-child > svg,
+.inactive > :first-child > img {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+.inactive :global(.price) {
+  color: var(--text-3);
+}
+/* The card's own foot text ("확인일 미등록") is replaced by .footNote below; the chevron stays. */
+.inactive > :last-child > :first-child {
+  visibility: hidden;
+}
+.footNote {
+  position: absolute;
+  left: 20px;
+  right: 46px;
+  bottom: 16px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* Clicks fall through to the card's stretched link. */
+  pointer-events: none;
+}
+.status {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 800;
+  pointer-events: none;
+}
+.closed {
+  background: var(--surface-ink);
+  color: var(--text-on-ink);
+}
+.reserved {
+  background: var(--warn-soft);
+  color: var(--warn);
+}

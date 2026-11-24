@@ -1,0 +1,91 @@
+/* Wraps SearchField variant="field" (root div > form). */
+.root {
+  width: var(--list-search-w, 300px);
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* collapsible: a 34px round search icon that opens into a field */
+.collapsible {
+  width: auto;
+  flex: none;
+}
+.collapsible > form {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  transition:
+    width var(--dur-2) var(--ease),
+    border-color var(--dur-1),
+    background var(--dur-1),
+    box-shadow var(--dur-1);
+}
+.collapsible > form > svg {
+  position: absolute;
+  left: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-2);
+  pointer-events: none; /* clicks reach the input underneath, which opens the field */
+}
+/* The input keeps its open width (clipped by the form) so its text box never collapses to zero
+   while the form animates — a zero-width text box makes Chrome drop the caret to the start. */
+.collapsible > form input {
+  flex: none;
+  width: var(--list-search-w, 208px);
+  max-width: none;
+  padding: 0 30px 0 32px;
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0;
+  cursor: pointer;
+}
+.collapsible > form:focus-within,
+.collapsible.on > form {
+  width: var(--list-search-w, 208px);
+  max-width: 100%;
+}
+.collapsible > form:focus-within input,
+.collapsible.on > form input {
+  opacity: 1;
+  cursor: text;
+}
+.collapsible.on > form {
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
+}
+.collapsible.on > form:focus-within {
+  border-color: var(--brand);
+}
+.collapsible > form > button {
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+}
+.collapsible.on > form > button:hover {
+  background: var(--surface);
+}
+@media (prefers-reduced-motion: reduce) {
+  .collapsible > form {
+    transition: none;
+  }
+}
+@media (max-width: 720px) {
+  .collapsible > form {
+    width: 40px;
+    height: 40px;
+  }
+  .collapsible > form > svg {
+    left: 10px;
+  }
+  .collapsible > form input {
+    padding-left: 38px;
+    font-size: 16px; /* no iOS zoom on focus */
+  }
+}

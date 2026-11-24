@@ -1,0 +1,8 @@
+/* App-level globals. Tokens + base come from @house/ui (imported in layout.tsx before this file). */
+body {
+  min-height: 100dvh;
+  background: var(--ground);
+}
+::selection {
+  background: var(--brand-soft-2);
+}

@@ -1,0 +1,32 @@
+.shell {
+  width: 100%;
+  max-width: var(--container);
+  margin-inline: auto;
+  padding: var(--s-10) var(--gutter) var(--s-20);
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  gap: var(--s-10);
+  align-items: start;
+}
+.side {
+  position: sticky;
+  top: var(--s-6);
+}
+.content {
+  min-width: 0;
+}
+@media (max-width: 1080px) {
+  .shell {
+    grid-template-columns: 224px minmax(0, 1fr);
+    gap: var(--s-8);
+  }
+}
+@media (max-width: 720px) {
+  .shell {
+    display: block;
+    padding: 0;
+  }
+  .side {
+    display: none;
+  }
+}

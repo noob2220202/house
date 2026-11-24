@@ -1,0 +1,87 @@
+/* Preview typography mirrors the user site's <RichText> (notices · FAQ · terms). */
+.rich {
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.rich > * + * {
+  margin-top: 14px;
+}
+.rich h3 {
+  margin-top: 28px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.4;
+  color: var(--text);
+}
+.rich h4 {
+  margin-top: 20px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.rich > :first-child {
+  margin-top: 0;
+}
+.rich ul,
+.rich ol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0;
+  list-style: none;
+}
+.rich li {
+  position: relative;
+  padding-left: 22px;
+}
+.rich ul li::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 0.75em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--icon-muted);
+}
+.rich ol li {
+  padding-left: 26px;
+}
+.marker {
+  position: absolute;
+  left: 0;
+  width: 20px;
+  text-align: right;
+  font-family: var(--font-num);
+  font-weight: 700;
+  color: var(--text-3);
+}
+.rich a {
+  color: var(--brand);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.emptyNote {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.compact {
+  font-size: 14px;
+  line-height: 1.65;
+}
+.compact > * + * {
+  margin-top: 10px;
+}
+.compact h3 {
+  margin-top: 18px;
+  font-size: 15px;
+}
+.compact h4 {
+  margin-top: 14px;
+  font-size: 14px;
+}
