@@ -1,17 +1,10 @@
-import type { Metadata } from 'next';
-import { Suspense } from 'react';
-import { InquiriesView } from '@/features/a-inbox/inquiries/InquiriesView';
-import { INBOX_ROUTES } from '@/features/a-inbox/routes';
-import { requireAgent } from '@/lib/auth/server';
+import { redirect } from 'next/navigation';
+import { AGENT_ROUTES } from '@/features/a-agency/nav';
 
-export const metadata: Metadata = { title: '문의' };
-
-/** /agent/inquiries — messages and contact log of the office (`?id=` opens one inquiry). */
-export default async function AgentInquiriesPage() {
-  await requireAgent(INBOX_ROUTES.inquiries);
-  return (
-    <Suspense fallback={null}>
-      <InquiriesView />
-    </Suspense>
-  );
+/**
+ * /agent/inquiries — the 문의함 is hidden for launch (DECISIONS D5: no inquiry backend; the public
+ * "문의하기" stays the phone / SMS contact dialog). Old links and bookmarks land on the dashboard.
+ */
+export default function AgentInquiriesPage(): never {
+  redirect(AGENT_ROUTES.dashboard);
 }

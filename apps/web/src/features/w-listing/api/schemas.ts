@@ -7,17 +7,21 @@ import {
   FloorDisplay,
   ListingOption,
   ListingStatus,
+  MAINTENANCE_FEE_KIND_LABEL,
+  MaintenanceFeeBillingType,
+  MaintenanceFeeKind,
   MoveInType,
   TradeDealType,
   VerificationMethod,
 } from '@house/shared';
 import { z } from 'zod';
+import { statsMonthsOf } from '@/features/w-complex/api/schemas';
 import { listingSummarySchema } from '@/lib/api/schemas/listing';
 
 /**
- * Response schemas of the listing-detail page group.
- * ASSUMED SHAPES — the listings / complexes / ads controllers are not implemented yet; field names
- * mirror the Prisma models (apps/api/prisma/schema/*.prisma). See docs/frontend-integration/w-listing.md.
+ * Response schemas of the listing-detail page group. `GET /listings/:id` answers the shared
+ * `ListingDetail` (listings module); `listingDetailFromWire()` maps it onto the shape the page
+ * reads (photo URLs, coordinates inside `property`, verification list, 관리비 항목 labels).
  */
 
 /** Prisma `Decimal` columns may arrive as strings — accept both. */
@@ -155,7 +159,22 @@ export const listingPropertySchema = z.object({
 });
 export type ListingProperty = z.infer<typeof listingPropertySchema>;
 
-export const listingDetailSchema = z.object({
+const maintenanceFeeViewSchema = z.object({
+  billingType: z.enum(MaintenanceFeeBillingType).catch(MaintenanceFeeBillingType.UNKNOWN),
+  items: z
+    .array(
+      z.object({
+        kind: z.enum(MaintenanceFeeKind).catch(MaintenanceFeeKind.OTHER),
+        included: z.boolean(),
+        amountWon: nullish(z.number()),
+      }),
+    )
+    .default([]),
+  unavailableReason: nullish(z.string()),
+});
+export type MaintenanceFeeView = z.infer<typeof maintenanceFeeViewSchema>;
+
+export const listingDetailObjectSchema = z.object({
   id: z.string(),
   /** Human-friendly listing number ("26-0412"); falls back to the id when absent. */
   listingNo: nullish(z.string()),
@@ -172,7 +191,10 @@ export const listingDetailSchema = z.object({
   presalePrice: nullish(z.number()),
   premium: nullish(z.number()),
   maintenanceFeeWon: nullish(z.number()),
+  /** 관리비 포함 항목 labels ("일반관리비", "수도료") — derived from `maintenanceFee.items`. */
   maintenanceFeeItems: z.array(z.string()).default([]),
+  /** Backend 관리비 breakdown (부과방식 + 항목). */
+  maintenanceFee: nullish(maintenanceFeeViewSchema),
   moveInType: nullish(z.enum(MoveInType)),
   moveInDate: nullish(z.string()),
   floorDisplay: z.enum(FloorDisplay).default(FloorDisplay.EXACT),
@@ -190,7 +212,62 @@ export const listingDetailSchema = z.object({
   agencies: z.array(listingAgencySchema).default([]),
   nearby: z.array(nearbyPlaceSchema).default([]),
 });
-export type ListingDetail = z.infer<typeof listingDetailSchema>;
+
+type Raw = Record<string, unknown>;
+const isObject = (v: unknown): v is Raw => typeof v === 'object' && v !== null;
+const KIND_LABEL = MAINTENANCE_FEE_KIND_LABEL as Record<string, string>;
+
+/** 포함 항목 labels of the backend `maintenanceFee.items` ("일반관리비 7만원", "수도료"). */
+export function maintenanceFeeLabels(fee: unknown): string[] {
+  if (!isObject(fee) || !Array.isArray(fee.items)) return [];
+  return fee.items.flatMap((item: unknown) => {
+    if (!isObject(item) || item.included !== true || typeof item.kind !== 'string') return [];
+    const label = KIND_LABEL[item.kind] ?? KIND_LABEL.OTHER!;
+    const won = typeof item.amountWon === 'number' && item.amountWon > 0 ? item.amountWon : null;
+    return [won ? `${label} ${Math.round(won / 10_000).toLocaleString('ko-KR')}만원` : label];
+  });
+}
+
+/**
+ * Backend `ListingDetail` → page shape: `photos[]` (PhotoUrls) → `{ id, url, thumbUrl }`,
+ * top-level `lat`/`lng`/`emdCode`/`emdName` copied into `property`, `latestVerification` →
+ * `verifications[]`, `maintenanceFee.items` → `maintenanceFeeItems`. Keys already in the page
+ * shape pass through unchanged.
+ */
+export function listingDetailFromWire(value: unknown): unknown {
+  if (!isObject(value)) return value;
+  const out: Raw = { ...value };
+  if (Array.isArray(value.photos)) {
+    out.photos = value.photos.map((p: unknown) =>
+      isObject(p) && p.url === undefined && typeof p.mediaId === 'string'
+        ? {
+            id: p.mediaId,
+            url: p.largeUrl ?? p.mediumUrl ?? p.thumbUrl,
+            thumbUrl: p.thumbUrl ?? null,
+            caption: p.caption ?? null,
+            isCover: p.isCover === true,
+          }
+        : p,
+    );
+  }
+  if (isObject(value.property)) {
+    const prop: Raw = { ...value.property };
+    for (const key of ['lat', 'lng', 'emdCode', 'emdName'] as const) {
+      if (prop[key] === undefined && value[key] !== undefined) prop[key] = value[key];
+    }
+    out.property = prop;
+  }
+  if (out.verifications === undefined && isObject(value.latestVerification)) {
+    out.verifications = [value.latestVerification];
+  }
+  if (out.maintenanceFeeItems === undefined && isObject(value.maintenanceFee)) {
+    out.maintenanceFeeItems = maintenanceFeeLabels(value.maintenanceFee);
+  }
+  return out;
+}
+
+export const listingDetailSchema = z.preprocess(listingDetailFromWire, listingDetailObjectSchema);
+export type ListingDetail = z.infer<typeof listingDetailObjectSchema>;
 
 /** Card-sized listing (similar listings) — the shared listing-summary contract. */
 export { listingSummarySchema, type ListingSummary } from '@/lib/api/schemas/listing';
@@ -221,25 +298,31 @@ export const similarListingsSchema = z.object({
 export type SimilarListings = z.infer<typeof similarListingsSchema>;
 export const EMPTY_SIMILAR: SimilarListings = { groups: [] };
 
-/** GET /complexes/:id/stats — monthly aggregates (ComplexTradeStat). */
-export const complexStatsSchema = z.object({
-  dealType: z.enum(TradeDealType),
-  areaTypeId: nullish(z.string()),
-  months: z
-    .array(
-      z.object({
-        /** YYYYMM */
-        yearMonth: z.number(),
-        tradeCount: z.number(),
-        medianPrice: z.number(),
-        minPrice: nullish(z.number()),
-        maxPrice: nullish(z.number()),
-        avgPrice: nullish(z.number()),
-      }),
-    )
-    .default([]),
-});
-export type ComplexStats = z.infer<typeof complexStatsSchema>;
+/**
+ * GET /complexes/:id/stats — `ComplexStatsView`; `months` = the selected 평형's series (or the
+ * all-평형 trend), see `statsMonthsOf` (w-complex).
+ */
+export const complexStatsSchema = z.preprocess(
+  (v) => (isObject(v) ? { ...v, months: statsMonthsOf(v) } : v),
+  z.object({
+    dealType: z.enum(TradeDealType),
+    areaTypeId: nullish(z.string()),
+    months: z
+      .array(
+        z.object({
+          /** YYYYMM */
+          yearMonth: z.number(),
+          tradeCount: z.number(),
+          medianPrice: z.number(),
+          minPrice: nullish(z.number()),
+          maxPrice: nullish(z.number()),
+          avgPrice: nullish(z.number()),
+        }),
+      )
+      .default([]),
+  }),
+);
+export type ComplexStats = z.output<typeof complexStatsSchema>;
 
 /** GET /complexes/:id/trades — paginated TradeRecord rows. */
 export const complexTradeSchema = z.object({

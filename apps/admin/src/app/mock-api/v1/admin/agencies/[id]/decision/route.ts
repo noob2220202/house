@@ -10,7 +10,7 @@ import {
   validationError,
 } from '@/features/m-moderation/mock/handler';
 import { mockError, mockJson, mockNotFound } from '@/lib/mock';
-import { agenciesDb } from '../../_fixtures';
+import { agenciesDb, toAgencyDetailView } from '../../_fixtures';
 
 const ALLOWED: Record<AgencyStatus, readonly AgencyStatus[]> = {
   PENDING: ['APPROVED', 'REJECTED'],
@@ -57,5 +57,5 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     agency.suspendedAt = null;
   }
   if (status === AgencyStatus.SUSPENDED) agency.suspendedAt = now;
-  return mockJson(agency);
+  return mockJson(toAgencyDetailView(agency));
 }

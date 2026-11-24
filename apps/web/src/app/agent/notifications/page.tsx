@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { agencyDealRequestPageSchema, inquiryPageSchema } from '@/features/a-inbox/api/schemas';
+import { agencyDealRequestPageSchema } from '@/features/a-inbox/api/schemas';
 import {
   AgentNotificationsView,
   type InboxSummary,
@@ -21,19 +21,17 @@ async function orNull<T>(promise: Promise<T>): Promise<T | null> {
   }
 }
 
-/** Inbox counters for the tiles above the feed (cheapest list calls: one row each). */
+/** Inbox counters for the tiles above the feed (cheapest list call: one row). */
 async function loadSummary(): Promise<InboxSummary> {
-  const query = { page: 1, pageSize: 1 };
-  const [requests, inquiries] = await Promise.all([
-    orNull(
-      serverGetAuthed('/agency/deal-requests', { query, schema: agencyDealRequestPageSchema }),
-    ),
-    orNull(serverGetAuthed('/agency/inquiries', { query, schema: inquiryPageSchema })),
-  ]);
+  const requests = await orNull(
+    serverGetAuthed('/agency/deal-requests', {
+      query: { page: 1, pageSize: 1 },
+      schema: agencyDealRequestPageSchema,
+    }),
+  );
   return {
     newRequests: requests?.stageCounts?.NEW ?? null,
     waitingProposals: requests?.stageCounts?.PROPOSED ?? null,
-    unreadInquiries: inquiries?.unreadCount ?? null,
   };
 }
 

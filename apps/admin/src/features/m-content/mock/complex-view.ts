@@ -1,25 +1,43 @@
 import type { MockComplex, MockTradeSyncRun } from './fixtures-complexes';
 import { db } from './store';
 
-/** List row of GET /admin/complexes. */
+/** List row of GET /admin/complexes: shared `AdminComplexListItem` (ComplexSummary + code). */
 export function complexSummary(c: MockComplex) {
   return {
     id: c.id,
-    assetType: c.assetType,
     name: c.name,
+    assetType: c.assetType,
     roadAddress: c.roadAddress,
     jibunAddress: c.jibunAddress,
+    sggCode: c.sggCode,
+    emdCode: c.emdCode,
     emdName: c.emdName,
+    lat: c.lat,
+    lng: c.lng,
     households: c.households,
+    buildings: c.buildings,
     builtYear: c.builtYear,
-    areaTypeCount: c.areaTypes.length,
-    photoCount: c.photos.length,
+    approvalDate: c.approvalDate,
     activeListingCount: c.activeListingCount,
+    favoriteCount: c.favoriteCount,
     viewCount: c.viewCount,
     externalCode: c.externalCode,
-    lastTradeDate: c.lastTradeDate,
-    updatedAt: c.updatedAt,
+    deletedAt: null,
   };
+}
+
+/** Shared `ComplexPhotoView[]` (display order) — detail `photos` and the PUT …/photos answer. */
+export function complexPhotoViews(c: MockComplex) {
+  return [...c.photos]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((p, i) => ({
+      mediaId: p.mediaId,
+      thumbUrl: p.url,
+      mediumUrl: p.url,
+      largeUrl: p.url,
+      caption: p.caption,
+      sortOrder: i,
+    }));
 }
 
 /** GET /admin/complexes/:id */
@@ -29,7 +47,7 @@ export function complexDetail(c: MockComplex) {
     ...rest,
     areaTypeCount: c.areaTypes.length,
     photoCount: c.photos.length,
-    photos: [...c.photos].sort((a, b) => a.sortOrder - b.sortOrder),
+    photos: complexPhotoViews(c),
     areaTypes: [...c.areaTypes].sort((a, b) => a.exclusiveArea - b.exclusiveArea),
     trades: { total: tradeTotal, unmatched: tradeUnmatched, lastDealDate: c.lastTradeDate },
   };

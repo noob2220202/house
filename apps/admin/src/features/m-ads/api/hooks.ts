@@ -1,14 +1,16 @@
 'use client';
-import type { BannerSlot, BannerStatus, MediaPurpose } from '@house/shared';
+import { MediaStatus, type BannerSlot, type BannerStatus, type MediaPurpose } from '@house/shared';
 import {
   keepPreviousData,
   useMutation,
+  useQueries,
   useQuery,
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query';
 import { api, ApiError, qk } from '@/lib/api';
 import { pollUntil } from '../lib/poll';
+import { totalsRange } from '../lib/stats';
 import { fallbackSlots } from '../lib/slots';
 import { mergeVisibleOrder, placeAt, sameOrder } from '../lib/reorder';
 import {
@@ -105,17 +107,49 @@ export interface StatsRange {
   to?: string;
 }
 
-export function useBannerStats(id: string, range: StatsRange) {
+/** `range: null` waits (e.g. until the banner's period is known for "전체 기간"). */
+export function useBannerStats(id: string, range: StatsRange | null) {
   return useQuery({
     queryKey: qk(BANNERS, 'stats', { id, ...range }),
     queryFn: ({ signal }) =>
       api.get(`/admin/banners/${id}/stats`, {
-        query: { from: range.from, to: range.to },
+        query: { from: range?.from, to: range?.to },
         schema: bannerStatsSchema,
         signal,
       }),
+    enabled: range !== null,
     placeholderData: keepPreviousData,
   });
+}
+
+/**
+ * Lifetime totals of the listed banners (the list view has no counters): one stats request per
+ * live / ended banner over its whole period (up to the API's 366-day window). Scheduled banners
+ * have nothing to count yet.
+ */
+export function useBannerTotals(banners: readonly AdminBanner[]) {
+  const results = useQueries({
+    queries: banners.map((b) => {
+      const range = totalsRange(b);
+      return {
+        queryKey: qk(BANNERS, 'stats', { id: b.id, ...range }),
+        queryFn: ({ signal }: { signal: AbortSignal }) =>
+          api.get(`/admin/banners/${b.id}/stats`, {
+            query: { from: range?.from, to: range?.to },
+            schema: bannerStatsSchema,
+            signal,
+          }),
+        enabled: range !== null,
+        staleTime: 5 * 60_000,
+      };
+    }),
+  });
+  const totals = new Map<string, { impressions: number; clicks: number }>();
+  results.forEach((r, i) => {
+    const id = banners[i]?.id;
+    if (id && r.data) totals.set(id, r.data.totals);
+  });
+  return totals;
 }
 
 function invalidateBanners(client: QueryClient) {
@@ -287,11 +321,16 @@ export function useSavePopup() {
   });
 }
 
+/** Fields the list / quick panel change in place (a subset of `popupUpdateSchema`). */
+export type PopupPatch = Partial<
+  Pick<AdminPopup, 'paused' | 'startAt' | 'endAt' | 'targetPages' | 'dismissDays'>
+>;
+
 /** Partial update from the list / quick panel (optimistic). */
 export function usePatchPopup() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { id: string; patch: Partial<AdminPopup> }) =>
+    mutationFn: (vars: { id: string; patch: PopupPatch }) =>
       api.patch(`/admin/popups/${vars.id}`, vars.patch, { schema: adminPopupSchema }),
     onMutate: async (vars) => {
       await client.cancelQueries({ queryKey: [POPUPS, 'list'] });
@@ -343,7 +382,7 @@ export function useReorderPopups() {
 
 // ---- media + pickers -------------------------------------------------------------------------------
 
-/** POST /admin/media?purpose= (multipart `file`) → MediaDto. */
+/** POST /admin/media?purpose= (multipart `file`) → OwnMediaView (201 READY / 202 PENDING). */
 export function uploadAdminMedia(file: File, purpose: MediaPurpose, signal?: AbortSignal) {
   const body = new FormData();
   body.append('file', file);
@@ -357,16 +396,17 @@ export function uploadAdminMedia(file: File, purpose: MediaPurpose, signal?: Abo
 
 /**
  * Uploads an ad image and waits until it can be shown. The media module creates the webp variants
- * in a background job (PENDING → READY), so the upload response may come back without variant URLs;
- * the public metadata endpoint (`GET /media/:id`) is polled for a few seconds until one exists.
- * The caller still has to check `mediaUrl(media)` — processing can fail or take longer.
+ * in a background job (PENDING → READY), so the upload response may come back without URLs;
+ * `GET /admin/media/:id` is polled for a few seconds until one exists (the public `GET /media/:id`
+ * answers 404 until the file is READY). Polling stops early when processing FAILED. The caller
+ * still has to check `mediaUrl(media)` — processing can fail or take longer.
  */
 export async function uploadAdImage(file: File, purpose: MediaPurpose, signal?: AbortSignal) {
   const uploaded = await uploadAdminMedia(file, purpose, signal);
   return pollUntil(
     uploaded,
-    (media) => api.get(`/media/${media.id}`, { schema: mediaSchema, signal }),
-    (media) => mediaUrl(media) !== null,
+    (media) => api.get(`/admin/media/${media.id}`, { schema: mediaSchema, signal }),
+    (media) => mediaUrl(media) !== null || media.status === MediaStatus.FAILED,
     { tries: 12, delayMs: 750 },
   );
 }

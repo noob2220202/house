@@ -8,7 +8,7 @@ import {
   mockConflict,
 } from '@/features/m-content/mock/http';
 import { newId, nowIso } from '@/features/m-content/mock/ids';
-import { audit, db } from '@/features/m-content/mock/store';
+import { audit, db, adminView } from '@/features/m-content/mock/store';
 import { mockJson, mockPaginate } from '@/lib/mock';
 
 const RANK = { SUPER_ADMIN: 3, ADMIN: 2, OPERATOR: 1 } as const;
@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
     .admins.filter((a) => matchesText(sp.get('q'), a.name, a.email))
     .filter((a) => (!role || a.role === role) && (!status || a.status === status))
     .sort((a, b) => RANK[b.role] - RANK[a.role] || a.createdAt.localeCompare(b.createdAt));
-  return mockJson(mockPaginate(sp.get('_empty') === '1' ? [] : rows, req, { pageSize: 50 }));
+  return mockJson(
+    mockPaginate(sp.get('_empty') === '1' ? [] : rows.map(adminView), req, { pageSize: 50 }),
+  );
 }
 
 // POST /api/v1/admin/admins { email, name, role, password } — ASSUMED body
@@ -57,5 +59,5 @@ export async function POST(req: NextRequest) {
     resourceLabel: `${row.name} (${row.email})`,
     after: { email: row.email, name: row.name, role: row.role, status: row.status },
   });
-  return mockJson(row, { status: 201 });
+  return mockJson(adminView(row), { status: 201 });
 }

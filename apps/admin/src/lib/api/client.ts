@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import { apiUrl, type QueryParams } from './config';
-import { CSRF_HEADER, getCsrfToken } from './csrf';
+import { CSRF_HEADER, forgetCsrfToken, getCsrfToken, rememberCsrfToken } from './csrf';
 import { ApiError, ERROR_CODES, normalizeError, toApiError } from './errors';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -24,6 +24,24 @@ export interface ApiRequestOptions<S extends z.ZodType | undefined = undefined> 
 type Result<S extends z.ZodType | undefined, T> = S extends z.ZodType ? z.infer<S> : T;
 
 const MUTATING = new Set<HttpMethod>(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+/** Admin auth endpoints whose response (re)creates the session and carries its new CSRF token. */
+const SESSION_ROTATING = /^\/admin\/auth\/(login|totp\/activate|totp\/verify|password)$/;
+
+/**
+ * Keeps the in-memory CSRF token in step with the admin session: login / TOTP activate / verify /
+ * password change rotate the session and return its token in the body; logout ends it.
+ */
+function trackCsrf(method: HttpMethod, path: string, ok: boolean, data: unknown): void {
+  if (method !== 'POST') return;
+  if (path === '/admin/auth/logout') {
+    forgetCsrfToken();
+    return;
+  }
+  if (!ok || !SESSION_ROTATING.test(path)) return;
+  const token = (data as { csrfToken?: unknown } | null | undefined)?.csrfToken;
+  if (typeof token === 'string') rememberCsrfToken(token);
+}
 
 async function parseBody(res: Response): Promise<unknown> {
   if (res.status === 204) return undefined;
@@ -82,7 +100,7 @@ export async function apiFetch<T = unknown, S extends z.ZodType | undefined = un
   let res: Response;
   try {
     res = await send(false);
-    // The CSRF cookie may have expired — refresh once and retry.
+    // The remembered token may belong to an older session — re-read it once and retry.
     if (res.status === 403 && MUTATING.has(method) && typeof window !== 'undefined') {
       const peek: unknown = await res
         .clone()
@@ -96,6 +114,7 @@ export async function apiFetch<T = unknown, S extends z.ZodType | undefined = un
   }
 
   const data = await parseBody(res);
+  if (typeof window !== 'undefined') trackCsrf(method, path, res.ok, data);
   if (!res.ok) throw toApiError(res.status, data);
   if (!schema) return data as Result<S, T>;
   const parsed = schema.safeParse(data);

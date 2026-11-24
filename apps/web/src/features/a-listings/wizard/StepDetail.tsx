@@ -191,38 +191,42 @@ export function StepDetail() {
       {!land && (
         <>
           <FormSection letter="B" title="구조 · 방향">
-            {residential && (
-              <FormRow label="방 / 욕실" htmlFor="f-rooms" required legal>
-                <div className={styles.inline}>
-                  <div className={cx(styles.w160, styles.num)}>
-                    <Input
-                      id="f-rooms"
-                      aria-label="방 수"
-                      aria-required
-                      inputMode="numeric"
-                      prefix="방"
-                      suffix="개"
-                      placeholder="예: 3"
-                      error={errors.rooms?.message}
-                      {...register('rooms')}
-                    />
-                  </div>
-                  <div className={cx(styles.w160, styles.num)}>
-                    <Input
-                      id="f-baths"
-                      aria-label="욕실 수"
-                      aria-required
-                      inputMode="numeric"
-                      prefix="욕실"
-                      suffix="개"
-                      placeholder="예: 2"
-                      error={errors.baths?.message}
-                      {...register('baths')}
-                    />
-                  </div>
+            <FormRow
+              label={residential ? '방 / 욕실' : '방(룸) / 화장실'}
+              htmlFor="f-rooms"
+              required
+              legal
+              help={residential ? undefined : '구획된 방이나 화장실이 없으면 0을 입력해요.'}
+            >
+              <div className={styles.inline}>
+                <div className={cx(styles.w160, styles.num)}>
+                  <Input
+                    id="f-rooms"
+                    aria-label="방 수"
+                    aria-required
+                    inputMode="numeric"
+                    prefix="방"
+                    suffix="개"
+                    placeholder="예: 3"
+                    error={errors.rooms?.message}
+                    {...register('rooms')}
+                  />
                 </div>
-              </FormRow>
-            )}
+                <div className={cx(styles.w160, styles.num)}>
+                  <Input
+                    id="f-baths"
+                    aria-label="욕실 수"
+                    aria-required
+                    inputMode="numeric"
+                    prefix="욕실"
+                    suffix="개"
+                    placeholder="예: 2"
+                    error={errors.baths?.message}
+                    {...register('baths')}
+                  />
+                </div>
+              </div>
+            </FormRow>
             <FormRow
               label="방향"
               labelId="l-direction"

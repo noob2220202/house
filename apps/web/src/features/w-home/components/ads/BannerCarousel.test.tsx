@@ -43,6 +43,7 @@ const banner = (id: string, over: Partial<Banner> = {}): Banner => ({
   imageUrl: `/media/banners/${id}.jpg`,
   mobileImageUrl: null,
   linkUrl: 'https://example.com/',
+  agencyId: null,
   newWindow: false,
   ...over,
 });

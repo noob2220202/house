@@ -1,10 +1,10 @@
-import { ERROR_MESSAGES, bannerCreateSchema } from '@house/shared';
+import { ERROR_MESSAGES, bannerCreateSchema, bannerUpdateSchema } from '@house/shared';
 import type { NextRequest } from 'next/server';
 import { mockDelay, mockError, mockJson } from '@/lib/mock';
 import { agencyById } from '../../../agencies/_fixtures';
 import { adminGuard, readJson, validationError } from '../_guard';
 import { checkBannerInput } from '../_rules';
-import { bannerState, findBanner, renumberSlot, slotBanners, toAdminBanner } from '../_store';
+import { bannerState, findBanner, renumberSlot, toAdminBanner } from '../_store';
 
 type Ctx = { params: Promise<{ id: string }> };
 const notFound = () => mockError(404, 'BANNER_NOT_FOUND', ERROR_MESSAGES.BANNER_NOT_FOUND);
@@ -18,8 +18,9 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   return banner ? mockJson(toAdminBanner(banner)) : notFound();
 }
 
-// PATCH /api/v1/admin/banners/:id — partial body (the status toggle sends only `{ paused }`); the
-// merged record must satisfy bannerCreateSchema.
+// PATCH /api/v1/admin/banners/:id — `bannerUpdateSchema` (strict: no `slot`, the slot is fixed at
+// creation; the status toggle sends only `{ paused }`). Like the API, the merged record must still
+// satisfy the create rules (window, targeting, slot rules).
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   const denied = adminGuard(req, { mutation: true });
   if (denied) return denied;
@@ -29,6 +30,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const body = await readJson(req);
   if (!body || typeof body !== 'object' || Array.isArray(body))
     return mockError(400, 'VALIDATION_FAILED', '입력값을 확인해 주세요.');
+  const update = bannerUpdateSchema.safeParse(body);
+  if (!update.success) return validationError(update.error);
   const patch = body as Record<string, unknown>;
   const has = (key: string) => Object.prototype.hasOwnProperty.call(patch, key);
   const current = {
@@ -59,9 +62,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const invalid = checkBannerInput(input, banner);
   if (invalid) return invalid;
 
-  const previousSlot = banner.slot;
   Object.assign(banner, {
-    slot: input.slot,
     title: input.title,
     advertiserName: input.advertiserName || agencyById(input.agencyId)?.name || null,
     agencyId: input.agencyId ?? null,
@@ -79,11 +80,6 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     memo: has('memo') ? (input.memo ?? null) : banner.memo,
     updatedAt: new Date().toISOString(),
   });
-  if (previousSlot !== banner.slot) {
-    banner.sortOrder = slotBanners(banner.slot).length + 1;
-    renumberSlot(previousSlot);
-    renumberSlot(banner.slot);
-  }
   return mockJson(toAdminBanner(banner));
 }
 

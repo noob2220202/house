@@ -193,6 +193,7 @@ export function complexHeadlinePrice(
 }
 
 export function complexListingTotal(complex: FavoriteComplex): number {
+  if (!complex.counts) return complex.activeListingCount ?? 0;
   const { presale, sale, jeonse, monthly } = complex.counts;
   return presale + sale + jeonse + monthly;
 }

@@ -1,9 +1,9 @@
-import type {
-  AgencyStatus,
-  DealRequestStatus,
-  ListingStatus,
-  ReportAction,
+import {
   ReportStatus,
+  type AgencyStatus,
+  type DealRequestStatus,
+  type ListingStatus,
+  type ReportAction,
 } from '@house/shared';
 import { z } from 'zod';
 import { api, apiUrl, qk, type QueryParams } from '@/lib/api';
@@ -38,6 +38,7 @@ export const modKeys = {
   agencies: (params: QueryParams) => qk('admin-agencies', 'list', params),
   agencyCounts: qk('admin-agencies', 'counts'),
   agency: (id: string) => qk('admin-agencies', 'detail', id),
+  agencyRegistry: (id: string) => qk('admin-agencies', 'registry', id),
   listings: (params: QueryParams) => qk('admin-listings', 'list', params),
   listingCounts: qk('admin-listings', 'counts'),
   listing: (id: string) => qk('admin-listings', 'detail', id),
@@ -100,15 +101,27 @@ export function decideAgency(
 ) {
   return api.post(`/admin/agencies/${seg(id)}/decision`, body, { schema: adminAgencyDetailSchema });
 }
-/** POST /admin/agencies/:id/registry-check — re-run the registry lookup (ASSUMED endpoint). */
-export function recheckAgencyRegistry(id: string) {
-  return api.post(`/admin/agencies/${seg(id)}/registry-check`, undefined, {
+/**
+ * GET /admin/agencies/:id/registry-check — 국가공간정보 중개업소 조회 result (cached by the API for
+ * the current 등록번호 / 상호 / 대표자; looked up when there is none).
+ */
+export function fetchAgencyRegistry(id: string, signal?: AbortSignal) {
+  return api.get(`/admin/agencies/${seg(id)}/registry-check`, {
     schema: registryCheckSchema,
+    signal,
   });
 }
-/** URL of the authorized private-file stream `GET /admin/agencies/:id/documents/:docId`. */
+/** GET /admin/agencies/:id/registry-check?refresh=1 — re-run the registry lookup now. */
+export function recheckAgencyRegistry(id: string) {
+  return api.get(`/admin/agencies/${seg(id)}/registry-check`, {
+    query: { refresh: 1 },
+    schema: registryCheckSchema,
+    timeoutMs: 30_000,
+  });
+}
+/** URL of the authorized private-file stream `GET /admin/agencies/:id/documents/:docId/file`. */
 export function agencyDocumentUrl(agencyId: string, docId: string): string {
-  return apiUrl(`/admin/agencies/${seg(agencyId)}/documents/${seg(docId)}`);
+  return apiUrl(`/admin/agencies/${seg(agencyId)}/documents/${seg(docId)}/file`);
 }
 
 // ---------- listings -------------------------------------------------------------------------
@@ -138,23 +151,39 @@ export function fetchReports(query: QueryParams, signal?: AbortSignal) {
 export function fetchReport(id: string, signal?: AbortSignal) {
   return api.get(`/admin/reports/${seg(id)}`, { schema: adminReportDetailSchema, signal });
 }
-/** POST /admin/reports/:id/resolve — body = `reportResolveSchema` (@house/shared). */
+/**
+ * POST /admin/reports/:id/resolve — body = `reportResolveSchema` (@house/shared): the final
+ * decision only (RESOLVED with an action, or REJECTED). A blank note keeps the saved memo.
+ */
 export function resolveReport(
   id: string,
-  body: { status: Exclude<ReportStatus, 'RECEIVED'>; action?: ReportAction; note?: string },
+  body: {
+    status: typeof ReportStatus.RESOLVED | typeof ReportStatus.REJECTED;
+    action?: ReportAction;
+    note?: string;
+  },
 ) {
-  return api.post(`/admin/reports/${seg(id)}/resolve`, body, { schema: adminReportDetailSchema });
-}
-/**
- * PATCH /admin/reports/:id `{ internalNote }` — save the moderators' internal memo without changing
- * the status. Separate from the resolution `note` (which is forwarded to the reporter / office).
- */
-export function saveReportNote(id: string, internalNote: string) {
-  return api.patch(
-    `/admin/reports/${seg(id)}`,
-    { internalNote },
+  const note = body.note?.trim();
+  return api.post(
+    `/admin/reports/${seg(id)}/resolve`,
+    { ...body, note: note ? note : undefined },
     { schema: adminReportDetailSchema },
   );
+}
+/** PATCH /admin/reports/:id `{ status: 'IN_REVIEW' }` (`reportReviewSchema`) — 검토 시작. */
+export function startReportReview(id: string) {
+  return api.patch(
+    `/admin/reports/${seg(id)}`,
+    { status: ReportStatus.IN_REVIEW },
+    { schema: adminReportDetailSchema },
+  );
+}
+/**
+ * PATCH /admin/reports/:id `{ note }` (`reportReviewSchema`) — saves the moderators' note of an
+ * open report without changing its status (an empty note clears it).
+ */
+export function saveReportNote(id: string, note: string) {
+  return api.patch(`/admin/reports/${seg(id)}`, { note }, { schema: adminReportDetailSchema });
 }
 
 // ---------- deal requests --------------------------------------------------------------------

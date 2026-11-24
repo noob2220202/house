@@ -8,7 +8,13 @@ import {
 } from './admins';
 import { auditRange, rangePresetOf, shiftDate } from './audit';
 import { formatBusinessNumber, isValidBusinessNumber } from './business';
-import { PHOTO_MAX_COUNT, photoFileError, suggestPyeongLabel, takeWithinLimit } from './complex';
+import {
+  PHOTO_MAX_COUNT,
+  applyPhotoChange,
+  photoFileError,
+  suggestPyeongLabel,
+  takeWithinLimit,
+} from './complex';
 import { diffJson, formatDiffValue, summarizeDiff } from './diff';
 import { normalizeFlags, orderedFlags } from './features';
 import {
@@ -297,6 +303,8 @@ describe('admin accounts', () => {
         now,
       ),
     ).toBe('disabled');
+    // shared AdminAccountView only says `locked` (no end time)
+    expect(adminAccountState({ ...base, locked: true }, now)).toBe('locked');
   });
 
   it('parses the IP allowlist textarea', () => {
@@ -391,5 +399,41 @@ describe('describeUserAgent', () => {
   it('falls back gracefully', () => {
     expect(describeUserAgent(null)).toBe('기록 없음');
     expect(describeUserAgent('curl/8.5.0')).toBe('curl/8.5.0');
+  });
+});
+
+describe('applyPhotoChange (whole-list PUT …/photos)', () => {
+  const p = (mediaId: string, sortOrder: number, caption: string | null = null) => ({
+    mediaId,
+    caption,
+    sortOrder,
+  });
+  const list = [p('a', 0), p('b', 1), p('c', 2)];
+
+  it('appends, ignores a duplicate and renumbers', () => {
+    expect(
+      applyPhotoChange(list, { kind: 'add', photo: p('d', 9) }).map((x) => x.sortOrder),
+    ).toEqual([0, 1, 2, 3]);
+    expect(applyPhotoChange(list, { kind: 'add', photo: p('a', 9) })).toHaveLength(3);
+  });
+
+  it('moves within bounds (first = 대표 사진)', () => {
+    const moved = applyPhotoChange(list, { kind: 'move', mediaId: 'c', delta: -1 });
+    expect(moved.map((x) => x.mediaId)).toEqual(['a', 'c', 'b']);
+    expect(moved.map((x) => x.sortOrder)).toEqual([0, 1, 2]);
+    expect(
+      applyPhotoChange(list, { kind: 'move', mediaId: 'a', delta: -1 }).map((x) => x.mediaId),
+    ).toEqual(['a', 'b', 'c']);
+  });
+
+  it('edits a caption and removes a photo', () => {
+    expect(
+      applyPhotoChange(list, { kind: 'caption', mediaId: 'b', caption: '단지 전경' })[1]?.caption,
+    ).toBe('단지 전경');
+    const removed = applyPhotoChange(list, { kind: 'remove', mediaId: 'a' });
+    expect(removed.map((x) => [x.mediaId, x.sortOrder])).toEqual([
+      ['b', 0],
+      ['c', 1],
+    ]);
   });
 });

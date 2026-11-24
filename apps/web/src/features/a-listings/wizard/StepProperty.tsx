@@ -14,6 +14,7 @@ import {
   Icon,
   Input,
   SegmentedControl,
+  Select,
   cx,
   useDebouncedValue,
   useToast,
@@ -28,6 +29,8 @@ import { errorMessage } from '@/lib/api';
 import { floorClassOf, formatCount, formatDate } from '@/lib/format';
 import { fetchComplex, fetchCoBrokerCandidates, listingKeys } from '../api/queries';
 import type { ComplexSearchItem, GeocodeItem } from '../api/schemas';
+import { buildingUseChoices, buildingUseLabel, impliedBuildingUse } from '../lib/building-use';
+import { listingEmdCode } from '../lib/region';
 import {
   dealTypesFor,
   isComplexAsset,
@@ -92,6 +95,7 @@ export function StepProperty() {
     set('buildingName', '');
     set('lat', null);
     set('lng', null);
+    set('emdCode', '');
   };
 
   const chooseAsset = (next: AssetType) => {
@@ -102,6 +106,9 @@ export function StepProperty() {
     if (asset !== '' && wasComplex !== isComplexAsset(next)) clearLocation();
     if (!isComplexAsset(next)) setManual(false);
     if (!dealTypesFor(next).includes(getValues('dealType'))) set('dealType', DealType.SALE);
+    // 건축물 용도 belongs to the category (주택 → 단독·다가구 …): keep it only where it still fits.
+    const use = getValues('buildingUse');
+    if (use && !buildingUseChoices(next).common.includes(use)) set('buildingUse', '');
   };
 
   const chooseComplex = async (item: ComplexSearchItem) => {
@@ -121,6 +128,7 @@ export function StepProperty() {
       set('buildingName', detail.name);
       set('lat', detail.lat);
       set('lng', detail.lng);
+      set('emdCode', listingEmdCode(detail.emdCode ?? item.emdCode) ?? '');
       // Pre-fill what the complex already knows — the broker can still correct each value.
       if (detail.floorsMax) set('totalFloors', String(detail.floorsMax));
       set('approvalDate', detail.approvalDate?.slice(0, 10) ?? '');
@@ -139,7 +147,14 @@ export function StepProperty() {
     if (item.buildingName && !getValues('buildingName')) set('buildingName', item.buildingName);
     set('lat', item.lat);
     set('lng', item.lng);
+    set('emdCode', listingEmdCode(item.emdCode) ?? '');
     clearErrors('roadAddress');
+    if (!listingEmdCode(item.emdCode)) {
+      toast({
+        message: '이 주소의 법정동을 확인하지 못했어요. 도로명 주소로 다시 검색해 주세요.',
+        tone: 'error',
+      });
+    }
   };
 
   // Same 단지 + 동 already listed by another office → suggest co-brokering instead of a duplicate.
@@ -210,10 +225,11 @@ export function StepProperty() {
             })}
           </div>
           <HelpLine>
-            건축물대장의 용도에 맞게 골라 주세요. 분양권은 아파트·오피스텔을 고른 뒤 다음 단계에서
-            거래 형태로 선택해요.
+            사이트에서 찾는 분류예요. 분양권은 아파트·오피스텔을 고른 뒤 다음 단계에서 거래 형태로
+            선택해요.
           </HelpLine>
         </FormRow>
+        {asset !== '' && !land && <BuildingUseRow />}
       </FormSection>
 
       {asset !== '' && (
@@ -302,6 +318,7 @@ export function StepProperty() {
                     set('jibunAddress', '');
                     set('lat', null);
                     set('lng', null);
+                    set('emdCode', '');
                   }}
                   error={errors.roadAddress?.message}
                   placeholder={land ? '지번으로 검색 (예: 신대리 2011)' : undefined}
@@ -457,5 +474,68 @@ export function StepProperty() {
         </FormSection>
       )}
     </>
+  );
+}
+
+/**
+ * 「중개대상물 종류」 = 건축물대장상 용도 (표시·광고 세부기준). 아파트·오피스텔은 분류에서 정해지고,
+ * 원룸·투룸 / 주택 / 상업·업무는 다가구·다세대·근린생활시설처럼 여러 용도가 될 수 있어 직접 골라요.
+ */
+function BuildingUseRow() {
+  const { setValue, clearErrors, formState } = useFormContext<ListingFormValues>();
+  const v = useWatch<ListingFormValues>() as ListingFormValues;
+  const implied = impliedBuildingUse(v.assetType);
+  const { common, others } = buildingUseChoices(v.assetType);
+
+  if (implied && !v.buildingUse) {
+    return (
+      <FormRow label="건축물 용도" labelId="l-buildingUse" legal>
+        <p className={styles.readout} id="f-buildingUse">
+          건축물대장 용도 <b>{buildingUseLabel(implied)}</b>로 표시돼요.
+        </p>
+      </FormRow>
+    );
+  }
+
+  return (
+    <FormRow
+      label="건축물 용도"
+      htmlFor="f-buildingUse"
+      required
+      legal
+      help="건축물대장에 적힌 주용도를 골라 주세요. 광고에 ‘중개대상물 종류’로 표시돼요."
+    >
+      <div className={styles.w240}>
+        <Select
+          id="f-buildingUse"
+          aria-label="건축물 용도"
+          aria-required
+          placeholder="용도 선택"
+          value={v.buildingUse}
+          error={formState.errors.buildingUse?.message}
+          onChange={(e) => {
+            setValue('buildingUse', e.target.value as ListingFormValues['buildingUse'], {
+              shouldDirty: true,
+            });
+            clearErrors('buildingUse');
+          }}
+        >
+          <optgroup label="자주 쓰는 용도">
+            {common.map((u) => (
+              <option key={u} value={u}>
+                {buildingUseLabel(u)}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="그 밖의 용도">
+            {others.map((u) => (
+              <option key={u} value={u}>
+                {buildingUseLabel(u)}
+              </option>
+            ))}
+          </optgroup>
+        </Select>
+      </div>
+    </FormRow>
   );
 }

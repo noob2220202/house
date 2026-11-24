@@ -1,10 +1,17 @@
-import { TermsType } from '@house/shared';
+import { TermsType, nicknameSchema as sharedNicknameSchema } from '@house/shared';
 import { describe, expect, it } from 'vitest';
 import type { TermsDocument } from '../api';
-import { identityListSchema, termsListSchema } from '../api';
+import {
+  consentListSchema,
+  identityListSchema,
+  signupResponseSchema,
+  termsListSchema,
+} from '../api';
 import {
   agreeAllState,
   buildConsentPayload,
+  buildReconsentPayload,
+  buildSignupPayload,
   countTerms,
   missingRequired,
   setAll,
@@ -19,7 +26,8 @@ import {
   sanitizeRegionKeys,
   toggleRegion,
 } from './regions';
-import { nicknameSchema } from './signup-schema';
+import { clearLoginContext, readLoginContext, rememberLoginContext } from './login-context';
+import { nicknameSchema, prefillNickname } from './signup-schema';
 import { WITHDRAW_REASON_MAX, buildWithdrawReason, withdrawFormSchema } from './withdraw';
 
 const doc = (type: TermsType, isRequired: boolean, version = '1.0'): TermsDocument => ({
@@ -54,6 +62,13 @@ describe('consents', () => {
     expect(agreeAllState(DOCS, setAll(DOCS, false))).toBe('none');
     expect(agreeAllState([], {})).toBe('none');
   });
+  it('전체 동의 also covers the 만 14세 이상 confirmation', () => {
+    const all = setAll(DOCS, true);
+    expect(agreeAllState(DOCS, all, [true])).toBe('all');
+    expect(agreeAllState(DOCS, all, [false])).toBe('some');
+    expect(agreeAllState(DOCS, {}, [true])).toBe('some');
+    expect(agreeAllState(DOCS, {}, [false])).toBe('none');
+  });
   it('finds missing required consents', () => {
     expect(missingRequired(DOCS, { SERVICE: true }).map((d) => d.type)).toEqual([
       'LOCATION',
@@ -73,13 +88,104 @@ describe('consents', () => {
   });
 });
 
+describe('signup and re-consent payloads', () => {
+  it('builds POST /auth/signup with every document, the age confirmation and the opt-in', () => {
+    const state = { SERVICE: true, PRIVACY: true, LOCATION: true, MARKETING: true };
+    expect(buildSignupPayload(DOCS, state, ' 순천살이 ')).toEqual({
+      nickname: '순천살이',
+      ageOver14: true,
+      consents: [
+        { termsDocumentId: 'doc-MARKETING', agreed: true },
+        { termsDocumentId: 'doc-LOCATION', agreed: true },
+        { termsDocumentId: 'doc-SERVICE', agreed: true },
+        { termsDocumentId: 'doc-PRIVACY', agreed: true },
+      ],
+      marketingOptIn: true,
+    });
+    expect(
+      buildSignupPayload(DOCS, { ...state, MARKETING: false }, '순천살이').marketingOptIn,
+    ).toBe(false);
+  });
+  it('re-consents to exactly the given documents', () => {
+    expect(buildReconsentPayload([doc(TermsType.PRIVACY, true, '1.2')])).toEqual({
+      consents: [{ termsDocumentId: 'doc-PRIVACY', agreed: true }],
+    });
+  });
+});
+
 describe('response schemas', () => {
+  it('reads the backend SignupResponse (nullable nickname, agency, pending terms)', () => {
+    const parsed = signupResponseSchema.parse({
+      user: {
+        id: 'u1',
+        email: null,
+        name: null,
+        nickname: '순천살이',
+        phone: null,
+        profileImageUrl: null,
+        role: 'USER',
+        status: 'ACTIVE',
+        marketingOptIn: false,
+        marketingOptInAt: null,
+        createdAt: '2026-11-24T00:00:00Z',
+        identities: [
+          { provider: 'KAKAO', email: null, linkedAt: '2026-11-24T00:00:00Z', lastUsedAt: null },
+        ],
+        agency: null,
+        pendingRequiredTerms: [],
+      },
+      returnTo: '/auth/callback?next=%2Fme',
+      csrfToken: 'token',
+    });
+    expect(parsed.user).toMatchObject({
+      nickname: '순천살이',
+      agencyId: null,
+      signupCompleted: true,
+    });
+    expect(parsed.returnTo).toBe('/auth/callback?next=%2Fme');
+  });
+  it('flattens ConsentStatus rows of /me/consents', () => {
+    const [row] = consentListSchema.parse([
+      {
+        terms: doc(TermsType.PRIVACY, true, '1.1'),
+        agreed: true,
+        decidedAt: '2026-11-01T00:00:00Z',
+      },
+    ]);
+    expect(row).toEqual({
+      termsDocumentId: 'doc-PRIVACY',
+      type: 'PRIVACY',
+      version: '1.1',
+      title: 'PRIVACY',
+      isRequired: true,
+      effectiveAt: '2026-10-01T00:00:00+09:00',
+      agreed: true,
+      decidedAt: '2026-11-01T00:00:00Z',
+    });
+    expect(
+      consentListSchema.parse([
+        { terms: doc(TermsType.MARKETING, false), agreed: false, decidedAt: null },
+      ])[0]?.decidedAt,
+    ).toBeNull();
+  });
   it('accept a bare list or an { items } envelope', () => {
     expect(termsListSchema.parse(DOCS)).toHaveLength(4);
     expect(termsListSchema.parse({ items: DOCS })).toHaveLength(4);
     expect(
-      identityListSchema.parse({ items: [{ provider: 'KAKAO', email: null, createdAt: null }] }),
-    ).toEqual([{ provider: 'KAKAO', email: null, createdAt: null }]);
+      identityListSchema.parse([
+        { provider: 'KAKAO', email: 'a@b.c', linkedAt: '2026-11-01T00:00:00Z', lastUsedAt: null },
+      ]),
+    ).toEqual([
+      { provider: 'KAKAO', email: 'a@b.c', linkedAt: '2026-11-01T00:00:00Z', lastUsedAt: null },
+    ]);
+    // Older mock rows (`createdAt`, `{ items }`) read the same.
+    expect(
+      identityListSchema.parse({
+        items: [{ provider: 'NAVER', createdAt: '2026-10-01T00:00:00Z' }],
+      }),
+    ).toEqual([
+      { provider: 'NAVER', email: null, linkedAt: '2026-10-01T00:00:00Z', lastUsedAt: null },
+    ]);
   });
   it('reject providers other than 카카오 / 네이버 / Google', () => {
     expect(identityListSchema.safeParse([{ provider: 'APPLE' }]).success).toBe(false);
@@ -189,25 +295,82 @@ describe('oauth errors', () => {
     expect(oauthErrorInfo('server_error', { linking: true }).title).toBe(
       '계정을 연결하지 못했어요',
     );
-    expect(oauthErrorInfo('AUTH_IDENTITY_ALREADY_LINKED')).toMatchObject({
+    expect(oauthErrorInfo('AUTH_IDENTITY_DUPLICATE')).toMatchObject({
       title: '이미 다른 회원에 연결된 계정이에요',
       linking: true,
     });
+    expect(oauthErrorInfo('AUTH_PROVIDER_ALREADY_LINKED')).toMatchObject({
+      title: '이미 연결된 서비스예요',
+      linking: true,
+    });
+    expect(oauthErrorInfo('AUTH_OAUTH_CANCELLED', { linking: true }).title).toBe(
+      '계정 연결을 취소했어요',
+    );
     expect(oauthErrorInfo('AUTH_ACCOUNT_SUSPENDED', { linking: true }).canRetry).toBe(false);
+  });
+  it('maps the backend login refusals', () => {
+    expect(oauthErrorInfo('AUTH_OAUTH_CANCELLED')).toMatchObject({
+      title: '로그인을 취소했어요',
+      tone: 'notice',
+    });
+    expect(oauthErrorInfo('AUTH_REJOIN_COOLDOWN')).toMatchObject({ canRetry: false });
+    expect(oauthErrorInfo('AUTH_ACCOUNT_WITHDRAWN').title).toBe('탈퇴 처리된 계정이에요');
+    expect(oauthErrorInfo('AUTH_SIGNUP_EXPIRED').canRetry).toBe(true);
+  });
+  it('offers the withdrawal to a suspended member only with withdrawable=1', () => {
+    expect(oauthErrorInfo('AUTH_ACCOUNT_SUSPENDED').withdrawable).toBe(false);
+    const info = oauthErrorInfo('AUTH_ACCOUNT_SUSPENDED', { withdrawable: true });
+    expect(info).toMatchObject({ withdrawable: true, canRetry: false, support: true });
+    expect(info.description).toMatch(/회원 탈퇴/);
+    // The flag means nothing next to another code.
+    expect(oauthErrorInfo('AUTH_OAUTH_CANCELLED', { withdrawable: true }).withdrawable).toBe(false);
   });
 });
 
 describe('signup nickname', () => {
   it('accepts readable nicknames', () => {
     expect(nicknameSchema.parse('  순천살이 ')).toBe('순천살이');
-    expect(nicknameSchema.safeParse('신대중앙 실장').success).toBe(true);
     expect(nicknameSchema.safeParse('home_2026').success).toBe(true);
+    expect(nicknameSchema.safeParse('sun.cheon-1').success).toBe(true);
   });
-  it('rejects too short, too long and special characters', () => {
+  it('rejects too short, too long, spaces and special characters', () => {
     expect(nicknameSchema.safeParse('김').success).toBe(false);
     expect(nicknameSchema.safeParse('가'.repeat(21)).success).toBe(false);
     expect(nicknameSchema.safeParse('순천<b>').success).toBe(false);
-    expect(nicknameSchema.safeParse('순천  살이').success).toBe(false);
+    expect(nicknameSchema.safeParse('신대중앙 실장').success).toBe(false);
+  });
+  it('follows the backend rule exactly', () => {
+    for (const value of [
+      '순천살이',
+      'a',
+      'sun.cheon-1',
+      '신대중앙 실장',
+      '가'.repeat(20),
+      '😀😀',
+      'x_y',
+    ]) {
+      expect(nicknameSchema.safeParse(value).success).toBe(
+        sharedNicknameSchema.safeParse(value).success,
+      );
+    }
+  });
+  it('prefills the provider nickname only when it is valid', () => {
+    expect(prefillNickname('하늘 가득')).toBe('하늘가득');
+    expect(prefillNickname('😀')).toBe('');
+    expect(prefillNickname(null)).toBe('');
+  });
+});
+
+describe('login context', () => {
+  it('keeps the member type and a safe destination for the tab', () => {
+    rememberLoginContext({ intent: 'agent', next: '/agent/listings' });
+    expect(readLoginContext()).toEqual({ intent: 'agent', next: '/agent/listings' });
+    rememberLoginContext({ intent: 'user', next: '//evil.example' });
+    expect(readLoginContext()).toEqual({ intent: 'user', next: '' });
+    window.sessionStorage.setItem('house:auth:login-context', '{broken');
+    expect(readLoginContext()).toBeNull();
+    clearLoginContext();
+    expect(readLoginContext()).toBeNull();
   });
 });
 

@@ -127,7 +127,7 @@ export function ApplicationStatus({ agency, onEdit, focusOnMount }: ApplicationS
         ? agency.specialties.map((s) => ASSET_TYPE_LABEL[s]).join(' · ')
         : '선택 안 함',
     ],
-    ['신청일', formatDateTime(agency.createdAt)],
+    ['신청일', agency.createdAt ? formatDateTime(agency.createdAt) : '–'],
   ];
 
   return (

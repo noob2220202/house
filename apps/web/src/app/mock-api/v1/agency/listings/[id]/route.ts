@@ -8,8 +8,8 @@ import {
   isPrimaryMine,
   listingNotFound,
   listingsContext,
+  mergeUpdate,
   notMember,
-  parseDraft,
   publishRequirementsError,
   readJson,
   toView,
@@ -29,9 +29,10 @@ export async function GET(req: NextRequest, { params }: Params): Promise<NextRes
 }
 
 /**
- * PATCH /api/v1/agency/listings/:id — full `listingDraftSchema` body (omitted optional fields are
- * cleared). Only the primary office edits. Published listings must keep passing the publish
- * validator (422 LISTING_PUBLISH_REQUIREMENTS otherwise, nothing is saved).
+ * PATCH /api/v1/agency/listings/:id — `listingUpdateSchema` body (omitted = unchanged, null =
+ * cleared, `version` = optimistic concurrency → 409 LISTING_CONCURRENT_MODIFICATION). Only the
+ * primary office edits. Published listings must keep passing the publish validator (400
+ * LISTING_PUBLISH_REQUIREMENTS otherwise, nothing is saved).
  */
 export async function PATCH(req: NextRequest, { params }: Params): Promise<NextResponse> {
   const ctx = listingsContext(req, { mutation: true });
@@ -49,7 +50,7 @@ export async function PATCH(req: NextRequest, { params }: Params): Promise<NextR
   }
   const body = await readJson(req);
   if (!body) return validationError([{ path: [], message: '요청 본문이 올바르지 않습니다.' }]);
-  const parsed = parseDraft(body);
+  const parsed = mergeUpdate(listing, body);
   if ('error' in parsed) return parsed.error;
 
   const before = structuredClone(listing);

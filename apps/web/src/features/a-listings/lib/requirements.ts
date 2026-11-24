@@ -1,24 +1,29 @@
-import { AssetType, DealType, MoveInType } from '@house/shared';
 import {
-  FIELD_STEP,
-  formFieldOf,
-  isLand,
-  isResidential,
-  type DraftPayload,
-  type FormField,
-} from './form';
+  AssetType,
+  DealType,
+  MAINTENANCE_FEE_BREAKDOWN_THRESHOLD_WON,
+  MaintenanceFeeBillingType,
+  MoveInType,
+  PUBLISH_FIELD_LABEL,
+  checkPublishRequirements,
+  type PublishCheckInput,
+  type PublishField,
+  type PublishIssue,
+} from '@house/shared';
+import { FIELD_STEP, formFieldOf, isComplexAsset, type DraftPayload, type FormField } from './form';
 
 /**
  * 공인중개사법 제18조의2 + 「중개대상물의 표시·광고 명시사항 세부기준」 — the items a listing must carry
- * before it can be advertised. The same rules run in the wizard (inline, per step), in the checklist
- * and in the mock publish validator; the backend's publish validator is authoritative.
+ * before it can be advertised. The rules are NOT re-implemented here: every check runs the shared
+ * `checkPublishRequirements` (the same function the API's publish validator runs), and this module
+ * only maps its result onto the wizard (field to focus, step, inline message) and the checklist.
  */
 export interface Requirement {
-  /** Server field path, e.g. "property.exclusiveArea". */
-  field: string;
+  /** Publish field of the shared validator, e.g. "property.area". */
+  field: PublishField;
   /** Form field that receives the focus / error. */
   formField: FormField;
-  /** 명시사항 이름. */
+  /** 명시사항 이름 (`PUBLISH_FIELD_LABEL`). */
   label: string;
   step: number;
   done: boolean;
@@ -26,142 +31,176 @@ export interface Requirement {
   message: string;
 }
 
-const has = (v: unknown) => v !== undefined && v !== null && v !== '';
+/** The office (명칭·소재지·연락처·등록번호·대표자) — comes from the agency profile, not the wizard. */
+export type PublishAgency = PublishCheckInput['agency'];
 
-/** 정액 관리비 that must be broken down into its items (원 / 월). */
-export const FEE_ITEMS_THRESHOLD_WON = 100_000;
+const isAgencyField = (field: PublishField) => field.startsWith('agency.');
 
-/**
- * 소규모 주택·오피스텔 (원룸·투룸, 오피스텔, 주택)은 월 10만원 이상 정액 관리비의 부과 항목(일반관리비,
- * 사용료 …)을 함께 표시해야 한다. 아파트(공동주택관리법 단지)는 월 평균 관리비 표시로 충분하다.
- */
-export function needsFeeItems(asset: AssetType | undefined, feeWon: number | undefined): boolean {
+/** Draft payload → input of the shared validator. */
+export function toPublishInput(d: DraftPayload, agency: PublishAgency = null): PublishCheckInput {
+  return {
+    dealType: d.dealType,
+    salePrice: d.salePrice,
+    deposit: d.deposit,
+    monthlyRent: d.monthlyRent,
+    presalePrice: d.presalePrice,
+    premium: d.premium,
+    maintenanceFeeWon: d.maintenanceFeeWon,
+    maintenanceFee: d.maintenanceFee
+      ? {
+          billingType: d.maintenanceFee.billingType,
+          items: d.maintenanceFee.items,
+          unavailableReason: d.maintenanceFee.unavailableReason,
+        }
+      : null,
+    moveInType: d.moveInType,
+    moveInDate: d.moveInDate,
+    floorDisplay: d.floorDisplay,
+    property: { ...d.property, assetType: d.property.assetType },
+    agency,
+  };
+}
+
+/** 정액관리비 10만원 이상: every included item needs its amount and they must add up (세부기준). */
+export function needsFeeAmounts(
+  billingType: MaintenanceFeeBillingType | '' | undefined,
+  feeWon: number | null | undefined,
+): boolean {
   return (
-    (asset === AssetType.ONEROOM || asset === AssetType.OFFICETEL || asset === AssetType.HOUSE) &&
-    (feeWon ?? 0) >= FEE_ITEMS_THRESHOLD_WON
+    billingType === MaintenanceFeeBillingType.FIXED &&
+    (feeWon ?? 0) >= MAINTENANCE_FEE_BREAKDOWN_THRESHOLD_WON
   );
 }
 
-/** Every 명시사항 that applies to this draft, with its completion state. */
-export function publishRequirements(d: DraftPayload): Requirement[] {
+function messageOf(field: PublishField, d: DraftPayload): string {
   const p = d.property;
-  const asset = p.assetType;
-  const land = isLand(asset);
-  const out: Requirement[] = [];
-  const add = (field: string, label: string, done: boolean, message: string) => {
-    const formField = formFieldOf(field) ?? 'assetType';
-    out.push({ field, formField, label, step: FIELD_STEP[formField], done, message });
-  };
-
-  add('property.assetType', '중개대상물 종류', has(asset), '매물 종류를 선택해 주세요.');
-  add(
-    'property.roadAddress',
-    '소재지',
-    has(p.roadAddress) && has(p.lat) && has(p.lng),
-    asset === AssetType.APT || asset === AssetType.OFFICETEL
-      ? '단지를 검색해서 선택해 주세요.'
-      : '주소를 검색해서 선택하고 지도에서 위치를 확인해 주세요.',
-  );
-  if (!land) {
-    if (asset !== AssetType.HOUSE) {
-      add('property.floor', '해당 층', has(p.floor), '해당 층을 입력해 주세요.');
-    }
-    add('property.totalFloors', '총 층수', has(p.totalFloors), '총 층수를 입력해 주세요.');
-  }
-
-  add('dealType', '거래 형태', has(d.dealType), '거래 형태를 선택해 주세요.');
-  switch (d.dealType) {
-    case DealType.SALE:
-      add('salePrice', '가격 (매매가)', (d.salePrice ?? 0) > 0, '매매가를 입력해 주세요.');
-      break;
-    case DealType.JEONSE:
-      add('deposit', '가격 (전세 보증금)', (d.deposit ?? 0) > 0, '전세 보증금을 입력해 주세요.');
-      break;
-    case DealType.MONTHLY:
-      add(
-        'deposit',
-        '가격 (보증금)',
-        has(d.deposit),
-        '보증금을 입력해 주세요. 없으면 0을 입력해요.',
-      );
-      add('monthlyRent', '가격 (월세)', (d.monthlyRent ?? 0) > 0, '월세를 입력해 주세요.');
-      break;
-    case DealType.PRESALE:
-      add('presalePrice', '가격 (분양가)', (d.presalePrice ?? 0) > 0, '분양가를 입력해 주세요.');
-      add(
-        'premium',
-        '가격 (프리미엄)',
-        has(d.premium),
-        '프리미엄을 입력해 주세요. 없으면 0, 마이너스는 -로 입력해요.',
-      );
-      break;
-  }
-  if (!land) {
-    add(
-      'maintenanceFeeWon',
-      '관리비',
-      has(d.maintenanceFeeWon),
-      '월 관리비를 입력하거나 ‘관리비 없음’을 선택해 주세요.',
-    );
-    if (needsFeeItems(asset, d.maintenanceFeeWon)) {
-      add(
-        'maintenanceFeeItems',
-        '관리비 포함 항목',
-        (d.maintenanceFeeItems?.length ?? 0) > 0,
-        '월 10만원 이상 관리비는 포함된 항목을 함께 골라 주세요.',
-      );
-    }
-    add(
-      'moveInType',
-      '입주가능일',
-      has(d.moveInType) && (d.moveInType !== MoveInType.DATE || has(d.moveInDate)),
-      d.moveInType === MoveInType.DATE
+  switch (field) {
+    case 'property.roadAddress':
+      return isComplexAsset(p.assetType)
+        ? '단지를 검색해서 선택해 주세요.'
+        : '주소를 검색해서 선택하고 지도에서 위치를 확인해 주세요.';
+    case 'property.emdCode':
+      return '법정동을 확인하지 못했어요. 주소나 단지를 다시 검색해서 선택해 주세요.';
+    case 'property.area':
+      if (p.assetType === AssetType.LAND) return '대지면적을 입력해 주세요.';
+      return '전용면적을 입력해 주세요.';
+    case 'price':
+      switch (d.dealType) {
+        case DealType.JEONSE:
+          return '전세 보증금을 입력해 주세요.';
+        case DealType.MONTHLY:
+          return d.deposit === undefined
+            ? '보증금을 입력해 주세요. 없으면 0을 입력해요.'
+            : '월세를 입력해 주세요.';
+        case DealType.PRESALE:
+          return (d.presalePrice ?? 0) > 0
+            ? '프리미엄을 입력해 주세요. 없으면 0, 마이너스는 -로 입력해요.'
+            : '분양가를 입력해 주세요.';
+        default:
+          return '매매가를 입력해 주세요.';
+      }
+    case 'property.assetType':
+      return '매물 종류를 선택해 주세요.';
+    case 'property.buildingUse':
+      return '건축물대장에 적힌 용도를 선택해 주세요.';
+    case 'dealType':
+      return '거래 형태를 선택해 주세요.';
+    case 'property.totalFloors':
+      return '총 층수를 입력해 주세요.';
+    case 'property.floor':
+      return '해당 층을 입력해 주세요. 총 층수보다 높을 수 없어요.';
+    case 'property.approvalDate':
+      return '사용승인일을 입력해 주세요.';
+    case 'property.direction':
+      return '방향을 선택해 주세요.';
+    case 'property.directionBasis':
+      return '방향을 어디 기준으로 봤는지 선택해 주세요.';
+    case 'property.rooms':
+      return '방 수를 입력해 주세요. 없으면 0을 입력해요.';
+    case 'property.baths':
+      return '욕실 수를 입력해 주세요. 없으면 0을 입력해요.';
+    case 'moveIn':
+      return d.moveInType === MoveInType.DATE
         ? '입주 가능한 날짜를 선택해 주세요.'
-        : '입주가능일을 선택해 주세요.',
-    );
+        : '입주가능일을 선택해 주세요.';
+    case 'property.parkingSpaces':
+      return '총 주차대수를 입력해 주세요. 없으면 0을 입력해요.';
+    case 'maintenanceFeeWon':
+      return '월 관리비를 입력하거나 ‘관리비 없음’을 선택해 주세요.';
+    case 'maintenanceFee.billingType':
+      return '관리비 부과방식을 선택해 주세요. 확인할 수 없으면 사유를 적어 주세요.';
+    case 'maintenanceFee.breakdown':
+      return needsFeeAmounts(d.maintenanceFee?.billingType, d.maintenanceFeeWon)
+        ? '월 10만원 이상 정액관리비는 포함 항목별 금액을 적고, 합계를 관리비와 맞춰 주세요.'
+        : '관리비에 포함된 항목을 골라 주세요.';
+    default:
+      return `${PUBLISH_FIELD_LABEL[field]} 항목을 입력해 주세요.`;
   }
+}
 
-  if (land) {
-    add('property.landArea', '면적 (대지면적)', has(p.landArea), '대지면적을 입력해 주세요.');
-  } else {
-    add(
-      'property.exclusiveArea',
-      '면적 (전용면적)',
-      has(p.exclusiveArea),
-      '전용면적을 입력해 주세요.',
-    );
-    if (isResidential(asset)) {
-      add('property.rooms', '방 수', has(p.rooms), '방 수를 입력해 주세요.');
-      add('property.baths', '욕실 수', has(p.baths), '욕실 수를 입력해 주세요.');
-    }
-    add('property.direction', '방향', has(p.direction), '방향을 선택해 주세요.');
-    add(
-      'property.directionBasis',
-      '방향 기준',
-      has(p.directionBasis),
-      '방향을 어디 기준으로 봤는지 선택해 주세요.',
-    );
-    // 분양권(미준공)은 사용승인일이 없다 — 입주예정일을 입주가능일에 적는다.
-    if (d.dealType !== DealType.PRESALE) {
-      add(
-        'property.approvalDate',
-        '사용승인일',
-        has(p.approvalDate),
-        '사용승인일을 입력해 주세요.',
-      );
-    }
-    add(
-      'property.parkingSpaces',
-      '주차대수',
-      has(p.parkingSpaces),
-      '총 주차대수를 입력해 주세요. 없으면 0을 입력해요.',
+function toRequirement(field: PublishField, d: DraftPayload, done: boolean): Requirement {
+  const formField = formFieldOf(field, d) ?? 'assetType';
+  return {
+    field,
+    formField,
+    label: PUBLISH_FIELD_LABEL[field],
+    step: FIELD_STEP[formField],
+    done,
+    message: messageOf(field, d),
+  };
+}
+
+/**
+ * Every 명시사항 the wizard collects for this draft, with its completion state (office fields are
+ * left out — see `agencyIssues`). Which items apply is also asked from the shared validator: an
+ * empty draft of the same asset / deal type reports exactly the applicable fields; the 관리비 내역
+ * items join once a 관리비 is entered. The draft's own missing items are always included.
+ */
+export function publishRequirements(d: DraftPayload): Requirement[] {
+  const skeleton: PublishCheckInput = {
+    dealType: d.dealType,
+    floorDisplay: d.floorDisplay,
+    // Only the type: a filled value (e.g. 건축물 용도) must not drop its item from the list.
+    property: { assetType: d.property.assetType },
+    agency: null,
+  };
+  // The items every listing has (종류·거래형태 included, even once chosen) + the type's own items.
+  const base = checkPublishRequirements({
+    dealType: null,
+    property: { assetType: null },
+    agency: null,
+  });
+  const applicable = [
+    ...new Set([...base, ...checkPublishRequirements(skeleton)].map((i) => i.field)),
+  ];
+  if ((d.maintenanceFeeWon ?? 0) > 0) {
+    const at = applicable.indexOf('maintenanceFeeWon');
+    applicable.splice(
+      at < 0 ? applicable.length : at + 1,
+      0,
+      'maintenanceFee.billingType',
+      'maintenanceFee.breakdown',
     );
   }
-  return out;
+  const missing = new Set(checkPublishRequirements(toPublishInput(d)).map((i) => i.field));
+  const fields = [...applicable, ...[...missing].filter((f) => !applicable.includes(f))].filter(
+    (f) => !isAgencyField(f),
+  );
+  return fields.map((f) => toRequirement(f, d, !missing.has(f)));
 }
 
 export const missingRequirements = (d: DraftPayload): Requirement[] =>
   publishRequirements(d).filter((r) => !r.done);
+
+/** Office disclosure items (사무소 프로필) the publish validator would still reject. */
+export function agencyIssues(d: DraftPayload, agency: PublishAgency): PublishIssue[] {
+  return checkPublishRequirements(toPublishInput(d, agency)).filter((i) => isAgencyField(i.field));
+}
+
+/** Every issue the API's publish validator reports for this draft and office. */
+export function publishIssues(d: DraftPayload, agency: PublishAgency): PublishIssue[] {
+  return checkPublishRequirements(toPublishInput(d, agency));
+}
 
 /** { done, total } for the progress meter. */
 export function requirementProgress(reqs: readonly Requirement[]): { done: number; total: number } {
@@ -184,9 +223,13 @@ export interface MappedFieldError {
 
 /**
  * Maps the publish validator's `details: [{ field, label }]` (or validation `details[].path`) to
- * wizard fields. Unknown fields are returned in `unmapped` so they can still be shown as text.
+ * wizard fields. Unknown fields (and the office fields) are returned in `unmapped` so they can
+ * still be shown as text. `draft` resolves fields such as `price` / `property.area`.
  */
-export function mapServerFieldErrors(details: readonly ServerFieldDetail[] | undefined): {
+export function mapServerFieldErrors(
+  details: readonly ServerFieldDetail[] | undefined,
+  draft?: DraftPayload,
+): {
   errors: MappedFieldError[];
   unmapped: string[];
 } {
@@ -194,10 +237,15 @@ export function mapServerFieldErrors(details: readonly ServerFieldDetail[] | und
   const unmapped: string[] = [];
   for (const d of details ?? []) {
     const path = d.field ?? d.path ?? '';
-    const formField = path ? formFieldOf(path) : null;
+    const formField = path ? formFieldOf(path, draft) : null;
+    const known = draft && path in PUBLISH_FIELD_LABEL;
     const message =
       d.message ??
-      (d.label ? `${d.label} 항목을 입력해 주세요.` : '필수 표시사항을 입력해 주세요.');
+      (known
+        ? messageOf(path as PublishField, draft)
+        : d.label
+          ? `${d.label} 항목을 입력해 주세요.`
+          : '필수 표시사항을 입력해 주세요.');
     if (!formField) {
       unmapped.push(d.label ?? d.message ?? path);
       continue;

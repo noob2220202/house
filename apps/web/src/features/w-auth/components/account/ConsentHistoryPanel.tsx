@@ -1,10 +1,11 @@
 'use client';
-import { Badge, EmptyState, ErrorState, Icon, Skeleton } from '@house/ui';
+import { Badge, Button, EmptyState, ErrorState, Icon, Skeleton } from '@house/ui';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useState } from 'react';
 import { ME_ROUTES } from '@/features/w-me/routes';
 import { errorMessage } from '@/lib/api';
+import { useSession } from '@/lib/auth';
 import { formatDate } from '@/lib/format';
 import { authKeys, fetchConsents, type ConsentRecord } from '../../api';
 import { CONSENT_COPY, TERMS_ORDER } from '../../lib/consents';
@@ -16,8 +17,14 @@ const rank = (record: ConsentRecord) => {
   return i === -1 ? TERMS_ORDER.length : i;
 };
 
-/** 약관 동의 내역: which version of each document the user agreed to, and when. Read-only. */
+/**
+ * 약관 동의 내역 (GET /me/consents): the member's latest decision for every current account
+ * document, its version and date. A required document whose new version is not agreed yet shows
+ * "동의하기", which opens the re-consent prompt.
+ */
 export function ConsentHistoryPanel() {
+  const { user, requestReconsent } = useSession();
+  const pendingTypes = user?.pendingRequiredTerms ?? [];
   const [viewing, setViewing] = useState<TermsModalDoc | null>(null);
   const query = useQuery({
     queryKey: authKeys.consents(),
@@ -33,7 +40,7 @@ export function ConsentHistoryPanel() {
             약관 동의 내역
           </h2>
           <p className={styles.cardDesc}>
-            가입할 때 동의한 약관과 버전이에요. 마케팅 수신 동의는{' '}
+            지금 시행 중인 약관에 대한 동의 여부와 버전이에요. 마케팅 수신 동의는{' '}
             <Link className="link" href={ME_ROUTES.profile}>
               내 정보
             </Link>
@@ -64,13 +71,15 @@ export function ConsentHistoryPanel() {
         <EmptyState
           compact
           icon="shield"
-          title="동의한 약관이 아직 없어요"
-          description="가입을 마치면 동의한 약관과 버전이 여기에 표시돼요."
+          title="시행 중인 약관이 없어요"
+          description="운영자가 약관을 게시하면 동의 여부와 버전이 여기에 표시돼요."
         />
       ) : (
         <ul className={styles.consents}>
           {records.map((record) => {
             const label = CONSENT_COPY[record.type]?.label ?? record.title;
+            const missing =
+              record.isRequired && (!record.agreed || pendingTypes.includes(record.type));
             return (
               <li key={record.termsDocumentId} className={styles.consent}>
                 <span className={styles.consentText}>
@@ -79,12 +88,26 @@ export function ConsentHistoryPanel() {
                     <small>v{record.version}</small>
                   </b>
                   <span>
-                    {record.isRequired === false ? '선택' : '필수'} ·{' '}
-                    <span className="num">{formatDate(record.createdAt)}</span>{' '}
-                    {record.agreed ? '동의' : '동의 안 함'}
+                    {record.isRequired ? '필수' : '선택'} ·{' '}
+                    {record.decidedAt ? (
+                      <>
+                        <span className="num">{formatDate(record.decidedAt)}</span>{' '}
+                        {record.agreed ? '동의' : '동의 안 함'}
+                      </>
+                    ) : (
+                      '아직 동의하지 않았어요'
+                    )}
                   </span>
                 </span>
-                {record.agreed ? <Badge tone="success">동의</Badge> : <Badge>미동의</Badge>}
+                {missing ? (
+                  <Button size="sm" variant="soft" onClick={requestReconsent}>
+                    동의하기
+                  </Button>
+                ) : record.agreed ? (
+                  <Badge tone="success">동의</Badge>
+                ) : (
+                  <Badge>미동의</Badge>
+                )}
                 <button
                   type="button"
                   className={styles.viewBtn}
@@ -92,7 +115,7 @@ export function ConsentHistoryPanel() {
                   onClick={() =>
                     setViewing({
                       type: record.type,
-                      isRequired: record.isRequired !== false,
+                      isRequired: record.isRequired,
                       version: record.version,
                     })
                   }

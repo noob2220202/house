@@ -116,10 +116,12 @@ describe('photo payload', () => {
       toPhotosPayload([photo('a', { caption: ' 거실 ' }), photo('b', { caption: '  ' })]),
     ).toEqual({
       photos: [
-        { mediaId: 'a', caption: '거실', isCover: true },
-        { mediaId: 'b', caption: undefined, isCover: false },
+        { mediaId: 'a', caption: '거실' },
+        { mediaId: 'b', caption: undefined },
       ],
+      coverMediaId: 'a',
     });
+    expect(toPhotosPayload([])).toEqual({ photos: [] });
   });
 
   it('samePhotos detects order, caption and cover changes (unsaved-changes check)', () => {

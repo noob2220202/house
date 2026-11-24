@@ -8,7 +8,9 @@ import {
   SQM_PER_PYEONG,
   mapResultKindForZoom,
   type Bbox,
+  type DealTypeStatsMap,
   type ListingFilter,
+  type MapSearchResult,
 } from '@house/shared';
 import {
   LandCategory,
@@ -289,5 +291,110 @@ export function searchMap(
       avgDeposit: avgDeposit === null ? null : Math.round(avgDeposit / 10) * 10,
       avgMonthlyRent: avgRent === null ? null : Math.round(avgRent),
     },
+  };
+}
+
+// ---- wire ---------------------------------------------------------------------------------------
+
+function dealStats(list: readonly MockListing[]): DealTypeStatsMap {
+  const out: DealTypeStatsMap = {};
+  for (const dealType of DEAL_PRIORITY) {
+    const group = list.filter((l) => l.dealType === dealType);
+    if (group.length === 0) continue;
+    const prices = group.map(headlinePrice);
+    const rents = group.flatMap((l) => (typeof l.monthlyRent === 'number' ? [l.monthlyRent] : []));
+    out[dealType] = {
+      count: group.length,
+      priceMin: Math.min(...prices),
+      priceMax: Math.max(...prices),
+      ...(dealType === DealType.MONTHLY && rents.length
+        ? { rentMin: Math.min(...rents), rentMax: Math.max(...rents) }
+        : {}),
+    };
+  }
+  return out;
+}
+
+/**
+ * `GET /map/search` in the backend wire shape (`MapSearchResult` of `@house/shared`): clusters
+ * keyed by `key`, one complex marker per 단지 and ONE listing marker per listing (the client groups
+ * listings of one building). Kind, clusters and totals come from `searchMap()`.
+ */
+export function searchMapWire(
+  all: readonly MockListing[],
+  bbox: Bbox,
+  zoom: number,
+  filter: MockFilter,
+): MapSearchResult {
+  const res = searchMap(all, bbox, zoom, filter);
+  const matched = all.filter(
+    (l) =>
+      inBbox(l, bbox) &&
+      (!filter.assetTypes?.length || filter.assetTypes.includes(l.assetType)) &&
+      matchesFilter(l, filter),
+  );
+  const clusterOf = (c: MapCluster) =>
+    matched.filter((l) => (c.regionCode ? l.emdCode === c.regionCode : false));
+  const clusters = res.clusters.map((c) => ({
+    key: c.id,
+    regionCode: c.regionCode ?? null,
+    name: c.name ?? null,
+    lat: c.lat,
+    lng: c.lng,
+    count: c.count,
+    byDealType: dealStats(clusterOf(c)),
+  }));
+  const complexes: MapSearchResult['complexes'] = [];
+  const listings: MapSearchResult['listings'] = [];
+  if (res.kind === MapResultKind.MARKERS) {
+    const byComplex = new Map<string, MockListing[]>();
+    for (const l of matched) {
+      if (l.complexId && COMPLEX_ASSET_TYPES.includes(l.assetType)) {
+        byComplex.set(l.complexId, [...(byComplex.get(l.complexId) ?? []), l]);
+      } else {
+        listings.push({
+          id: l.id,
+          dealType: l.dealType,
+          assetType: l.assetType,
+          lat: l.lat,
+          lng: l.lng,
+          salePrice: l.salePrice ?? null,
+          deposit: l.deposit ?? null,
+          monthlyRent: l.monthlyRent ?? null,
+          presalePrice: l.presalePrice ?? null,
+          premium: l.premium ?? null,
+          priceSort: headlinePrice(l),
+          exclusiveArea: l.exclusiveArea ?? null,
+          floorClass: l.floorClass ?? null,
+          rooms: l.rooms ?? null,
+        });
+      }
+    }
+    for (const [complexId, group] of byComplex) {
+      const c = COMPLEX_SUMMARIES.find((x) => x.id === complexId);
+      if (!c) continue;
+      complexes.push({
+        complexId,
+        name: c.name,
+        assetType: c.assetType,
+        lat: c.lat,
+        lng: c.lng,
+        households: c.households ?? null,
+        builtYear: c.builtYear ?? null,
+        count: group.length,
+        byDealType: dealStats(group),
+      });
+    }
+  }
+  const markerCount = complexes.length + listings.length;
+  return {
+    kind: res.kind,
+    zoom,
+    bbox,
+    total: res.total,
+    clusters,
+    complexes: complexes.slice(0, MAP_MAX_MARKERS),
+    listings: listings.slice(0, Math.max(0, MAP_MAX_MARKERS - complexes.length)),
+    truncated: markerCount > MAP_MAX_MARKERS,
   };
 }

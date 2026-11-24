@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Logo } from '@/components/brand/Logo';
 import { BRAND } from '@/config/brand';
 import { api } from '@/lib/api';
-import type { TotpVerifyResult } from '../../api';
+import { verifyTotp, type TotpResult } from '../../api';
 import { CredentialsForm, type CredentialsValues } from './CredentialsForm';
 import { DevLoginPanel } from './DevLoginPanel';
 import styles from './login.module.css';
@@ -71,7 +71,7 @@ export function LoginScreen({ returnTo, notice, mock }: LoginScreenProps) {
   }, [returnTo]);
 
   const onVerified = useCallback(
-    (result: TotpVerifyResult) => {
+    (result: TotpResult) => {
       if (result.recoveryCodes && result.recoveryCodes.length > 0) {
         setCodes(result.recoveryCodes);
         setStep('recovery');
@@ -180,15 +180,19 @@ export function LoginScreen({ returnTo, notice, mock }: LoginScreenProps) {
               onSuccess={(result, value) => {
                 setFlash(null);
                 setEmail(value);
-                if (result.mfaVerified) enter();
-                else setStep(result.totpEnrolled ? 'verify' : 'enroll');
+                setStep(result.totpEnrolled ? 'verify' : 'enroll');
               }}
             />
           )}
 
           {step === 'verify' && (
             <>
-              <TotpCodeForm onVerified={onVerified} onSessionLost={restart} />
+              <TotpCodeForm
+                action={verifyTotp}
+                allowRecovery
+                onVerified={onVerified}
+                onSessionLost={restart}
+              />
               <div className={styles.foot}>
                 <button type="button" className={styles.linkBtn} onClick={cancel}>
                   <Icon name="chevron-left" size={16} />
@@ -233,7 +237,8 @@ export function LoginScreen({ returnTo, notice, mock }: LoginScreenProps) {
 
         {step === 'verify' && (
           <p className={styles.help}>
-            인증 앱을 사용할 수 없나요? 최고관리자에게 2단계 인증 초기화를 요청해 주세요.
+            인증 앱을 사용할 수 없다면 복구 코드로 인증하세요. 복구 코드도 없다면 최고관리자에게
+            2단계 인증 초기화를 요청해 주세요.
           </p>
         )}
         {step === 'credentials' && !mock && (

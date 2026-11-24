@@ -1,44 +1,26 @@
 import { consentInputSchema } from '@house/shared';
 import type { NextRequest } from 'next/server';
-import { mockDelay, mockError, mockJson, type MockRole } from '@/lib/mock';
-import { authState, memberAuthState, mockSignupPending, setMockSignup } from '../../auth/_state';
+import { mockDelay, mockError, mockJson } from '@/lib/mock';
+import { authState, consentStatus } from '../../auth/_state';
 import { MOCK_TERMS } from '../../terms/_fixtures';
 import { meGuard, mockForcedFailure } from '../_store';
 
-// Owned by the w-auth page group (signup completion + consent history).
+// Owned by the w-auth page group (consent history + re-consent).
 
-function latest(role: MockRole, pending = false) {
-  const state = pending ? authState(role) : memberAuthState(role);
-  return MOCK_TERMS.flatMap((doc) => {
-    const record = state.consents[doc.id];
-    return record
-      ? [
-          {
-            termsDocumentId: doc.id,
-            type: doc.type,
-            version: doc.version,
-            title: doc.title,
-            isRequired: doc.isRequired,
-            agreed: record.agreed,
-            createdAt: record.createdAt,
-          },
-        ]
-      : [];
-  });
-}
-
-// GET /api/v1/me/consents — latest agree/revoke record per current terms document.
+// GET /api/v1/me/consents — `ConsentStatus[]`: the latest decision for every current account
+// document (`{ terms, agreed, decidedAt }`).
 export async function GET(req: NextRequest) {
   const g = meGuard(req);
   if (g.fail) return g.fail;
   await mockDelay(req);
   const forced = mockForcedFailure(req);
   if (forced) return forced;
-  return mockJson({ items: mockSignupPending(req) ? [] : latest(g.role) });
+  return mockJson(consentStatus(g.role));
 }
 
-// POST /api/v1/me/consents — body: consentInputSchema. Required documents must be agreed
-// (AUTH_TERMS_REQUIRED otherwise). Completes the signup when every required document is agreed.
+// POST /api/v1/me/consents — `consentInputSchema` → `ConsentStatus[]`. Like the backend: every id
+// must be a current document (AUTH_TERMS_INVALID), a required one cannot be declined
+// (AUTH_REQUIRED_TERMS_REVOKE); a MARKETING decision also sets the profile's opt-in.
 export async function POST(req: NextRequest) {
   const g = meGuard(req, { mutation: true });
   if (g.fail) return g.fail;
@@ -57,25 +39,32 @@ export async function POST(req: NextRequest) {
         message: i.message,
       })),
     );
-  const byId = new Map(parsed.data.consents.map((c) => [c.termsDocumentId, c.agreed]));
-  if ([...byId.keys()].some((id) => !MOCK_TERMS.some((doc) => doc.id === id)))
-    return mockError(404, 'NOT_FOUND', '약관을 찾을 수 없습니다.');
-  const state = authState(g.role);
-  const agreedAfter = (id: string) => byId.get(id) ?? state.consents[id]?.agreed ?? false;
-  if (MOCK_TERMS.some((doc) => doc.isRequired && !agreedAfter(doc.id)))
-    return mockError(400, 'AUTH_TERMS_REQUIRED', '필수 약관에 동의해 주세요.');
+  const byId = new Map(MOCK_TERMS.map((doc) => [doc.id, doc]));
+  for (const c of parsed.data.consents) {
+    const doc = byId.get(c.termsDocumentId);
+    if (!doc)
+      return mockError(
+        400,
+        'AUTH_TERMS_INVALID',
+        '현재 시행 중인 약관이 아닙니다. 새로고침 후 다시 시도해 주세요.',
+      );
+    if (doc.isRequired && !c.agreed)
+      return mockError(
+        400,
+        'AUTH_REQUIRED_TERMS_REVOKE',
+        '필수 약관 동의는 철회할 수 없습니다. 회원 탈퇴를 이용해 주세요.',
+      );
+  }
 
   const createdAt = new Date().toISOString();
-  for (const [id, agreed] of byId) state.consents[id] = { agreed, createdAt };
+  const state = authState(g.role);
+  for (const c of parsed.data.consents)
+    state.consents[c.termsDocumentId] = { agreed: c.agreed, createdAt };
   const marketing = MOCK_TERMS.find((doc) => doc.type === 'MARKETING');
-  if (marketing && byId.has(marketing.id)) {
-    const optIn = byId.get(marketing.id) === true;
-    if (g.state.profile.marketingOptIn !== optIn) {
-      g.state.profile.marketingOptIn = optIn;
-      g.state.profile.marketingOptInAt = createdAt;
-    }
+  const decision = parsed.data.consents.find((c) => c.termsDocumentId === marketing?.id);
+  if (decision && g.state.profile.marketingOptIn !== decision.agreed) {
+    g.state.profile.marketingOptIn = decision.agreed;
+    g.state.profile.marketingOptInAt = decision.agreed ? createdAt : null;
   }
-  const res = mockJson({ items: latest(g.role, true) }, { status: 201 });
-  setMockSignup(res, 'done');
-  return res;
+  return mockJson(consentStatus(g.role));
 }

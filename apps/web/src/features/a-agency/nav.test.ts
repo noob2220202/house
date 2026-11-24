@@ -42,6 +42,12 @@ describe('agent console nav', () => {
     expect(labels(false)).not.toContain('직원 관리');
     expect(labels(false)).toContain('사무소 프로필');
   });
+  it('hides the 문의함 for launch (D5) — no menu entry, no badge', () => {
+    const items = [...AGENT_NAV.flatMap((g) => g.items), ...AGENT_TAB_BAR];
+    expect(items.some((i) => i.href === AGENT_ROUTES.inquiries)).toBe(false);
+    expect(findAgentNav('/agent/inquiries')).toBeUndefined();
+    expect(AGENT_TAB_BAR.map((i) => i.label)).toEqual(['홈', '매물', '요청', '사무소']);
+  });
   it('maps office pages to the 사무소 tab on mobile', () => {
     expect(activeNavItem('/agent/staff', AGENT_TAB_BAR)?.label).toBe('사무소');
     expect(activeNavItem('/agent/apply', AGENT_TAB_BAR)?.label).toBe('사무소');

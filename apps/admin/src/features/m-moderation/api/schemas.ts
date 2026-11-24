@@ -69,7 +69,7 @@ export const RegistryCheckStatus = {
 } as const;
 export type RegistryCheckStatus = (typeof RegistryCheckStatus)[keyof typeof RegistryCheckStatus];
 
-export const registryCheckSchema = z.object({
+const registryCheckModel = z.object({
   status: z.enum(RegistryCheckStatus),
   checkedAt: iso,
   /** Data source label, e.g. "국가공간정보 중개업소 조회". */
@@ -90,12 +90,66 @@ export const registryCheckSchema = z.object({
   mismatches: z.array(str).default([]),
   message: opt(str),
 });
+
+/** Shared `RegistryMismatchField` → the row keys of the comparison table. */
+const MISMATCH_FIELD: Record<string, string> = {
+  officeName: 'name',
+  representativeName: 'representativeName',
+  operating: 'businessStatus',
+};
+
+/**
+ * GET /admin/agencies/:id/registry-check(?refresh=1) answers the shared `AgencyRegistryCheck`
+ * (`status: MATCH | …`, `record`, `mismatches: officeName | representativeName | operating`);
+ * mapped onto the screen model (`MATCHED`, `registry`, table row keys). The model shape is still
+ * accepted as is (mock fixtures, the dashboard queue).
+ */
+export function normalizeRegistryCheck(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || !('record' in raw)) return raw;
+  const v = raw as {
+    status?: string;
+    checkedAt?: string;
+    record?: {
+      registrationNumber?: string;
+      officeName?: string;
+      representativeName?: string | null;
+      operating?: boolean;
+      statusLabel?: string | null;
+      registeredOn?: string | null;
+    } | null;
+    mismatches?: string[];
+  };
+  const r = v.record;
+  return {
+    status: v.status === 'MATCH' ? RegistryCheckStatus.MATCHED : v.status,
+    checkedAt: v.checkedAt,
+    source: '국가공간정보 중개업소 조회',
+    registry: r
+      ? {
+          name: r.officeName ?? null,
+          representativeName: r.representativeName ?? null,
+          registrationNumber: r.registrationNumber ?? null,
+          roadAddress: null,
+          businessStatus: r.statusLabel ?? (r.operating ? '영업중' : '영업 중 아님'),
+          registeredAt: r.registeredOn ?? null,
+        }
+      : null,
+    mismatches: (v.mismatches ?? []).map((m) => MISMATCH_FIELD[m] ?? m),
+    message:
+      v.status === 'UNAVAILABLE'
+        ? '등록 정보 조회 서비스에 연결하지 못했어요. 잠시 후 다시 조회해 주세요.'
+        : null,
+  };
+}
+
+export const registryCheckSchema = z.preprocess(normalizeRegistryCheck, registryCheckModel);
 export type RegistryCheck = z.infer<typeof registryCheckSchema>;
 
 export const adminAgencyDocumentSchema = z.object({
   id: str,
   type: z.enum(AgencyDocumentType),
   mediaId: opt(str),
+  /** `originalFilename` in the shared `AgencyDocumentView` (mapped by the detail schema). */
   fileName: opt(str),
   mimeType: opt(str),
   sizeBytes: opt(z.number()),
@@ -103,30 +157,39 @@ export const adminAgencyDocumentSchema = z.object({
 });
 export type AdminAgencyDocument = z.infer<typeof adminAgencyDocumentSchema>;
 
-export const adminAgencyListItemSchema = z.object({
+const adminAgencyListItemModel = z.object({
   id: str,
   name: str,
   representativeName: str,
   registrationNumber: str,
   phone: opt(str),
   roadAddress: str,
-  /** 읍면동 name resolved by the API (e.g. "해룡면 신대리"). */
+  /** 읍면동 name (not in the shared list view; the screens fall back to the address). */
   emdName: opt(str),
   status: z.enum(AgencyStatus),
   statusReason: opt(str),
   createdAt: iso,
   approvedAt: opt(iso),
   suspendedAt: opt(iso),
-  activeListingCount: z.number().default(0),
+  /** Not in the shared list view (null = unknown); the detail has it. */
+  activeListingCount: z.number().nullable().default(null),
   warningCount: z.number().default(0),
-  /** Types of the documents submitted so far (latest per type). */
-  documentTypes: z.array(z.enum(AgencyDocumentType)).default([]),
+  /** Submitted documents (shared `AdminAgencyListItem.documentCount`). */
+  documentCount: z.number().nullable().default(null),
+  /**
+   * Types of the documents submitted so far; null when only the count is known (the list view) —
+   * the detail derives them from `documents`.
+   */
+  documentTypes: z.array(z.enum(AgencyDocumentType)).nullable().default(null),
   registryStatus: opt(z.enum(RegistryCheckStatus)),
 });
+
+/** Shared `AdminAgencyListItem` (GET /admin/agencies) → the list model. */
+export const adminAgencyListItemSchema = adminAgencyListItemModel;
 export type AdminAgencyListItem = z.infer<typeof adminAgencyListItemSchema>;
 export const adminAgencyPageSchema = pageOf(adminAgencyListItemSchema);
 
-export const adminAgencyDetailSchema = adminAgencyListItemSchema.extend({
+const adminAgencyDetailModel = adminAgencyListItemModel.extend({
   businessNumber: opt(str),
   mobile: opt(str),
   email: opt(str),
@@ -189,6 +252,39 @@ export const adminAgencyDetailSchema = adminAgencyListItemSchema.extend({
     )
     .default([]),
 });
+/**
+ * Shared `AdminAgencyDetail` (GET /admin/agencies/:id, decision response) → the detail model:
+ * `documents[].originalFilename` → `fileName`, `statusHistory[].decidedBy.name` →
+ * `decidedByName`, `recentWarnings` → `warnings`, document types from `documents`. The registry
+ * check is not part of the detail (GET …/registry-check, merged by the screen).
+ */
+export function normalizeAgencyDetail(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const v = raw as Record<string, unknown> & {
+    documents?: (Record<string, unknown> & { type?: string; originalFilename?: string | null })[];
+    statusHistory?: (Record<string, unknown> & { decidedBy?: { name?: string } | null })[];
+    recentWarnings?: unknown[];
+  };
+  const documents = Array.isArray(v.documents)
+    ? v.documents.map((d) => ({ ...d, fileName: d.fileName ?? d.originalFilename ?? null }))
+    : v.documents;
+  return {
+    ...v,
+    documents,
+    documentTypes:
+      v.documentTypes ??
+      (Array.isArray(documents) ? [...new Set(documents.map((d) => d.type))] : undefined),
+    statusHistory: Array.isArray(v.statusHistory)
+      ? v.statusHistory.map((h) => ({
+          ...h,
+          decidedByName: h.decidedByName ?? h.decidedBy?.name ?? null,
+        }))
+      : v.statusHistory,
+    warnings: v.warnings ?? v.recentWarnings,
+  };
+}
+
+export const adminAgencyDetailSchema = z.preprocess(normalizeAgencyDetail, adminAgencyDetailModel);
 export type AdminAgencyDetail = z.infer<typeof adminAgencyDetailSchema>;
 
 // ---------- listings -------------------------------------------------------------------------
@@ -258,7 +354,7 @@ export const listingHistoryEntrySchema = z.object({
 });
 export type ListingHistoryEntry = z.infer<typeof listingHistoryEntrySchema>;
 
-export const adminListingDetailSchema = adminListingListItemSchema.extend({
+const adminListingDetailModel = adminListingListItemSchema.extend({
   description: opt(str),
   roadAddress: opt(str),
   jibunAddress: opt(str),
@@ -310,6 +406,31 @@ export const adminListingDetailSchema = adminListingListItemSchema.extend({
     .default([]),
   history: z.array(listingHistoryEntrySchema).default([]),
 });
+/**
+ * Shared `AdminListingDetail` → the detail model: `agencies[].id` → `agencyId`,
+ * `recentReports` → `reports`, `agencies.length` → `agencyCount`.
+ */
+export function normalizeListingDetail(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const v = raw as Record<string, unknown> & {
+    agencies?: (Record<string, unknown> & { id?: string; agencyId?: string })[];
+    recentReports?: unknown[];
+  };
+  const agencies = Array.isArray(v.agencies)
+    ? v.agencies.map((a) => ({ ...a, agencyId: a.agencyId ?? a.id }))
+    : v.agencies;
+  return {
+    ...v,
+    agencies,
+    agencyCount: v.agencyCount ?? (Array.isArray(agencies) ? agencies.length : undefined),
+    reports: v.reports ?? v.recentReports,
+  };
+}
+
+export const adminListingDetailSchema = z.preprocess(
+  normalizeListingDetail,
+  adminListingDetailModel,
+);
 export type AdminListingDetail = z.infer<typeof adminListingDetailSchema>;
 
 // ---------- reports --------------------------------------------------------------------------
@@ -360,7 +481,7 @@ export const adminReportListItemSchema = z.object({
 export type AdminReportListItem = z.infer<typeof adminReportListItemSchema>;
 export const adminReportPageSchema = pageOf(adminReportListItemSchema);
 
-export const adminReportDetailSchema = adminReportListItemSchema.extend({
+const adminReportDetailModel = adminReportListItemSchema.extend({
   reporter: opt(
     z.object({
       id: str,
@@ -371,13 +492,13 @@ export const adminReportDetailSchema = adminReportListItemSchema.extend({
     }),
   ),
   reporterPhone: opt(str),
-  /** Outcome text of 조치 / 기각 — forwarded to the reporter (and the office for a warning). */
-  resolutionNote: opt(str),
   /**
-   * Moderators' internal memo — NEVER shown to the reporter or the office. Kept apart from
-   * `resolutionNote` so a resolution cannot overwrite (or publish) it. ASSUMED field: the Prisma
-   * `Report` model has only `resolutionNote` today (see docs/frontend-integration/m-moderation.md).
+   * The moderators' note on the report (shared `AdminReportView.resolutionNote`): written with
+   * PATCH `{ note }` while the report is open and by the resolution. Never part of the reporter /
+   * office notifications (those carry the action label only).
    */
+  resolutionNote: opt(str),
+  /** Same text as `resolutionNote` (the memo panel reads it); the API has one note per report. */
   internalNote: opt(str),
   handledByName: opt(str),
   /** Evidence images attached by the reporter (optional — not in reportCreateSchema yet). */
@@ -406,11 +527,26 @@ export const adminReportDetailSchema = adminReportListItemSchema.extend({
     )
     .default([]),
 });
+/**
+ * Shared `AdminReportView` (GET/PATCH /admin/reports/:id, resolve) → the detail model:
+ * `handledBy.name` → `handledByName`, the memo = `resolutionNote`.
+ */
+export function normalizeReportDetail(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const v = raw as Record<string, unknown> & { handledBy?: { name?: string } | null };
+  return {
+    ...v,
+    handledByName: v.handledByName ?? v.handledBy?.name ?? null,
+    internalNote: v.internalNote ?? v.resolutionNote ?? null,
+  };
+}
+
+export const adminReportDetailSchema = z.preprocess(normalizeReportDetail, adminReportDetailModel);
 export type AdminReportDetail = z.infer<typeof adminReportDetailSchema>;
 
 // ---------- deal requests --------------------------------------------------------------------
 
-export const adminDealRequestListItemSchema = z.object({
+const adminDealRequestListItemModel = z.object({
   id: str,
   type: z.enum(DealRequestType),
   status: z.enum(DealRequestStatus),
@@ -446,10 +582,38 @@ export const adminDealRequestListItemSchema = z.object({
   expiresAt: opt(iso),
   closedAt: opt(iso),
 });
+/**
+ * Shared `AdminDealRequestView` → the moderation model: `complex.name` → `complexName`,
+ * `targetAgencyIds` → `targetAgencyCount`, masked contact → `contactName` / `contactPhone`,
+ * `userId` → `requester.id`.
+ */
+export function normalizeDealRequest(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || !('userId' in raw)) return raw;
+  const v = raw as Record<string, unknown> & {
+    userId?: string;
+    complex?: { name?: string } | null;
+    targetAgencyIds?: string[];
+    contactNameMasked?: string;
+    contactPhoneMasked?: string;
+  };
+  return {
+    ...v,
+    complexName: v.complexName ?? v.complex?.name ?? null,
+    targetAgencyCount: v.targetAgencyCount ?? v.targetAgencyIds?.length ?? 0,
+    contactName: v.contactName ?? v.contactNameMasked ?? null,
+    contactPhone: v.contactPhone ?? v.contactPhoneMasked ?? null,
+    requester: v.requester ?? (v.userId ? { id: v.userId, nickname: null } : null),
+  };
+}
+
+export const adminDealRequestListItemSchema = z.preprocess(
+  normalizeDealRequest,
+  adminDealRequestListItemModel,
+);
 export type AdminDealRequestListItem = z.infer<typeof adminDealRequestListItemSchema>;
 export const adminDealRequestPageSchema = pageOf(adminDealRequestListItemSchema);
 
-export const adminDealRequestDetailSchema = adminDealRequestListItemSchema.extend({
+const adminDealRequestDetailModel = adminDealRequestListItemModel.extend({
   contactPhone: opt(str),
   description: opt(str),
   roadAddress: opt(str),
@@ -498,6 +662,10 @@ export const adminDealRequestDetailSchema = adminDealRequestListItemSchema.exten
     )
     .default([]),
 });
+export const adminDealRequestDetailSchema = z.preprocess(
+  normalizeDealRequest,
+  adminDealRequestDetailModel,
+);
 export type AdminDealRequestDetail = z.infer<typeof adminDealRequestDetailSchema>;
 
 // ---------- users ----------------------------------------------------------------------------
@@ -520,7 +688,7 @@ export const adminUserListItemSchema = z.object({
 export type AdminUserListItem = z.infer<typeof adminUserListItemSchema>;
 export const adminUserPageSchema = pageOf(adminUserListItemSchema);
 
-export const adminUserDetailSchema = adminUserListItemSchema.extend({
+const adminUserDetailModel = adminUserListItemSchema.extend({
   marketingOptIn: z.boolean().default(false),
   suspendedReason: opt(str),
   withdrawalReason: opt(str),
@@ -579,4 +747,44 @@ export const adminUserDetailSchema = adminUserListItemSchema.extend({
     )
     .default([]),
 });
+/**
+ * Shared `MemberDetail` (GET /admin/users/:id, suspend / unsuspend) → the detail model: identities
+ * get an id (their provider), `memberships[0]` → `agency`, `counts` + `activeSessions` →
+ * `activity`, providers from the identities.
+ */
+export function normalizeUserDetail(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || !('counts' in raw || 'memberships' in raw)) return raw;
+  const v = raw as Record<string, unknown> & {
+    identities?: (Record<string, unknown> & { provider?: string; id?: string })[];
+    memberships?: {
+      agencyId: string;
+      agencyName: string;
+      agencyStatus?: string;
+      role?: string;
+    }[];
+    counts?: { dealRequests?: number; reports?: number; favoriteListings?: number };
+    activeSessions?: number;
+    providers?: string[];
+  };
+  const identities = (v.identities ?? []).map((i) => ({ ...i, id: i.id ?? i.provider }));
+  const m = v.memberships?.[0];
+  return {
+    ...v,
+    identities,
+    providers: v.providers ?? identities.map((i) => i.provider),
+    agency: m
+      ? { id: m.agencyId, name: m.agencyName, status: m.agencyStatus, memberRole: m.role }
+      : (v.agency ?? null),
+    activity: v.counts
+      ? {
+          dealRequestCount: v.counts.dealRequests ?? 0,
+          reportCount: v.counts.reports ?? 0,
+          favoriteCount: v.counts.favoriteListings ?? 0,
+          activeSessionCount: v.activeSessions ?? 0,
+        }
+      : v.activity,
+  };
+}
+
+export const adminUserDetailSchema = z.preprocess(normalizeUserDetail, adminUserDetailModel);
 export type AdminUserDetail = z.infer<typeof adminUserDetailSchema>;

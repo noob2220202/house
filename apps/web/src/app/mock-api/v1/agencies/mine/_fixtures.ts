@@ -1,4 +1,5 @@
 import type { AgencyDashboard, AgencyMember, MyAgency } from '@/features/a-agency/api/schemas';
+import type { MockInvite } from './_store';
 
 /*
  * Fixtures of the broker-console mocks. All names, addresses and numbers are fictional and come
@@ -73,8 +74,8 @@ export function seedOffice(): MyAgency {
         id: 'doc-office-2',
         type: 'BUSINESS_REG_CERT',
         mediaId: 'seed-office-business',
-        mimeType: 'image/jpeg',
-        fileName: '사업자등록증.jpg',
+        mimeType: 'application/pdf',
+        fileName: '사업자등록증.pdf',
         createdAt: '2025-03-10T14:04:00+09:00',
       },
       {
@@ -212,20 +213,19 @@ export function seedMembers(): AgencyMember[] {
       joinedAt: '2026-02-17T11:30:00+09:00',
       activeListingCount: 7,
     },
+  ];
+}
+
+/** One open invitation (demo code for /agent/apply → 초대 코드로 합류: K7MQ4-RXD2P). */
+export function seedInvites(): MockInvite[] {
+  return [
     {
-      id: 'mem-4',
-      userId: null,
-      role: 'AGENT',
-      status: 'INVITED',
-      displayName: '이도윤',
-      title: '과장',
-      phone: null,
-      isLicensed: true,
-      licenseNumber: null,
-      joinedAt: null,
-      inviteCode: 'K7MQ4RXD',
-      inviteExpiresAt: ahead(5 * DAY),
-      activeListingCount: 0,
+      id: '6f1a2b3c4d5e6f708192a3b4',
+      code: 'K7MQ4RXD2P',
+      codeHint: 'XD2P',
+      label: '이도윤 과장',
+      createdAt: ahead(-2 * DAY),
+      expiresAt: ahead(5 * DAY),
     },
   ];
 }
@@ -246,7 +246,7 @@ export function seedDashboard(): AgencyDashboard {
       profileViews7d: 286,
       favorites7d: 41,
     },
-    // Filled from the a-inbox mock stores by the route (same rows as /agent/requests, /agent/inquiries).
+    // Filled from the a-inbox mock store by the route (same rows as /agent/requests).
     dealRequests: { newCount: 0, newSellCount: 0, newWantedCount: 0, items: [] },
     inquiries: { unreadCount: 0, items: [] },
     expiringListings: [

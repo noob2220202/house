@@ -4,13 +4,20 @@ import { api, qk, type QueryParams } from '@/lib/api';
 import {
   complexAgenciesSchema,
   complexDetailSchema,
-  complexListingsSchema,
+  complexListingPageSchema,
+  complexListingSummarySchema,
   complexStatsSchema,
   nearbyComplexesSchema,
   tradePageSchema,
+  type ListingAgency,
 } from './schemas';
+import { listingDetailSchema } from '@/features/w-listing/api/schemas';
+import { loadComplexListings } from '../lib/complex-listings';
 
-/** Filters accepted by `GET /complexes/:id/listings` (names follow `listingListQuerySchema`). */
+/**
+ * Filters of the complex list: `GET /listings?complexId=` (names follow `listingListQuerySchema`)
+ * plus `dong`, which the backend list has no filter for and is applied here.
+ */
 export interface ComplexListingQuery {
   dealTypes?: readonly string[];
   priceMin?: number;
@@ -32,6 +39,9 @@ export interface ComplexListingQuery {
 export interface ComplexStatsQuery {
   dealType?: TradeDealType;
   areaTypeId?: string;
+  /** Trend window ending at the latest month with data (backend default 36). */
+  months?: number;
+  /** Trades only (`/trades`); `/stats` takes `months`. */
   fromYm?: number;
   toYm?: number;
 }
@@ -51,13 +61,21 @@ export const complexKeys = {
   listings: (id: string, q: ComplexListingQuery) => qk('complexes', 'listings', { id, ...q }),
   nearby: (id: string, limit: number) => qk('complexes', 'nearby', { id, limit }),
   agencies: (id: string) => qk('complexes', 'agencies', id),
+  listingAgencies: (listingId: string) => qk('listings', 'agencies', listingId),
 };
 
 export const fetchComplex = (id: string, signal?: AbortSignal) =>
   api.get(path(id), { schema: complexDetailSchema, signal });
 
+/** Trend window asked of `/stats` (months): the longest period the views offer ("전체" ≈ 10년). */
+export const STATS_WINDOW_MONTHS = 120;
+
 export const fetchComplexStats = (id: string, q: ComplexStatsQuery = {}, signal?: AbortSignal) =>
-  api.get(path(id, '/stats'), { query: { ...q }, schema: complexStatsSchema, signal });
+  api.get(path(id, '/stats'), {
+    query: { months: STATS_WINDOW_MONTHS, ...q },
+    schema: complexStatsSchema,
+    signal,
+  });
 
 export const fetchComplexTrades = (id: string, q: ComplexTradesQuery = {}, signal?: AbortSignal) =>
   api.get(path(id, '/trades'), { query: { ...q }, schema: tradePageSchema, signal });
@@ -67,10 +85,9 @@ export const fetchComplexListings = (
   q: ComplexListingQuery = {},
   signal?: AbortSignal,
 ) =>
-  api.get(path(id, '/listings'), {
-    query: q as QueryParams,
-    schema: complexListingsSchema,
-    signal,
+  loadComplexListings(id, q, {
+    page: (query) => api.get('/listings', { query, schema: complexListingPageSchema, signal }),
+    summary: () => api.get(path(id, '/listings'), { schema: complexListingSummarySchema, signal }),
   });
 
 export const fetchNearbyComplexes = (id: string, limit = 10, signal?: AbortSignal) =>
@@ -88,3 +105,27 @@ export const fetchComplexAgencies = (id: string, signal?: AbortSignal) =>
  */
 export const featuredBannersQuery = (complexId: string) =>
   servedBannersQuery(BannerSlot.COMPLEX_FEATURED_AGENCY, { complexId });
+
+/**
+ * 표시·광고 명시사항 of every office on a listing (`GET /listings/:id` → `agencies`), loaded when a
+ * complex row opens its office list (the list rows carry `primaryAgency` only).
+ */
+export const fetchListingAgencies = (listingId: string, signal?: AbortSignal) =>
+  api
+    .get(`/listings/${encodeURIComponent(listingId)}`, { schema: listingDetailSchema, signal })
+    .then((d): ListingAgency[] =>
+      d.agencies.map((a) => ({
+        agencyId: a.agencyId,
+        name: a.name,
+        representativeName: a.representativeName,
+        phone: a.contactPhone ?? a.phone,
+        roadAddress: a.roadAddress,
+        registrationNumber: a.registrationNumber,
+        logoUrl: a.logoUrl ?? null,
+        isPrimary: a.isPrimary,
+        specialtyTag: a.specialtyTag ?? null,
+        complexListingCount: null,
+        avgResponseMinutes: a.avgResponseMinutes ?? null,
+        price: null,
+      })),
+    );

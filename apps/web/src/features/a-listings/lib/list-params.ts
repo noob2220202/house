@@ -84,10 +84,14 @@ export function activeFilterCount(p: ListParams): number {
   return [p.q !== '', p.deal !== '', p.asset !== '', p.due, p.co].filter(Boolean).length;
 }
 
-/** Query of GET /agency/listings. */
+/**
+ * Query of GET /agency/listings (`agencyListingListQuerySchema`: `statuses`, `dealTypes` csv). The
+ * console's other filters (q, assetTypes, verificationDue, coBrokered, sort) are sent as well; the
+ * API ignores the ones it does not know yet.
+ */
 export function toApiQuery(p: ListParams) {
   return {
-    status: p.status === 'ALL' ? undefined : [p.status],
+    statuses: p.status === 'ALL' ? undefined : [p.status],
     q: p.q || undefined,
     dealTypes: p.deal ? [p.deal] : undefined,
     assetTypes: p.asset ? [p.asset] : undefined,

@@ -4,16 +4,27 @@ import { useId, useRef, useState, type FormEvent } from 'react';
 import { ApiError, errorMessage } from '@/lib/api';
 import { joinAgency } from '../api/queries';
 import { JOIN_PRIVACY_NOTICE } from '../lib/application';
-import { formatInviteCode, isCompleteInviteCode, normalizeInviteCode } from '../lib/registration';
+import {
+  INVITE_CODE_LENGTH,
+  formatInviteCode,
+  isCompleteInviteCode,
+  normalizeInviteCode,
+} from '../lib/registration';
 import { AGENT_ROUTES } from '../nav';
+import { useConsoleUser } from '../shell/ConsoleUser';
 import { PrivacySummary } from '../ui/PrivacySummary';
 import styles from './Apply.module.css';
 
 /** 소속 공인중개사·중개보조원: redeem the invite code issued by the agency owner. */
 export function JoinForm() {
   const { toast } = useToast();
+  const user = useConsoleUser();
   const [code, setCode] = useState('');
   const [error, setError] = useState<string>();
+  // The name the office sees in its staff list (agencyJoinSchema `displayName`).
+  const [name, setName] = useState(() => (user?.hasNickname ? user.nickname : ''));
+  const [nameError, setNameError] = useState<string>();
+  const nameRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [joined, setJoined] = useState<string>();
   const [agreed, setAgreed] = useState(false);
@@ -31,7 +42,12 @@ export function JoinForm() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!isCompleteInviteCode(code)) {
-      failCode('초대 코드 8자리를 입력해 주세요.');
+      failCode(`초대 코드 ${INVITE_CODE_LENGTH}자리를 입력해 주세요.`);
+      return;
+    }
+    if (name.trim() === '') {
+      setNameError('사무소에 표시할 이름을 입력해 주세요.');
+      nameRef.current?.focus();
       return;
     }
     if (!agreed) {
@@ -42,14 +58,24 @@ export function JoinForm() {
     setBusy(true);
     setError(undefined);
     try {
-      const result = await joinAgency(normalizeInviteCode(code));
-      setJoined(result.agencyName);
-      toast({ message: `${result.agencyName}에 합류했어요.` });
+      const result = await joinAgency({
+        code: normalizeInviteCode(code),
+        displayName: name.trim(),
+      });
+      setJoined(result.agency.name);
+      toast({ message: `${result.agency.name}에 합류했어요.` });
       // Full navigation: the session role changed, so every server guard must re-run.
       window.location.assign(AGENT_ROUTES.dashboard);
     } catch (err) {
-      if (err instanceof ApiError && (err.isNotFound || err.status === 410 || err.isValidation)) {
-        failCode(err.fieldErrors().code ?? err.message);
+      const fields = err instanceof ApiError ? err.fieldErrors() : {};
+      if (err instanceof ApiError && err.isValidation && fields.displayName && !fields.code) {
+        setNameError(fields.displayName);
+        nameRef.current?.focus();
+      } else if (
+        err instanceof ApiError &&
+        (err.isNotFound || err.status === 410 || err.isValidation)
+      ) {
+        failCode(fields.code ?? err.message);
       } else {
         toast({ message: errorMessage(err), tone: 'error' });
       }
@@ -66,18 +92,33 @@ export function JoinForm() {
             label="초대 코드"
             required
             className={styles.codeInput}
-            placeholder="ABCD-EFGH"
+            placeholder="ABCDE-FGHJK"
             autoComplete="off"
             autoCapitalize="characters"
             spellCheck={false}
-            maxLength={9}
+            maxLength={INVITE_CODE_LENGTH + 1}
             value={code}
             onChange={(e) => {
               setCode(formatInviteCode(e.target.value));
               setError(undefined);
             }}
             error={error}
-            help="영문·숫자 8자리 · 발급 후 7일 동안 쓸 수 있어요"
+            help={`영문·숫자 ${INVITE_CODE_LENGTH}자리 · 대표님이 정한 기간 동안 한 번만 쓸 수 있어요`}
+          />
+          <Input
+            ref={nameRef}
+            label="이름"
+            required
+            autoComplete="name"
+            maxLength={50}
+            placeholder="예: 이도윤"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              setNameError(undefined);
+            }}
+            error={nameError}
+            help="사무소 직원 목록에 표시돼요."
           />
           <div className={styles.joinConsent}>
             <Checkbox
@@ -114,7 +155,7 @@ export function JoinForm() {
         <ul className={styles.checklist}>
           <li>
             <Icon name="check" size={16} strokeWidth={2.5} />
-            소속공인중개사와 중개보조원 모두 합류할 수 있어요
+            중개보조원으로 합류하고, 대표님이 자격증을 확인하면 소속공인중개사로 바뀌어요
           </li>
           <li>
             <Icon name="check" size={16} strokeWidth={2.5} />

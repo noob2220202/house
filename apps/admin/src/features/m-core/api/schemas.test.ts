@@ -14,8 +14,9 @@ import {
   adminSearchSchema,
   dashboardQueuesSchema,
   dashboardSummarySchema,
+  adminSessionResultSchema,
+  totpActivateResultSchema,
   totpSetupSchema,
-  totpVerifyResultSchema,
   trafficStatsSchema,
 } from './schemas';
 
@@ -157,22 +158,41 @@ describe('m-core schemas ↔ mock fixtures', () => {
     ).toMatchObject({ kind: 'SYSTEM', body: null, link: null, readAt: null });
   });
 
-  it('parses the auth responses', () => {
-    expect(adminLoginResultSchema.parse({})).toEqual({ mfaVerified: false, totpEnrolled: true });
+  it('parses the auth responses (shared Admin*Response)', () => {
+    expect(
+      adminLoginResultSchema.parse({ mfaRequired: true, totpEnrolled: false, csrfToken: 't' }),
+    ).toEqual({ mfaRequired: true, totpEnrolled: false, csrfToken: 't' });
+    expect(adminLoginResultSchema.safeParse({}).success).toBe(false);
     expect(
       totpSetupSchema.safeParse({
         secret: 'JBSWY3DPEHPK3PXP',
         otpauthUrl: 'otpauth://totp/x?secret=JBSWY3DPEHPK3PXP',
+        expiresInSeconds: 600,
       }).success,
     ).toBe(true);
     expect(
       totpSetupSchema.safeParse({ secret: 'JBSWY3DPEHPK3PXP', otpauthUrl: 'https://example.com' })
         .success,
     ).toBe(false);
-    expect(totpVerifyResultSchema.parse({ ok: true })).toEqual({ ok: true });
-    expect(totpVerifyResultSchema.parse({ recoveryCodes: ['AAAA-BBBB'] }).recoveryCodes).toEqual([
-      'AAAA-BBBB',
-    ]);
+    const admin = {
+      id: '1',
+      email: 'super@example.com',
+      name: '정다은',
+      role: 'SUPER_ADMIN',
+      totpEnabled: true,
+      recoveryCodesRemaining: 7,
+      lastLoginAt: null,
+      lastLoginIp: null,
+    };
+    expect(adminSessionResultSchema.parse({ admin, csrfToken: 't' }).admin).toMatchObject({
+      recoveryCodesRemaining: 7,
+      mfaVerified: true,
+    });
+    expect(adminSessionResultSchema.safeParse({ admin }).success).toBe(false);
+    expect(
+      totpActivateResultSchema.parse({ admin, csrfToken: 't', recoveryCodes: ['AAAA-BBBB'] })
+        .recoveryCodes,
+    ).toEqual(['AAAA-BBBB']);
     expect(
       adminAccountSchema.parse({
         id: '1',
@@ -180,6 +200,6 @@ describe('m-core schemas ↔ mock fixtures', () => {
         name: '정다은',
         role: 'SUPER_ADMIN',
       }),
-    ).toMatchObject({ mfaVerified: true, totpEnabled: true });
+    ).toMatchObject({ mfaVerified: true, totpEnabled: true, recoveryCodesRemaining: 0 });
   });
 });

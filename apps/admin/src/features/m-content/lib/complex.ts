@@ -31,3 +31,36 @@ export function takeWithinLimit<T>(
   const room = Math.max(0, PHOTO_MAX_COUNT - existing);
   return { accepted: files.slice(0, room), rejected: files.slice(room) };
 }
+
+/** A change to the photo list; the API only takes the whole list (PUT …/photos). */
+export type PhotoChange<P> =
+  | { kind: 'add'; photo: P }
+  | { kind: 'caption'; mediaId: string; caption: string | null }
+  | { kind: 'remove'; mediaId: string }
+  | { kind: 'move'; mediaId: string; delta: -1 | 1 };
+
+/**
+ * Applies a change to the current list (display order, first = 대표 사진) and renumbers
+ * `sortOrder`. Unknown ids leave the list as it is; a duplicate add is ignored (the API refuses
+ * duplicate media).
+ */
+export function applyPhotoChange<
+  P extends { mediaId: string; caption: string | null; sortOrder: number },
+>(photos: readonly P[], change: PhotoChange<P>): P[] {
+  let next: P[] = [...photos];
+  if (change.kind === 'add') {
+    if (!next.some((p) => p.mediaId === change.photo.mediaId)) next.push(change.photo);
+  } else if (change.kind === 'caption') {
+    next = next.map((p) => (p.mediaId === change.mediaId ? { ...p, caption: change.caption } : p));
+  } else if (change.kind === 'remove') {
+    next = next.filter((p) => p.mediaId !== change.mediaId);
+  } else {
+    const from = next.findIndex((p) => p.mediaId === change.mediaId);
+    const to = from + change.delta;
+    if (from >= 0 && to >= 0 && to < next.length) {
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item as P);
+    }
+  }
+  return next.map((p, i) => (p.sortOrder === i ? p : { ...p, sortOrder: i }));
+}

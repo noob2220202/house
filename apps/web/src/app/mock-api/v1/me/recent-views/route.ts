@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { mockDelay, mockJson, mockPaginate } from '@/lib/mock';
+import { toListingWire } from '../../listings/_summary';
 import { findMeListing } from '../_lookup';
 import { meGuard, mockForcedFailure } from '../_store';
 
@@ -12,16 +13,18 @@ export async function GET(req: NextRequest) {
   const forced = mockForcedFailure(req);
   if (forced) return forced;
   const targetType = req.nextUrl.searchParams.get('targetType') ?? 'LISTING';
-  const favorites = new Set(g.state.favoriteListings.map((f) => f.id));
   const rows =
     targetType === 'LISTING'
       ? g.state.recentViews.map((view) => {
           const listing = findMeListing(view.id);
+          // RecentViewItem: `listing` is left out when the listing is gone (backend: optional).
           return {
             targetType: 'LISTING' as const,
             targetId: view.id,
             viewedAt: view.at,
-            listing: listing ? { ...listing, isFavorite: favorites.has(listing.id) } : null,
+            ...(listing
+              ? { listing: toListingWire(listing) }
+              : {}),
           };
         })
       : [];

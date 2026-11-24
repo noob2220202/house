@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { DashboardQueues, DashboardSummary } from '../../api';
+import { dashboardSummarySchema, type DashboardQueues, type DashboardSummary } from '../../api';
 import { KpiRow } from './KpiRow';
 import { DealRequestsPanel, ExpiringAdsPanel, ReportsPanel, adHref } from './QueuePanels';
 
@@ -8,8 +8,8 @@ const now = new Date('2026-11-23T05:20:00Z'); // 월 14:20 KST
 
 const kpis: DashboardSummary['kpis'] = {
   visitors: { today: 3482, yesterday: 3206 },
-  newListings: { today: 47, yesterday: 35, pendingReview: 12 },
-  dealRequests: { today: 5, sell: 3, find: 2, unassigned: 1 },
+  newListings: { today: 47, yesterday: 35, pendingReview: 12, active: null },
+  dealRequests: { today: 5, sell: 3, find: 2, unassigned: 1, open: null },
   pendingAgencies: { count: 4, oldestWaitingDays: 3, needsDocuments: 1 },
 };
 
@@ -51,6 +51,37 @@ describe('<KpiRow>', () => {
     );
     expect(screen.getByText('대기 중인 신청이 없어요')).toBeInTheDocument();
     expect(screen.getByText('–')).toBeInTheDocument();
+  });
+});
+
+describe('<KpiRow> with the shared AdminDashboard', () => {
+  it('shows what the real view carries and leaves the rest out', () => {
+    const summary = dashboardSummarySchema.parse({
+      generatedAt: '2026-11-23T05:20:00Z',
+      visitors: { today: 120, yesterday: 100, last7Days: [], uniqueLast7Days: 400 },
+      listings: { newToday: 7, active: 812, hidden: 3 },
+      dealRequests: { newToday: 2, open: 14 },
+      agencies: { pending: 3, approved: 40 },
+      reports: { open: 5, newToday: 1 },
+      members: { newToday: 9, total: 2000, suspended: 2 },
+      ads: { endingSoon: [], endingSoonCount: 0 },
+      notificationsUnread: 6,
+    });
+    expect(summary.notificationsUnread).toBe(6);
+    expect(summary.badges).toEqual({
+      listingsPending: 0,
+      agenciesPending: 3,
+      dealRequestsOpen: 14,
+      reportsOpen: 5,
+    });
+    render(<KpiRow kpis={summary.kpis} />);
+    const cards = within(screen.getByRole('region', { name: '오늘의 핵심 지표' })).getAllByRole(
+      'link',
+    );
+    expect(cards[1]).toHaveTextContent('7건광고 중 812건');
+    expect(cards[2]).toHaveTextContent('진행 중 14건');
+    expect(cards[2]).not.toHaveTextContent('배정 대기');
+    expect(cards[3]).toHaveTextContent('3곳');
   });
 });
 

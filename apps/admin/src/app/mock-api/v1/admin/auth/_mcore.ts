@@ -1,8 +1,8 @@
-import { createHmac } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import { COOKIE_NAMES } from '@house/shared';
 import type { NextRequest, NextResponse } from 'next/server';
 import { BRAND } from '@/config/brand';
-import { mockAdminRole, mockAdminSessionValue, type MockAdminRole } from '@/lib/mock';
+import { mockAdminRole, mockAdminSessionValue, mockCsrfOk, type MockAdminRole } from '@/lib/mock';
 import { MOCK_ADMINS } from './_fixtures';
 
 /**
@@ -62,6 +62,62 @@ export function fullSessionValue(role: MockAdminRole): string {
   return mockAdminSessionValue(role);
 }
 
+/** True when the request carries an admin session of either kind (pre-MFA or verified). */
+export function mockHasAdminSession(req: NextRequest): boolean {
+  return !!mockPending(req) || !!mockAdminRole(req);
+}
+
+/**
+ * Like the API's CsrfGuard: a mutation is only CSRF-checked when it carries a session (the login
+ * itself, without one, is not). The mock compares the header with the readable cookie it issued.
+ */
+export function mockCsrfRequired(req: NextRequest): boolean {
+  return mockHasAdminSession(req) && !mockCsrfOk(req);
+}
+
+/** A fresh CSRF token (the API issues one per session). */
+export function newCsrfToken(): string {
+  return `mock-csrf-${randomBytes(9).toString('base64url')}`;
+}
+
+/** Sets the readable CSRF cookie, like the API's `SessionService.setCsrfCookie`. */
+export function setCsrfCookie(res: NextResponse, token: string): void {
+  res.cookies.set(COOKIE_NAMES.CSRF, token, { path: '/', sameSite: 'lax', httpOnly: false });
+}
+
+// ---- pending TOTP enrolment (POST /totp/setup → POST /totp/activate) ----
+
+const SETUP_COOKIE = 'mock_admin_totp_setup';
+/** The API keeps a pending secret for 10 minutes (TOTP_SETUP_TTL_SECONDS). */
+export const MOCK_SETUP_TTL_SECONDS = 600;
+
+export function markSetupPending(res: NextResponse): void {
+  res.cookies.set(SETUP_COOKIE, '1', {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: MOCK_SETUP_TTL_SECONDS,
+  });
+}
+
+export function hasPendingSetup(req: NextRequest): boolean {
+  return req.cookies.get(SETUP_COOKIE)?.value === '1';
+}
+
+export function clearPendingSetup(res: NextResponse): void {
+  res.cookies.delete(SETUP_COOKIE);
+}
+
+/** Recovery codes the mock still accepts: any of MOCK_RECOVERY_CODES (normalized like the API). */
+export function mockRecoveryValid(recoveryCode: string): boolean {
+  return MOCK_RECOVERY_CODES.some((c) => c.replace(/[^0-9A-Z]/g, '') === recoveryCode);
+}
+
+/** Shared `AdminMeResponse` of the mock admin with this role. */
+export function mockAdminMe(role: MockAdminRole): Record<string, unknown> {
+  return { ...MOCK_ADMINS[role] };
+}
+
 /** E-mail of whoever is on this request: a pending login or a fully signed-in mock admin. */
 export function mockActorEmail(req: NextRequest): string | null {
   const pending = mockPending(req);
@@ -110,6 +166,7 @@ export function mockOtpauthUrl(email: string): string {
   return `otpauth://totp/${label}?secret=${MOCK_TOTP_SECRET}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
 }
 
+/** Ten codes, like the API (RECOVERY_CODE_COUNT). */
 export const MOCK_RECOVERY_CODES = [
   'SC7K-2M9Q',
   'H4TN-8WXP',
@@ -119,10 +176,12 @@ export const MOCK_RECOVERY_CODES = [
   'X8PW-4NSD',
   'T3YB-6RVJ',
   'E5AC-9HML',
+  'K7RZ-2DFW',
+  'P4GU-8BNQ',
 ] as const;
 
 export const CSRF_FAIL = [
   403,
-  'CSRF_TOKEN_INVALID',
+  'CSRF_FAILED',
   '보안 토큰이 올바르지 않습니다. 새로고침 후 다시 시도해 주세요.',
 ] as const;

@@ -21,6 +21,7 @@ import {
   meQueries,
   type MeFetcher,
   type NotificationFilter,
+  type NotificationScope,
 } from './queries';
 import {
   notificationReadResultSchema,
@@ -34,7 +35,12 @@ import {
   type RecentViewPage,
 } from './schemas';
 
-export { NOTIFICATION_PAGE_SIZE, meKeys, type NotificationFilter } from './queries';
+export {
+  NOTIFICATION_PAGE_SIZE,
+  meKeys,
+  type NotificationFilter,
+  type NotificationScope,
+} from './queries';
 
 /** Browser side of `MeFetcher`: same-origin fetch with the session cookie. */
 const browserFetch: MeFetcher = <S extends z.ZodType>(
@@ -207,20 +213,28 @@ export function useRecentViews(page = 1, pageSize = RECENT_PAGE_SIZE) {
 
 // ---------- notifications ----------
 
-export function useNotificationFeed(filter: NotificationFilter) {
+export function useNotificationFeed(filter: NotificationFilter, scope?: NotificationScope) {
   const queryClient = useQueryClient();
   return useInfiniteQuery(
-    // Every feed response carries the total unread count: keep the badges in step with it instead
-    // of waiting for the separate counter request.
-    meQueries.notificationFeed(browserFetch, filter, (page) => {
-      if (page.unreadCount !== undefined)
-        queryClient.setQueryData<number>(meKeys.notificationUnread, page.unreadCount);
-    }),
+    // Every feed response carries the unread count of its scope: keep the badges in step with it
+    // instead of waiting for the separate counter request.
+    meQueries.notificationFeed(
+      browserFetch,
+      filter,
+      (page) => {
+        if (page.unreadCount !== undefined)
+          queryClient.setQueryData<number>(meKeys.notificationUnreadOf(scope), page.unreadCount);
+      },
+      scope,
+    ),
   );
 }
 
-/** Unread counter for badges (sidebar, mobile header, overview tile). */
-export function useUnreadNotificationCount(): { data: number | undefined; isError: boolean } {
+/** Unread counter for badges (sidebar, mobile header, overview tile, console bell). */
+export function useUnreadNotificationCount(scope?: NotificationScope): {
+  data: number | undefined;
+  isError: boolean;
+} {
   // Several components share this query. One that hydrates late (below a Suspense boundary) could
   // already find the answer in the cache and render differently from the server HTML, so the value
   // is only exposed after mount.
@@ -231,7 +245,10 @@ export function useUnreadNotificationCount(): { data: number | undefined; isErro
   // away would repeat that request on every visit; one effect later the hydrated value is there and
   // still fresh (staleTime), so nothing is fetched. Pages without a prefetch fetch it then.
   const mounted = useMounted();
-  const query = useQuery({ ...meQueries.notificationUnread(browserFetch), enabled: mounted });
+  const query = useQuery({
+    ...meQueries.notificationUnread(browserFetch, scope),
+    enabled: mounted,
+  });
   return { data: mounted ? query.data : undefined, isError: mounted && query.isError };
 }
 
@@ -242,19 +259,24 @@ type Feed = InfiniteData<NotificationPage>;
 /**
  * Marks notifications read (optimistic), then syncs the counters. In the "전체" feed the rows stay
  * and get a `readAt`; in the "안 읽음" feed they leave the list, so its empty state shows at once.
+ * With a `scope`, "모두 읽음" covers that audience only and the server's `unread` is the scope's.
  */
-export function useMarkNotificationsRead() {
+export function useMarkNotificationsRead(scope?: NotificationScope) {
   const queryClient = useQueryClient();
+  const unreadKey = meKeys.notificationUnreadOf(scope);
   return useMutation({
     mutationFn: (input: MarkReadInput) =>
-      api.post('/me/notifications/read', input, { schema: notificationReadResultSchema }),
+      api.post('/me/notifications/read', input, {
+        query: { scope },
+        schema: notificationReadResultSchema,
+      }),
     onMutate: async (input) => {
       await queryClient.cancelQueries({ queryKey: meKeys.notifications });
       const snap = queryClient.getQueriesData({ queryKey: meKeys.notifications });
       const now = new Date().toISOString();
       const hits = (id: string) => ('all' in input ? true : input.ids.includes(id));
       queryClient.setQueryData<Feed>(
-        meKeys.notificationFeed('all'),
+        meKeys.notificationFeed('all', scope),
         (old) =>
           old && {
             ...old,
@@ -265,7 +287,7 @@ export function useMarkNotificationsRead() {
           },
       );
       queryClient.setQueryData<Feed>(
-        meKeys.notificationFeed('unread'),
+        meKeys.notificationFeed('unread', scope),
         (old) =>
           old && {
             ...old,
@@ -276,8 +298,8 @@ export function useMarkNotificationsRead() {
           },
       );
       // The UI only marks unread rows, so every id lowers the counter by one; the server's
-      // unreadCount (onSuccess) corrects any drift.
-      queryClient.setQueryData<number>(meKeys.notificationUnread, (old) =>
+      // `unread` (onSuccess) corrects any drift.
+      queryClient.setQueryData<number>(unreadKey, (old) =>
         'all' in input ? 0 : old === undefined ? old : Math.max(0, old - input.ids.length),
       );
       return { snap };
@@ -285,14 +307,18 @@ export function useMarkNotificationsRead() {
     onError: (_error, _vars, context) =>
       context?.snap.forEach(([key, data]) => queryClient.setQueryData(key, data)),
     onSuccess: (result) => {
-      if (result?.unreadCount !== undefined)
-        queryClient.setQueryData<number>(meKeys.notificationUnread, result.unreadCount);
+      if (result?.unread !== undefined) queryClient.setQueryData<number>(unreadKey, result.unread);
     },
     onSettled: (result) => {
       // The unread feed is paginated by the server: rows beyond the loaded pages move up.
-      void queryClient.invalidateQueries({ queryKey: meKeys.notificationFeed('unread') });
-      if (result?.unreadCount === undefined)
-        void queryClient.invalidateQueries({ queryKey: meKeys.notificationUnread });
+      void queryClient.invalidateQueries({ queryKey: meKeys.notificationFeed('unread', scope) });
+      if (result?.unread === undefined)
+        void queryClient.invalidateQueries({ queryKey: unreadKey, exact: true });
+      // The counters of the other audiences (whole feed ↔ console) changed as well.
+      void queryClient.invalidateQueries({
+        queryKey: meKeys.notificationUnread,
+        predicate: (q) => JSON.stringify(q.queryKey) !== JSON.stringify(unreadKey),
+      });
     },
   });
 }

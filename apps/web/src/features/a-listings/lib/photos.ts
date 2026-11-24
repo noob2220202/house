@@ -113,14 +113,16 @@ export function variantUrls(media: {
   return url ? { url, thumbUrl: thumb?.url ?? url } : null;
 }
 
-/** Body of PUT /agency/listings/:id/photos — order = array order. */
-export function toPhotosPayload(photos: readonly PhotoValue[]) {
+/** Body of PUT /agency/listings/:id/photos (`listingPhotosSchema`) — order = array order. */
+export function toPhotosPayload(photos: readonly PhotoValue[]): {
+  photos: { mediaId: string; caption?: string }[];
+  coverMediaId?: string;
+} {
+  const list = normalizeCover(photos);
+  const cover = list.find((p) => p.isCover);
   return {
-    photos: normalizeCover(photos).map((p) => ({
-      mediaId: p.mediaId,
-      caption: p.caption.trim() || undefined,
-      isCover: p.isCover,
-    })),
+    photos: list.map((p) => ({ mediaId: p.mediaId, caption: p.caption.trim() || undefined })),
+    ...(cover ? { coverMediaId: cover.mediaId } : {}),
   };
 }
 

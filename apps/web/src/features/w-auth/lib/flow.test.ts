@@ -7,6 +7,7 @@ import {
   oauthLoginUrl,
   parseIntent,
   parseProvider,
+  parseSignupReturnTo,
   resolveCallbackTarget,
   resolvePostLoginTarget,
   safeNext,
@@ -86,10 +87,13 @@ describe('callback / login / signup paths', () => {
       '/auth/callback?next=%2Fme&provider=kakao',
     );
   });
-  it('builds the link url back to the account settings', () => {
-    const url = oauthLinkUrl(AuthProvider.GOOGLE);
-    expect(url).toMatch(/\/auth\/oauth\/google\/start\?returnTo=.*&link=1$/);
-    expect(decodeURIComponent(url)).toContain('/me/account?linked=google');
+  it('builds the link url (intent=link) back to the account settings', () => {
+    const url = new URL(oauthLinkUrl(AuthProvider.GOOGLE), 'http://localhost');
+    expect(url.pathname).toMatch(/\/auth\/oauth\/google\/start$/);
+    expect(url.searchParams.get('intent')).toBe('link');
+    // The backend appends `linked=<slug>` (success) or `error=<code>` itself.
+    expect(url.searchParams.get('returnTo')).toBe('/me/account');
+    expect(url.searchParams.has('link')).toBe(false);
   });
   it('builds login and signup urls', () => {
     expect(loginPath()).toBe('/login');
@@ -130,5 +134,38 @@ describe('post-login routing', () => {
     expect(resolveCallbackTarget({ next: '/me', user })).toBe('/me');
     // `signupCompleted` missing (older backend) = treated as complete.
     expect(resolveCallbackTarget({ next: '/me', user: { role: UserRole.USER } })).toBe('/me');
+  });
+});
+
+describe('parseSignupReturnTo', () => {
+  it('reads destination and intent from the landing path kept with the pending signup', () => {
+    expect(parseSignupReturnTo('/auth/callback?next=%2Fme%2Ffavorites&provider=kakao')).toEqual({
+      next: '/me/favorites',
+      intent: 'user',
+    });
+    expect(parseSignupReturnTo('/auth/callback?provider=naver&intent=agent')).toEqual({
+      next: '',
+      intent: 'agent',
+    });
+  });
+  it('accepts a plain path and infers 중개사 from a console target', () => {
+    expect(parseSignupReturnTo('/listing/1')).toEqual({ next: '/listing/1', intent: 'user' });
+    expect(parseSignupReturnTo('/agent/listings')).toEqual({
+      next: '/agent/listings',
+      intent: 'agent',
+    });
+  });
+  it('never yields an open redirect or an auth page', () => {
+    expect(parseSignupReturnTo(null)).toEqual({ next: '', intent: 'user' });
+    expect(parseSignupReturnTo('https://evil.example')).toEqual({ next: '', intent: 'user' });
+    expect(parseSignupReturnTo('/auth/callback?next=%2F%2Fevil.example')).toEqual({
+      next: '',
+      intent: 'user',
+    });
+    expect(parseSignupReturnTo('/auth/callback?next=%2Flogin')).toEqual({
+      next: '',
+      intent: 'user',
+    });
+    expect(parseSignupReturnTo('/signup')).toEqual({ next: '', intent: 'user' });
   });
 });

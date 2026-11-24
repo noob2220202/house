@@ -36,7 +36,6 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   const { status, action, note } = parsed.data;
   if (report.status === 'RESOLVED' || report.status === 'REJECTED')
     return mockError(409, 'REPORT_ALREADY_HANDLED', '이미 처리된 신고입니다.');
-  if (status === 'REJECTED' && !note) return validationError('note', '기각 사유를 입력해 주세요.');
   const hides = action === 'LISTING_HIDDEN' || action === 'LISTING_HIDDEN_AGENCY_WARNED';
   const warns = action === 'AGENCY_WARNED' || action === 'LISTING_HIDDEN_AGENCY_WARNED';
   if (status === 'RESOLVED' && hides && !report.listingId)

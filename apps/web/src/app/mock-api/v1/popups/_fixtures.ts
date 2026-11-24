@@ -1,4 +1,4 @@
-import { PopupPage, type PopupPage as Page } from '@house/shared';
+import { PopupPage, type PopupPage as Page, type PublicPopupView } from '@house/shared';
 import { mockUuid } from '@/lib/mock';
 
 /**
@@ -94,7 +94,8 @@ export function isPopupLive(p: MockPopup, now = new Date()): boolean {
   return !p.paused && new Date(p.startAt) <= now && now < new Date(p.endAt);
 }
 
-export function servePopup(p: MockPopup) {
+/** Live popup → `PublicPopupView` (ads module serve shape). */
+export function servePopup(p: MockPopup): PublicPopupView {
   return {
     id: p.id,
     title: p.title,
@@ -102,8 +103,7 @@ export function servePopup(p: MockPopup) {
     linkUrl: p.linkUrl,
     newWindow: p.newWindow,
     dismissDays: p.dismissDays,
-    sortOrder: p.sortOrder,
-    updatedAt: p.updatedAt,
+    endAt: p.endAt,
   };
 }
 

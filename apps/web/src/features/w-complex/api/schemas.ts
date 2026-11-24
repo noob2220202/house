@@ -1,13 +1,16 @@
 import { AssetType, DealType, FloorDisplay, MoveInType, TradeDealType } from '@house/shared';
 import { z } from 'zod';
-import { listingSummarySchema } from '@/lib/api/schemas/listing';
+import { listingFromWire, listingSummaryObjectSchema } from '@/lib/api/schemas/listing';
 
 /**
  * Response schemas of the complexes / listings / banners endpoints used by the complex panel and the
- * /complex/[id] page. The backend controllers do not exist yet (module READMEs + Prisma models only),
- * so field names mirror the Prisma models and every shape is recorded in
- * docs/frontend-integration/w-complex.md — fix the schema and the mock fixture together.
+ * /complex/[id] page. They parse the real complexes module (`ComplexDetail`, `ComplexStatsView`,
+ * `TradeView`, `ComplexListingsSummary` of `@house/shared`) and map it onto the shapes the views
+ * read; see docs/frontend-integration/w-complex.md.
  */
+
+type Raw = Record<string, unknown>;
+const isObject = (v: unknown): v is Raw => typeof v === 'object' && v !== null;
 
 /** Prisma `Decimal` columns may arrive as strings ("84.98") — accept both. */
 const decimal = z.coerce.number();
@@ -46,11 +49,22 @@ export const complexAreaTypeSchema = z.object({
 });
 export type ComplexAreaType = z.infer<typeof complexAreaTypeSchema>;
 
-export const complexPhotoSchema = z.object({
-  id: z.string(),
-  url: z.string(),
-  caption: nullableString,
-});
+/** Backend `ComplexPhotoView` { mediaId, thumbUrl, mediumUrl, largeUrl } → { id, url }. */
+export const complexPhotoSchema = z.preprocess(
+  (v) =>
+    isObject(v) && v.url === undefined && typeof v.mediaId === 'string'
+      ? {
+          id: v.mediaId,
+          url: v.largeUrl ?? v.mediumUrl ?? v.thumbUrl,
+          caption: v.caption ?? null,
+        }
+      : v,
+  z.object({
+    id: z.string(),
+    url: z.string(),
+    caption: nullableString,
+  }),
+);
 
 export const complexDetailSchema = z.object({
   id: z.string(),
@@ -88,6 +102,8 @@ export const complexDetailSchema = z.object({
   avgPricePerPyeong: nullableInt,
   areaTypes: z.array(complexAreaTypeSchema).default([]),
   photos: z.array(complexPhotoSchema).default([]),
+  /** Latest non-cancelled trade per 평형 and deal type (`ComplexDetail.latestTrades`). */
+  latestTrades: z.array(z.lazy(() => tradeRecordSchema)).default([]),
 });
 export type ComplexDetail = z.infer<typeof complexDetailSchema>;
 
@@ -107,7 +123,7 @@ export const tradeStatSchema = z.object({
 });
 export type TradeStat = z.infer<typeof tradeStatSchema>;
 
-export const tradeRecordSchema = z.object({
+const tradeRecordObjectSchema = z.object({
   id: z.string(),
   areaTypeId: nullableString,
   dealType: z.enum(TradeDealType),
@@ -127,23 +143,54 @@ export const tradeRecordSchema = z.object({
   /** 신규 / 갱신 (전월세) */
   contractType: nullableString,
 });
-export type TradeRecord = z.infer<typeof tradeRecordSchema>;
+/** Backend `TradeView` calls the 계약월 `yearMonth`; the views read `dealYm`. */
+export const tradeRecordSchema = z.preprocess(
+  (v) => (isObject(v) && v.dealYm === undefined ? { ...v, dealYm: v.yearMonth } : v),
+  tradeRecordObjectSchema,
+);
+export type TradeRecord = z.infer<typeof tradeRecordObjectSchema>;
 
 export const tradePageSchema = paginated(tradeRecordSchema);
 export type TradePage = z.infer<typeof tradePageSchema>;
 
 /**
- * `GET /complexes/:id/stats?dealType&areaTypeId&fromYm&toYm` — monthly aggregates of ONE series
- * (same shape as the listing-detail group reads) plus the latest trade per 평형 and deal type.
+ * Monthly points of ONE trend from the backend `ComplexStatsView`: with `areaTypeId` the backend
+ * answers that 평형's series only (`overall` empty), without it `overall` covers every 평형.
  */
-export const complexStatsSchema = z.object({
-  dealType: z.enum(TradeDealType),
-  areaTypeId: nullableString,
-  months: z.array(tradeStatSchema).default([]),
-  /** Latest (non-cancelled) trade of every 평형 × deal type. */
-  latest: z.array(tradeRecordSchema).default([]),
-});
-export type ComplexStats = z.infer<typeof complexStatsSchema>;
+export function statsMonthsOf(value: Raw): unknown {
+  if (value.months !== undefined) return value.months;
+  if (Array.isArray(value.overall) && value.overall.length > 0) return value.overall;
+  const series = Array.isArray(value.series) ? value.series : [];
+  const only = series.length === 1 && isObject(series[0]) ? series[0] : null;
+  return only && Array.isArray(only.points) ? only.points : [];
+}
+
+/**
+ * `GET /complexes/:id/stats?dealType&areaTypeId&months` — monthly aggregates of ONE series plus
+ * the latest trade per 평형 and deal type (`ComplexStatsView` → `months`).
+ */
+export const complexStatsSchema = z.preprocess(
+  (v) =>
+    isObject(v)
+      ? {
+          ...v,
+          months: statsMonthsOf(v),
+          areaTypeId:
+            v.areaTypeId ??
+            (Array.isArray(v.series) && v.series.length === 1 && isObject(v.series[0])
+              ? (v.series[0].areaTypeId ?? null)
+              : null),
+        }
+      : v,
+  z.object({
+    dealType: z.enum(TradeDealType),
+    areaTypeId: nullableString,
+    months: z.array(tradeStatSchema).default([]),
+    /** Latest (non-cancelled) trade of every 평형 × deal type. */
+    latest: z.array(tradeRecordSchema).default([]),
+  }),
+);
+export type ComplexStats = z.output<typeof complexStatsSchema>;
 
 // ---- listings -----------------------------------------------------------------------------------
 
@@ -171,7 +218,12 @@ export const listingAgencySchema = z.object({
 });
 export type ListingAgency = z.infer<typeof listingAgencySchema>;
 
-export const complexListingItemSchema = listingSummarySchema.extend({
+/**
+ * One row of the complex list: `GET /listings?complexId=` (backend `ListingSummary`) plus the
+ * optional row extras. `primaryAgency` becomes the first `agencies` entry; the full 표시·광고
+ * disclosure of every office is loaded from `GET /listings/:id` when the row opens.
+ */
+const complexListingItemObjectSchema = listingSummaryObjectSchema.extend({
   /** The complex endpoint only lists apartments, so the asset type may be left out. */
   assetType: z.enum(AssetType).default(AssetType.APT),
   /** Lowest / highest 호가 when co-brokering offices advertise different prices (optional). */
@@ -183,7 +235,8 @@ export const complexListingItemSchema = listingSummarySchema.extend({
   /** The co-brokering offices (primary first) with their public disclosure fields. */
   agencies: z.array(listingAgencySchema).default([]),
 });
-export type ComplexListingItem = z.infer<typeof complexListingItemSchema>;
+export const complexListingItemSchema = listingFromWire(complexListingItemObjectSchema);
+export type ComplexListingItem = z.infer<typeof complexListingItemObjectSchema>;
 
 const dealSummarySchema = z.object({
   dealType: z.enum(DealType),
@@ -197,23 +250,46 @@ const dealSummarySchema = z.object({
 });
 export type DealSummary = z.infer<typeof dealSummarySchema>;
 
-/** Active listing summary of the whole complex (not affected by the list filters). */
+/** Backend `DealTypeListingSummary` (minPrice/maxPrice, minMonthlyRent/maxMonthlyRent) → view keys. */
+const dealSummaryFromWire = (v: unknown): unknown =>
+  isObject(v) && v.priceMin === undefined && ('minPrice' in v || 'maxPrice' in v)
+    ? {
+        dealType: v.dealType,
+        count: v.count,
+        priceMin: v.minPrice ?? null,
+        priceMax: v.maxPrice ?? null,
+        rentMin: v.minMonthlyRent ?? null,
+        rentMax: v.maxMonthlyRent ?? null,
+      }
+    : v;
+
+/**
+ * `GET /complexes/:id/listings` — `ComplexListingsSummary` { complexId, total, byDealType[] }:
+ * active listing summary of the whole complex (not affected by the list filters).
+ */
 export const complexListingSummarySchema = z.object({
   total: z.number().int(),
-  byDealType: z.array(dealSummarySchema).default([]),
-  /** 동 names that currently have listings (for the 동 filter). */
+  byDealType: z.array(z.preprocess(dealSummaryFromWire, dealSummarySchema)).default([]),
+  /** 동 names that currently have listings (for the 동 filter) — collected from the list rows. */
   dongs: z.array(z.string()).default([]),
 });
 export type ComplexListingSummary = z.infer<typeof complexListingSummarySchema>;
 
+/** One `GET /listings?complexId=` page of complex rows. */
+export const complexListingPageSchema = paginated(complexListingItemSchema);
+
 /**
- * `GET /complexes/:id/listings?…filters&sort&page&pageSize` — the complex's active listings
- * (same filter / sort params as `GET /listings`, plus `dong`) and the per-deal-type summary.
+ * What the panel and page read: one page of the complex's active listings (filters of
+ * `GET /listings` + a 동 filter applied in the client) and the per-deal-type summary.
  */
-export const complexListingsSchema = paginated(complexListingItemSchema).extend({
-  summary: complexListingSummarySchema,
-});
-export type ComplexListings = z.infer<typeof complexListingsSchema>;
+export interface ComplexListings {
+  items: ComplexListingItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  summary: ComplexListingSummary;
+}
 
 /** `GET /complexes/:id/agencies` — offices with active listings in the complex. */
 export const complexAgencySchema = z.object({

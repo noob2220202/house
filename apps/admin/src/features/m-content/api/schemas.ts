@@ -6,6 +6,8 @@ import {
   AuthProvider,
   DealType,
   FaqCategory,
+  HomeSectionKey,
+  MediaStatus,
   TermsType,
   TradeSyncKind,
   TradeSyncStatus,
@@ -97,19 +99,9 @@ export const videoPageSchema = pageSchema(videoSchema);
 
 // ---------- 메인 화면 편집 ----------
 
-export const HOME_SECTION_KEYS = [
-  'HERO_SEARCH',
-  'CATEGORY_TILES',
-  'MAIN_BANNER',
-  'POPULAR_COMPLEXES',
-  'NEW_LISTINGS',
-  'DEAL_REQUEST_CTA',
-  'FEATURED_AGENCIES',
-  'LOCAL_VIDEOS',
-  'NOTICES',
-  'APP_BAND',
-] as const;
-export type HomeSectionKey = (typeof HOME_SECTION_KEYS)[number];
+/** Home sections in design order = shared `HomeSectionKey` (HOME_LAYOUT, D9). */
+export const HOME_SECTION_KEYS = Object.values(HomeSectionKey) as readonly HomeSectionKey[];
+export type { HomeSectionKey };
 
 export const homeLayoutSchema = z.object({
   sections: z.array(z.object({ key: z.enum(HOME_SECTION_KEYS), visible: z.boolean() })),
@@ -118,15 +110,25 @@ export type HomeLayout = z.infer<typeof homeLayoutSchema>;
 
 // ---------- 사이트 설정 ----------
 
-/** GET/PUT /admin/site-settings/:key → the stored value plus who changed it last. */
+/**
+ * GET/PUT /admin/site-settings/:key → shared `SiteSettingView` `{ key, value, updatedAt,
+ * updatedBy: { id, name } | null }` (`updatedBy.name` is read as `updatedByAdminName`).
+ */
 export function siteSettingSchema<T extends z.ZodType>(value: T) {
-  return z.object({
-    key: z.string(),
-    /** null until the operator saves the key for the first time. */
-    value: value.nullable(),
-    updatedAt: nullableIso,
-    updatedByAdminName: z.string().nullable().default(null),
-  });
+  return z.preprocess(
+    (raw) => {
+      if (!raw || typeof raw !== 'object' || 'updatedByAdminName' in raw) return raw;
+      const v = raw as { updatedBy?: { name?: string } | null };
+      return { ...raw, updatedByAdminName: v.updatedBy?.name ?? null };
+    },
+    z.object({
+      key: z.string(),
+      /** null until the operator saves the key for the first time. */
+      value: value.nullable(),
+      updatedAt: nullableIso,
+      updatedByAdminName: z.string().nullable().default(null),
+    }),
+  );
 }
 export interface SiteSetting<T> {
   key: string;
@@ -170,6 +172,12 @@ export const seoValueSchema = z
 export type SeoValue = z.infer<typeof seoValueSchema>;
 
 export const featuresValueSchema = z.record(z.string(), z.boolean());
+
+/** APP_LINKS (D9): store pages of the home app band. */
+export const appLinksValueSchema = z
+  .object({ iosUrl: z.string().nullish(), androidUrl: z.string().nullish() })
+  .loose();
+export type AppLinksValue = z.infer<typeof appLinksValueSchema>;
 export type FeaturesValue = z.infer<typeof featuresValueSchema>;
 
 // ---------- 약관 ----------
@@ -211,14 +219,17 @@ export const complexSummarySchema = z.object({
   emdName: z.string().nullable().default(null),
   households: count.nullable().default(null),
   builtYear: z.number().int().nullable().default(null),
-  areaTypeCount: count.default(0),
-  photoCount: count.default(0),
+  /** Not in the shared list item (`AdminComplexListItem`); the detail has the lists. */
+  areaTypeCount: count.nullable().default(null),
+  photoCount: count.nullable().default(null),
   activeListingCount: count.default(0),
   viewCount: count.default(0),
+  /** 국토교통부 단지 코드 (exact 실거래 matching); null = still to fill in. */
   externalCode: z.string().nullable().default(null),
-  /** Latest matched 실거래 date (YYYY-MM-DD). */
+  /** Latest matched 실거래 date (YYYY-MM-DD) — not in the shared list item. */
   lastTradeDate: z.string().nullable().default(null),
-  updatedAt: iso,
+  /** Only on the detail (`AdminComplexView`). */
+  updatedAt: iso.nullish(),
 });
 export type ComplexSummary = z.infer<typeof complexSummarySchema>;
 export const complexPageSchema = pageSchema(complexSummarySchema);
@@ -238,7 +249,8 @@ export const areaTypeSchema = z.object({
 });
 export type AreaType = z.infer<typeof areaTypeSchema>;
 
-export const complexPhotoSchema = z.object({
+const complexPhotoModel = z.object({
+  /** = `mediaId` (a photo is identified by its media in the whole-list PUT). */
   id: z.string(),
   mediaId: z.string(),
   url: z.string(),
@@ -247,6 +259,18 @@ export const complexPhotoSchema = z.object({
   caption: z.string().nullable().default(null),
   sortOrder: z.number().int().default(0),
 });
+
+/** Shared `ComplexPhotoView` (`{ mediaId, thumbUrl, mediumUrl, largeUrl, caption, sortOrder }`). */
+export const complexPhotoSchema = z.preprocess((raw) => {
+  if (!raw || typeof raw !== 'object' || 'url' in raw) return raw;
+  const v = raw as {
+    mediaId?: string;
+    thumbUrl?: string;
+    mediumUrl?: string;
+    largeUrl?: string;
+  };
+  return { ...v, id: v.mediaId, url: v.mediumUrl ?? v.largeUrl ?? v.thumbUrl };
+}, complexPhotoModel);
 export type ComplexPhoto = z.infer<typeof complexPhotoSchema>;
 
 export const complexDetailSchema = complexSummarySchema.extend({
@@ -269,6 +293,7 @@ export const complexDetailSchema = complexSummarySchema.extend({
   createdAt: iso,
   areaTypes: z.array(areaTypeSchema).default([]),
   photos: z.array(complexPhotoSchema).default([]),
+  updatedAt: iso,
   trades: z
     .object({
       total: count,
@@ -301,10 +326,13 @@ export const tradeSyncTriggerSchema = z.object({ runs: z.array(tradeSyncRunSchem
 
 /** MediaDto (packages/shared/src/schemas/media.ts) — only what the photo uploader reads. */
 const variant = z.object({ url: z.string(), width: z.number(), height: z.number() });
+/** MediaView (POST /admin/media, GET /admin/media/:id). */
 export const mediaSchema = z.object({
   id: z.string(),
+  status: z.enum(MediaStatus).optional(),
   width: z.number().nullable().default(null),
   height: z.number().nullable().default(null),
+  url: z.string().nullish(),
   variants: z
     .object({ thumb: variant.optional(), medium: variant.optional(), large: variant.optional() })
     .default({}),
@@ -320,9 +348,13 @@ export const adminAccountSchema = z.object({
   status: z.enum(AdminStatus),
   totpEnabled: z.boolean().default(false),
   ipAllowlist: z.array(z.string()).default([]),
+  /** Locked by repeated second-factor failures (shared `AdminAccountView.locked`). */
+  locked: z.boolean().default(false),
+  /** Until when, when the API says (not part of the shared view). */
   lockedUntil: nullableIso,
   lastLoginAt: nullableIso,
   lastLoginIp: z.string().nullable().default(null),
+  passwordChangedAt: nullableIso,
   createdAt: iso,
 });
 export type AdminAccount = z.infer<typeof adminAccountSchema>;
@@ -330,7 +362,21 @@ export const adminAccountPageSchema = pageSchema(adminAccountSchema);
 
 // ---------- 작업 기록 ----------
 
-export const auditLogSchema = z.object({
+/** Shared `AuditLogView` carries the actor as `admin: { id, name, email } | null`. */
+function normalizeAuditLog(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || !('admin' in raw)) return raw;
+  const { admin, ...rest } = raw as {
+    admin?: { id?: string; name?: string; email?: string } | null;
+  };
+  return {
+    ...rest,
+    adminUserId: admin?.id ?? null,
+    adminName: admin?.name ?? null,
+    adminEmail: admin?.email ?? null,
+  };
+}
+
+const auditLogModel = z.object({
   id: z.string(),
   actorType: z.enum(AuditActorType),
   adminUserId: z.string().nullable().default(null),
@@ -349,6 +395,7 @@ export const auditLogSchema = z.object({
   requestId: z.string().nullable().default(null),
   createdAt: iso,
 });
+export const auditLogSchema = z.preprocess(normalizeAuditLog, auditLogModel);
 export type AuditLog = z.infer<typeof auditLogSchema>;
 export const auditLogPageSchema = pageSchema(auditLogSchema);
 

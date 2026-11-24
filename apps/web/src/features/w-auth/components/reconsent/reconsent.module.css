@@ -1,0 +1,29 @@
+/* Re-consent prompt (a new required terms version took effect). Rows reuse signup.module.css. */
+.intro {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+/* Doubled class: wins over `.agreeList` of signup.module.css whatever the stylesheet order. */
+.list.list {
+  margin-top: var(--s-4);
+  padding: 4px 8px 4px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+.error {
+  margin-top: var(--s-4);
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 40px;
+  margin-bottom: var(--s-2);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.back:hover {
+  color: var(--text);
+}

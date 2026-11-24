@@ -17,53 +17,63 @@ import { adminUserSchema } from '@/lib/auth/types';
 
 /**
  * Response schemas of the m-core page group (login · dashboard · search · notifications · account).
- * The auth/admin controllers do not exist yet, so every shape here is an ASSUMPTION documented in
- * docs/frontend-integration/m-core.md — fix the schema and the mock fixture together.
+ * Auth shapes follow the real admin auth controller (`apps/api/src/modules/auth/admin`, shared
+ * `Admin*Response`). Dashboard queues / search / notifications are implemented by the backend to
+ * the shapes below (docs/frontend-integration/m-core.md) — fix the schema and the mock together.
  */
 
 const count = z.number().int().min(0);
 
 // ---------- auth ----------
 
-/** POST /admin/auth/login → password accepted; the session stays unverified until the TOTP step. */
+/**
+ * POST /admin/auth/login → password accepted; the new session is pre-MFA (10 min idle) until the
+ * second factor: `totpEnrolled` → POST /totp/verify, otherwise enrolment (POST /totp/setup →
+ * POST /totp/activate). `csrfToken` belongs to the new session.
+ */
 export const adminLoginResultSchema = z.object({
-  /** True only when the backend skips the TOTP step (never expected in production). */
-  mfaVerified: z.boolean().default(false),
-  /** False → the admin must enrol an authenticator app first (POST /admin/auth/totp/setup). */
-  totpEnrolled: z.boolean().default(true),
+  mfaRequired: z.boolean().default(true),
+  totpEnrolled: z.boolean(),
+  csrfToken: z.string().optional(),
 });
 export type AdminLoginResult = z.infer<typeof adminLoginResultSchema>;
 
-/** POST /admin/auth/totp/setup → a fresh secret to enrol. */
+/** POST /admin/auth/totp/setup → a fresh pending secret (bound to this session until activated). */
 export const totpSetupSchema = z.object({
   /** Base32 secret for manual entry. */
   secret: z.string().min(16),
   /** otpauth://totp/… URI — rendered as a QR code in the browser. */
   otpauthUrl: z.string().startsWith('otpauth://'),
+  expiresInSeconds: z.number().int().positive().optional(),
 });
 export type TotpSetup = z.infer<typeof totpSetupSchema>;
 
-/** POST /admin/auth/totp/verify → session upgraded; recovery codes are returned once after enrolment. */
-export const totpVerifyResultSchema = z
-  .object({
-    recoveryCodes: z.array(z.string()).optional(),
-  })
-  .loose();
-export type TotpVerifyResult = z.infer<typeof totpVerifyResultSchema>;
-
-/** GET /admin/auth/me with the optional security fields used by the account page. */
-export const adminAccountSchema = adminUserSchema.extend({
-  totpEnabled: z.boolean().default(true),
-  totpEnrolledAt: z.string().nullable().optional(),
-  passwordChangedAt: z.string().nullable().optional(),
-  lastLoginIp: z.string().nullable().optional(),
-});
+/** GET /admin/auth/me (shared `AdminMeResponse`), as shown on the account page. */
+export const adminAccountSchema = adminUserSchema;
 export type AdminAccount = z.infer<typeof adminAccountSchema>;
+
+/** POST /admin/auth/totp/verify and /admin/auth/password → the rotated, TOTP-verified session. */
+export const adminSessionResultSchema = z.object({
+  admin: adminAccountSchema,
+  csrfToken: z.string(),
+});
+export type AdminSessionResult = z.infer<typeof adminSessionResultSchema>;
+
+/**
+ * POST /admin/auth/totp/activate → enrolment confirmed, session rotated (every other session of
+ * the admin ended) and the one-time recovery codes, shown exactly once.
+ */
+export const totpActivateResultSchema = adminSessionResultSchema.extend({
+  recoveryCodes: z.array(z.string()),
+});
+export type TotpActivateResult = z.infer<typeof totpActivateResultSchema>;
+
+/** What the TOTP forms hand to the flow: recovery codes only after an (re-)enrolment. */
+export type TotpResult = AdminSessionResult & { recoveryCodes?: string[] };
 
 // ---------- dashboard ----------
 
-/** GET /admin/dashboard — counters for the shell (badges, bell) and the KPI row. */
-export const dashboardSummarySchema = z.object({
+const dashboardSummaryModel = z.object({
   generatedAt: z.string(),
   badges: z
     .object({
@@ -76,8 +86,22 @@ export const dashboardSummarySchema = z.object({
   notificationsUnread: count.default(0),
   kpis: z.object({
     visitors: z.object({ today: count, yesterday: count }),
-    newListings: z.object({ today: count, yesterday: count, pendingReview: count }),
-    dealRequests: z.object({ today: count, sell: count, find: count, unassigned: count }),
+    newListings: z.object({
+      today: count,
+      /** null = not reported (the shared `AdminDashboard` has no yesterday / review counts). */
+      yesterday: count.nullable(),
+      pendingReview: count.nullable(),
+      /** Listings advertised right now (shared `AdminDashboard.listings.active`). */
+      active: count.nullable().default(null),
+    }),
+    dealRequests: z.object({
+      today: count,
+      sell: count.nullable(),
+      find: count.nullable(),
+      unassigned: count.nullable(),
+      /** Open requests (shared `AdminDashboard.dealRequests.open`). */
+      open: count.nullable().default(null),
+    }),
     pendingAgencies: z.object({
       count,
       /** Days the oldest pending application has been waiting (null when the queue is empty). */
@@ -96,6 +120,60 @@ export const dashboardSummarySchema = z.object({
     )
     .default([]),
 });
+
+/**
+ * GET /admin/dashboard answers the shared `AdminDashboard` (visitors · listings · dealRequests ·
+ * agencies · reports · members · ads). Mapped onto the shell / KPI model; what the view does not
+ * carry (listing review queue, request split) stays null / 0; `notificationsUnread` is the bell
+ * count of the signed-in admin. The model shape itself is accepted as is (mock).
+ */
+export function normalizeDashboard(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || 'kpis' in raw) return raw;
+  const d = raw as {
+    generatedAt?: string;
+    visitors?: { today?: number; yesterday?: number };
+    listings?: { newToday?: number; active?: number };
+    dealRequests?: { newToday?: number; open?: number };
+    agencies?: { pending?: number };
+    reports?: { open?: number };
+    notificationsUnread?: number;
+  };
+  return {
+    generatedAt: d.generatedAt,
+    badges: {
+      listingsPending: 0,
+      agenciesPending: d.agencies?.pending ?? 0,
+      dealRequestsOpen: d.dealRequests?.open ?? 0,
+      reportsOpen: d.reports?.open ?? 0,
+    },
+    notificationsUnread: d.notificationsUnread ?? 0,
+    kpis: {
+      visitors: { today: d.visitors?.today ?? 0, yesterday: d.visitors?.yesterday ?? 0 },
+      newListings: {
+        today: d.listings?.newToday ?? 0,
+        yesterday: null,
+        pendingReview: null,
+        active: d.listings?.active ?? null,
+      },
+      dealRequests: {
+        today: d.dealRequests?.newToday ?? 0,
+        sell: null,
+        find: null,
+        unassigned: null,
+        open: d.dealRequests?.open ?? null,
+      },
+      pendingAgencies: {
+        count: d.agencies?.pending ?? 0,
+        oldestWaitingDays: null,
+        needsDocuments: 0,
+      },
+    },
+    socialLogin: [],
+  };
+}
+
+/** GET /admin/dashboard — counters for the shell (badges, bell) and the KPI row. */
+export const dashboardSummarySchema = z.preprocess(normalizeDashboard, dashboardSummaryModel);
 export type DashboardSummary = z.infer<typeof dashboardSummarySchema>;
 
 const trafficPointSchema = z.object({

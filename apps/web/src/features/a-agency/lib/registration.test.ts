@@ -43,13 +43,16 @@ describe('business number', () => {
 
 describe('invite code', () => {
   it('normalizes and formats', () => {
-    expect(normalizeInviteCode(' k7mq-4rxd ')).toBe('K7MQ4RXD');
-    expect(formatInviteCode('k7mq4rxd')).toBe('K7MQ-4RXD');
+    // Shared format: 10 characters shown as 5-5.
+    expect(normalizeInviteCode(' k7mq4-rxd2p ')).toBe('K7MQ4RXD2P');
+    expect(formatInviteCode('k7mq4rxd2p')).toBe('K7MQ4-RXD2P');
     expect(formatInviteCode('k7m')).toBe('K7M');
-    expect(formatInviteCode('K7MQ-4RXD-EXTRA')).toBe('K7MQ-4RXD');
+    expect(formatInviteCode('K7MQ4-RXD2P-EXTRA')).toBe('K7MQ4-RXD2P');
   });
-  it('knows when a code is complete', () => {
-    expect(isCompleteInviteCode('K7MQ-4RXD')).toBe(true);
-    expect(isCompleteInviteCode('K7MQ-4R')).toBe(false);
+  it('knows when a code is complete (length and the issued alphabet)', () => {
+    expect(isCompleteInviteCode('K7MQ4-RXD2P')).toBe(true);
+    expect(isCompleteInviteCode('K7MQ4-RX')).toBe(false);
+    // 0 / O / 1 / I are never issued.
+    expect(isCompleteInviteCode('K7MQ4-RXD0P')).toBe(false);
   });
 });

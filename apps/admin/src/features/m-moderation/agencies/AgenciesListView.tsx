@@ -61,9 +61,17 @@ export const agencyHref = (id: string) => `/agencies/${id}`;
 
 /** True when nothing blocks a one-click approval from the queue. */
 const canQuickApprove = (a: AdminAgencyListItem): boolean =>
+  a.documentTypes !== null &&
   readyToApprove(documentSummary(a.documentTypes).complete, a.registryStatus);
 
 function DocumentsCell({ agency }: { agency: AdminAgencyListItem }) {
+  // The list view only counts the documents; which ones are missing is checked on the detail page.
+  if (agency.documentTypes === null)
+    return (
+      <span className={s.mutedText}>
+        {agency.documentCount ? `서류 ${formatCount(agency.documentCount)}건` : '서류 없음'}
+      </span>
+    );
   const docs = documentSummary(agency.documentTypes);
   return (
     <span className={`${s.inlineIcon} ${docs.complete ? s.okText : s.warnText}`}>
@@ -218,7 +226,12 @@ export function AgenciesListView() {
         key: 'listings',
         header: '광고 매물',
         align: 'right',
-        cell: (a) => <span className={s.num}>{formatCount(a.activeListingCount)}건</span>,
+        cell: (a) =>
+          a.activeListingCount === null ? (
+            <span className={s.mutedText}>–</span>
+          ) : (
+            <span className={s.num}>{formatCount(a.activeListingCount)}건</span>
+          ),
       },
       {
         key: 'warnings',
@@ -336,7 +349,7 @@ export function AgenciesListView() {
                     {a.representativeName} · <span className={s.num}>{a.registrationNumber}</span>
                   </span>
                   <span>
-                    {a.emdName} · 신청 {formatDateShort(a.createdAt)}
+                    {a.emdName ?? a.roadAddress} · 신청 {formatDateShort(a.createdAt)}
                     {a.status === 'PENDING' && ` · ${waitingLabel(waitingDays(a.createdAt))}`}
                   </span>
                 </>

@@ -60,9 +60,29 @@ export function favoriteToast(kind: FavoriteKind, on: boolean) {
     : { message: `${NOUN[kind]}에서 뺐어요.`, tone: 'info' as const };
 }
 
+const ref = z.object({ id: z.string() });
+/**
+ * Ids of one favourites page. Listings and complexes arrive as `{ favoritedAt, listing | complex }`
+ * (`FavoriteListingItem` / `FavoriteComplexItem`); agencies as flat `{ id, … }` rows.
+ */
 const idsSchema = z
-  .object({ items: z.array(z.object({ id: z.string() })).default([]) })
-  .transform((v) => v.items.map((i) => i.id));
+  .object({
+    items: z
+      .array(
+        z.object({
+          id: z.string().optional(),
+          listing: ref.optional(),
+          complex: ref.optional(),
+        }),
+      )
+      .default([]),
+  })
+  .transform((v) =>
+    v.items.flatMap((i) => {
+      const id = i.id ?? i.listing?.id ?? i.complex?.id;
+      return id ? [id] : [];
+    }),
+  );
 
 const path = (kind: FavoriteKind, id: string) => `/me/favorites/${kind}/${encodeURIComponent(id)}`;
 

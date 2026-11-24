@@ -21,7 +21,7 @@ import {
 } from '@house/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AdminPageHeader } from '@/components/shell';
 import { env } from '@/config/env';
 import { ADMIN_ROUTES } from '@/config/nav';
@@ -29,7 +29,13 @@ import { errorMessage } from '@/lib/api';
 import { formatCount, formatDate, formatDateTime, formatPhone } from '@/lib/format';
 import a from './agencies.module.css';
 import { DocumentViewer } from './DocumentViewer';
-import { decideAgency, fetchAgency, modKeys, recheckAgencyRegistry } from '../api/queries';
+import {
+  decideAgency,
+  fetchAgency,
+  fetchAgencyRegistry,
+  modKeys,
+  recheckAgencyRegistry,
+} from '../api/queries';
 import type { AdminAgencyDetail, AdminAgencyDocument, RegistryCheck } from '../api/schemas';
 import {
   AGENCY_STATUS_META,
@@ -66,6 +72,15 @@ const formatBytes = (n: number) =>
 const fullAddress = (ag: Pick<AdminAgencyDetail, 'roadAddress' | 'addressDetail'>) =>
   [ag.roadAddress, ag.addressDetail].filter(Boolean).join(', ');
 
+/** The detail with the separately loaded registry check (kept when the lookup has not answered). */
+export function withRegistry(
+  detail: AdminAgencyDetail | undefined,
+  check: RegistryCheck | undefined,
+): AdminAgencyDetail | undefined {
+  if (!detail || !check) return detail;
+  return { ...detail, registryCheck: check, registryStatus: check.status };
+}
+
 /** Latest document per type (re-uploads supersede older files). */
 function latestDocuments(docs: readonly AdminAgencyDocument[]): AdminAgencyDocument[] {
   const byType = new Map<AgencyDocumentType, AdminAgencyDocument>();
@@ -92,7 +107,8 @@ function RegistryPanel({ agency }: { agency: AdminAgencyDetail }) {
     mutationFn: () => recheckAgencyRegistry(agency.id),
     onSuccess: (result) => {
       toast(`등록 정보를 다시 조회했어요 · ${REGISTRY_STATUS_META[result.status].label}`);
-      void queryClient.invalidateQueries({ queryKey: ['admin-agencies'] });
+      queryClient.setQueryData(modKeys.agencyRegistry(agency.id), result);
+      void queryClient.invalidateQueries({ queryKey: ['admin-agencies', 'list'] });
     },
     onError: (error) => toast({ message: errorMessage(error), tone: 'error' }),
   });
@@ -268,7 +284,7 @@ function DocumentsPanel({
 // ---------- decision --------------------------------------------------------------------------
 
 function Checklist({ agency }: { agency: AdminAgencyDetail }) {
-  const docs = documentSummary(agency.documentTypes);
+  const docs = documentSummary(agency.documentTypes ?? []);
   const registry = agency.registryCheck?.status;
   const items = [
     { ok: docs.complete, text: docs.complete ? '필수 서류 2종이 제출됐어요' : docs.label },
@@ -328,7 +344,7 @@ export function AgencyDetailView({ id }: { id: string }) {
   const [viewing, setViewing] = useState<AdminAgencyDocument | null>(null);
 
   const {
-    data: agency,
+    data: detail,
     isPending,
     error,
     refetch,
@@ -336,6 +352,16 @@ export function AgencyDetailView({ id }: { id: string }) {
     queryKey: modKeys.agency(id),
     queryFn: ({ signal }) => fetchAgency(id, signal),
   });
+  // The registry lookup is its own endpoint (GET …/registry-check); merged into the detail so the
+  // panels and the approval checks read one object. A failed lookup reads as "조회 전".
+  const registry = useQuery({
+    queryKey: modKeys.agencyRegistry(id),
+    queryFn: ({ signal }) => fetchAgencyRegistry(id, signal),
+    enabled: !!detail,
+    retry: false,
+    staleTime: 5 * 60_000,
+  });
+  const agency = useMemo(() => withRegistry(detail, registry.data), [detail, registry.data]);
 
   const decision = useMutation({
     mutationFn: (v: { status: 'APPROVED' | 'REJECTED' | 'SUSPENDED'; reason?: string }) =>
@@ -378,7 +404,7 @@ export function AgencyDetailView({ id }: { id: string }) {
   const status = AGENCY_STATUS_META[agency.status];
   const pending = agency.status === AgencyStatus.PENDING;
   const days = waitingDays(agency.createdAt);
-  const docs = documentSummary(agency.documentTypes);
+  const docs = documentSummary(agency.documentTypes ?? []);
   const blocked = !docs.complete || agency.registryCheck?.status !== 'MATCHED';
   const reasonDialog = dialog === 'reject' || dialog === 'suspend' ? DIALOG[dialog] : null;
   const registryLabel = agency.registryCheck
@@ -616,8 +642,8 @@ export function AgencyDetailView({ id }: { id: string }) {
                     이용 정지
                   </Button>
                   <p className={s.actionHint}>
-                    정지하면 광고 중인 매물 {formatCount(agency.activeListingCount)}건이 사이트에서
-                    내려가요.
+                    정지하면 광고 중인 매물 {formatCount(agency.activeListingCount ?? 0)}건이
+                    사이트에서 내려가요.
                   </p>
                 </div>
               )}
@@ -647,7 +673,7 @@ export function AgencyDetailView({ id }: { id: string }) {
                   items={[
                     {
                       label: '광고 매물',
-                      value: formatCount(agency.activeListingCount),
+                      value: formatCount(agency.activeListingCount ?? 0),
                       unit: '건',
                     },
                     { label: '프로필 조회', value: formatCount(agency.viewCount) },

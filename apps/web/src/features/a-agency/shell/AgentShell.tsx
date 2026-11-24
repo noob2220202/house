@@ -189,7 +189,8 @@ function AccountMenu({ user }: { user: SessionUser }) {
 
 /** Topbar bell → the console's own notification centre (a-inbox), with the unread dot. */
 function BellLink() {
-  const unread = (useUnreadNotificationCount().data ?? 0) > 0;
+  // The console bell counts the agency audience only (B5 `scope=agency`).
+  const unread = (useUnreadNotificationCount('agency').data ?? 0) > 0;
   return (
     <span className={styles.bell}>
       <IconButton
@@ -241,7 +242,6 @@ export function AgentShell({ user, agency, children }: AgentShellProps) {
   });
   const badges: AgentBadgeCounts = {
     newRequests: dashboard?.dealRequests.newCount,
-    unreadInquiries: dashboard?.inquiries.unreadCount,
     verificationDue: dashboard?.verificationDue.length,
   };
 

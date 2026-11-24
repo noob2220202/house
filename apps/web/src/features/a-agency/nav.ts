@@ -20,13 +20,17 @@ export const AGENT_ROUTES = {
   coBroker: '/agent/listings/co-broker',
   requests: '/agent/requests',
   request: (id: string) => `/agent/requests/${encodeURIComponent(id)}`,
+  /**
+   * 문의함 — hidden for launch (D5: no inquiry backend). The route redirects to the dashboard and
+   * is in no menu; it stays defined so old links and notification deep links land somewhere.
+   */
   inquiries: '/agent/inquiries',
   inquiry: (id: string) => `/agent/inquiries?id=${encodeURIComponent(id)}`,
   notifications: '/agent/notifications',
 } as const;
 
 /** Sidebar badge counters (from GET /agencies/mine/dashboard). */
-export type AgentBadgeKey = 'newRequests' | 'unreadInquiries' | 'verificationDue';
+export type AgentBadgeKey = 'newRequests' | 'verificationDue';
 export type AgentBadgeCounts = Partial<Record<AgentBadgeKey, number>>;
 
 export interface AgentNavItem {
@@ -76,7 +80,6 @@ export const AGENT_NAV: readonly AgentNavGroup[] = [
         icon: 'home-up',
         badgeKey: 'newRequests',
       },
-      { label: '문의', href: AGENT_ROUTES.inquiries, icon: 'chat', badgeKey: 'unreadInquiries' },
     ],
   },
   {
@@ -89,12 +92,11 @@ export const AGENT_NAV: readonly AgentNavGroup[] = [
   },
 ];
 
-/** Mobile bottom bar of the console: 홈 · 매물 · 요청 · 문의 · 사무소. */
+/** Mobile bottom bar of the console: 홈 · 매물 · 요청 · 사무소 (문의함 hidden for launch, D5). */
 export const AGENT_TAB_BAR: readonly AgentNavItem[] = [
   { label: '홈', href: AGENT_ROUTES.dashboard, icon: 'grid', exact: true },
   { label: '매물', href: AGENT_ROUTES.listings, icon: 'building' },
   { label: '요청', href: AGENT_ROUTES.requests, icon: 'home-up', badgeKey: 'newRequests' },
-  { label: '문의', href: AGENT_ROUTES.inquiries, icon: 'chat', badgeKey: 'unreadInquiries' },
   {
     label: '사무소',
     href: AGENT_ROUTES.profile,

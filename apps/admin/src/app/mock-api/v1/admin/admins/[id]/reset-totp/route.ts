@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { isResponse, mockAdmin } from '@/features/m-content/mock/http';
-import { audit, db } from '@/features/m-content/mock/store';
+import { audit, db, adminView } from '@/features/m-content/mock/store';
 import { mockJson, mockNotFound } from '@/lib/mock';
 
 // POST /api/v1/admin/admins/:id/reset-totp — ASSUMED: clears the TOTP secret + recovery codes so
@@ -22,5 +22,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     before,
     after: { totpEnabled: false },
   });
-  return mockJson(row);
+  return mockJson(adminView(row));
 }

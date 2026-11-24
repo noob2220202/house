@@ -1,4 +1,9 @@
-import { BANNER_SLOT_SPECS, BannerSlot, type BannerSlot as Slot } from '@house/shared';
+import {
+  BANNER_SLOT_SPECS,
+  BannerSlot,
+  type BannerSlot as Slot,
+  type PublicBannerView,
+} from '@house/shared';
 import { mockUuid } from '@/lib/mock';
 import {
   boxCreative,
@@ -264,7 +269,8 @@ const AGENCY_INFO: Record<
 };
 
 /** Public serve shape of one banner (see docs/frontend-integration/w-home.md). */
-export function serveBanner(b: MockBanner) {
+/** Live banner → `PublicBannerView` (ads module serve shape). */
+export function serveBanner(b: MockBanner): PublicBannerView {
   const base = '/mock-api/v1/banners/creative';
   const agency = b.agencyId ? AGENCY_INFO[b.agencyId] : undefined;
   return {
@@ -272,28 +278,14 @@ export function serveBanner(b: MockBanner) {
     slot: b.slot,
     title: b.title,
     advertiserName: b.advertiserName,
-    agencyId: b.agencyId,
-    /** Advertiser office summary for agency-linked banners (map card, featured agency). */
-    agency: agency
-      ? {
-          id: b.agencyId,
-          name: agency.name,
-          representativeName: agency.representativeName,
-          phone: '0610000000',
-          logoUrl: null,
-          complexListingCount: null,
-          avgResponseMinutes: agency.avgResponseMinutes,
-        }
-      : null,
+    agency: agency && b.agencyId ? { id: b.agencyId, name: agency.name } : null,
     /** PC creative. */
     imageUrl: `${base}/${b.key}-pc.svg`,
     mobileImageUrl:
       b.noMobile || BANNER_SLOT_SPECS[b.slot].mobile === null
         ? null
         : `${base}/${b.key}-mobile.svg`,
-    linkUrl: b.linkUrl,
+    clickUrl: b.linkUrl ? `/api/v1/banners/${b.id}/click` : null,
     newWindow: b.newWindow,
-    sortOrder: b.sortOrder,
-    updatedAt: b.updatedAt,
   };
 }

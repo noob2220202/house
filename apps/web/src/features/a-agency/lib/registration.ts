@@ -1,3 +1,5 @@
+import { AGENCY_INVITE_CODE_ALPHABET, AGENCY_INVITE_CODE_LENGTH } from '@house/shared';
+
 /**
  * 중개사무소 등록번호 / 사업자등록번호 helpers.
  *
@@ -61,10 +63,14 @@ export function isValidBusinessNumber(input: string): boolean {
   return (10 - (sum % 10)) % 10 === digits[9];
 }
 
-/** Invite codes are 8 chars, shown as "ABCD-EFGH"; ambiguous glyphs (0/O, 1/I/L) are never issued. */
-export const INVITE_CODE_LENGTH = 8;
+/**
+ * Invite codes (shared `AGENCY_INVITE_CODE_*`): 10 characters of an unambiguous alphabet (no 0/O,
+ * 1/I), shown as "ABCDE-FGHJK". The API normalizes the same way (`normalizeInviteCode`).
+ */
+export const INVITE_CODE_LENGTH = AGENCY_INVITE_CODE_LENGTH;
+const HALF = Math.ceil(INVITE_CODE_LENGTH / 2);
 
-/** Uppercase and strip separators: " abcd-efgh " → "ABCDEFGH". */
+/** Uppercase and strip separators: " abcde-fghjk " → "ABCDEFGHJK" (cut at the code length). */
 export function normalizeInviteCode(input: string): string {
   return input
     .toUpperCase()
@@ -72,12 +78,17 @@ export function normalizeInviteCode(input: string): string {
     .slice(0, INVITE_CODE_LENGTH);
 }
 
-/** "ABCDEFGH" → "ABCD-EFGH" (also formats partial input while typing). */
+/** "ABCDEFGHJK" → "ABCDE-FGHJK" (also formats partial input while typing). */
 export function formatInviteCode(input: string): string {
   const code = normalizeInviteCode(input);
-  return code.length > 4 ? `${code.slice(0, 4)}-${code.slice(4)}` : code;
+  return code.length > HALF ? `${code.slice(0, HALF)}-${code.slice(HALF)}` : code;
 }
 
+/** Complete code made of the alphabet the server issues. */
 export function isCompleteInviteCode(input: string): boolean {
-  return normalizeInviteCode(input).length === INVITE_CODE_LENGTH;
+  const code = normalizeInviteCode(input);
+  return (
+    code.length === INVITE_CODE_LENGTH &&
+    [...code].every((ch) => AGENCY_INVITE_CODE_ALPHABET.includes(ch))
+  );
 }

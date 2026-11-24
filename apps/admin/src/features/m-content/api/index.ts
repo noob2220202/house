@@ -1,9 +1,11 @@
-import type { z } from 'zod';
-import { api, type QueryParams } from '@/lib/api';
+import { MediaPurpose, MediaStatus } from '@house/shared';
+import { z } from 'zod';
+import { ApiError, api, type QueryParams } from '@/lib/api';
 import type {
   AdminCreateForm,
   AreaTypeForm,
   ComplexForm,
+  ComplexPhotoItem,
   FaqForm,
   NoticeForm,
   VideoCreateBody,
@@ -42,6 +44,8 @@ import {
  * marked ASSUMED are not listed there yet (see docs/frontend-integration/m-content.md).
  */
 type Opts = { signal?: AbortSignal };
+/** Polls of GET /admin/media/:id while an upload is still PENDING (~10 s). */
+const PHOTO_READY_TRIES = 14;
 /**
  * Path segment from a route param / query value. Next hands route params over decoded, so an id
  * like `..%2Fadmins` would otherwise walk the request onto another endpoint.
@@ -137,25 +141,48 @@ export const complexes = {
     }),
   removeAreaType: (id: string, areaTypeId: string) =>
     api.delete(`/admin/complexes/${seg(id)}/area-types/${seg(areaTypeId)}`),
-  uploadPhoto: (file: File) => {
+  /**
+   * POST /admin/media?purpose=COMPLEX_PHOTO, then waits (GET /admin/media/:id) until the image is
+   * READY — the photo list only accepts usable media. Throws when processing failed or takes
+   * longer than ~10 s.
+   */
+  uploadPhoto: async (
+    file: File,
+    sleep = (ms: number) => new Promise((r) => setTimeout(r, ms)),
+  ) => {
     const form = new FormData();
     form.append('file', file);
-    return api.post('/admin/media', form, {
-      query: { purpose: 'COMPLEX_PHOTO' },
+    let media = await api.post('/admin/media', form, {
+      query: { purpose: MediaPurpose.COMPLEX_PHOTO },
       schema: mediaSchema,
       timeoutMs: 60_000,
     });
+    for (let i = 0; i < PHOTO_READY_TRIES && media.status === MediaStatus.PENDING; i += 1) {
+      await sleep(750);
+      media = await api.get(`/admin/media/${seg(media.id)}`, { schema: mediaSchema });
+    }
+    if (media.status === MediaStatus.FAILED)
+      throw new ApiError(422, {
+        code: 'MEDIA_PROCESSING_FAILED',
+        message: '이미지를 처리하지 못했어요. 다른 파일로 다시 올려 주세요.',
+      });
+    if (media.status === MediaStatus.PENDING)
+      throw new ApiError(504, {
+        code: 'MEDIA_PENDING',
+        message: '이미지 처리가 오래 걸리고 있어요. 잠시 후 다시 올려 주세요.',
+      });
+    return media;
   },
-  addPhoto: (id: string, body: { mediaId: string; caption?: string | null }) =>
-    api.post(`/admin/complexes/${seg(id)}/photos`, body, { schema: complexPhotoSchema }),
-  updatePhoto: (id: string, photoId: string, body: { caption: string | null }) =>
-    api.patch(`/admin/complexes/${seg(id)}/photos/${seg(photoId)}`, body, {
-      schema: complexPhotoSchema,
-    }),
-  removePhoto: (id: string, photoId: string) =>
-    api.delete(`/admin/complexes/${seg(id)}/photos/${seg(photoId)}`),
-  reorderPhotos: (id: string, ids: string[]) =>
-    api.put(`/admin/complexes/${seg(id)}/photos/order`, { ids }),
+  /**
+   * PUT /admin/complexes/:id/photos { items } — replaces the whole photo list (order = display
+   * order, first = 대표 사진; left-out photos are removed) → the new list.
+   */
+  setPhotos: (id: string, items: ComplexPhotoItem[]) =>
+    api.put(
+      `/admin/complexes/${seg(id)}/photos`,
+      { items: items.map((p) => ({ mediaId: p.mediaId, caption: p.caption ?? null })) },
+      { schema: z.array(complexPhotoSchema) },
+    ),
   syncRuns: (query: QueryParams, o?: Opts) =>
     api.get('/admin/complexes/trade-sync/runs', { query, schema: tradeSyncRunPageSchema, ...o }),
   triggerSync: (yearMonth: number) =>
@@ -176,11 +203,16 @@ export const admins = {
     id: string,
     body: { name?: string; role?: string; status?: string; ipAllowlist?: string[] },
   ) => api.patch(`/admin/admins/${seg(id)}`, body, { schema: adminAccountSchema }),
+  /**
+   * DELETE /admin/admins/:id → 204: a soft delete — the row stays (DISABLED, e-mail released) as the
+   * actor of its audit log, so the same e-mail can be used again.
+   */
   remove: (id: string) => api.delete(`/admin/admins/${seg(id)}`),
-  /** ASSUMED */
+  /** POST /admin/admins/:id/unlock — lifts a second-factor lockout. */
+  unlock: (id: string) =>
+    api.post(`/admin/admins/${seg(id)}/unlock`, undefined, { schema: adminAccountSchema }),
   resetTotp: (id: string) =>
     api.post(`/admin/admins/${seg(id)}/reset-totp`, undefined, { schema: adminAccountSchema }),
-  /** ASSUMED */
   resetPassword: (id: string, password: string) =>
     api.post(
       `/admin/admins/${seg(id)}/reset-password`,

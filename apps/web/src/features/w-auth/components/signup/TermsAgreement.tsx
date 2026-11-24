@@ -24,10 +24,17 @@ export interface TermsAgreementProps {
   /** Validation message shown under the list (missing required consent). */
   error?: string | null;
   disabled?: boolean;
+  /**
+   * The 만 14세 이상 confirmation row of the signup (`signupSchema.ageOver14`), covered by 전체 동의.
+   * Omitted elsewhere (re-consent).
+   */
+  age?: { checked: boolean; onChange: (checked: boolean) => void };
 }
 
 /** id of the checkbox of one terms type (used to focus the first missing required consent). */
 export const consentInputId = (type: TermsType) => `consent-${type.toLowerCase()}`;
+/** id of the 만 14세 이상 checkbox. */
+export const AGE_INPUT_ID = 'consent-age';
 
 /** 약관 동의 block: 전체 동의 + one row per current terms document with its version and 보기. */
 export function TermsAgreement({
@@ -39,6 +46,7 @@ export function TermsAgreement({
   onChange,
   error,
   disabled,
+  age,
 }: TermsAgreementProps) {
   const [viewing, setViewing] = useState<TermsDocument | null>(null);
 
@@ -68,8 +76,12 @@ export function TermsAgreement({
     );
   }
 
-  const all = agreeAllState(docs, value);
+  const all = agreeAllState(docs, value, age ? [age.checked] : []);
   const { optional } = countTerms(docs);
+  const toggleAll = (checked: boolean) => {
+    onChange(setAll(docs, checked));
+    age?.onChange(checked);
+  };
   return (
     <>
       <div className={styles.agreeAll}>
@@ -80,7 +92,7 @@ export function TermsAgreement({
             if (el) el.indeterminate = all === 'some';
           }}
           disabled={disabled}
-          onChange={(e) => onChange(setAll(docs, e.target.checked))}
+          onChange={(e) => toggleAll(e.target.checked)}
         >
           <span className={styles.agreeT}>
             <b>전체 동의</b>
@@ -93,6 +105,23 @@ export function TermsAgreement({
         </Checkbox>
       </div>
       <div className={styles.agreeList} role="group" aria-label="약관별 동의">
+        {age && (
+          <div className={styles.agreeRow}>
+            <Checkbox
+              id={AGE_INPUT_ID}
+              className={styles.agreeCheck}
+              checked={age.checked}
+              required
+              disabled={disabled}
+              onChange={(e) => age.onChange(e.target.checked)}
+            >
+              <span className={styles.agreeT}>
+                <span className={styles.req}>[필수]</span> 만 14세 이상이에요
+                <small>만 14세 미만은 보호자 동의를 받을 수 없어 가입할 수 없어요</small>
+              </span>
+            </Checkbox>
+          </div>
+        )}
         {docs.map((doc) => {
           const copy = CONSENT_COPY[doc.type];
           return (

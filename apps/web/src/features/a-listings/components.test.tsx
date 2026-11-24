@@ -6,6 +6,8 @@ import {
   ListingStatus,
   MoveInType,
   VerificationMethod,
+  MaintenanceFeeBillingType,
+  MaintenanceFeeKind,
 } from '@house/shared';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -213,10 +215,15 @@ describe('Checklist (표시·광고 명시사항)', () => {
     roadAddress: '전라남도 순천시 해룡면 신대1로 30',
     lat: 34.93,
     lng: 127.54,
+    emdCode: '1215033028',
     floor: '20',
     totalFloors: '25',
     salePrice: '44,500',
     maintenanceFee: '18.5',
+    feeBillingType: MaintenanceFeeBillingType.FIXED,
+    feeItems: FORM_DEFAULTS.feeItems.map((row) =>
+      row.kind === MaintenanceFeeKind.GENERAL ? { ...row, included: true, amount: '185,000' } : row,
+    ),
     moveInType: MoveInType.IMMEDIATE,
     exclusiveArea: '84.98',
     rooms: '3',
@@ -235,10 +242,10 @@ describe('Checklist (표시·광고 명시사항)', () => {
         <Checklist />
       </Harness>,
     );
-    expect(screen.getByText('13 / 15')).toBeInTheDocument();
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '13');
+    expect(screen.getByText('16 / 18')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '16');
     expect(screen.getByText(/2개 항목을 더 입력해야 게시할 수 있어요/)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /가격 \(매매가\) 입력 필요/ }));
+    await user.click(screen.getByRole('button', { name: /^가격 입력 필요/ }));
     expect(goToField).toHaveBeenCalledWith('salePrice');
     expect(screen.getByRole('button', { name: /소재지 입력 완료/ })).toBeInTheDocument();
   });
@@ -249,7 +256,7 @@ describe('Checklist (표시·광고 명시사항)', () => {
         <Checklist />
       </Harness>,
     );
-    expect(screen.getByText('15 / 15')).toBeInTheDocument();
+    expect(screen.getByText('18 / 18')).toBeInTheDocument();
     expect(screen.getByText(/필수 표시사항을 모두 입력했어요/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /입력 필요/ })).not.toBeInTheDocument();
   });

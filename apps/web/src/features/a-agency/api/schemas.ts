@@ -7,6 +7,7 @@ import {
   DealType,
   MediaPurpose,
   contactPhoneSchema,
+  licenseNumberSchema,
   phoneSchema,
 } from '@house/shared';
 import { z } from 'zod';
@@ -25,11 +26,14 @@ import {
 } from '../lib/registration';
 
 /*
- * Response shapes of the agencies module as the broker console consumes them.
- * The backend controllers are not implemented yet (README + Prisma only), so these are ASSUMED
- * shapes derived from apps/api/prisma/schema/agencies.prisma — see
- * docs/frontend-integration/a-agency.md. Fix the schema and the mock fixture together.
+ * Response shapes of the agencies module as the broker console consumes them
+ * (packages/shared/src/agencies/types.ts: MyAgency, AgencyMemberView, AgencyInviteView,
+ * MyAgencyMembership). Where the API's names differ from the console's view, `preprocess` maps
+ * them (logo URL → media, `originalFilename` → `fileName`). Fix the schema and the mock together.
  */
+
+type Raw = Record<string, unknown>;
+const isRecord = (v: unknown): v is Raw => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 // ---- media -------------------------------------------------------------------------------------
 
@@ -54,15 +58,24 @@ export type Media = z.infer<typeof mediaSchema>;
 
 // ---- my agency ---------------------------------------------------------------------------------
 
-export const agencyDocumentSchema = z.object({
-  id: z.string(),
-  type: z.enum(AgencyDocumentType),
-  mediaId: z.string(),
-  mimeType: z.string().nullish(),
-  /** Original file name (display only). */
-  fileName: z.string().nullish(),
-  createdAt: z.string(),
-});
+/** API `AgencyDocumentView.originalFilename` → `fileName`. */
+const documentInput = (v: unknown): unknown =>
+  isRecord(v) && v.fileName === undefined && v.originalFilename !== undefined
+    ? { ...v, fileName: v.originalFilename }
+    : v;
+
+export const agencyDocumentSchema = z.preprocess(
+  documentInput,
+  z.object({
+    id: z.string(),
+    type: z.enum(AgencyDocumentType),
+    mediaId: z.string(),
+    mimeType: z.string().nullish(),
+    /** Original file name (display only). */
+    fileName: z.string().nullish(),
+    createdAt: z.string(),
+  }),
+);
 export type AgencyDocument = z.infer<typeof agencyDocumentSchema>;
 
 export const agencyStatusHistorySchema = z.object({
@@ -74,44 +87,125 @@ export const agencyStatusHistorySchema = z.object({
 });
 export type AgencyStatusHistory = z.infer<typeof agencyStatusHistorySchema>;
 
+/**
+ * The API's `MyAgency` names the logo by `logoMediaId` + `logoUrl` (no media object): turn them
+ * into the console's `logo` media so the profile editor shows and keeps it.
+ */
+function myAgencyInput(v: unknown): unknown {
+  if (!isRecord(v) || v.logo !== undefined || typeof v.logoUrl !== 'string') return v;
+  const url = v.logoUrl;
+  const variant = { url, width: 0, height: 0 };
+  return {
+    ...v,
+    logo: {
+      id: typeof v.logoMediaId === 'string' ? v.logoMediaId : url,
+      purpose: MediaPurpose.AGENCY_LOGO,
+      mimeType: 'image/*',
+      width: null,
+      height: null,
+      variants: { thumb: variant, medium: variant },
+    },
+  };
+}
+
 /** GET /agencies/mine — the caller's agency (owner, applicant or staff) incl. private fields. */
-export const myAgencySchema = z.object({
+export const myAgencySchema = z.preprocess(
+  myAgencyInput,
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    representativeName: z.string(),
+    registrationNumber: z.string(),
+    businessNumber: z.string().nullish(),
+    phone: z.string(),
+    mobile: z.string().nullish(),
+    email: z.string().nullish(),
+    roadAddress: z.string(),
+    jibunAddress: z.string().nullish(),
+    addressDetail: z.string().nullish(),
+    zipCode: z.string().nullish(),
+    lat: z.number(),
+    lng: z.number(),
+    intro: z.string().nullish(),
+    businessHours: businessHoursSchema.nullish(),
+    specialties: z.array(z.enum(AssetType)).default([]),
+    logo: mediaSchema.nullish(),
+    cover: mediaSchema.nullish(),
+    status: z.enum(AgencyStatus),
+    statusReason: z.string().nullish(),
+    approvedAt: z.string().nullish(),
+    createdAt: z.string().nullish(),
+    updatedAt: z.string().nullish(),
+    activeListingCount: z.number().default(0),
+    viewCount: z.number().default(0),
+    warningCount: z.number().default(0),
+    /** Membership role of the caller in this agency. */
+    myRole: z.enum(AgencyMemberRole).default(AgencyMemberRole.OWNER),
+    documents: z.array(agencyDocumentSchema).default([]),
+    statusHistory: z.array(agencyStatusHistorySchema).default([]),
+  }),
+);
+export type MyAgency = z.infer<typeof myAgencySchema>;
+
+/** GET /agencies/membership — the caller's live membership (`MyAgencyMembership`). */
+export const agencyMembershipSchema = z.object({
+  memberId: z.string(),
+  role: z.enum(AgencyMemberRole),
+  displayName: z.string(),
+  agency: z.object({
+    id: z.string(),
+    name: z.string(),
+    phone: z.string().nullish(),
+    roadAddress: z.string().nullish(),
+    status: z.enum(AgencyStatus),
+  }),
+});
+export type AgencyMembership = z.infer<typeof agencyMembershipSchema>;
+
+/** GET /agencies/:id — the public profile fields the staff console needs (`AgencyProfile`). */
+export const publicAgencySchema = z.object({
   id: z.string(),
   name: z.string(),
   representativeName: z.string(),
   registrationNumber: z.string(),
-  businessNumber: z.string().nullish(),
   phone: z.string(),
   mobile: z.string().nullish(),
   email: z.string().nullish(),
   roadAddress: z.string(),
   jibunAddress: z.string().nullish(),
   addressDetail: z.string().nullish(),
-  zipCode: z.string().nullish(),
   lat: z.number(),
   lng: z.number(),
   intro: z.string().nullish(),
   businessHours: businessHoursSchema.nullish(),
   specialties: z.array(z.enum(AssetType)).default([]),
-  logo: mediaSchema.nullish(),
-  cover: mediaSchema.nullish(),
-  status: z.enum(AgencyStatus),
-  statusReason: z.string().nullish(),
+  logoUrl: z.string().nullish(),
   approvedAt: z.string().nullish(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
   activeListingCount: z.number().default(0),
-  viewCount: z.number().default(0),
   warningCount: z.number().default(0),
-  /** Membership role of the caller in this agency. */
-  myRole: z.enum(AgencyMemberRole).default(AgencyMemberRole.OWNER),
-  documents: z.array(agencyDocumentSchema).default([]),
-  statusHistory: z.array(agencyStatusHistorySchema).default([]),
 });
-export type MyAgency = z.infer<typeof myAgencySchema>;
+export type PublicAgency = z.infer<typeof publicAgencySchema>;
 
-// ---- members -----------------------------------------------------------------------------------
+/**
+ * Staff (AGENT) view of their office built from the membership + the public profile — the shape
+ * `GET /agencies/mine` gives staff (`myRole: AGENT`, no documents / history / 사업자등록번호).
+ * Used when that endpoint does not serve staff (B2 fallback).
+ */
+export function staffAgencyOf(membership: AgencyMembership, profile: PublicAgency): MyAgency {
+  return myAgencySchema.parse({
+    ...profile,
+    logoMediaId: null,
+    status: membership.agency.status,
+    businessNumber: null,
+    myRole: membership.role,
+    documents: [],
+    statusHistory: [],
+  });
+}
 
+// ---- members & invites ---------------------------------------------------------------------------
+
+/** Row of GET /agencies/mine/members (`AgencyMemberView`). Invitations are separate (invites). */
 export const agencyMemberSchema = z.object({
   id: z.string(),
   userId: z.string().nullish(),
@@ -124,44 +218,53 @@ export const agencyMemberSchema = z.object({
   isLicensed: z.boolean(),
   licenseNumber: z.string().nullish(),
   joinedAt: z.string().nullish(),
-  /** Only on INVITED members, and only for the owner. */
-  inviteCode: z.string().nullish(),
-  inviteExpiresAt: z.string().nullish(),
+  removedAt: z.string().nullish(),
+  /** Console extra (mock); the API does not count listings per member. */
   activeListingCount: z.number().nullish(),
 });
 export type AgencyMember = z.infer<typeof agencyMemberSchema>;
 
-/** GET /agencies/mine/members — accepts a bare array or an `{ items }` envelope. */
+/** GET /agencies/mine/members — `Paginated<AgencyMemberView>` (a bare array is accepted too). */
 export const agencyMembersSchema = z
   .union([z.array(agencyMemberSchema), z.object({ items: z.array(agencyMemberSchema) })])
   .transform((v) => (Array.isArray(v) ? v : v.items));
 
-/** Invite form model (strings as typed; '' = left blank). `toInvitePayload` builds the body. */
-export const inviteMemberSchema = z.object({
-  displayName: z.string().trim().min(1, '이름을 입력해 주세요.').max(50),
-  title: z.string().trim().max(30).optional(),
-  isLicensed: z.boolean(),
-  licenseNumber: z.string().trim().max(40).optional(),
-  phone: z
+/** GET/POST /agencies/mine/invites (`AgencyInviteView`): the `code` comes back only on creation. */
+export const agencyInviteSchema = z.object({
+  id: z.string(),
+  code: z.string().nullish(),
+  /** Last 4 characters, to tell invites apart. */
+  codeHint: z.string(),
+  label: z.string().nullish(),
+  createdAt: z.string(),
+  expiresAt: z.string(),
+});
+export type AgencyInvite = z.infer<typeof agencyInviteSchema>;
+export const agencyInvitesSchema = z.array(agencyInviteSchema);
+
+/** 초대 코드 유효기간 the owner can pick (hours; `agencyInviteCreateSchema` allows 1–336). */
+export const INVITE_EXPIRY_HOURS = [24, 72, 168, 336] as const;
+
+/** Invite form model. `toInvitePayload` builds the `agencyInviteCreateSchema` body. */
+export const inviteFormSchema = z.object({
+  label: z.string().trim().max(50, '50자 이내로 입력해 주세요.'),
+  expiresInHours: z
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 14),
+});
+export type InviteFormValues = z.infer<typeof inviteFormSchema>;
+
+/** 소속공인중개사 지정 form (PATCH /agencies/mine/members/:memberId). */
+export const licenseFormSchema = z.object({
+  licenseNumber: z
     .string()
     .trim()
-    .refine((v) => v === '' || phoneSchema.safeParse(v).success, '올바른 휴대폰 번호가 아닙니다.')
-    .optional(),
+    .min(1, '공인중개사 자격증 번호를 입력해 주세요.')
+    .refine((v) => licenseNumberSchema.safeParse(v).success, '자격증 번호 형식을 확인해 주세요.'),
 });
-export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;
-
-/**
- * Body of POST /agencies/mine/members as the API validates it (ASSUMED): blank optional fields are
- * omitted, never sent as ''. The mock validates with this schema so it fails the way the API would.
- */
-export const inviteMemberPayloadSchema = z.object({
-  displayName: z.string().trim().min(1).max(50),
-  title: z.string().trim().min(1).max(30).optional(),
-  isLicensed: z.boolean(),
-  licenseNumber: z.string().trim().min(1).max(40).optional(),
-  phone: phoneSchema.optional(),
-});
-export type InviteMemberPayload = z.input<typeof inviteMemberPayloadSchema>;
+export type LicenseFormValues = z.infer<typeof licenseFormSchema>;
 
 // ---- dashboard ---------------------------------------------------------------------------------
 
@@ -219,10 +322,13 @@ export const agencyDashboardSchema = z.object({
     /** Latest requests (a few only). */
     items: z.array(agencyDealRequestSchema),
   }),
-  inquiries: z.object({
-    unreadCount: z.number(),
-    items: z.array(inquirySchema),
-  }),
+  /** No inquiry backend for launch (D5): always empty, the console hides the widgets. */
+  inquiries: z
+    .object({
+      unreadCount: z.number(),
+      items: z.array(inquirySchema),
+    })
+    .default({ unreadCount: 0, items: [] }),
   expiringListings: z.array(dashboardListingSchema),
   verificationDue: z.array(dashboardListingSchema),
 });
@@ -238,6 +344,8 @@ export const geocodeItemSchema = z.object({
   buildingName: z.string().nullish(),
   lat: z.number(),
   lng: z.number(),
+  /** 10-digit 법정동코드 (canonical), null when unresolved. */
+  emdCode: z.string().nullish(),
 });
 export type GeocodeItem = z.infer<typeof geocodeItemSchema>;
 export const geocodeResultSchema = z.object({ items: z.array(geocodeItemSchema) });

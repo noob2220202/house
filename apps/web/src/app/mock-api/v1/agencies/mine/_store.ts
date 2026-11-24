@@ -1,5 +1,6 @@
 import type { NextRequest, NextResponse } from 'next/server';
-import type { AgencyMember, MyAgency } from '@/features/a-agency/api/schemas';
+import { AGENCY_INVITE_CODE_ALPHABET, AGENCY_INVITE_CODE_LENGTH } from '@house/shared';
+import type { AgencyInvite, AgencyMember, MyAgency } from '@/features/a-agency/api/schemas';
 import {
   mockCsrfOk,
   mockError,
@@ -8,7 +9,13 @@ import {
   mockUnauthenticated,
   type MockRole,
 } from '@/lib/mock';
-import { seedMembers, seedOffice } from './_fixtures';
+import { seedInvites, seedMembers, seedOffice } from './_fixtures';
+import { ensureSeedDocumentFiles } from './_seed-files';
+
+/** A stored invitation: the API keeps only a hash; the mock keeps the code to redeem it. */
+export interface MockInvite extends AgencyInvite {
+  code: string;
+}
 
 /**
  * In-memory state of the agencies mocks (a-agency). Kept on `globalThis` because Next compiles
@@ -16,23 +23,27 @@ import { seedMembers, seedOffice } from './_fixtures';
  *
  * - `applicant`: the agency application of the mock USER session (null = not applied yet).
  * - `office` / `members`: the approved agency (B01) of the mock AGENT / AGENCY_OWNER sessions.
+ * - `invites`: open invite codes of that agency (single use, removed on join / revoke).
  * - `emptyDashboard`: dev switch for the dashboard empty states.
  */
 export interface AgencyMockState {
   applicant: MyAgency | null;
   office: MyAgency;
   members: AgencyMember[];
+  invites: MockInvite[];
   emptyDashboard: boolean;
 }
 
 const KEY = '__houseMockAgencyStore_v1';
 
 export function agencyState(): AgencyMockState {
+  ensureSeedDocumentFiles();
   const g = globalThis as typeof globalThis & { [KEY]?: AgencyMockState };
   g[KEY] ??= {
     applicant: null,
     office: seedOffice(),
     members: seedMembers(),
+    invites: seedInvites(),
     emptyDashboard: false,
   };
   return g[KEY];
@@ -113,12 +124,23 @@ export function mockId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}${seq.toString(36)}`;
 }
 
-const INVITE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+/** A fresh code of the shared alphabet / length (the API: 10 chars, no 0/O/1/I). */
 export function newInviteCode(): string {
   return Array.from(
-    { length: 8 },
-    () => INVITE_ALPHABET[Math.floor(Math.random() * INVITE_ALPHABET.length)],
+    { length: AGENCY_INVITE_CODE_LENGTH },
+    () =>
+      AGENCY_INVITE_CODE_ALPHABET[Math.floor(Math.random() * AGENCY_INVITE_CODE_ALPHABET.length)],
   ).join('');
+}
+
+/** 24-hex invite id (`agencyInviteIdSchema`). */
+export function newInviteId(): string {
+  return Array.from({ length: 24 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+}
+
+/** API view of an invite: the code is never returned again after creation. */
+export function inviteView({ code: _code, ...invite }: MockInvite): AgencyInvite {
+  return invite;
 }
 
 export async function readJson(req: NextRequest): Promise<Record<string, unknown> | null> {

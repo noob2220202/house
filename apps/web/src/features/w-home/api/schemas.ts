@@ -53,17 +53,24 @@ export const bannerSchema = servedBannerSchema;
 export type Banner = ServedBanner;
 export const bannerListSchema = listOf(bannerSchema);
 
-/** `GET /popups?page=` item. `updatedAt` is used as the popup version for "N일 동안 보지 않기". */
-export const popupSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  imageUrl: z.string(),
-  linkUrl: nullish(z.string()),
-  newWindow: z.boolean().default(false),
-  /** 0 = no "보지 않기" option. */
-  dismissDays: z.number().int().min(0).default(1),
-  updatedAt: nullish(z.string()),
-});
+/**
+ * `GET /popups?page=` item (`PublicPopupView`). `updatedAt` is the popup version for "N일 동안
+ * 보지 않기"; the backend sends no `updatedAt`, so its `endAt` stands in (a re-scheduled popup shows
+ * again).
+ */
+export const popupSchema = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    imageUrl: z.string(),
+    linkUrl: nullish(z.string()),
+    newWindow: z.boolean().default(false),
+    /** 0 = no "보지 않기" option. */
+    dismissDays: z.number().int().min(0).default(1),
+    updatedAt: nullish(z.string()),
+    endAt: nullish(z.string()),
+  })
+  .transform(({ endAt, ...p }) => ({ ...p, updatedAt: p.updatedAt ?? endAt ?? null }));
 export type Popup = z.infer<typeof popupSchema>;
 export const popupListSchema = listOf(popupSchema);
 

@@ -22,11 +22,15 @@ import {
   useUnreadNotificationCount,
   type NotificationFilter,
 } from '@/features/w-me/api';
-import { isUnread, notificationMeta } from '@/features/w-me/lib/notifications';
+import {
+  isAgencyNotification,
+  isUnread,
+  notificationMeta,
+} from '@/features/w-me/lib/notifications';
 import type { Notification } from '@/features/w-me/schemas';
 import { errorMessage } from '@/lib/api';
 import { formatCount, formatRelativeTime } from '@/lib/format';
-import { fetchInquirySummary, fetchRequestSummary, inboxKeys } from '../api/queries';
+import { fetchRequestSummary, inboxKeys } from '../api/queries';
 import { agentNotificationHref } from '../lib/notifications';
 import { INBOX_ROUTES } from '../routes';
 import ui from '../ui/inbox.module.css';
@@ -36,8 +40,10 @@ import styles from './Notifications.module.css';
 export interface InboxSummary {
   newRequests: number | null;
   waitingProposals: number | null;
-  unreadInquiries: number | null;
 }
+
+/** The console shows the agency audience of the feed (B5 `scope=agency`). */
+const SCOPE = 'agency' as const;
 
 interface RowProps {
   notification: Notification;
@@ -49,7 +55,7 @@ interface RowProps {
  * read); an unread row without one is a button that marks it read; otherwise plain text.
  */
 export function AgentNotificationRow({ notification: n, onRead }: RowProps) {
-  const meta = notificationMeta(n.type);
+  const meta = notificationMeta(n.type, n.data);
   const href = agentNotificationHref(n);
   const unread = isUnread(n);
   const markRead = () => {
@@ -99,11 +105,6 @@ function SummaryTiles({ initial }: { initial: InboxSummary }) {
     queryFn: ({ signal }) => fetchRequestSummary(signal),
     staleTime: 30_000,
   });
-  const inquiries = useQuery({
-    queryKey: inboxKeys.inquirySummary,
-    queryFn: ({ signal }) => fetchInquirySummary(signal),
-    staleTime: 30_000,
-  });
   const counts = requests.data?.stageCounts;
   const tiles = [
     {
@@ -121,14 +122,6 @@ function SummaryTiles({ initial }: { initial: InboxSummary }) {
       icon: 'clock' as const,
       tone: 'neutral' as const,
       detail: '요청자가 검토하고 있어요',
-    },
-    {
-      href: `${INBOX_ROUTES.inquiries}?unread=1`,
-      label: '안 읽은 문의',
-      value: inquiries.data?.unreadCount ?? initial.unreadInquiries,
-      icon: 'chat' as const,
-      tone: 'accent' as const,
-      detail: '빠르게 답할수록 계약률이 올라가요',
     },
   ];
   return (
@@ -158,11 +151,12 @@ export interface AgentNotificationsViewProps {
 export function AgentNotificationsView({ summary }: AgentNotificationsViewProps) {
   const { toast } = useToast();
   const [filter, setFilter] = useState<NotificationFilter>('all');
-  const feed = useNotificationFeed(filter);
-  const unread = useUnreadNotificationCount();
-  const markRead = useMarkNotificationsRead();
+  const feed = useNotificationFeed(filter, SCOPE);
+  const unread = useUnreadNotificationCount(SCOPE);
+  const markRead = useMarkNotificationsRead(SCOPE);
 
-  const items = feed.data?.pages.flatMap((p) => p.items) ?? [];
+  // The server filters by scope; the row check keeps personal rows out should it not.
+  const items = (feed.data?.pages.flatMap((p) => p.items) ?? []).filter(isAgencyNotification);
   const unreadCount = unread.data ?? feed.data?.pages[0]?.unreadCount ?? 0;
   const markAll = () =>
     markRead.mutate(
@@ -178,7 +172,7 @@ export function AgentNotificationsView({ summary }: AgentNotificationsViewProps)
       <ConsolePageHeader
         eyebrow="고객"
         title="알림"
-        description="새 요청, 제안 수락, 연락처 공개, 매물 문의 소식을 모아서 보여 드려요."
+        description="새 요청, 제안 수락, 연락처 공개, 광고기간 만료와 공동중개 요청 소식을 모아서 보여 드려요."
         actions={
           <Button
             variant="secondary"

@@ -2,7 +2,7 @@ import { UserRole } from '@house/shared';
 import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { agencyKeys } from '@/features/a-agency/api/queries';
+import { agencyKeys, fetchStaffAgency } from '@/features/a-agency/api/queries';
 import { myAgencySchema, type MyAgency } from '@/features/a-agency/api/schemas';
 import { AgentShell, AgentSignedOut, ConsoleUserProvider } from '@/features/a-agency/shell';
 import { ApiError } from '@/lib/api/errors';
@@ -16,19 +16,33 @@ export const metadata: Metadata = {
 
 type AgencyLoad =
   | { kind: 'ok'; agency: MyAgency | null }
+  | { kind: 'missing' }
   | { kind: 'forbidden' }
   | { kind: 'error' };
 
-/** GET /agencies/mine on the server (404 / `200 null` = none; 403 decided once the role is known). */
+/**
+ * GET /agencies/mine on the server (`200 null` = none). 404 / 403 are decided once the role is
+ * known: a USER has no agency yet, an AGENT falls back to the membership (B2).
+ */
 async function loadAgency(): Promise<AgencyLoad> {
   try {
     const agency = await serverGetAuthed('/agencies/mine', { schema: myAgencySchema.nullable() });
     return { kind: 'ok', agency };
   } catch (error) {
     if (!(error instanceof ApiError)) throw error;
-    if (error.isNotFound) return { kind: 'ok', agency: null };
+    if (error.isNotFound) return { kind: 'missing' };
     if (error.isForbidden) return { kind: 'forbidden' };
     return { kind: 'error' };
+  }
+}
+
+/** Staff whose `/agencies/mine` failed: membership + public profile (null on any API error). */
+async function loadStaffAgency(): Promise<MyAgency | null | undefined> {
+  try {
+    return await fetchStaffAgency((path, schema) => serverGetAuthed(path, { schema }));
+  } catch (error) {
+    if (error instanceof ApiError) return undefined;
+    throw error;
   }
 }
 
@@ -58,14 +72,17 @@ export default async function AgentLayout({ children }: { children: ReactNode })
     );
   }
 
-  // The agencies README lists GET /agencies/mine as AGENCY_OWNER only: for a USER (applicant /
-  // not applied yet) a 403 means "no agency" — the application form must still render.
+  // 404 = no agency; for a USER (applicant / not applied yet) a 403 means the same — the
+  // application form must still render. An AGENT is resolved from the membership instead.
+  const failed = load.kind === 'missing' || load.kind === 'forbidden';
   const agency: MyAgency | null | undefined =
     load.kind === 'ok'
       ? load.agency
-      : load.kind === 'forbidden' && user.role === UserRole.USER
-        ? null
-        : undefined;
+      : failed && user.role === UserRole.AGENT
+        ? await loadStaffAgency()
+        : load.kind === 'missing' || (load.kind === 'forbidden' && user.role === UserRole.USER)
+          ? null
+          : undefined;
 
   const queryClient = new QueryClient();
   if (agency !== undefined) queryClient.setQueryData(agencyKeys.mine, agency);

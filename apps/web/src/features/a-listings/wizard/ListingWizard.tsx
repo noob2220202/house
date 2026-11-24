@@ -46,6 +46,8 @@ import {
   schemaIssues,
   stepIndexOf,
   toDraftPayload,
+  toUpdatePayload,
+  type DraftPayload,
   type FormField,
   type ListingFormValues,
 } from '../lib/form';
@@ -108,13 +110,13 @@ interface AlertItem {
 }
 
 /** One alert row per server detail, labelled by the validator (`label`) or its message / path. */
-function alertItems(details: readonly ServerFieldDetail[]): AlertItem[] {
+function alertItems(details: readonly ServerFieldDetail[], draft: DraftPayload): AlertItem[] {
   const items: AlertItem[] = [];
   for (const d of details) {
     const path = d.field ?? d.path ?? '';
     const label = d.label ?? d.message ?? path;
     if (!label || items.some((i) => i.label === label)) continue;
-    items.push({ label, field: path ? formFieldOf(path) : null });
+    items.push({ label, field: path ? formFieldOf(path, draft) : null });
   }
   return items;
 }
@@ -319,14 +321,15 @@ export function ListingWizard({ listingId: initialId }: ListingWizardProps) {
         error.details?.length
       ) {
         const details: ServerFieldDetail[] = error.details;
-        const { errors } = mapServerFieldErrors(details);
+        const draft = toDraftPayload(form.getValues()).payload;
+        const { errors } = mapServerFieldErrors(details, draft);
         applyErrors(errors.map((e) => ({ field: e.formField, message: e.message })));
         setAlert({
           title:
             error.code === 'LISTING_PUBLISH_REQUIREMENTS'
               ? `필수 표시사항 ${details.length}개가 비어 있어 게시하지 못했어요`
               : fallbackTitle,
-          items: alertItems(details),
+          items: alertItems(details, draft),
         });
         const first = errors[0];
         if (first) show(first.step, first.formField);
@@ -334,7 +337,7 @@ export function ListingWizard({ listingId: initialId }: ListingWizardProps) {
       }
       toast({ message: errorMessage(error), tone: 'error' });
     },
-    [applyErrors, show, toast],
+    [form, applyErrors, show, toast],
   );
 
   // ---- persistence -----------------------------------------------------------------------------
@@ -367,13 +370,15 @@ export function ListingWizard({ listingId: initialId }: ListingWizardProps) {
         idRef.current = id;
         syncUrl(id, step);
       } else if (sig !== lastSig.current || !current) {
-        current = await updateListing(id, payload);
+        current = await updateListing(id, toUpdatePayload(payload, current?.version));
       }
       lastSig.current = sig;
       const nextPhotos = photosRef.current;
       if (!samePhotos(nextPhotos, savedPhotos.current)) {
-        current = await saveListingPhotos(id, nextPhotos);
+        await saveListingPhotos(id, nextPhotos);
         savedPhotos.current = nextPhotos;
+        // The photo call answers with the photos only: reload the listing (cover, new `version`).
+        current = await fetchListing(id);
       }
       if (current) setListing(current);
       setSavedAt(new Date());

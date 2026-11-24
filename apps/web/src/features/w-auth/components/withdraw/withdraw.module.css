@@ -169,3 +169,26 @@
     width: 100%;
   }
 }
+
+/* ---- /auth/withdraw: suspended member, auth shell (no /me chrome) ---- */
+.page {
+  flex: 1;
+  background: var(--ground);
+  padding: var(--s-8) var(--gutter) var(--s-10);
+}
+.pageIn {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.pageHead {
+  margin-bottom: var(--s-6);
+}
+.pageHead p {
+  margin-top: 6px;
+  color: var(--text-3);
+}
+@media (max-width: 720px) {
+  .page {
+    padding: var(--s-5) var(--gutter) var(--s-10);
+  }
+}

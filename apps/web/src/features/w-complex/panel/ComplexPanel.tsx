@@ -234,7 +234,12 @@ export function ComplexPanel({
         <PanelHeader complex={complex} backHref={backHref} />
         {areaTypes.length > 0 && (
           <div className={styles.sec}>
-            <TrendCard complexId={complex.id} areaTypes={areaTypes} unit={unit} />
+            <TrendCard
+              complexId={complex.id}
+              areaTypes={areaTypes}
+              latestTrades={complex.latestTrades}
+              unit={unit}
+            />
           </div>
         )}
         <PanelFilterBar

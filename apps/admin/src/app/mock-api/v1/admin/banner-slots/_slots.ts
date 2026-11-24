@@ -1,7 +1,10 @@
 import { BANNER_SLOT_SPECS, BannerStatus, type BannerSlot } from '@house/shared';
 import { bannerState, slotBanners, statusOf } from '../banners/_store';
 
-/** Slot row: spec (BANNER_SLOT_SPECS) + the effective limit (banner_slot_configs) + live counts. */
+/**
+ * Shared `BannerSlotView`: spec (BANNER_SLOT_SPECS) + the effective limit (banner_slot_configs) +
+ * live (`activeCount`) and live-or-scheduled (`upcomingCount`) counts.
+ */
 export function toSlotRow(slot: BannerSlot) {
   const spec = BANNER_SLOT_SPECS[slot];
   const banners = slotBanners(slot);
@@ -9,13 +12,15 @@ export function toSlotRow(slot: BannerSlot) {
   return {
     slot,
     label: spec.label,
-    maxActive: bannerState().maxActive[slot],
-    defaultMaxActive: spec.maxActive,
     pc: spec.pc,
     mobile: spec.mobile,
+    maxActive: bannerState().maxActive[slot],
+    defaultMaxActive: spec.maxActive,
+    isEnabled: true,
+    note: null,
+    requiresAgency: spec.requiresAgency,
+    requiredTargeting: spec.requiredTargeting,
     activeCount: count(BannerStatus.ACTIVE),
-    scheduledCount: count(BannerStatus.SCHEDULED),
-    pausedCount: count(BannerStatus.PAUSED),
-    totalCount: banners.length,
+    upcomingCount: count(BannerStatus.ACTIVE) + count(BannerStatus.SCHEDULED),
   };
 }

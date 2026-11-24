@@ -3,10 +3,14 @@ import {
   DealType,
   Direction,
   DirectionBasis,
+  BuildingUse,
   FloorDisplay,
   ListingOption,
+  MaintenanceFeeBillingType,
+  MaintenanceFeeKind,
   MoveInType,
   listingDraftSchema,
+  listingUpdateSchema,
 } from '@house/shared';
 import { describe, expect, it } from 'vitest';
 import { seedListings } from '@/app/mock-api/v1/agency/listings/_fixtures';
@@ -17,6 +21,7 @@ import {
   STEPS,
   canSaveDraft,
   dealTypesFor,
+  emptyFeeItems,
   draftOfListing,
   formFieldOf,
   formatDigits,
@@ -31,9 +36,16 @@ import {
   schemaIssues,
   stepIndexOf,
   toDraftPayload,
+  toUpdatePayload,
   withUnit,
   type ListingFormValues,
 } from './form';
+
+/** 관리비 rows with the given kinds included (amounts in 원 as typed). */
+const feeRows = (included: Partial<Record<MaintenanceFeeKind, string>>) =>
+  emptyFeeItems().map((row) =>
+    row.kind in included ? { ...row, included: true, amount: included[row.kind] ?? '' } : row,
+  );
 
 const form = (patch: Partial<ListingFormValues>): ListingFormValues => ({
   ...FORM_DEFAULTS,
@@ -53,13 +65,15 @@ const APT: ListingFormValues = form({
   ho: '1502',
   lat: 34.9321,
   lng: 127.5489,
+  emdCode: '1215033028',
   floor: '20',
   totalFloors: '25',
   floorDisplay: FloorDisplay.CLASS,
   dealType: DealType.SALE,
   salePrice: '44,500',
   maintenanceFee: '18.5',
-  maintenanceFeeItems: ['일반관리비', '청소비'],
+  feeBillingType: MaintenanceFeeBillingType.FIXED,
+  feeItems: feeRows({ GENERAL: '165,000', WATER: '20,000' }),
   moveInType: MoveInType.NEGOTIABLE,
   exclusiveArea: '84.98',
   supplyArea: '112.4',
@@ -188,13 +202,20 @@ describe('toDraftPayload', () => {
       dealType: DealType.SALE,
       salePrice: 44500,
       maintenanceFeeWon: 185_000,
-      maintenanceFeeItems: ['일반관리비', '청소비'],
+      maintenanceFee: {
+        billingType: MaintenanceFeeBillingType.FIXED,
+        items: [
+          { kind: MaintenanceFeeKind.GENERAL, included: true, amountWon: 165_000 },
+          { kind: MaintenanceFeeKind.WATER, included: true, amountWon: 20_000 },
+        ],
+      },
       moveInType: MoveInType.NEGOTIABLE,
       floorDisplay: FloorDisplay.CLASS,
       title: '호수공원 조망 34평',
       description: '남향 고층이에요.',
       property: {
         assetType: AssetType.APT,
+        emdCode: '1215033028',
         dong: '103동',
         ho: '1502호',
         floor: 20,
@@ -229,10 +250,82 @@ describe('toDraftPayload', () => {
     expect(presale.salePrice).toBeUndefined();
   });
 
-  it('“관리비 없음” is 0원 without items', () => {
+  it('“관리비 없음” is 0원 without a breakdown', () => {
     const { payload } = toDraftPayload(form({ ...APT, maintenanceNone: true }));
     expect(payload.maintenanceFeeWon).toBe(0);
-    expect(payload.maintenanceFeeItems).toBeUndefined();
+    expect(payload.maintenanceFee).toBeUndefined();
+  });
+
+  it('builds the 관리비 내역 per the shared schema (부과방식, 포함 항목, 금액, 사유)', () => {
+    // 실비 정산: included items without amounts.
+    const actual = toDraftPayload(
+      form({
+        ...APT,
+        maintenanceFee: '6',
+        feeBillingType: MaintenanceFeeBillingType.ACTUAL,
+        feeItems: feeRows({ GENERAL: '', INTERNET: '' }),
+      }),
+    ).payload;
+    expect(actual.maintenanceFee).toEqual({
+      billingType: MaintenanceFeeBillingType.ACTUAL,
+      items: [
+        { kind: MaintenanceFeeKind.GENERAL, included: true },
+        { kind: MaintenanceFeeKind.INTERNET, included: true },
+      ],
+    });
+    expect(listingDraftSchema.safeParse(actual).success).toBe(true);
+
+    // 확인불가 needs the reason (the shared schema refuses it otherwise) → omitted until written.
+    const unknown = form({ ...APT, feeBillingType: MaintenanceFeeBillingType.UNKNOWN });
+    expect(toDraftPayload(unknown).payload.maintenanceFee).toBeUndefined();
+    const withReason = toDraftPayload({
+      ...unknown,
+      feeUnavailableReason: ' 임대인 미고지 ',
+    }).payload;
+    expect(withReason.maintenanceFee).toEqual({
+      billingType: MaintenanceFeeBillingType.UNKNOWN,
+      items: [],
+      unavailableReason: '임대인 미고지',
+    });
+    expect(listingDraftSchema.safeParse(withReason).success).toBe(true);
+
+    // No 부과방식 yet → no maintenanceFee; a bad amount is a field issue.
+    expect(
+      toDraftPayload(form({ ...APT, feeBillingType: '' })).payload.maintenanceFee,
+    ).toBeUndefined();
+    const bad = toDraftPayload(form({ ...APT, feeItems: feeRows({ GENERAL: '12만' }) }));
+    expect(bad.issues).toEqual([{ field: 'feeItems', message: expect.any(String) as string }]);
+  });
+
+  it('sends 건축물 용도 and the 법정동코드 (8-digit complex codes padded, legacy codes canonical)', () => {
+    const room = toDraftPayload(
+      form({
+        ...APT,
+        assetType: AssetType.ONEROOM,
+        complexId: '',
+        buildingUse: BuildingUse.MULTI_FAMILY_HOUSE,
+        emdCode: '46150109',
+      }),
+    ).payload;
+    expect(room.property).toMatchObject({
+      buildingUse: BuildingUse.MULTI_FAMILY_HOUSE,
+      emdCode: '1215010900',
+    });
+    expect(
+      toDraftPayload(form({ ...APT, emdCode: '12150' })).payload.property.emdCode,
+    ).toBeUndefined();
+    // Land has no building, so no 건축물 용도.
+    const land = toDraftPayload(
+      form({ ...APT, assetType: AssetType.LAND, buildingUse: BuildingUse.OFFICE }),
+    ).payload;
+    expect(land.property.buildingUse).toBeUndefined();
+  });
+
+  it('collects 방·욕실 for 상업·업무 too (명시사항 of every building)', () => {
+    const shop = toDraftPayload(
+      form({ ...APT, assetType: AssetType.COMMERCIAL, complexId: '', rooms: '0', baths: '1' }),
+    ).payload;
+    expect(shop.property).toMatchObject({ rooms: 0, baths: 1 });
   });
 
   it('land drops building-only fields and keeps the lot area', () => {
@@ -322,6 +415,34 @@ describe('formFieldOf', () => {
     expect(formFieldOf('price')).toBe('salePrice');
     expect(formFieldOf('agency.registrationNumber')).toBeNull();
   });
+
+  it('resolves the publish validator fields with the draft', () => {
+    const monthly = toDraftPayload(form({ ...APT, dealType: DealType.MONTHLY, deposit: '500' }));
+    expect(formFieldOf('price', monthly.payload)).toBe('monthlyRent');
+    const land = toDraftPayload(form({ ...APT, assetType: AssetType.LAND })).payload;
+    expect(formFieldOf('property.area', land)).toBe('landArea');
+    expect(formFieldOf('property.area', toDraftPayload(APT).payload)).toBe('exclusiveArea');
+    expect(formFieldOf('property.emdCode')).toBe('roadAddress');
+    expect(formFieldOf('property.buildingUse')).toBe('buildingUse');
+    expect(formFieldOf('moveIn')).toBe('moveInType');
+    expect(formFieldOf('maintenanceFee.billingType')).toBe('feeBillingType');
+    expect(formFieldOf('maintenanceFee.breakdown')).toBe('feeItems');
+  });
+});
+
+describe('toUpdatePayload (PATCH: omitted = unchanged, null = cleared)', () => {
+  it('nulls every form field the broker emptied and carries the version', () => {
+    const { payload } = toDraftPayload(
+      form({ ...APT, title: '', dong: '', maintenanceNone: true }),
+    );
+    const body = toUpdatePayload(payload, 7);
+    expect(body).toMatchObject({ title: null, maintenanceFee: null, version: 7 });
+    expect(body.property).toMatchObject({ dong: null, landArea: null, emdCode: '1215033028' });
+    // Fields the wizard does not manage are left out (unchanged on the server).
+    expect(body.property).not.toHaveProperty('totalFloorArea');
+    expect(listingUpdateSchema.safeParse(body).success).toBe(true);
+    expect(toUpdatePayload(payload)).not.toHaveProperty('version');
+  });
 });
 
 describe('fromListing ↔ toDraftPayload', () => {
@@ -333,14 +454,7 @@ describe('fromListing ↔ toDraftPayload', () => {
       const original = draftOfListing(listing);
       // Compare through JSON so `undefined` keys do not matter.
       expect(JSON.parse(JSON.stringify(payload)), stored.code).toEqual(
-        JSON.parse(
-          JSON.stringify({
-            ...original,
-            maintenanceFeeItems: original.maintenanceFeeItems?.length
-              ? original.maintenanceFeeItems
-              : undefined,
-          }),
-        ),
+        JSON.parse(JSON.stringify(original)),
       );
     }
   });

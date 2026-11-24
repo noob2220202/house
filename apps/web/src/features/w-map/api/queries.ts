@@ -134,13 +134,13 @@ export function fetchComplexPosition(id: string) {
 
 // ---- regions / search ---------------------------------------------------------------------------
 
-/** 읍면동 / 지구 of the city (breadcrumb + region picker). ASSUMED endpoint. */
+/** 읍면동 of the city (breadcrumb + region picker): `GET /regions?parentCode=<시군구>`. */
 export function useRegions() {
   return useQuery({
-    queryKey: qk('regions', 'list', { sggCode: DEFAULT_SGG_CODE }),
+    queryKey: qk('regions', 'list', { parentCode: DEFAULT_SGG_CODE }),
     queryFn: ({ signal }) =>
       api.get('/regions', {
-        query: { sggCode: DEFAULT_SGG_CODE },
+        query: { parentCode: DEFAULT_SGG_CODE },
         schema: regionListSchema,
         signal,
       }),

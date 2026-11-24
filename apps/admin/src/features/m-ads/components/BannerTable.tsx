@@ -93,7 +93,11 @@ export function BannerTable({
             const editing = editingId === b.id;
             const image = mediaUrl(b.pcMedia);
             const label = slotLabel(b.slot, slots);
-            const notStarted = b.status === BannerStatus.SCHEDULED && b.impressions === 0;
+            const notStarted = b.status === BannerStatus.SCHEDULED && !b.impressions;
+            const perf =
+              b.impressions !== null && b.clicks !== null
+                ? { impressions: b.impressions, clicks: b.clicks }
+                : null;
             const sortable = groupSize(b.slot) > 1;
             return (
               <tr
@@ -162,19 +166,24 @@ export function BannerTable({
                     aria-label={
                       notStarted
                         ? `${name} 통계 보기, 게시 전`
-                        : `${name} 통계 보기, 노출 ${formatCount(b.impressions)}회, 클릭 ${formatCount(b.clicks)}회`
+                        : perf
+                          ? `${name} 통계 보기, 노출 ${formatCount(perf.impressions)}회, 클릭 ${formatCount(perf.clicks)}회`
+                          : `${name} 통계 보기`
                     }
                   >
-                    {notStarted ? (
+                    {notStarted || !perf ? (
                       <>
                         <b className={cx(styles.perf, styles.perfNone)}>–</b>
-                        <span className={styles.perfSub}>게시 전</span>
+                        <span className={styles.perfSub}>
+                          {notStarted ? '게시 전' : '통계 보기'}
+                        </span>
                       </>
                     ) : (
                       <>
-                        <b className={styles.perf}>{formatCount(b.impressions)}</b>
+                        <b className={styles.perf}>{formatCount(perf.impressions)}</b>
                         <span className={styles.perfSub}>
-                          {formatCount(b.clicks)} · {formatPercent(ctrOf(b.impressions, b.clicks))}
+                          {formatCount(perf.clicks)} ·{' '}
+                          {formatPercent(ctrOf(perf.impressions, perf.clicks))}
                         </span>
                       </>
                     )}

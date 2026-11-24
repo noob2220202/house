@@ -8,7 +8,7 @@ import styles from './account.module.css';
 export function AccountSettings() {
   return (
     <div className={styles.view}>
-      <LinkedAccountsPanel />
+      <LinkedAccountsPanel manage />
       <ConsentHistoryPanel />
       <SessionPanel />
       <WithdrawEntry />

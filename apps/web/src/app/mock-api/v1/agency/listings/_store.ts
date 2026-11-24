@@ -2,8 +2,8 @@ import {
   DealType,
   FloorDisplay,
   ListingStatus,
-  MAINTENANCE_FEE_KIND_LABEL,
   listingDraftSchema,
+  listingUpdateSchema,
   type ListingDraftInput,
 } from '@house/shared';
 import type { NextRequest, NextResponse } from 'next/server';
@@ -15,7 +15,8 @@ import type {
   CoBrokerCandidate,
 } from '@/features/a-listings/api/schemas';
 import { draftOfListing } from '@/features/a-listings/lib/form';
-import { missingRequirements } from '@/features/a-listings/lib/requirements';
+import { publishAgencyOf } from '@/features/a-listings/lib/preview';
+import { missingRequirements, publishIssues } from '@/features/a-listings/lib/requirements';
 import { isVerificationDue } from '@/features/a-listings/lib/status';
 import { floorClassOf } from '@/lib/format';
 import {
@@ -116,11 +117,14 @@ function officeDisclosure(code: string, isPrimary: boolean): AgencyListingAgency
 }
 
 /** API view of a stored listing (agencies resolved live, flags relative to the mock office). */
-export function toView(l: StoredListing): AgencyListing {
+export function toView(l: StoredListing): AgencyListing & { isPrimaryAgency: boolean } {
   const { code: _code, offices, ...rest } = l;
   return {
     ...rest,
     isPrimary: isPrimaryMine(l),
+    // The API's name of the flag (`AgencyListingDetail.isPrimaryAgency`).
+    isPrimaryAgency: isPrimaryMine(l),
+    version: l.version ?? 0,
     agencies: offices
       .map((c, i) => officeDisclosure(c, i === 0))
       .filter((a): a is AgencyListingAgency => a !== null),
@@ -260,6 +264,45 @@ export function parseDraft(body: unknown): { data: ListingDraftInput } | { error
 
 const n = <T>(v: T | undefined): T | null => v ?? null;
 
+/**
+ * PATCH body (`listingUpdateSchema`: omitted = unchanged, null = cleared) merged onto the stored
+ * listing → the full draft, validated again with the draft schema (like the API's merged check).
+ */
+export function mergeUpdate(
+  l: StoredListing,
+  body: unknown,
+): { data: ListingDraftInput } | { error: NextResponse } {
+  const parsed = listingUpdateSchema.safeParse(body);
+  if (!parsed.success) return { error: validationError(parsed.error.issues) };
+  const { version, property, ...fields } = parsed.data;
+  if (typeof version === 'number' && version !== (l.version ?? 0)) {
+    return {
+      error: mockError(
+        409,
+        'LISTING_CONCURRENT_MODIFICATION',
+        '다른 곳에서 먼저 수정되었습니다. 새로고침 후 다시 시도해 주세요.',
+      ),
+    };
+  }
+  const current = draftOfListing(l) as unknown as Record<string, unknown>;
+  const merged: Record<string, unknown> = { ...current };
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined) continue;
+    if (value === null) delete merged[key];
+    else merged[key] = value;
+  }
+  const mergedProperty: Record<string, unknown> = {
+    ...(current.property as Record<string, unknown>),
+  };
+  for (const [key, value] of Object.entries(property ?? {})) {
+    if (value === undefined) continue;
+    if (value === null) delete mergedProperty[key];
+    else mergedProperty[key] = value;
+  }
+  merged.property = mergedProperty;
+  return parseDraft(merged);
+}
+
 /** Applies a full draft (omitted optional fields are cleared) to a stored listing. */
 export function applyDraft(l: StoredListing, d: ListingDraftInput): void {
   const p = d.property;
@@ -273,11 +316,17 @@ export function applyDraft(l: StoredListing, d: ListingDraftInput): void {
   l.presalePrice = n(d.presalePrice);
   l.premium = n(d.premium);
   l.maintenanceFeeWon = n(d.maintenanceFeeWon);
-  // The real contract sends `maintenanceFee { billingType, items[] }`; the stored console row still
-  // keeps the included item names (labels) until the editor moves to the new shape.
-  l.maintenanceFeeItems = (d.maintenanceFee?.items ?? [])
-    .filter((item) => item.included)
-    .map((item) => MAINTENANCE_FEE_KIND_LABEL[item.kind]);
+  l.maintenanceFee = d.maintenanceFee
+    ? {
+        billingType: d.maintenanceFee.billingType,
+        items: d.maintenanceFee.items.map((i) => ({
+          kind: i.kind,
+          included: i.included,
+          amountWon: i.amountWon ?? null,
+        })),
+        unavailableReason: d.maintenanceFee.unavailableReason ?? null,
+      }
+    : null;
   l.moveInType = n(d.moveInType);
   l.moveInDate = n(d.moveInDate);
   l.floorDisplay = d.floorDisplay;
@@ -291,7 +340,8 @@ export function applyDraft(l: StoredListing, d: ListingDraftInput): void {
     buildingName: n(p.buildingName),
     dong: n(p.dong),
     ho: n(p.ho),
-    emdCode: spec?.emdCode ?? l.property?.emdCode ?? null,
+    // The API keeps the sent 법정동코드 (the address lookup's / the complex's).
+    emdCode: p.emdCode ?? spec?.emdCode ?? null,
     emdName: spec?.emdName ?? emdNameOf(p.jibunAddress ?? p.roadAddress),
     lat: p.lat,
     lng: p.lng,
@@ -306,7 +356,9 @@ export function applyDraft(l: StoredListing, d: ListingDraftInput): void {
     directionBasis: n(p.directionBasis),
     approvalDate: n(p.approvalDate),
     parkingSpaces: n(p.parkingSpaces),
+    buildingUse: n(p.buildingUse),
   };
+  l.version = (l.version ?? 0) + 1;
   l.complex = spec ? { id: p.complexId as string, name: spec.name, emdName: spec.emdName } : null;
   l.updatedAt = new Date().toISOString();
 }
@@ -325,21 +377,20 @@ function emdNameOf(address: string): string | null {
   return out.length > 0 ? out.join(' ') : null;
 }
 
-/** `LISTING_PUBLISH_REQUIREMENTS` with `details: [{ field, label }]` (+ path/message for generic clients). */
+/**
+ * The API's publish validator: shared `checkPublishRequirements` over the listing and its primary
+ * office → 400 `LISTING_PUBLISH_REQUIREMENTS` with `details: [{ field, label }]`.
+ */
 export function publishRequirementsError(l: StoredListing): NextResponse | null {
-  const missing = missingRequirements(draftOfListing(l));
-  if (missing.length === 0) return null;
-  const details = missing.map((r) => ({
-    field: r.field,
-    label: r.label,
-    path: r.field,
-    message: `${r.label} 항목을 입력해 주세요.`,
-  }));
+  const primary = officeDisclosure(l.offices[0] ?? MY_OFFICE_CODE, true) ?? undefined;
+  const issues = publishIssues(draftOfListing(l), publishAgencyOf(primary));
+  if (issues.length === 0) return null;
   return mockError(
-    422,
+    400,
     'LISTING_PUBLISH_REQUIREMENTS',
     '광고 게시에 필요한 필수 표시사항이 누락되었습니다.',
-    details,
+    // The API sends `{ field, label }` only (no `message`): the console builds its own text.
+    issues.map((i) => ({ field: i.field, label: i.label })) as unknown as { message: string }[],
   );
 }
 

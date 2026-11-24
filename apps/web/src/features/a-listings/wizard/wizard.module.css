@@ -270,6 +270,12 @@ button.stepBtn:hover .spT {
   max-width: 100%;
   min-width: 0;
 }
+.w480 {
+  flex: 0 1 auto;
+  width: 480px;
+  max-width: 100%;
+  min-width: 0;
+}
 .segStart {
   align-self: flex-start;
   max-width: 100%;

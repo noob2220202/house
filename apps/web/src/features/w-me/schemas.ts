@@ -6,13 +6,17 @@ import {
   UserStatus,
 } from '@house/shared';
 import { z } from 'zod';
-import { listingSummarySchema } from '@/lib/api/schemas/listing';
+import {
+  listingFromWire,
+  listingSummaryObjectSchema,
+  listingSummarySchema,
+  listingWireToCard,
+} from '@/lib/api/schemas/listing';
 
 /**
- * Response schemas of the my-page endpoints.
- * The backend controllers are not implemented yet (only the module READMEs + Prisma models), so
- * every shape here is an ASSUMPTION derived from the Prisma columns — see
- * docs/frontend-integration/w-me.md. Fix the schema and the mock fixture together.
+ * Response schemas of the my-page endpoints. Favourites and recent views follow the real
+ * listings / complexes controllers (`FavoriteListingItem`, `FavoriteComplexItem`,
+ * `RecentViewItem` of `@house/shared`) and are mapped onto the flat card shapes the views read.
  */
 
 const nullish = <T extends z.ZodType>(schema: T) => schema.nullable().optional();
@@ -36,11 +40,23 @@ export function pageSchema<T extends z.ZodType>(item: T) {
  */
 export { listingSummarySchema, type ListingSummary } from '@/lib/api/schemas/listing';
 
-export const favoriteListingSchema = listingSummarySchema.extend({
-  /** FavoriteListing.createdAt */
-  favoritedAt: z.string(),
-});
-export type FavoriteListing = z.infer<typeof favoriteListingSchema>;
+type Raw = Record<string, unknown>;
+const isObject = (v: unknown): v is Raw => typeof v === 'object' && v !== null;
+
+/** Wire `{ favoritedAt, listing }` (FavoriteListingItem) → one flat card with `favoritedAt`. */
+export const favoriteListingSchema = z.preprocess(
+  (v) =>
+    isObject(v) && isObject(v.listing)
+      ? { isFavorite: true, ...(listingWireToCard(v.listing) as Raw), favoritedAt: v.favoritedAt }
+      : v,
+  listingFromWire(
+    listingSummaryObjectSchema.extend({
+      /** FavoriteListing.createdAt */
+      favoritedAt: z.string(),
+    }),
+  ),
+);
+export type FavoriteListing = z.output<typeof favoriteListingSchema>;
 export const favoriteListingPageSchema = pageSchema(favoriteListingSchema);
 export type FavoriteListingPage = z.infer<typeof favoriteListingPageSchema>;
 
@@ -48,7 +64,26 @@ export type FavoriteListingPage = z.infer<typeof favoriteListingPageSchema>;
 
 const priceRangeSchema = z.object({ min: z.number(), max: z.number() });
 
-export const favoriteComplexSchema = z.object({
+/**
+ * Wire `{ favoritedAt, complex: ComplexSummary }` (FavoriteComplexItem) → flat card. The backend
+ * summary has no per-deal counts / price ranges / 평형 list, so those stay empty and the card
+ * shows the total (`activeListingCount`) only.
+ */
+function favoriteComplexFromWire(v: unknown): unknown {
+  if (!isObject(v) || !isObject(v.complex)) return v;
+  const c = v.complex;
+  return {
+    id: c.id,
+    name: c.name,
+    emdName: c.emdName ?? null,
+    households: c.households ?? null,
+    builtYear: c.builtYear ?? null,
+    activeListingCount: c.activeListingCount ?? 0,
+    favoritedAt: v.favoritedAt,
+  };
+}
+
+const favoriteComplexObjectSchema = z.object({
   id: z.string(),
   name: z.string(),
   emdName: nullish(z.string()),
@@ -62,22 +97,28 @@ export const favoriteComplexSchema = z.object({
   salePrice: nullish(priceRangeSchema),
   jeonsePrice: nullish(priceRangeSchema),
   presalePrice: nullish(priceRangeSchema),
-  /** Active listing counts in the fixed order 분양 / 매매 / 전세 / 월세. */
-  counts: z
-    .object({
+  /** Active listing counts in the fixed order 분양 / 매매 / 전세 / 월세 (not in the backend summary). */
+  counts: nullish(
+    z.object({
       presale: z.number().int(),
       sale: z.number().int(),
       jeonse: z.number().int(),
       monthly: z.number().int(),
-    })
-    .default({ presale: 0, sale: 0, jeonse: 0, monthly: 0 }),
+    }),
+  ),
+  /** ComplexSummary.activeListingCount — used when the per-deal counts are absent. */
+  activeListingCount: nullish(z.number().int()),
   /** Average price per 평 (만원). */
   pricePerPyeong: nullish(z.number()),
   coverPhotoUrl: nullish(z.string()),
   /** FavoriteComplex.createdAt */
   favoritedAt: z.string(),
 });
-export type FavoriteComplex = z.infer<typeof favoriteComplexSchema>;
+export const favoriteComplexSchema = z.preprocess(
+  favoriteComplexFromWire,
+  favoriteComplexObjectSchema,
+);
+export type FavoriteComplex = z.infer<typeof favoriteComplexObjectSchema>;
 export const favoriteComplexPageSchema = pageSchema(favoriteComplexSchema);
 export type FavoriteComplexPage = z.infer<typeof favoriteComplexPageSchema>;
 
@@ -116,9 +157,14 @@ export const notificationPageSchema = z.object({
 });
 export type NotificationPage = z.infer<typeof notificationPageSchema>;
 
+/** POST /me/notifications/read → `NotificationReadResult` (`{ updated, unread }` of the scope). */
 export const notificationReadResultSchema = z
-  .object({ updated: z.number().int().optional(), unreadCount: z.number().int().optional() })
+  .object({ updated: z.number().int().optional(), unread: z.number().int().optional() })
   .optional();
+export type NotificationReadResult = z.infer<typeof notificationReadResultSchema>;
+
+/** GET /me/notifications/unread-count → `{ unread }`. */
+export const notificationUnreadSchema = z.object({ unread: z.number().int() });
 
 // ---------- profile ----------
 

@@ -13,13 +13,15 @@ import {
   useToast,
 } from '@house/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { ADMIN_ROUTES } from '@/config/nav';
 import { errorMessage, qk } from '@/lib/api';
 import {
   BANNER_PAGE_SIZE,
   BANNERS,
   useBannerList,
+  useBannerTotals,
+  useRegions,
   useBannerSlots,
   useDeleteBanner,
   usePopupList,
@@ -30,6 +32,7 @@ import {
 import type { AdminBanner, AdminBannerPage } from '../api/schemas';
 import { useUrlState } from '../hooks/useUrlState';
 import { applyGroupOrder } from '../lib/reorder';
+import { withRegionNames } from '../lib/summary';
 import { isBannerSlot, slotLabel } from '../lib/slots';
 import { displayCode, STATUS_FILTER_OPTIONS, STATUS_LABEL } from '../lib/status';
 import styles from './ads.module.css';
@@ -108,7 +111,14 @@ export function BannersScreen() {
   };
 
   const data = list.data;
-  const rows = data?.items ?? [];
+  const rows = useMemo(() => data?.items ?? [], [data]);
+  const totals = useBannerTotals(rows);
+  const regionNames = useRegions(rows.some((b) => b.targetRegionCodes.length > 0));
+  // The list view has neither counters nor region names: merge them in for the table.
+  const tableRows = rows.map((b) => {
+    const t = totals.get(b.id);
+    return withRegionNames(t ? { ...b, ...t } : b, regionNames.data?.items);
+  });
   const total = data?.total ?? 0;
   const first = data && total > 0 ? (data.page - 1) * data.pageSize + 1 : 0;
   const last = data ? Math.min(total, data.page * data.pageSize) : 0;
@@ -324,7 +334,7 @@ export function BannersScreen() {
             </div>
           ) : (
             <BannerTable
-              rows={rows}
+              rows={tableRows}
               slots={slots.data}
               editingId={editor?.mode === 'edit' ? editor.id : null}
               fetching={list.isPlaceholderData}

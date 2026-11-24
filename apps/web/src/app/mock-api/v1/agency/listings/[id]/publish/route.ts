@@ -19,7 +19,7 @@ type Params = { params: Promise<{ id: string }> };
 
 /**
  * POST /api/v1/agency/listings/:id/publish — DRAFT → ACTIVE after the publish validator
- * (공인중개사법 제18조의2 명시사항). Fails with 422 `LISTING_PUBLISH_REQUIREMENTS` and
+ * (공인중개사법 제18조의2 명시사항). Fails with 400 `LISTING_PUBLISH_REQUIREMENTS` and
  * `details: [{ field, label }]`.
  */
 export async function POST(req: NextRequest, { params }: Params): Promise<NextResponse> {

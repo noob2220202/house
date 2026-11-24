@@ -18,7 +18,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { ApiError, errorMessage } from '@/lib/api';
-import { useBanner, useSaveBanner, useSlotBanners } from '../api/hooks';
+import { useBanner, useRegions, useSaveBanner, useSlotBanners } from '../api/hooks';
 import type { AdminBanner, BannerSlotInfo } from '../api/schemas';
 import {
   bannerFormSchema,
@@ -31,11 +31,13 @@ import {
   resolvePosition,
   TITLE_MAX,
   toBannerInput,
+  toBannerUpdateInput,
   type BannerFormValues,
 } from '../lib/banner-form';
 import { endOfKstDay, isDay, startOfKstDay } from '../lib/dates';
 import { isMobileOnlySlot, SLOT_META, SLOT_ORDER, slotLabel, slotSpecText } from '../lib/slots';
 import { displayCode, scheduleStatus, STATUS_PILL_LABEL, STATUS_TONE } from '../lib/status';
+import { withRegionNames } from '../lib/summary';
 import { AdvertiserField } from './AdvertiserField';
 import styles from './editor.module.css';
 import { EditorBody, EditorFooter, EditorPanel } from './EditorPanel';
@@ -79,6 +81,7 @@ const SERVER_FIELD: Record<string, keyof BannerFormValues> = {
   linkUrl: 'linkUrl',
   startAt: 'startDate',
   endAt: 'endDate',
+  targeting: 'targeting',
   targetRegionCodes: 'regions',
   targetComplexIds: 'complexes',
   memo: 'memo',
@@ -89,14 +92,20 @@ export function BannerEditor(props: BannerEditorProps) {
   const { mode, bannerId, initialSlot, onClose } = props;
   const source = useBanner(mode === 'new' ? null : bannerId);
   const newSlot = initialSlot ?? SLOT_ORDER[0];
+  // The banner view only has region codes: load the names before the form is built (the chips
+  // would show bare codes otherwise). A failed region list falls back to the codes.
+  const needsRegions = !!source.data && source.data.targetRegionCodes.length > 0;
+  const regions = useRegions(needsRegions);
+  const regionsReady = !needsRegions || regions.isSuccess || regions.isError;
 
   // New banners and copies start at LAST_POSITION, so the defaults never depend on counts that may
   // still be loading (a deep link to ?new=1 used to default to the top of the slot).
   const initial = useMemo<BannerFormValues | null>(() => {
     if (mode === 'new') return emptyBannerForm(newSlot);
-    if (!source.data) return null;
-    return mode === 'edit' ? bannerToForm(source.data) : duplicateToForm(source.data);
-  }, [mode, source.data, newSlot]);
+    if (!source.data || !regionsReady) return null;
+    const banner = withRegionNames(source.data, regions.data?.items);
+    return mode === 'edit' ? bannerToForm(banner) : duplicateToForm(banner);
+  }, [mode, source.data, newSlot, regionsReady, regions.data]);
 
   if (initial)
     return (
@@ -190,6 +199,8 @@ function BannerForm({
   }, [isDirty, onDirtyChange]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
+  /** The API keeps a banner in the slot it was created in (no `slot` in `bannerUpdateSchema`). */
+  const slotLocked = mode === 'edit';
   const slotInfo = slots?.find((s) => s.slot === values.slot);
   const spec = slotInfo ?? { slot: values.slot, ...BANNER_SLOT_SPECS[values.slot] };
   const mobileOnly = isMobileOnlySlot(values.slot);
@@ -231,7 +242,8 @@ function BannerForm({
     try {
       const saved = await save.mutateAsync({
         id: mode === 'edit' ? bannerId : null,
-        input: toBannerInput(form, { clear: mode === 'edit' }),
+        // PATCH never carries the slot (immutable, `bannerUpdateSchema` is strict).
+        input: mode === 'edit' ? toBannerUpdateInput(form) : toBannerInput(form),
         position: requestedPosition(form.position, slotSize, !inSlotAlready),
       });
       onDirtyChange?.(false);
@@ -282,11 +294,21 @@ function BannerForm({
           position={position}
         />
         <form id={formId} className={styles.form} onSubmit={(e) => void submit(e)} noValidate>
-          <FormField label="노출 위치" htmlFor={`${formId}-slot`} required>
+          <FormField
+            label="노출 위치"
+            htmlFor={`${formId}-slot`}
+            required
+            help={
+              slotLocked
+                ? '노출 위치는 등록한 뒤에는 바꿀 수 없어요. 다른 위치에 걸려면 복제해서 등록해 주세요.'
+                : undefined
+            }
+          >
             <Select
               id={`${formId}-slot`}
               className={styles.inMd}
               value={values.slot}
+              disabled={slotLocked}
               onChange={(e) => changeSlot(e.target.value as BannerSlot)}
               options={SLOT_ORDER.map((slot) => {
                 const info = slots?.find((s) => s.slot === slot);

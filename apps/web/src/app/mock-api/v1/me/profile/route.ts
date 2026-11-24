@@ -1,11 +1,12 @@
 import { updateProfileSchema } from '@house/shared';
 import type { NextRequest } from 'next/server';
 import { mockDelay, mockError, mockJson } from '@/lib/mock';
-import { authState } from '../../auth/_state';
+import { authState, mockMe } from '../../auth/_state';
 import { MOCK_TERMS } from '../../terms/_fixtures';
 import { meGuard, mockForcedFailure } from '../_store';
 
-// GET /api/v1/me/profile — profile with consent timestamp (ASSUMED endpoint, see w-me.md).
+// GET /api/v1/me/profile — mock only: the backend has no GET here (the profile is GET /auth/me).
+// Kept until the w-me profile query reads /auth/me.
 export async function GET(req: NextRequest) {
   const g = meGuard(req);
   if (g.fail) return g.fail;
@@ -17,7 +18,9 @@ export async function GET(req: NextRequest) {
 
 const TAKEN_NICKNAMES = ['관리자', '운영자', 'admin'];
 
-// PATCH /api/v1/me/profile — nickname, phone (plain contact field, never verified), marketingOptIn.
+// PATCH /api/v1/me/profile — nickname, phone (plain contact field, never verified), marketingOptIn
+// → the updated `MeResponse` (like the backend). Opting in starts `marketingOptInAt`, opting out
+// clears it.
 export async function PATCH(req: NextRequest) {
   const g = meGuard(req, { mutation: true });
   if (g.fail) return g.fail;
@@ -45,7 +48,7 @@ export async function PATCH(req: NextRequest) {
   if (marketingOptIn !== undefined && marketingOptIn !== profile.marketingOptIn) {
     profile.marketingOptIn = marketingOptIn;
     const changedAt = new Date().toISOString();
-    profile.marketingOptInAt = changedAt;
+    profile.marketingOptInAt = marketingOptIn ? changedAt : null;
     // Keep the consent history of the w-auth mocks (GET /me/consents) in step.
     const marketing = MOCK_TERMS.find((doc) => doc.type === 'MARKETING');
     if (marketing)
@@ -54,5 +57,5 @@ export async function PATCH(req: NextRequest) {
         createdAt: changedAt,
       };
   }
-  return mockJson(profile);
+  return mockJson(mockMe(g.role));
 }

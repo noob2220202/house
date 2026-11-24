@@ -245,6 +245,13 @@
 .linkBtn:hover {
   color: var(--text);
 }
+.form > .linkBtn {
+  align-self: center;
+}
+.linkBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 .help {
   width: min(440px, 100%);
   font-size: 13px;

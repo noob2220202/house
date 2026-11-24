@@ -30,7 +30,13 @@ import { errorMessage } from '@/lib/api';
 import { formatDate, formatDateTime, formatPhone, formatRelativeTime } from '@/lib/format';
 import { EvidenceGallery } from './EvidenceGallery';
 import r from './reports.module.css';
-import { fetchReport, modKeys, resolveReport, saveReportNote } from '../api/queries';
+import {
+  fetchReport,
+  modKeys,
+  resolveReport,
+  saveReportNote,
+  startReportReview,
+} from '../api/queries';
 import type { AdminReportDetail } from '../api/schemas';
 import {
   LISTING_STATUS_META,
@@ -212,7 +218,10 @@ function MemoPanel({ report }: { report: AdminReportDetail }) {
   const dirty = draft.trim() !== saved.trim();
 
   return (
-    <Panel title="내부 메모" description="신고자·중개사무소에는 전달되지 않아요">
+    <Panel
+      title="처리 메모"
+      description="처리 기록에 남는 메모예요. 신고자·중개사무소에는 전달되지 않아요"
+    >
       <form
         className={r.memo}
         onSubmit={(e) => {
@@ -221,7 +230,7 @@ function MemoPanel({ report }: { report: AdminReportDetail }) {
         }}
       >
         <Textarea
-          aria-label="내부 메모"
+          aria-label="처리 메모"
           rows={4}
           maxLength={NOTE_MAX}
           placeholder="확인한 내용, 중개사무소와 통화한 내용, 다음에 할 일을 남겨 주세요."
@@ -275,18 +284,22 @@ export function ReportDetailView({ id }: { id: string }) {
       for (const key of ['admin-reports', 'admin-listings', 'admin-agencies'])
         void queryClient.invalidateQueries({ queryKey: [key] });
       toast(
-        body.status === ReportStatus.IN_REVIEW
-          ? '검토 중으로 바꿨어요.'
-          : body.status === ReportStatus.REJECTED
-            ? '신고를 기각했어요. 신고자에게 결과를 알렸어요.'
-            : `조치를 마쳤어요 · ${REPORT_ACTION_LABEL[body.action ?? 'NONE']}`,
+        body.status === ReportStatus.REJECTED
+          ? '신고를 기각했어요. 신고자에게 결과를 알렸어요.'
+          : `조치를 마쳤어요 · ${REPORT_ACTION_LABEL[body.action ?? 'NONE']}`,
       );
       setDialog(null);
     },
-    onError: (err) => {
-      // Dialog errors are shown inline; the one-click "검토 시작" reports through a toast.
-      if (!dialog) toast({ message: errorMessage(err), tone: 'error' });
+  });
+  // 검토 시작 = PATCH { status: IN_REVIEW } (the resolution endpoint only takes final decisions).
+  const review = useMutation({
+    mutationFn: () => startReportReview(id),
+    onSuccess: (next) => {
+      queryClient.setQueryData(modKeys.report(id), next);
+      void queryClient.invalidateQueries({ queryKey: ['admin-reports'] });
+      toast('검토 중으로 바꿨어요.');
     },
+    onError: (err) => toast({ message: errorMessage(err), tone: 'error' }),
   });
 
   if (isPending) return <DetailSkeleton />;
@@ -489,8 +502,8 @@ export function ReportDetailView({ id }: { id: string }) {
                       <Button
                         variant="secondary"
                         block
-                        loading={resolve.isPending && !dialog}
-                        onClick={() => resolve.mutate({ status: ReportStatus.IN_REVIEW })}
+                        loading={review.isPending}
+                        onClick={() => review.mutate()}
                       >
                         검토 시작
                       </Button>
@@ -574,7 +587,7 @@ export function ReportDetailView({ id }: { id: string }) {
         target={dialogTarget}
         reasonLabel="처리 내용"
         placeholder="무엇을 어떻게 확인했는지 적어 주세요."
-        help="처리 결과로 신고자와 중개사무소에 전달돼요. 내부 메모는 전달되지 않아요."
+        help="처리 메모로 저장돼요. 신고자에게는 처리 결과(조치 내용)만 알림으로 전달돼요."
         presets={REPORT_RESOLVE_PRESETS}
         maxLength={NOTE_MAX}
         confirmLabel="조치 완료"
@@ -638,7 +651,7 @@ export function ReportDetailView({ id }: { id: string }) {
         target={dialogTarget}
         reasonLabel="기각 사유"
         placeholder="왜 사실이 아닌지 적어 주세요."
-        help="기각 사유로 신고자에게 전달돼요. 내부 메모는 전달되지 않아요."
+        help="처리 메모로 저장돼요. 신고자에게는 기각되었다는 결과만 알림으로 전달돼요."
         presets={REPORT_REJECT_PRESETS}
         maxLength={NOTE_MAX}
         confirmLabel="기각"

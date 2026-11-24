@@ -10,7 +10,6 @@ import {
   Select,
   Spinner,
   type TableColumn,
-  type TableSort,
 } from '@house/ui';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
@@ -18,7 +17,7 @@ import { useRouter } from 'next/navigation';
 
 import { ADMIN_ROUTES } from '@/config/nav';
 import { qk } from '@/lib/api';
-import { formatCount, formatDateShort, formatDateTime, formatRelativeTime } from '@/lib/format';
+import { formatCount, formatDateTime } from '@/lib/format';
 import { complexes } from '../api';
 import { useDevQuery } from '../api/dev';
 import { regionLabel, useRegions } from '../api/regions';
@@ -86,19 +85,25 @@ export function ComplexesView() {
     q: '',
     emdCode: '',
     missing: '',
-    sort: 'updatedAt',
-    dir: 'desc',
     page: '1',
   });
 
-  const params = { ...url, page: Number(url.page) || 1, pageSize: PAGE_SIZE, ...dev };
+  // GET /admin/complexes takes q · emdCode · missingExternalCode (`adminComplexListQuerySchema`)
+  // and answers in 단지명 order.
+  const params = {
+    q: url.q,
+    emdCode: url.emdCode,
+    missingExternalCode: url.missing === 'externalCode' ? true : undefined,
+    page: Number(url.page) || 1,
+    pageSize: PAGE_SIZE,
+    ...dev,
+  };
   const list = useQuery({
     queryKey: qk('admin-complexes', 'list', params),
     queryFn: ({ signal }) => complexes.list(params, { signal }),
     placeholderData: keepPreviousData,
   });
   const data = list.data;
-  const sort: TableSort = { key: url.sort, dir: url.dir === 'asc' ? 'asc' : 'desc' };
   const filtered = url.q !== '' || url.emdCode !== '' || url.missing !== '';
   const href = (c: ComplexSummary) => `${ADMIN_ROUTES.complexes}/${c.id}`;
 
@@ -115,20 +120,13 @@ export function ComplexesView() {
       </span>
     </div>
   );
-  const gaps = (c: ComplexSummary) => (
-    <>
-      {c.areaTypeCount === 0 && <Badge tone="warn">평형 없음</Badge>}
-      {c.photoCount === 0 && <Badge tone="warn">사진 없음</Badge>}
-    </>
-  );
 
   const columns: TableColumn<ComplexSummary>[] = [
-    { key: 'name', header: '단지 · 주소', sortable: true, cell: nameCell },
+    { key: 'name', header: '단지 · 주소', cell: nameCell },
     {
       key: 'households',
       header: '세대수',
       align: 'right',
-      sortable: true,
       width: 96,
       cell: (c) => <span className={s.num}>{c.households ? formatCount(c.households) : '–'}</span>,
     },
@@ -136,29 +134,24 @@ export function ComplexesView() {
       key: 'builtYear',
       header: '준공',
       align: 'right',
-      sortable: true,
       width: 84,
       cell: (c) => <span className={s.num}>{c.builtYear ?? '–'}</span>,
     },
     {
-      key: 'data',
-      header: '평형 · 사진',
+      key: 'code',
+      header: '국토부 단지 코드',
       width: 150,
       cell: (c) =>
-        c.areaTypeCount === 0 || c.photoCount === 0 ? (
-          <span className={s.filters}>{gaps(c)}</span>
+        c.externalCode ? (
+          <span className={s.num}>{c.externalCode}</span>
         ) : (
-          <span>
-            평형 <b className={s.num}>{c.areaTypeCount}</b> · 사진{' '}
-            <b className={s.num}>{c.photoCount}</b>
-          </span>
+          <Badge tone="warn">코드 없음</Badge>
         ),
     },
     {
       key: 'listings',
       header: '매물',
       align: 'right',
-      sortable: true,
       width: 80,
       cell: (c) => <span className={s.num}>{formatCount(c.activeListingCount)}</span>,
     },
@@ -166,27 +159,8 @@ export function ComplexesView() {
       key: 'views',
       header: '조회',
       align: 'right',
-      sortable: true,
       width: 88,
       cell: (c) => <span className={s.num}>{formatCount(c.viewCount)}</span>,
-    },
-    {
-      key: 'lastTrade',
-      header: '최근 실거래',
-      width: 112,
-      cell: (c) =>
-        c.lastTradeDate ? (
-          <span className={s.num}>{formatDateShort(c.lastTradeDate)}</span>
-        ) : (
-          <span className={s.muted}>거래 없음</span>
-        ),
-    },
-    {
-      key: 'updatedAt',
-      header: '수정',
-      sortable: true,
-      width: 100,
-      cell: (c) => <span className={s.muted}>{formatRelativeTime(c.updatedAt)}</span>,
     },
   ];
 
@@ -237,8 +211,7 @@ export function ComplexesView() {
                 onChange={(e) => setUrl({ missing: e.target.value })}
                 options={[
                   { value: '', label: '정보 상태 전체' },
-                  { value: 'photos', label: '사진 없음' },
-                  { value: 'areaTypes', label: '평형 없음' },
+                  { value: 'externalCode', label: '국토부 단지 코드 없음' },
                 ]}
               />
             </div>
@@ -267,8 +240,6 @@ export function ComplexesView() {
             rowKey={(c) => c.id}
             loading={list.isPending}
             loadingRows={8}
-            sort={sort}
-            onSortChange={(next) => setUrl({ sort: next.key, dir: next.dir })}
             onRowClick={(c) => router.push(href(c))}
             empty={
               filtered ? (
@@ -301,7 +272,7 @@ export function ComplexesView() {
                   </span>
                   <span>매물 {formatCount(c.activeListingCount)}</span>
                   <span>조회 {formatCount(c.viewCount)}</span>
-                  {gaps(c)}
+                  {!c.externalCode && <Badge tone="warn">코드 없음</Badge>}
                 </div>
               </>
             )}

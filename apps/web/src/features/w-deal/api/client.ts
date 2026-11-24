@@ -122,8 +122,8 @@ export const dealApi = {
   deleteMedia: (id: string) => api.delete(`/media/${id}`),
 
   /**
-   * GET /regions — 읍면동 / 지구 of the service region (ASSUMED endpoint, shared with w-map). No
-   * sggCode: the backend answers for its configured REGION_SGG_CODE.
+   * GET /regions — `RegionView[]` (complexes module): the 읍면동 of the service 시군구 (the
+   * backend's default parent when none is given).
    */
   regions: (signal?: AbortSignal) => api.get('/regions', { schema: regionListSchema, signal }),
 };

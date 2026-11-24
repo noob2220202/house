@@ -2,11 +2,10 @@ import { BannerSlot } from '@house/shared';
 import { z } from 'zod';
 
 /**
- * Serve shape of `GET /banners?slot&regionCode&complexId` (ads module) — ONE schema for every
- * banner slot on the site (MAIN_HERO, MAIN_STRIP, MOBILE_MAIN, MAP_AD, LISTING_SIDE,
- * COMPLEX_FEATURED_AGENCY). ASSUMED until the ads controller ships: the admin input has
- * `pcMediaId` / `mobileMediaId`, so the serve endpoint may name the PC creative `imageUrl` or
- * `pcImageUrl` — both are accepted. See docs/frontend-integration/consistency.md.
+ * Serve shape of `GET /banners?slot&regionCode&complexId` (ads module, `PublicBannerView`) — ONE
+ * schema for every banner slot on the site (MAIN_HERO, MAIN_STRIP, MOBILE_MAIN, MAP_AD,
+ * LISTING_SIDE, COMPLEX_FEATURED_AGENCY). The backend sends `clickUrl` (null = not clickable) and
+ * the advertiser office as `agency { id, name }`; both are mapped onto `linkUrl` / `agencyId`.
  */
 const nullish = <T extends z.ZodType>(schema: T) => schema.nullish();
 
@@ -35,13 +34,17 @@ export const servedBannerSchema = z
     mobileImageUrl: nullish(z.string()),
     /** Present when the banner is clickable. The click itself goes through `/banners/:id/click`. */
     linkUrl: nullish(z.string()),
+    /** Backend tracking redirect (`/api/v1/banners/:id/click`), null when there is no link. */
+    clickUrl: nullish(z.string()),
     newWindow: z.boolean().default(false),
     /** Advertiser office summary when the serve endpoint embeds it (optional). */
     agency: nullish(bannerAgencySchema),
   })
-  .transform(({ pcImageUrl, imageUrl, ...rest }) => ({
+  .transform(({ pcImageUrl, imageUrl, clickUrl, ...rest }) => ({
     ...rest,
     imageUrl: imageUrl ?? pcImageUrl ?? null,
+    linkUrl: rest.linkUrl ?? clickUrl ?? null,
+    agencyId: rest.agencyId ?? rest.agency?.id ?? null,
   }));
 export type ServedBanner = z.infer<typeof servedBannerSchema>;
 

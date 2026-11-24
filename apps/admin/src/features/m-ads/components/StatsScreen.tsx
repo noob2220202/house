@@ -19,7 +19,7 @@ import { AdminPageHeader } from '@/components/shell';
 import { ADMIN_ROUTES } from '@/config/nav';
 import { ApiError } from '@/lib/api';
 import { formatCount, formatPercent } from '@/lib/format';
-import { useBanner, useBannerSlots, useBannerStats } from '../api/hooks';
+import { useBanner, useBannerSlots, useBannerStats, useRegions } from '../api/hooks';
 import { mediaUrl } from '../api/schemas';
 import { useUrlState } from '../hooks/useUrlState';
 import { formatDayFull, isDay, kstToday, toKstDay } from '../lib/dates';
@@ -30,12 +30,13 @@ import {
   METRIC_OPTIONS,
   RANGE_PRESETS,
   resolveRange,
+  totalsRange,
   summarize,
   type DailyRow,
   type Metric,
 } from '../lib/stats';
 import { displayCode, STATUS_PILL_LABEL, STATUS_TONE } from '../lib/status';
-import { advertiserLine, targetSummary } from '../lib/summary';
+import { advertiserLine, targetSummary, withRegionNames } from '../lib/summary';
 import { AdImage } from './AdImage';
 import styles from './stats.module.css';
 
@@ -58,16 +59,25 @@ export function StatsScreen({ bannerId }: { bannerId: string }) {
   const [metric, setMetric] = useState<Metric>('impressions');
   const banner = useBanner(bannerId);
   const slots = useBannerSlots();
-  const stats = useBannerStats(bannerId, { from: range.from, to: range.to });
+  const regions = useRegions();
+  // "전체 기간": the API needs explicit dates (it defaults to the last 30 days), so wait for the
+  // banner and ask for its whole period.
+  const query =
+    range.preset === 'all'
+      ? banner.data
+        ? (totalsRange(banner.data) ?? { from: kstToday(), to: kstToday() })
+        : null
+      : { from: range.from, to: range.to };
+  const stats = useBannerStats(bannerId, query);
 
   const rows = useMemo(
-    () => (stats.data ? dailyRows(stats.data, { from: range.from, to: range.to }) : []),
-    [stats.data, range.from, range.to],
+    () => (stats.data ? dailyRows(stats.data, { from: query?.from, to: query?.to }) : []),
+    [stats.data, query?.from, query?.to],
   );
   const summary = useMemo(() => summarize(rows), [rows]);
   const tableRows = useMemo(() => [...rows].reverse(), [rows]);
   const today = kstToday();
-  const b = banner.data;
+  const b = banner.data ? withRegionNames(banner.data, regions.data?.items) : undefined;
   const crumb = ['운영', { label: '배너·팝업 관리', href: ADMIN_ROUTES.banners }] as const;
 
   if (banner.isError) {

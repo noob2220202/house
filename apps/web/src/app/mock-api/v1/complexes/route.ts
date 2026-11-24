@@ -1,13 +1,14 @@
 import type { NextRequest } from 'next/server';
 import { mockDelay, mockGuard, mockJson, mockPaginate } from '@/lib/mock';
-import { COMPLEX_SPECS, toComplexDetail } from './_fixtures';
+import { COMPLEX_SPECS } from './_fixtures';
+import { toComplexSummaryOf } from './_wire';
 
 const squash = (s: string) => s.replace(/\s+/g, '').toLowerCase();
 
 /**
  * GET /api/v1/complexes?q=&emdCode=&page=&pageSize= (complexes README) — name / address search.
- * Added by a-listings for the complex picker of the listing wizard; rows are the complex detail
- * objects (the picker only reads id, name, roadAddress, emdName, households, builtYear).
+ * Added by a-listings for the complex picker of the listing wizard; rows are `ComplexSummary`
+ * (the picker reads id, name, roadAddress, emdName, households, builtYear).
  */
 export async function GET(req: NextRequest) {
   const off = mockGuard();
@@ -26,5 +27,5 @@ export async function GET(req: NextRequest) {
       squash(c.districtName ?? '').includes(q),
   );
   const page = mockPaginate(rows, req, { pageSize: 20 });
-  return mockJson({ ...page, items: page.items.map(toComplexDetail) });
+  return mockJson({ ...page, items: page.items.map(toComplexSummaryOf) });
 }

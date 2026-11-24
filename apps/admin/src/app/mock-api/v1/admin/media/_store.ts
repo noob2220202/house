@@ -37,17 +37,34 @@ export function registerFixtureMedia(media: Omit<MockMedia, 'createdAt' | 'bytes
   return media.id;
 }
 
-/** MediaDto (packages/shared/src/schemas/media.ts). */
+/**
+ * Shared `OwnMediaView` / `AdminMediaView` subset (POST /admin/media, GET /admin/media/:id). The
+ * mock processes uploads synchronously, so every object is READY with its variants.
+ */
 export function toMediaDto(m: MockMedia) {
   const variant = { url: m.url, width: m.width ?? 0, height: m.height ?? 0 };
   return {
     id: m.id,
     purpose: m.purpose,
+    visibility: 'PUBLIC',
+    status: 'READY',
     mimeType: m.mimeType,
+    sizeBytes: m.bytes?.byteLength ?? 0,
     width: m.width,
     height: m.height,
+    url: m.url,
     variants: { thumb: variant, medium: variant, large: variant },
+    createdAt: new Date(m.createdAt).toISOString(),
+    originalFilename: null,
+    error: null,
+    attached: false,
   };
+}
+
+/** `AdMediaView` (`{ id, url, width, height }`) as the ads views embed an image. */
+export function adMediaView(id: string | null | undefined) {
+  const m = getMedia(id);
+  return m ? { id: m.id, url: m.url, width: m.width, height: m.height } : null;
 }
 
 export function mediaDto(id: string | null | undefined) {

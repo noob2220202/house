@@ -359,6 +359,9 @@
   flex-direction: column;
   gap: 14px;
 }
+.alignStart {
+  align-self: flex-start;
+}
 .formActions {
   display: flex;
   justify-content: flex-end;

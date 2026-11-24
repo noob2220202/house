@@ -98,10 +98,10 @@ async function section<T>(
   }
 }
 
-/** GET /regions — the city's 읍면동 / 지구 (small, changes rarely). */
+/** GET /regions?parentCode — the city's 읍면동 (`RegionView[]`, small, changes rarely). */
 const getRegions = () =>
   serverGet('/regions', {
-    query: { sggCode: DEFAULT_SGG_CODE },
+    query: { parentCode: DEFAULT_SGG_CODE },
     schema: regionListSchema,
     revalidate: 3600,
     tags: ['regions'],

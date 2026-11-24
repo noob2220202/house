@@ -1,18 +1,15 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { termsListSchema, type TermsDocument } from '@/features/w-auth/api';
-import { LogoutLink } from '@/features/w-auth/components/shell/LogoutLink';
+import { ROUTES } from '@/config/nav';
+import { authBarLinkClass } from '@/features/w-auth/components/shell/AuthShell.classes';
 import { AuthTopBar } from '@/features/w-auth/components/shell/AuthShell';
 import { SignupFlow } from '@/features/w-auth/components/signup/SignupFlow';
 import {
-  loginPath,
   parseIntent,
   parseProvider,
   resolvePostLoginTarget,
   safeNext,
-  signupPath,
 } from '@/features/w-auth/lib/flow';
-import { ApiError } from '@/lib/api';
-import { serverGet } from '@/lib/api/server';
 import { getServerSession } from '@/lib/auth/server';
 import { buildMetadata } from '@/lib/seo';
 
@@ -25,44 +22,28 @@ export const metadata = buildMetadata({
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-async function loadTerms(): Promise<TermsDocument[] | null> {
-  try {
-    return await serverGet('/terms', { schema: termsListSchema, revalidate: 300, tags: ['terms'] });
-  } catch (error) {
-    if (error instanceof ApiError) return null; // the client shows an error state with retry
-    throw error;
-  }
-}
-
 /**
- * Signup completion for a user who just authenticated with 카카오 / 네이버 / Google for the first
- * time (`signupCompleted=false`): terms consents, nickname, 관심 지역.
+ * Signup of a first-time 카카오 / 네이버 / Google login. The backend's OAuth callback redirects here
+ * (`/signup?provider=<slug>`) with a pending signup cookie and **no session**; the form loads the
+ * pending signup in the browser (the cookie is scoped to /api/v1/auth/signup) and completes it with
+ * POST /auth/signup. A visitor who is already signed in has nothing to sign up for.
  */
 export default async function SignupPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
   const returnTo = safeNext(sp.returnTo, '');
   const intent = parseIntent(sp.intent, returnTo);
-  const provider = parseProvider(sp.provider);
 
   const user = await getServerSession();
-  // Not signed in: signing up = logging in with a social account first.
-  if (!user) redirect(loginPath({ returnTo: signupPath({ returnTo, intent }), intent }));
-  const target = resolvePostLoginTarget({ next: returnTo, intent, user });
-  if (user.signupCompleted !== false) redirect(target);
+  if (user) redirect(resolvePostLoginTarget({ next: returnTo, intent, user }));
 
-  const terms = await loadTerms();
   return (
     <>
       <AuthTopBar>
-        <LogoutLink />
+        <Link className={authBarLinkClass} href={ROUTES.home}>
+          다음에 가입할게요
+        </Link>
       </AuthTopBar>
-      <SignupFlow
-        account={{ nickname: user.nickname, name: user.name, email: user.email }}
-        provider={provider}
-        intent={intent}
-        target={target}
-        initialTerms={terms}
-      />
+      <SignupFlow provider={parseProvider(sp.provider)} intent={intent} />
     </>
   );
 }

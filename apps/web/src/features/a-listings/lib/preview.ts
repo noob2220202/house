@@ -1,4 +1,12 @@
-import { AssetType, FloorDisplay, ListingStatus } from '@house/shared';
+import {
+  AssetType,
+  BUILDING_USE_LABEL,
+  DealType,
+  FloorDisplay,
+  ListingStatus,
+  MAINTENANCE_FEE_KIND_LABEL,
+  effectiveBuildingUse,
+} from '@house/shared';
 import type { ListingDetail } from '@/features/w-listing/api/schemas';
 import { floorClassOf } from '@/lib/format';
 import type {
@@ -9,6 +17,16 @@ import type {
 } from '../api/schemas';
 import type { DraftPayload } from './form';
 import type { PhotoValue } from './photos';
+import { agencyIssues, type PublishAgency } from './requirements';
+
+/** 「중개대상물 종류」 as the public page prints it (stated or implied 건축물 용도). */
+function buildingUseLabel(
+  assetType: DraftPayload['property']['assetType'],
+  buildingUse: DraftPayload['property']['buildingUse'],
+): string | null {
+  const use = effectiveBuildingUse(assetType, buildingUse);
+  return use ? BUILDING_USE_LABEL[use] : null;
+}
 
 export interface PreviewContext {
   /** Saved listing (null while it has never been saved). */
@@ -54,7 +72,9 @@ export function buildPreviewDetail(draft: DraftPayload, ctx: PreviewContext): Li
     presalePrice: draft.presalePrice ?? null,
     premium: draft.premium ?? null,
     maintenanceFeeWon: draft.maintenanceFeeWon ?? null,
-    maintenanceFeeItems: draft.maintenanceFeeItems ?? [],
+    maintenanceFeeItems: (draft.maintenanceFee?.items ?? [])
+      .filter((i) => i.included)
+      .map((i) => MAINTENANCE_FEE_KIND_LABEL[i.kind]),
     moveInType: draft.moveInType ?? null,
     moveInDate: draft.moveInDate ?? null,
     floorDisplay: draft.floorDisplay,
@@ -70,7 +90,7 @@ export function buildPreviewDetail(draft: DraftPayload, ctx: PreviewContext): Li
       jibunAddress: p.jibunAddress ?? null,
       buildingName: p.buildingName ?? null,
       dong: p.dong ?? null,
-      emdCode: null,
+      emdCode: p.emdCode ?? null,
       emdName: ctx.complex?.emdName ?? ctx.listing?.property.emdName ?? null,
       lat: p.lat ?? 34.9506,
       lng: p.lng ?? 127.4872,
@@ -90,7 +110,7 @@ export function buildPreviewDetail(draft: DraftPayload, ctx: PreviewContext): Li
       heatingType: ctx.complex?.heatingType ?? null,
       zoning: null,
       landCategory: null,
-      buildingUse: null,
+      buildingUse: buildingUseLabel(p.assetType, p.buildingUse),
     },
     complex: ctx.complex
       ? {
@@ -145,14 +165,34 @@ export function buildPreviewDetail(draft: DraftPayload, ctx: PreviewContext): Li
   };
 }
 
-/** The office's own disclosure fields that are still empty (shown as a warning before publishing). */
-export function missingAgencyDisclosure(agency: AgencyListingAgency | undefined): string[] {
+/** Office of a listing → the `agency` input of the shared publish validator. */
+export function publishAgencyOf(agency: AgencyListingAgency | undefined): PublishAgency {
+  return agency
+    ? {
+        name: agency.name,
+        roadAddress: agency.roadAddress,
+        phone: agency.phone,
+        registrationNumber: agency.registrationNumber,
+        representativeName: agency.representativeName,
+      }
+    : null;
+}
+
+/**
+ * The office's own disclosure fields the publish validator would reject (shown as a warning before
+ * publishing) — `checkPublishRequirements`' `agency.*` items, labelled without the "중개사무소" prefix.
+ */
+export function missingAgencyDisclosure(
+  agency: AgencyListingAgency | undefined,
+  draft: DraftPayload = {
+    dealType: DealType.SALE,
+    floorDisplay: FloorDisplay.EXACT,
+    options: [],
+    property: {},
+  },
+): string[] {
   if (!agency) return ['중개사무소 정보'];
-  const out: string[] = [];
-  if (!agency.name) out.push('명칭');
-  if (!agency.roadAddress) out.push('소재지');
-  if (!agency.phone) out.push('연락처');
-  if (!agency.registrationNumber) out.push('등록번호');
-  if (!agency.representativeName) out.push('대표자 성명');
-  return out;
+  return agencyIssues(draft, publishAgencyOf(agency)).map((i) =>
+    i.label.replace(/^중개사무소\s*/, ''),
+  );
 }

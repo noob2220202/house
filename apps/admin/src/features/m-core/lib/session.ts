@@ -43,6 +43,12 @@ export function authErrorMessage(error: unknown): string {
       return '허용되지 않은 접속 위치입니다. 사무실 네트워크에서 다시 시도해 주세요.';
     case 'AUTH_TOTP_INVALID':
       return '인증 코드가 올바르지 않습니다. 인증 앱의 최신 코드를 입력해 주세요.';
+    case 'AUTH_TOTP_SETUP_EXPIRED':
+      return '등록 시간(10분)이 지났습니다. 새 QR 코드로 다시 등록해 주세요.';
+    case 'AUTH_TOTP_NOT_ENROLLED':
+      return '아직 인증 앱이 등록되지 않은 계정입니다. 처음부터 다시 로그인해 주세요.';
+    case 'AUTH_REAUTH_REQUIRED':
+      return '현재 비밀번호와 인증 코드(또는 복구 코드)를 입력해 주세요.';
     case 'AUTH_SESSION_EXPIRED':
     case 'UNAUTHENTICATED':
       return '로그인 시간이 초과되었습니다. 처음부터 다시 로그인해 주세요.';

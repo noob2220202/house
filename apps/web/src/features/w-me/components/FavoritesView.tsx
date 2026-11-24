@@ -309,7 +309,7 @@ function FavoriteComplexCard({
         priceDeal={price?.deal}
         priceDealLabel={price?.label}
         price={price?.text}
-        counts={complex.counts}
+        counts={complex.counts ?? undefined}
         media={
           complex.coverPhotoUrl ? (
             <Image src={complex.coverPhotoUrl} alt="" fill sizes="64px" />

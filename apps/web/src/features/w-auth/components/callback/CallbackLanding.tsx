@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { SESSION_QUERY_KEY } from '@/lib/auth/session';
+import { clearLoginContext } from '../../lib/login-context';
 import { writeRecentProvider } from '../../lib/recent-provider';
 import styles from './callback.module.css';
 
@@ -23,6 +24,7 @@ export function CallbackLanding({ target, provider }: CallbackLandingProps) {
   const queryClient = useQueryClient();
   useEffect(() => {
     if (provider) writeRecentProvider(provider);
+    clearLoginContext();
     void queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
     router.replace(target);
   }, [provider, queryClient, router, target]);

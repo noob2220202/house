@@ -9,8 +9,8 @@ import {
 } from '@house/shared';
 import { agencyById, agencyByKey } from '../../agencies/_fixtures';
 import { COMPLEXES, complexByCode } from '../../complexes/_fixtures';
-import { REGIONS, regionCodeOf } from '../../regions/_fixtures';
-import { mediaDto, registerFixtureMedia } from '../media/_store';
+import { regionCodeOf } from '../../regions/_fixtures';
+import { adMediaView, registerFixtureMedia } from '../media/_store';
 import type { CreativeSpec } from './_creatives';
 import { addDays, dayDiff, endOfKstDay, kstDay, mockUuid, startOfKstDay } from './_ids';
 
@@ -499,43 +499,33 @@ export function activeCount(slot: Slot, exceptId?: string): number {
   ).length;
 }
 
-/** Admin banner payload (see docs/frontend-integration/m-ads.md → "Assumed payload shapes"). */
+/** Shared `AdminBannerView` — what GET/POST/PATCH /admin/banners return. */
 export function toAdminBanner(b: MockBanner) {
   const agency = agencyById(b.agencyId);
   return {
     id: b.id,
-    code: b.code,
     slot: b.slot,
     title: b.title,
     advertiserName: b.advertiserName,
-    agencyId: b.agencyId,
-    agency: agency
-      ? { id: agency.id, name: agency.name, representativeName: agency.representativeName }
-      : null,
-    pcMedia: mediaDto(b.pcMediaId),
-    mobileMedia: mediaDto(b.mobileMediaId),
+    agency: agency ? { id: agency.id, name: agency.name } : null,
+    pcImage: adMediaView(b.pcMediaId) ?? { id: b.pcMediaId, url: '', width: null, height: null },
+    mobileImage: adMediaView(b.mobileMediaId),
     linkUrl: b.linkUrl,
     newWindow: b.newWindow,
     startAt: b.startAt,
     endAt: b.endAt,
     paused: b.paused,
+    status: statusOf(b),
     priority: b.priority,
     sortOrder: b.sortOrder,
     targeting: b.targeting,
     targetRegionCodes: b.targetRegionCodes,
-    targetComplexIds: b.targetComplexIds,
-    targetRegions: b.targetRegionCodes.map((code) => ({
-      code,
-      name: REGIONS.find((r) => r.code === code)?.name ?? code,
-    })),
     targetComplexes: b.targetComplexIds.map((id) => ({
       id,
       name: COMPLEXES.find((c) => c.id === id)?.name ?? '삭제된 단지',
     })),
     memo: b.memo,
-    status: statusOf(b),
-    impressions: b.totals.impressions,
-    clicks: b.totals.clicks,
+    createdByAdminId: null,
     createdAt: b.createdAt,
     updatedAt: b.updatedAt,
   };

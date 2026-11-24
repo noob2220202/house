@@ -1,5 +1,5 @@
 import { BannerTargeting } from '@house/shared';
-import type { AdminBanner } from '../api/schemas';
+import type { AdminBanner, RegionOption } from '../api/schemas';
 
 /** "신대지구" → "신대" — only used to keep long target lists short. */
 const shortRegion = (name: string) => name.replace(/(지구|동|면|리)$/, '') || name;
@@ -24,6 +24,25 @@ export function targetSummary(
     return names.length > 1 ? `${names[0]} 외 ${names.length - 1}` : (names[0] as string);
   }
   return '전체';
+}
+
+/**
+ * The banner view only carries region codes: fills in their names from GET /regions (codes not in
+ * the list — e.g. a 리 — keep the code).
+ */
+export function withRegionNames<T extends Pick<AdminBanner, 'targetRegionCodes' | 'targetRegions'>>(
+  banner: T,
+  regions: readonly RegionOption[] | undefined,
+): T {
+  if (!regions || banner.targetRegionCodes.length === 0) return banner;
+  const names = new Map(regions.map((r) => [r.code, r.name]));
+  return {
+    ...banner,
+    targetRegions: banner.targetRegionCodes.map((code) => ({
+      code,
+      name: names.get(code) ?? code,
+    })),
+  };
 }
 
 /** Second line of a row: the advertiser — for office banners titled with the office name, its 대표. */

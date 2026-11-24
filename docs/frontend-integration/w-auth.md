@@ -5,14 +5,15 @@ Design reference: `design/drafts/project/Login.dc.html`. Conventions: `docs/FRON
 
 ## Routes
 
-| Path              | File                                     | Notes                                                                                                                                                                                     |
-| ----------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/login`          | `src/app/(auth)/login/page.tsx`          | Public, full metadata (the foundation's `robots.ts` disallows `/login` and `/signup` for crawlers). `?returnTo=<path>` · `?as=agent` (중개사 회원) · `?reason=expired\|logout\|required`. |
-| `/auth/callback`  | `src/app/(auth)/auth/callback/page.tsx`  | OAuth landing. `?next=<path>&provider=kakao\|naver\|google&intent=agent` on success, `?error=<code>` on failure.                                                                          |
-| `/signup`         | `src/app/(auth)/signup/page.tsx`         | Signup completion for `signupCompleted=false` users. `?returnTo=&provider=&intent=`.                                                                                                      |
-| `/auth/withdrawn` | `src/app/(auth)/auth/withdrawn/page.tsx` | Farewell page after withdrawal (public, noindex).                                                                                                                                         |
-| `/me/account`     | `src/app/(me)/me/account/page.tsx`       | 계정 설정: linked accounts, consent history, logout / logout-all, withdrawal entry. Inside the w-me `/me` layout.                                                                         |
-| `/me/withdraw`    | `src/app/(me)/me/withdraw/page.tsx`      | 회원 탈퇴 flow. Inside the w-me `/me` layout.                                                                                                                                             |
+| Path              | File                                     | Notes                                                                                                                                                                                                                                                         |
+| ----------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/login`          | `src/app/(auth)/login/page.tsx`          | Public, full metadata (the foundation's `robots.ts` disallows `/login` and `/signup` for crawlers). `?returnTo=<path>` · `?as=agent` (중개사 회원) · `?reason=expired\|logout\|required`. Failed social login: `?error=<code>[&withdrawable=1]` → error card. |
+| `/auth/callback`  | `src/app/(auth)/auth/callback/page.tsx`  | OAuth landing of a successful login: `?next=<path>&provider=kakao\|naver\|google&intent=agent` (a stray `?error=` is forwarded to `/login`).                                                                                                                  |
+| `/signup`         | `src/app/(auth)/signup/page.tsx`         | Social signup: the backend sends first-time members to `?provider=<slug>` with a pending signup cookie and no session.                                                                                                                                        |
+| `/auth/withdraw`  | `src/app/(auth)/auth/withdraw/page.tsx`  | 회원 탈퇴 of a suspended member (no session, ticket cookie from the refused login).                                                                                                                                                                           |
+| `/auth/withdrawn` | `src/app/(auth)/auth/withdrawn/page.tsx` | Farewell page after withdrawal (public, noindex).                                                                                                                                                                                                             |
+| `/me/account`     | `src/app/(me)/me/account/page.tsx`       | 계정 설정: linked accounts, consent history, logout / logout-all, withdrawal entry. Inside the w-me `/me` layout.                                                                                                                                             |
+| `/me/withdraw`    | `src/app/(me)/me/withdraw/page.tsx`      | 회원 탈퇴 flow. Inside the w-me `/me` layout.                                                                                                                                                                                                                 |
 
 `(auth)` pages use `AuthShell` (no site header / tab bar, mini footer from the design). Extra route
 constants: `AUTH_ROUTES` in `src/features/w-auth/routes.ts`.
@@ -30,113 +31,72 @@ tablet, and from 960px down stacks with the compact brand band of the mobile dra
 map shows the same band of the map at every card width (height follows the width, min 176px) and
 clamps the pins of regions near the map edge.
 
-## Flow
+## Flow (real auth module, WI-2 — 2026-11-24)
 
 1. `/login` builds `GET /api/v1/auth/oauth/{provider}/start?returnTo=<landing>` where
    `<landing>` = `/auth/callback?next=<original target>&provider=<slug>[&intent=agent]`
    (`buildCallbackPath`, clamped to the backend's 500-char `returnTo` limit). Full-page navigation.
-2. The backend finishes the provider round trip and redirects to `returnTo` (our landing) with the
-   session cookie set.
-3. `/auth/callback` verifies the session on the server (`GET /auth/me`) and continues to:
-   - `/signup?returnTo=…` when `signupCompleted === false`,
-   - `/agent/apply` when the member chose 중개사 회원 and is not an agent yet (`/agent` or the target when already an agent),
-   - otherwise the original target (never an auth page; site-relative only).
-     It also stores the provider in `localStorage` (`house:auth:recent-provider`) for the "최근 사용" hint.
-4. `/signup` posts consents → profile → interest regions, refreshes the session and shows step 3.
-5. `requireUser()` (`src/lib/auth/server.ts`) now also redirects `signupCompleted === false` users to
-   `/signup?returnTo=…`, so protected pages are never reachable before the required terms are agreed.
+   Clicking a provider also keeps `{ intent, next }` in `sessionStorage` (`lib/login-context.ts`).
+2. Known member: the backend sets the session and redirects to our landing; `/auth/callback`
+   verifies the session (`GET /auth/me`) and continues to `/agent/apply` (중개사 회원 without an
+   agency), `/agent` or the target. It stores the provider for the "최근 사용" hint.
+3. First-time member: the backend redirects to **`/signup?provider=<slug>`** with an httpOnly pending
+   signup cookie (scoped to `/api/v1/auth/signup`) and **no session**. `/signup` loads
+   `GET /auth/signup` in the browser (prefill + current account terms), asks 만 14세 이상 (required,
+   covered by 전체 동의), every current document (MARKETING optional) and a nickname (backend rule:
+   2–20, 한글·영문·숫자·`_ . -`, no spaces), then `POST /auth/signup
+{ nickname, ageOver14: true, consents[], marketingOptIn }`. The answer (`{ user, returnTo,
+csrfToken }`) seeds the session cache; `returnTo` (our landing path) gives the destination and
+   intent. The optional 관심 지역 are saved afterwards with the new session. 401 →
+   "가입 시간이 지났어요", `AUTH_REJOIN_COOLDOWN` → blocking notice, `AUTH_TERMS_INVALID` → reload
+   the terms and ask again. No marketing channel choice: the backend stores one `marketingOptIn`.
+4. Failures: the backend redirects to **`/login?error=<AuthErrorCode>`**; `/login` then renders the
+   error card (copy in `lib/oauth-errors.ts`). `AUTH_ACCOUNT_SUSPENDED&withdrawable=1` adds
+   "회원 탈퇴 진행" → **`/auth/withdraw`** (suspended withdrawal: `POST /auth/withdraw
+{ confirm: true, reason? }` with the 10-minute ticket cookie) → `/auth/withdrawn`.
+5. Link: `start?returnTo=/me/account&intent=link`; the backend returns `/me/account?linked=<slug>`
+   or `/me/account?error=<code>` (`AUTH_IDENTITY_DUPLICATE`, `AUTH_PROVIDER_ALREADY_LINKED`, …),
+   shown as a callout on 계정 설정. Unlink: `DELETE /me/identities/:provider` → remaining list,
+   `409 AUTH_LAST_IDENTITY`.
+6. Session (`lib/auth/types.ts`): `sessionUserSchema` parses `MeResponse` — `nickname` null →
+   display "회원" (`hasNickname=false`), `agencyId` ← `agency.agencyId`, `signupCompleted` always
+   true (a session exists only after signup), `pendingRequiredTerms`, `marketingOptInAt`.
+   `fetchSessionUser` skips the request when the readable `house_csrf` cookie (always set and
+   cleared together with the session cookie) is absent, so anonymous visitors log no 401.
+7. Re-consent: when `pendingRequiredTerms` is non-empty the `SessionProvider` opens
+   `ReconsentDialog` (once per tab and set of documents, not on auth/terms/withdraw pages, and only
+   while no other modal is open) and any mutation refused with `403 AUTH_TERMS_REQUIRED` opens it
+   again. It posts `POST /me/consents` for the pending documents only. 약관 동의 내역 offers
+   "동의하기" for them.
 
-## Endpoints used (listed in `apps/api/src/modules/auth/README.md`)
+## Endpoints used
 
-| Method | Path                                              | Used by                                        | Shape used by the frontend                                                                                        |
-| ------ | ------------------------------------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/v1/auth/oauth/{kakao\|naver\|google}/start` | login buttons, account linking                 | `?returnTo=<site-relative path, ≤ 500>`                                                                           |
-| GET    | `/api/v1/auth/me`                                 | landing, signup, guards                        | `SessionUser` incl. `signupCompleted` (see foundation.md)                                                         |
-| POST   | `/api/v1/auth/logout`                             | 로그아웃                                       | —                                                                                                                 |
-| POST   | `/api/v1/auth/logout-all`                         | 모든 기기에서 로그아웃                         | — (the current session is destroyed too; the client then navigates to `/login?reason=logout`)                     |
-| GET    | `/api/v1/terms`                                   | signup                                         | current document per type: `[{ id, type, version, title, isRequired, effectiveAt }]` (bare array or `{ items }`)  |
-| GET    | `/api/v1/terms/:type`                             | "보기" modal (`type` = `SERVICE` …, uppercase) | same + `content` (plain text, rendered with `white-space: pre-wrap`, never as HTML)                               |
-| GET    | `/api/v1/me/consents`                             | 약관 동의 내역                                 | latest record per current document: `[{ termsDocumentId, type, version, title, isRequired?, agreed, createdAt }]` |
-| POST   | `/api/v1/me/consents`                             | signup                                         | `consentInputSchema`: `{ consents: [{ termsDocumentId, agreed }] }` — one entry per current document              |
-| PATCH  | `/api/v1/me/profile`                              | signup (nickname, marketingOptIn)              | `updateProfileSchema`                                                                                             |
-| POST   | `/api/v1/me/withdraw`                             | 회원 탈퇴                                      | `withdrawSchema`: `{ reason? }` (≤ 500 chars: "선택 사유 — 자유 입력")                                            |
-
-## Assumed endpoints / behaviours (reconcile when the auth controllers land)
-
-1. **Callback redirect contract.** After `GET /auth/oauth/{provider}/callback` the backend redirects to
-   the `returnTo` given at start (our `/auth/callback?...`). On failure it must redirect to
-   **`/auth/callback?error=<code>[&provider=<slug>]`** — `<code>` is an `AuthErrorCode`
-   (`AUTH_OAUTH_STATE_INVALID`, `AUTH_OAUTH_PROVIDER_ERROR`, `AUTH_ACCOUNT_SUSPENDED`, …) or the raw
-   OAuth2 `error` (`access_denied`, `server_error`, …). Unknown codes fall back to a generic message.
-   All copy lives in `src/features/w-auth/lib/oauth-errors.ts`. The code is shown small for support
-   only when it is a known code or looks like one (letters and single underscores, ≤ 40) — anything
-   else is shown as `UNKNOWN`, so a crafted link cannot print text or a phone number on our page.
-   When the failed round trip was a **link** (item 7) the redirect must also carry **`&link=1`**: the
-   page then says "계정 연결을 취소했어요 / 계정을 연결하지 못했어요" and offers "계정 설정으로" instead of
-   "다시 로그인".
-2. **`signupCompleted`** on `GET /auth/me`: `false` until every required current terms document is
-   agreed; becomes `true` after `POST /me/consents`. A new required version should flip it back to
-   `false` (re-consent) — the signup page then works as the re-consent screen.
-3. **`POST /me/consents`** answers `400 AUTH_TERMS_REQUIRED` when a required document is not agreed
-   (the form shows the message inline). The MARKETING consent is also sent as `marketingOptIn` in the
-   following `PATCH /me/profile`; the backend should keep both in sync.
-4. **`GET/PUT /api/v1/me/interest-regions`** (new, not in the README):
-   `{ regionKeys: string[] (max 5), notify: boolean }`. `regionKeys` are the stable keys of
-   `src/features/w-auth/lib/regions.ts` (`sindae`, `seonwol`, `yeonhyang`, …: 순천 생활권 단위, grouped
-   신도시·택지 / 도심 / 대학가 / 읍·면). If the backend prefers 법정동 codes, map them in that file. A
-   failure of this call does not block the signup (toast only).
-5. **`GET /api/v1/me/identities`** → `[{ id?, provider, email?, lastUsedAt?, createdAt? }]` (bare or
-   `{ items }`); same schema and query key (`['me-identities']`) as the w-me group.
-6. **`DELETE /api/v1/me/identities/{kakao|naver|google}`** — unlink one provider;
-   `409 AUTH_IDENTITY_LAST` when it is the only login method (the UI already disables the button).
-7. **Linking another provider**: `GET /auth/oauth/{provider}/start?returnTo=/me/account?linked=<slug>&link=1`
-   while signed in adds the identity to the current user instead of logging in. If that identity
-   belongs to another user the backend should redirect to `/auth/callback?error=AUTH_IDENTITY_ALREADY_LINKED&link=1`.
-   (Accounts are never auto-linked by e-mail.) Security: the link `state` must be bound to the
-   current session (a link started in one session must never complete in another), and the
-   `?linked=<slug>` return is only a hint — the settings page confirms "연결했어요" only when
-   `GET /me/identities` really contains that provider.
-8. **`GET /api/v1/terms/:type/versions/:version`** (shared with w-content, see `w-content.md`):
-   the 약관 동의 내역 "보기" opens **the version the user agreed to** (`record.version`), not the
-   current document. Shape = the `/terms/:type` document (`isRequired` may be omitted).
-9. **Interest-region keys vs 법정동 codes.** Every other region field of the backend is a 법정동 code
-   (`regionCodeSchema`: deal requests, listings, ads). `regionKeys` are 생활권 keys because 신대·선월지구
-   are parts of 해룡면 (리 level) — if the backend models interest regions as codes, add a `codes`
-   array per entry in `lib/regions.ts` (one key can map to several 리/동 codes) and send those.
-10. **Extra error codes** the UI knows but `AuthErrorCode` does not define yet: `AUTH_ACCOUNT_WITHDRAWN`
-    (login with a withdrawn account before the PII scrub), `AUTH_IDENTITY_ALREADY_LINKED`,
-    `AUTH_IDENTITY_LAST`, `AUTH_WITHDRAW_AGENCY_OWNER` (any `409` on `POST /me/withdraw` is shown as a
-    blocking notice with the server message; the form also blocks `AGENCY_OWNER` up front).
-11. **Withdrawal copy** mentions "개인정보처리방침에서 정한 기간" for the PII scrub — no number is shown,
-    so it stays correct whatever `piiScrubAfter` is.
-12. `GET /terms` is fetched on the server with `revalidate: 300` and tag `terms`.
+| Method | Path                                                                               | Used by                          |
+| ------ | ---------------------------------------------------------------------------------- | -------------------------------- |
+| GET    | `/auth/oauth/{provider}/start`                                                     | login, link (`intent=link`)      |
+| GET    | `/auth/me`                                                                         | session, landing, guards         |
+| GET    | `/auth/signup` · POST `/auth/signup`                                               | signup                           |
+| POST   | `/auth/logout` · `/auth/logout-all`                                                | 계정 설정                        |
+| POST   | `/auth/withdraw`                                                                   | suspended member's withdrawal    |
+| GET    | `/terms` · `/terms/:type[?version=]`                                               | re-consent, terms modal, history |
+| GET    | `/me/consents` · POST `/me/consents`                                               | 약관 동의 내역, re-consent       |
+| PATCH  | `/me/profile` (→ `MeResponse`)                                                     | (w-me profile form)              |
+| GET    | `/me/identities` · DELETE `/me/identities/:provider`                               | 로그인 계정                      |
+| POST   | `/me/withdraw` `{ confirm: true, reason? }`                                        | 회원 탈퇴                        |
+| PUT    | `/me/interest-regions` (frontend contract, built by the backend to the mock shape) | signup                           |
 
 ## Mock resources (`apps/web/src/app/mock-api/v1`)
 
-| Path                                         | Owner              | Notes                                                                                                         |
-| -------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `terms/route.ts`, `terms/[type]/route.ts`    | w-auth             | Fixtures in `terms/_fixtures.ts` (placeholder texts, versions 1.0 / 1.1).                                     |
-| `me/consents/route.ts`                       | w-auth             | Completes the mock signup (sets `house_mock_signup=done`).                                                    |
-| `me/interest-regions/route.ts`               | w-auth             | Assumed endpoint.                                                                                             |
-| `me/identities/[provider]/route.ts`          | w-auth             | DELETE; mutates the w-me in-memory store (`me/_store.ts`).                                                    |
-| `me/withdraw/route.ts`                       | w-auth             | 409 for the mock `AGENCY_OWNER`.                                                                              |
-| `auth/logout-all/route.ts`, `auth/_state.ts` | w-auth             | Mock signup cookie + consent / region state.                                                                  |
-| `auth/me/route.ts`                           | foundation, edited | Now reflects profile edits from the `/me` mocks and `signupCompleted` from the mock cookie.                   |
-| `auth/oauth/[provider]/start/route.ts`       | foundation, edited | Keeps `as=user\|agent\|owner` (default user). Added `as=new`, `as=auto`, `fail=<code>`, `link=1` (see below). |
-
-Mock-only parameters of the fake login (`/mock-api/v1/auth/oauth/{provider}/start`):
-
-- `as=new` — first-time user (`signupCompleted=false`) → the landing sends them to `/signup`.
-- `as=auto` — what the `/login` buttons send in mock mode: new user on the first visit of a browser, member afterwards.
-- `fail=<code>` — redirects to `/auth/callback?error=<code>` (e.g. `access_denied`, `AUTH_OAUTH_STATE_INVALID`).
-- `link=1` — adds the provider to the signed-in mock user.
-- Any `/me/**` mock answers 500 with `?_fail=1`; `terms` mocks too.
-
-In mock mode `/login` shows a small dashed "MOCK" row with these shortcuts (never rendered against the real API).
+Mocks follow the real contract above. `auth/_state.ts` keeps pending signups, withdrawal tickets and
+consents; `auth/signup`, `auth/withdraw` are new. Mock-only start parameters
+(`/mock-api/v1/auth/oauth/{provider}/start`): `as=user|agent|owner`, `as=new` (pending signup),
+`as=auto` (new on the first visit of a browser), `as=reconsent` (PRIVACY not agreed),
+`as=suspended`, `fail=<code>` (`access_denied` → `AUTH_OAUTH_CANCELLED`). In mock mode `/login`
+shows these as a dashed "MOCK" row. `GET /me/profile` is mock-only (the backend has no GET there).
 
 ## Shared pieces for other groups (`@/features/w-auth`)
 
-`AUTH_ROUTES`, `LinkedAccountsPanel` (link / unlink, self-contained), `ConsentHistoryPanel`,
+`AUTH_ROUTES`, `LinkedAccountsPanel` (summary by default — used on 내 정보; `manage` = link / unlink on 계정 설정), `ConsentHistoryPanel`,
 `SessionPanel`, `WithdrawEntry`, `ProviderMark`, `loginPath()`, `signupPath()`, `oauthLoginUrl()`,
 `maskEmail()`, `maskName()`.
 

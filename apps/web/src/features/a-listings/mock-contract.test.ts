@@ -6,6 +6,7 @@ import {
   isMine,
   isPrimaryMine,
   listingsState,
+  mergeUpdate,
   publishRequirementsError,
   summarize,
   toCandidate,
@@ -94,12 +95,12 @@ describe('mock publish validator', () => {
     }
   });
 
-  it('answers 422 LISTING_PUBLISH_REQUIREMENTS with details: [{ field, label }] for a holey draft', async () => {
+  it('answers 400 LISTING_PUBLISH_REQUIREMENTS with details: [{ field, label }] for a holey draft', async () => {
     const draft = seed('D01');
     const row = toItem(draft);
     expect(row.missingCount).toBeGreaterThan(0);
     const res = publishRequirementsError(draft);
-    expect(res?.status).toBe(422);
+    expect(res?.status).toBe(400);
     const body = (await res!.json()) as {
       code: string;
       message: string;
@@ -111,6 +112,31 @@ describe('mock publish validator', () => {
       expect(d.field).toBeTruthy();
       expect(d.label).toBeTruthy();
     }
+  });
+});
+
+describe('mock mergeUpdate (PATCH: omitted = unchanged, null = cleared)', () => {
+  it('keeps omitted fields, clears nulls and checks the version', async () => {
+    const listing = structuredClone(seed('L01'));
+    const before = toView(listing);
+    const merged = mergeUpdate(listing, {
+      title: null,
+      deposit: 27500,
+      dealType: DealType.JEONSE,
+      salePrice: null,
+      property: { dong: null },
+      version: before.version,
+    });
+    if ('error' in merged) throw new Error('merge failed');
+    expect(merged.data).toMatchObject({ dealType: DealType.JEONSE, deposit: 27500 });
+    expect(merged.data.title).toBeUndefined();
+    expect(merged.data.property.dong).toBeUndefined();
+    // Untouched fields survive (the body did not mention them).
+    expect(merged.data.property.exclusiveArea).toBe(before.property.exclusiveArea);
+    expect(merged.data.maintenanceFee).toEqual(draftOfListing(before).maintenanceFee);
+
+    const stale = mergeUpdate(listing, { title: '새 제목', version: (before.version ?? 0) + 5 });
+    expect('error' in stale && stale.error.status).toBe(409);
   });
 });
 

@@ -4,6 +4,7 @@ import {
   Avatar,
   Badge,
   Button,
+  Callout,
   ErrorState,
   Icon,
   Input,
@@ -18,15 +19,16 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { AdminPageHeader } from '@/components/shell';
 import { ApiError, errorMessage } from '@/lib/api';
-import { useAdminSession } from '@/lib/auth/session';
+import { ADMIN_SESSION_QUERY_KEY, useAdminSession } from '@/lib/auth/session';
 import { adminRoleLabel } from '@/lib/auth/types';
 import { formatDateTime, formatRelativeTime } from '@/lib/format';
-import { changePassword, coreKeys, fetchAccount, type TotpVerifyResult } from '../../api';
+import { changePassword, coreKeys, fetchAccount, type TotpResult, type TotpSetup } from '../../api';
 import { ROLE_SUMMARY, navAccess } from '../../lib/access';
-import { ADMIN_PASSWORD_MIN, passwordIssue } from '../../lib/otp';
+import { ADMIN_PASSWORD_MAX, ADMIN_PASSWORD_MIN, passwordIssue } from '../../lib/otp';
 import styles from '../core.module.css';
 import { TotpEnroll } from '../login/TotpEnroll';
 import { RecoveryCodes } from '../login/TotpStep';
+import { TotpReauthForm } from './TotpReauthForm';
 
 function Card({
   title,
@@ -53,7 +55,7 @@ const passwordSchema = z
     currentPassword: z.string().min(1, '현재 비밀번호를 입력해 주세요.').max(200),
     newPassword: z
       .string()
-      .max(200, '비밀번호가 너무 깁니다.')
+      .max(ADMIN_PASSWORD_MAX, `비밀번호는 ${ADMIN_PASSWORD_MAX}자 이하로 입력해 주세요.`)
       .superRefine((value, ctx) => {
         const issue = passwordIssue(value);
         if (issue) ctx.addIssue({ code: 'custom', message: issue });
@@ -72,6 +74,7 @@ type PasswordValues = z.infer<typeof passwordSchema>;
 
 function PasswordForm() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const {
     register,
     handleSubmit,
@@ -85,13 +88,23 @@ function PasswordForm() {
   });
   const submit = handleSubmit(async (values) => {
     try {
-      await changePassword({
+      // The API rotates this session (new CSRF token, kept by the API client) and ends the others.
+      const result = await changePassword({
         currentPassword: values.currentPassword,
         newPassword: values.newPassword,
       });
+      queryClient.setQueryData(coreKeys.account(), result.admin);
       reset();
-      toast('비밀번호를 변경했어요');
+      toast('비밀번호를 변경했어요. 다른 기기의 로그인은 모두 종료됐어요.');
     } catch (error) {
+      if (error instanceof ApiError && error.code === 'AUTH_INVALID_CREDENTIALS') {
+        setError(
+          'currentPassword',
+          { message: '현재 비밀번호가 올바르지 않습니다.' },
+          { shouldFocus: true },
+        );
+        return;
+      }
       const fields = error instanceof ApiError ? error.fieldErrors() : {};
       let mapped = false;
       (['currentPassword', 'newPassword'] as const).forEach((name) => {
@@ -139,23 +152,31 @@ function PasswordForm() {
   );
 }
 
-function TotpCard({ enabled, enrolledAt }: { enabled: boolean; enrolledAt?: string | null }) {
-  const [open, setOpen] = useState(false);
-  const [codes, setCodes] = useState<readonly string[] | null>(null);
+type ReenrollStep =
+  | { name: 'reauth' }
+  | { name: 'enroll'; setup: TotpSetup }
+  | { name: 'codes'; codes: readonly string[] };
+
+/** Recovery codes left below which the account page asks for a re-enrolment (new set of 10). */
+const RECOVERY_LOW = 3;
+
+function TotpCard({ enabled, recoveryLeft }: { enabled: boolean; recoveryLeft: number }) {
+  const [step, setStep] = useState<ReenrollStep | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const close = () => {
-    setOpen(false);
-    setCodes(null);
+    setStep(null);
+    setNotice(null);
   };
-  const onVerified = (result: TotpVerifyResult) => {
-    void queryClient.invalidateQueries({ queryKey: coreKeys.account() });
-    if (result.recoveryCodes?.length) setCodes(result.recoveryCodes);
-    else {
-      close();
-      toast('인증 앱을 다시 등록했어요');
-    }
+  const onActivated = (result: TotpResult) => {
+    // The API rotated this session and ended every other one: refresh what the page shows.
+    queryClient.setQueryData(coreKeys.account(), result.admin);
+    void queryClient.invalidateQueries({ queryKey: ADMIN_SESSION_QUERY_KEY });
+    setNotice(null);
+    setStep({ name: 'codes', codes: result.recoveryCodes ?? [] });
   };
+  const low = enabled && recoveryLeft <= RECOVERY_LOW;
   return (
     <Card
       title="2단계 인증"
@@ -165,35 +186,42 @@ function TotpCard({ enabled, enrolledAt }: { enabled: boolean; enrolledAt?: stri
         로그인할 때마다 인증 앱(TOTP)의 6자리 코드를 확인합니다. 관리자 계정은 2단계 인증을 끌 수
         없습니다.
       </p>
-      {enrolledAt && (
-        <dl className={styles.facts}>
-          <dt>등록일</dt>
-          <dd>{formatDateTime(enrolledAt)}</dd>
-        </dl>
-      )}
+      <dl className={styles.facts}>
+        <dt>남은 복구 코드</dt>
+        <dd>
+          {recoveryLeft}개{' '}
+          {low && <Badge tone="warn">{recoveryLeft === 0 ? '없음' : '얼마 남지 않음'}</Badge>}
+        </dd>
+      </dl>
       <div className={styles.rowBetween}>
-        <p className={styles.hint}>휴대폰을 바꿨다면 인증 앱을 다시 등록하세요.</p>
+        <p className={styles.hint}>
+          {low
+            ? '인증 앱을 다시 등록하면 새 복구 코드 10개를 받습니다.'
+            : '휴대폰을 바꿨다면 인증 앱을 다시 등록하세요.'}
+        </p>
         <Button
           variant="secondary"
           size="sm"
           iconLeft={<Icon name="refresh" size={16} />}
-          onClick={() => setOpen(true)}
+          onClick={() => setStep({ name: 'reauth' })}
         >
           인증 앱 다시 등록
         </Button>
       </div>
       <Modal
-        open={open}
+        open={step !== null}
         onClose={close}
         size="md"
-        title={codes ? '새 복구 코드' : '인증 앱 다시 등록'}
+        title={step?.name === 'codes' ? '새 복구 코드' : '인증 앱 다시 등록'}
         description={
-          codes
+          step?.name === 'codes'
             ? '이전 복구 코드는 더 이상 쓸 수 없습니다. 새 코드를 안전한 곳에 보관해 주세요.'
-            : '등록을 마치면 이전 기기의 인증 코드는 더 이상 쓸 수 없습니다.'
+            : step?.name === 'enroll'
+              ? '등록을 마치면 이전 기기의 인증 코드는 더 이상 쓸 수 없고, 다른 기기의 로그인도 모두 종료됩니다.'
+              : '본인 확인을 위해 현재 비밀번호와 지금 쓰는 인증 앱의 코드(또는 복구 코드)를 입력해 주세요.'
         }
         footer={
-          codes ? (
+          step?.name === 'codes' ? (
             <Button
               onClick={() => {
                 close();
@@ -205,12 +233,38 @@ function TotpCard({ enabled, enrolledAt }: { enabled: boolean; enrolledAt?: stri
           ) : undefined
         }
       >
-        {codes ? (
+        {step?.name === 'codes' && (
           <div className={styles.form}>
-            <RecoveryCodes codes={codes} />
+            <RecoveryCodes codes={step.codes} />
           </div>
-        ) : (
-          open && <TotpEnroll onVerified={onVerified} submitLabel="다시 등록 완료" />
+        )}
+        {step?.name === 'reauth' && (
+          <div className={styles.form}>
+            {notice && (
+              <Callout tone="warn" size="sm" live>
+                {notice}
+              </Callout>
+            )}
+            <TotpReauthForm
+              onCancel={close}
+              onSetup={(setup) => {
+                setNotice(null);
+                setStep({ name: 'enroll', setup });
+              }}
+            />
+          </div>
+        )}
+        {step?.name === 'enroll' && (
+          <TotpEnroll
+            initialSetup={step.setup}
+            onVerified={onActivated}
+            onSetupExpired={(message) => {
+              // The pending secret is gone; a new one needs a fresh re-authentication.
+              setNotice(message);
+              setStep({ name: 'reauth' });
+            }}
+            submitLabel="다시 등록 완료"
+          />
         )}
       </Modal>
     </Card>
@@ -313,8 +367,8 @@ export function AccountView() {
           </div>
           <div className={styles.stack}>
             <TotpCard
-              enabled={account.data?.totpEnabled ?? true}
-              enrolledAt={account.data?.totpEnrolledAt}
+              enabled={account.data?.totpEnabled ?? me.totpEnabled}
+              recoveryLeft={account.data?.recoveryCodesRemaining ?? me.recoveryCodesRemaining}
             />
             <Card title="비밀번호 변경">
               <PasswordForm />

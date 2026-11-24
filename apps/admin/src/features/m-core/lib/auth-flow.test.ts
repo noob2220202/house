@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '@/lib/api/errors';
-import { ADMIN_PASSWORD_MIN, groupSecret, otpauthAccount, passwordIssue, sanitizeOtp } from './otp';
+import {
+  ADMIN_PASSWORD_MIN,
+  factorBody,
+  formatRecoveryCode,
+  groupSecret,
+  otpauthAccount,
+  passwordIssue,
+  reauthBody,
+  sanitizeOtp,
+  secondFactorIssue,
+} from './otp';
 import {
   authErrorMessage,
   isSessionLost,
@@ -40,9 +50,43 @@ describe('otp helpers', () => {
 
   it('checks the admin password policy', () => {
     expect(passwordIssue('short1')).toBe(`${ADMIN_PASSWORD_MIN}자 이상 입력해 주세요.`);
-    expect(passwordIssue('onlyletters')).toBe('영문과 숫자를 모두 포함해 주세요.');
-    expect(passwordIssue('12345678901')).toBe('영문과 숫자를 모두 포함해 주세요.');
+    expect(passwordIssue('onlyletterss')).toBe('영문과 숫자를 모두 포함해 주세요.');
+    expect(passwordIssue('123456789012')).toBe('영문과 숫자를 모두 포함해 주세요.');
+    // shared adminPasswordSchema: 12+ characters (11 is too short)
+    expect(ADMIN_PASSWORD_MIN).toBe(12);
+    expect(passwordIssue('suncheon202')).toBe('12자 이상 입력해 주세요.');
     expect(passwordIssue('suncheon2026')).toBeNull();
+    expect(passwordIssue(`a1${'x'.repeat(127)}`)).toBe('128자 이하로 입력해 주세요.');
+  });
+});
+
+describe('second factor', () => {
+  it('masks a recovery code while typing', () => {
+    expect(formatRecoveryCode('abcd')).toBe('ABCD');
+    expect(formatRecoveryCode('abcde')).toBe('ABCD-E');
+    expect(formatRecoveryCode('ab cd-ef gh ij')).toBe('ABCD-EFGH');
+  });
+
+  it('validates with the shared schemas before calling the API', () => {
+    expect(secondFactorIssue({ kind: 'code', value: '12345' })).toBe(
+      '인증 코드 6자리를 입력해 주세요.',
+    );
+    expect(secondFactorIssue({ kind: 'code', value: '123456' })).toBeNull();
+    expect(secondFactorIssue({ kind: 'recovery', value: 'ABCD-EFG' })).toContain('8자리');
+    expect(secondFactorIssue({ kind: 'recovery', value: 'abcd-efgh' })).toBeNull();
+  });
+
+  it('builds exactly one of code / recoveryCode (adminTotpVerifySchema)', () => {
+    expect(factorBody({ kind: 'code', value: '123456' })).toEqual({ code: '123456' });
+    expect(factorBody({ kind: 'recovery', value: 'abcd-efgh' })).toEqual({
+      recoveryCode: 'ABCDEFGH',
+    });
+    expect(
+      reauthBody({ currentPassword: 'pw', factor: { kind: 'recovery', value: 'ABCD-EFGH' } }),
+    ).toEqual({ currentPassword: 'pw', recoveryCode: 'ABCDEFGH' });
+    expect(
+      reauthBody({ currentPassword: 'pw', factor: { kind: 'code', value: '654321' } }),
+    ).toEqual({ currentPassword: 'pw', code: '654321' });
   });
 });
 

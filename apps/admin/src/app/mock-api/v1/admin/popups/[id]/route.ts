@@ -1,4 +1,4 @@
-import { ERROR_MESSAGES, popupCreateSchema } from '@house/shared';
+import { ERROR_MESSAGES, popupCreateSchema, popupUpdateSchema } from '@house/shared';
 import type { NextRequest } from 'next/server';
 import { mockDelay, mockError, mockJson } from '@/lib/mock';
 import { adminGuard, readJson, validationError } from '../../banners/_guard';
@@ -17,7 +17,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   return popup ? mockJson(toAdminPopup(popup)) : notFound();
 }
 
-// PATCH /api/v1/admin/popups/:id — partial body; the merged record must satisfy popupCreateSchema.
+// PATCH /api/v1/admin/popups/:id — `popupUpdateSchema` (strict partial body); like the API, the
+// merged record must still satisfy the create rules.
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   const denied = adminGuard(req, { mutation: true });
   if (denied) return denied;
@@ -27,6 +28,8 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   const body = await readJson(req);
   if (!body || typeof body !== 'object' || Array.isArray(body))
     return mockError(400, 'VALIDATION_FAILED', '입력값을 확인해 주세요.');
+  const update = popupUpdateSchema.safeParse(body);
+  if (!update.success) return validationError(update.error);
   const current = {
     title: popup.title,
     mediaId: popup.mediaId,

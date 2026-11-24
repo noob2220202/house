@@ -86,6 +86,40 @@
 .hint {
   margin-top: var(--s-5);
 }
+.linkResult {
+  margin-bottom: var(--s-5);
+}
+
+/* ---- linked accounts, summary (내 정보): who is linked + a link to 계정 설정 ---- */
+.manageLink {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 36px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--brand);
+}
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+}
+.summaryItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.summaryOff {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.summaryOff > :first-child {
+  opacity: 0.45;
+}
 
 /* ---- consent history ---- */
 .consents {

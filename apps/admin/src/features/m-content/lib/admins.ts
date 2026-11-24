@@ -5,16 +5,19 @@ export type AdminAccountState = 'active' | 'pending' | 'locked' | 'disabled';
 export interface AdminAccountLike {
   status: 'ACTIVE' | 'DISABLED';
   totpEnabled: boolean;
+  /** Shared `AdminAccountView.locked`. */
+  locked?: boolean;
   lockedUntil: string | null;
   lastLoginAt: string | null;
 }
 
 /**
- * 사용 중지 > 잠김 (too many failed logins, until `lockedUntil`) > 첫 로그인 전 (never signed in,
- * no authenticator yet) > 사용 중.
+ * 사용 중지 > 잠김 (too many failed logins: `locked`, or until `lockedUntil`) > 첫 로그인 전
+ * (never signed in, no authenticator yet) > 사용 중.
  */
 export function adminAccountState(a: AdminAccountLike, now: Date = new Date()): AdminAccountState {
   if (a.status === 'DISABLED') return 'disabled';
+  if (a.locked) return 'locked';
   if (a.lockedUntil && new Date(a.lockedUntil).getTime() > now.getTime()) return 'locked';
   if (!a.lastLoginAt && !a.totpEnabled) return 'pending';
   return 'active';

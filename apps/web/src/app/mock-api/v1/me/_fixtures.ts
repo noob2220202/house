@@ -539,4 +539,16 @@ export function seedIdentities(now: number): Identity[] {
   ];
 }
 
+/** The one identity of a member who just signed up with `provider` (mock signup). */
+export function seedIdentityFor(provider: Identity['provider'], now: number): Identity {
+  const slug = provider.toLowerCase();
+  return {
+    id: mockUuid(`identity-${slug}`),
+    provider,
+    email: `${slug}.user@example.com`,
+    lastUsedAt: new Date(now).toISOString(),
+    createdAt: new Date(now).toISOString(),
+  };
+}
+
 export const SEED_OFFSETS = { accountAge: 37 * DAY, marketingChanged: 37 * DAY } as const;

@@ -1,21 +1,29 @@
-import type {
-  AgencyDocumentType,
-  AgencyRegisterInput,
-  AgencyResubmitInput,
-  MediaPurpose,
+import {
+  AgencyMemberRole,
+  UserRole,
+  type AgencyDocumentType,
+  type AgencyInviteCreateInput,
+  type AgencyMemberUpdateInput,
+  type AgencyRegisterInput,
+  type AgencyResubmitInput,
+  type MediaPurpose,
 } from '@house/shared';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { API_BASE_PATH, ApiError, api, fetchActionConsents, qk } from '@/lib/api';
 import type { BusinessHours } from '../lib/business-hours';
 import {
   agencyDashboardSchema,
   agencyDocumentSchema,
+  agencyInviteSchema,
+  agencyInvitesSchema,
   agencyMemberSchema,
   agencyMembersSchema,
+  agencyMembershipSchema,
   geocodeResultSchema,
   mediaSchema,
   myAgencySchema,
-  type InviteMemberPayload,
+  publicAgencySchema,
+  staffAgencyOf,
   type MyAgency,
 } from './schemas';
 
@@ -24,21 +32,47 @@ export const agencyKeys = {
   mine: qk('agencies', 'mine'),
   dashboard: qk('agencies', 'mine-dashboard'),
   members: qk('agencies', 'mine-members'),
+  invites: qk('agencies', 'mine-invites'),
   geocode: (query: string) => qk('geo', 'geocode', query),
 } as const;
 
 export interface FetchMyAgencyOptions {
   /**
-   * Treat 403 like 404 (`null` = no agency yet). Pass it for a USER-role caller: the agencies
-   * README lists GET /agencies/mine as AGENCY_OWNER only, so a backend that follows it answers an
-   * applicant (or someone who never applied) with 403 — the application form must still render.
+   * Treat 403 like 404 (`null` = no agency yet). Pass it for a USER-role caller: the application
+   * form must still render when the API refuses the endpoint to someone without an agency.
    */
   forbiddenAsNone?: boolean;
+  /** Session role: an AGENT whose `/agencies/mine` answers 404 / 403 falls back to the membership. */
+  role?: UserRole;
+}
+
+/** GET used by both the browser client and the server fetch (cookies forwarded). */
+export type AgencyGet = (path: string, schema: z.ZodType) => Promise<unknown>;
+
+/**
+ * B2 fallback for 소속 중개사 (AGENT): `GET /agencies/membership` + the public profile
+ * `GET /agencies/:id` → the staff view of the office. Null when the caller is not an AGENT member.
+ */
+export async function fetchStaffAgency(get: AgencyGet): Promise<MyAgency | null> {
+  try {
+    const membership = agencyMembershipSchema.parse(
+      await get('/agencies/membership', agencyMembershipSchema),
+    );
+    if (membership.role !== AgencyMemberRole.AGENT) return null;
+    const profile = publicAgencySchema.parse(
+      await get(`/agencies/${encodeURIComponent(membership.agency.id)}`, publicAgencySchema),
+    );
+    return staffAgencyOf(membership, profile);
+  } catch (error) {
+    if (error instanceof ApiError && (error.isNotFound || error.isForbidden)) return null;
+    throw error;
+  }
 }
 
 /**
  * GET /agencies/mine → the caller's agency, or null when they have none yet (404, or 403 with
- * `forbiddenAsNone`). A `200 null` body is accepted as "none" too (preferred by the frontend).
+ * `forbiddenAsNone`). The API serves staff the reduced view (`myRole: AGENT`); if it answers an
+ * AGENT with 404 / 403, the membership is used instead (`fetchStaffAgency`).
  */
 export async function fetchMyAgency(
   signal?: AbortSignal,
@@ -47,8 +81,12 @@ export async function fetchMyAgency(
   try {
     return await api.get('/agencies/mine', { schema: myAgencySchema.nullable(), signal });
   } catch (error) {
-    if (error instanceof ApiError && error.isNotFound) return null;
-    if (error instanceof ApiError && error.isForbidden && options.forbiddenAsNone) return null;
+    if (!(error instanceof ApiError)) throw error;
+    if ((error.isNotFound || error.isForbidden) && options.role === UserRole.AGENT) {
+      return fetchStaffAgency((path, schema) => api.get(path, { schema, signal }));
+    }
+    if (error.isNotFound) return null;
+    if (error.isForbidden && options.forbiddenAsNone) return null;
     throw error;
   }
 }
@@ -57,11 +95,38 @@ export function fetchDashboard(signal?: AbortSignal) {
   return api.get('/agencies/mine/dashboard', { schema: agencyDashboardSchema, signal });
 }
 
+/** GET /agencies/mine/members — ACTIVE staff incl. the owner (one page of up to 100). */
 export function fetchMembers(signal?: AbortSignal) {
-  return api.get('/agencies/mine/members', { schema: agencyMembersSchema, signal });
+  return api.get('/agencies/mine/members', {
+    query: { pageSize: 100 },
+    schema: agencyMembersSchema,
+    signal,
+  });
 }
 
-/** GET /geo/geocode?query= — address search with coordinates (ASSUMED endpoint). */
+/** GET /agencies/mine/invites — open invitations (code hint only; the code is shown once). */
+export function fetchInvites(signal?: AbortSignal) {
+  return api.get('/agencies/mine/invites', { schema: agencyInvitesSchema, signal });
+}
+
+/** POST /agencies/mine/invites → the new invitation WITH its code (never readable again). */
+export function createInvite(input: AgencyInviteCreateInput) {
+  return api.post('/agencies/mine/invites', input, { schema: agencyInviteSchema });
+}
+
+/** DELETE /agencies/mine/invites/:inviteId — the code stops working. */
+export function revokeInvite(inviteId: string) {
+  return api.delete(`/agencies/mine/invites/${encodeURIComponent(inviteId)}`);
+}
+
+/** PATCH /agencies/mine/members/:memberId — 소속공인중개사 / 중개보조원 (+ 자격증 번호). */
+export function updateMember(memberId: string, input: AgencyMemberUpdateInput) {
+  return api.patch(`/agencies/mine/members/${encodeURIComponent(memberId)}`, input, {
+    schema: agencyMemberSchema,
+  });
+}
+
+/** GET /geo/geocode?query= — address search with coordinates and the 법정동코드. */
 export function geocode(query: string, signal?: AbortSignal) {
   return api.get('/geo/geocode', { query: { query }, schema: geocodeResultSchema, signal });
 }
@@ -126,26 +191,28 @@ export function attachDocument(input: {
   return api.post('/agencies/mine/documents', input, { schema: agencyDocumentSchema });
 }
 
-/** POST /agencies/mine/members — body built by `toInvitePayload` (no '' for blank fields). */
-export function inviteMember(input: InviteMemberPayload) {
-  return api.post('/agencies/mine/members', input, { schema: agencyMemberSchema });
-}
-
+/** DELETE /agencies/mine/members/:memberId — the member leaves; their ads move to the 대표. */
 export function removeMember(memberId: string) {
   return api.delete(`/agencies/mine/members/${encodeURIComponent(memberId)}`);
 }
 
-const joinResultSchema = z.object({
-  agencyId: z.string(),
-  agencyName: z.string(),
-  role: z.string().optional(),
-});
+export interface JoinAgencyInput {
+  /** Normalized invite code (`normalizeInviteCode`). */
+  code: string;
+  /** Name shown to the office (member profile). */
+  displayName: string;
+  phone?: string;
+}
 
-/** POST /agencies/join — redeem a staff invite code (ASSUMED endpoint). */
-/** POST /agencies/join with the current version of the 개인정보 수집·이용 동의 the user ticked (D8). */
-export async function joinAgency(code: string) {
+/**
+ * POST /agencies/join (`agencyJoinSchema`) with the current version of the 개인정보 수집·이용 동의
+ * the user ticked (D8) → `MyAgencyMembership`. A joining member is always a 중개보조원 until the
+ * owner records a license.
+ */
+export async function joinAgency(input: JoinAgencyInput | string) {
   const consents = await fetchActionConsents('AGENCY_JOIN');
-  return api.post('/agencies/join', { code, consents }, { schema: joinResultSchema });
+  const body = typeof input === 'string' ? { code: input } : input;
+  return api.post('/agencies/join', { ...body, consents }, { schema: agencyMembershipSchema });
 }
 
 /** URL of a private document stream (opens in a new tab; cookies authorize it). */

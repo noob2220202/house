@@ -35,6 +35,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
+import { useMyAgency } from '@/features/a-agency/api/useMyAgency';
 import { AGENT_ROUTES } from '@/features/a-agency/nav';
 import { ConsolePage, ConsolePageHeader } from '@/features/a-agency/shell';
 import { mediaImage } from '@/features/w-listing/lib/media';
@@ -226,9 +227,11 @@ export function ListingsView({ isOwner }: ListingsViewProps) {
     queryKey: listingKeys.summary,
     queryFn: ({ signal }) => fetchSummary(signal),
   });
+  // The caller's office marks the rows it is the primary (대표) office of (API rows name it).
+  const agencyId = useMyAgency().data?.id;
   const list = useQuery({
-    queryKey: listingKeys.list(params),
-    queryFn: ({ signal }) => fetchListings(params, signal),
+    queryKey: [...listingKeys.list(params), agencyId ?? null],
+    queryFn: ({ signal }) => fetchListings(params, signal, agencyId),
     placeholderData: keepPreviousData,
   });
 

@@ -71,7 +71,8 @@ export function ComplexPageView({ data }: { data: ComplexPageData }) {
   const total = summary?.total ?? complex.activeListingCount;
   const mainArea = defaultAreaType(complex.areaTypes);
   const mainTrade = mainArea
-    ? latestByAreaType([mainArea], stats?.latest ?? [], 'SALE')[0]?.trade
+    ? latestByAreaType([mainArea], [...(stats?.latest ?? []), ...complex.latestTrades], 'SALE')[0]
+        ?.trade
     : null;
   const mainTradeAmount = mainTrade ? tradeAmount(mainTrade) : null;
   const overview = complexOverview(complex);
@@ -305,7 +306,10 @@ export function ComplexPageView({ data }: { data: ComplexPageData }) {
           </section>
 
           {complex.areaTypes.length > 0 && (
-            <AreaTypeSection areaTypes={complex.areaTypes} latest={stats?.latest ?? []} />
+            <AreaTypeSection
+              areaTypes={complex.areaTypes}
+              latest={[...(stats?.latest ?? []), ...complex.latestTrades]}
+            />
           )}
 
           <TradeSection

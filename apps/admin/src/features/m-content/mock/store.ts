@@ -129,3 +129,14 @@ export function termsView(row: MockTerms) {
     .sort((a, b) => b.effectiveAt.localeCompare(a.effectiveAt))[0];
   return { ...row, isCurrent: current?.id === row.id };
 }
+
+/** Shared `AdminAccountView` of a mock account (`locked` instead of the mock's `lockedUntil`). */
+export function adminView(a: MockAdminAccount) {
+  const { lockedUntil, ...rest } = a;
+  return {
+    ...rest,
+    locked: !!lockedUntil && new Date(lockedUntil).getTime() > Date.now(),
+    passwordChangedAt: null,
+    updatedAt: a.createdAt,
+  };
+}

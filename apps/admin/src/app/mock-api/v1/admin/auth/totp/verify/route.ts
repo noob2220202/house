@@ -11,54 +11,53 @@ import {
 } from '@/lib/mock';
 import {
   CSRF_FAIL,
-  MOCK_RECOVERY_CODES,
   fullSessionValue,
+  mockAdminMe,
   mockPending,
+  mockRecoveryValid,
   mockTotpValid,
+  newCsrfToken,
   setAdminCookie,
+  setCsrfCookie,
 } from '../../_mcore';
 
 /**
- * POST /api/v1/admin/auth/totp/verify { code } | { recoveryCode }
- * - half-authenticated session → marks it MFA-verified (login complete);
- * - verified session → confirms a re-enrolled secret.
- * `recoveryCodes` are returned once, right after an enrolment.
+ * POST /api/v1/admin/auth/totp/verify { code } | { recoveryCode } → { admin, csrfToken }
+ * (shared `AdminSessionResponse`). Second factor of an ENROLLED admin only — an admin without
+ * TOTP gets 400 AUTH_TOTP_NOT_ENROLLED and must enrol (setup → activate). Rotates the session
+ * into a TOTP-verified one. Wrong factor → 401 AUTH_TOTP_INVALID.
  */
 export async function POST(req: NextRequest) {
   const off = mockGuard();
   if (off) return off;
-  if (!mockCsrfOk(req)) return mockError(...CSRF_FAIL);
-  await mockDelay(req, 350);
   const pending = mockPending(req);
   const role = mockAdminRole(req);
   if (!pending && !role) return mockUnauthenticated();
+  if (!mockCsrfOk(req)) return mockError(...CSRF_FAIL);
+  await mockDelay(req, 350);
+  if (pending && !pending.account.totpEnrolled)
+    return mockError(400, 'AUTH_TOTP_NOT_ENROLLED', ERROR_MESSAGES.AUTH_TOTP_NOT_ENROLLED);
   const parsed = adminTotpVerifySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success)
-    return mockError(400, 'VALIDATION_FAILED', '인증 코드 6자리를 입력해 주세요.', [
+    return mockError(400, 'VALIDATION_FAILED', '인증 코드 또는 복구 코드를 입력해 주세요.', [
       { path: 'code', code: 'invalid_format', message: '인증 코드 6자리를 입력해 주세요.' },
     ]);
   // `adminTotpVerifySchema` takes exactly one of `code` (6 digits) or `recoveryCode` (normalized).
   const { code, recoveryCode } = parsed.data;
-  const valid =
-    code !== undefined
-      ? mockTotpValid(code)
-      : MOCK_RECOVERY_CODES.some((c) => c.replace(/[^0-9A-Z]/g, '') === recoveryCode);
-  if (!valid)
-    return mockError(400, 'AUTH_TOTP_INVALID', ERROR_MESSAGES.AUTH_TOTP_INVALID, [
-      {
-        path: code !== undefined ? 'code' : 'recoveryCode',
-        code: 'AUTH_TOTP_INVALID',
-        message: ERROR_MESSAGES.AUTH_TOTP_INVALID,
-      },
-    ]);
-  if (pending) {
-    const res = mockJson(
-      pending.account.totpEnrolled
-        ? { ok: true }
-        : { ok: true, recoveryCodes: MOCK_RECOVERY_CODES },
-    );
-    setAdminCookie(res, fullSessionValue(pending.account.role));
-    return res;
-  }
-  return mockJson({ ok: true, recoveryCodes: MOCK_RECOVERY_CODES });
+  const valid = code !== undefined ? mockTotpValid(code) : mockRecoveryValid(recoveryCode ?? '');
+  if (!valid) return mockError(401, 'AUTH_TOTP_INVALID', ERROR_MESSAGES.AUTH_TOTP_INVALID);
+
+  const nextRole = pending ? pending.account.role : role!;
+  const admin = mockAdminMe(nextRole);
+  const csrfToken = newCsrfToken();
+  const res = mockJson({
+    admin:
+      recoveryCode !== undefined
+        ? { ...admin, recoveryCodesRemaining: Number(admin.recoveryCodesRemaining ?? 10) - 1 }
+        : admin,
+    csrfToken,
+  });
+  setAdminCookie(res, fullSessionValue(nextRole));
+  setCsrfCookie(res, csrfToken);
+  return res;
 }

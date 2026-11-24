@@ -517,6 +517,7 @@ export function toComplexDetail(spec: MockComplexSpec): ComplexDetail {
     areaTypes: spec.areas.map((a) => toAreaType(spec, a)),
     // No media server in mock mode → the UI shows the branded placeholder.
     photos: [],
+    latestTrades: tradeDataOf(spec).latest,
   };
 }
 

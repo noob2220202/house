@@ -1,15 +1,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { adminPatchSchema } from '@/features/m-content/api/inputs';
 import { isResponse, mockAdmin, mockBody, mockConflict } from '@/features/m-content/mock/http';
-import { audit, changedOnly, db, pickChanged } from '@/features/m-content/mock/store';
-import { mockJson, mockNotFound } from '@/lib/mock';
+import { adminView, audit, changedOnly, db, pickChanged } from '@/features/m-content/mock/store';
+import { mockError, mockJson, mockNotFound } from '@/lib/mock';
 
 type Ctx = { params: Promise<{ id: string }> };
 const missing = () => mockNotFound('ADMIN_NOT_FOUND', '관리자 계정을 찾을 수 없습니다.');
 const activeSupers = (exceptId: string) =>
   db().admins.filter((a) => a.id !== exceptId && a.role === 'SUPER_ADMIN' && a.status === 'ACTIVE');
 
-// PATCH /api/v1/admin/admins/:id { name?, role?, status?, ipAllowlist? } — ASSUMED body
+// PATCH /api/v1/admin/admins/:id { name?, role?, status?, ipAllowlist? } (`adminAccountUpdateSchema`)
+// → AdminAccountView.
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const ctx = await mockAdmin(req, { min: 'SUPER_ADMIN', mutate: true });
   if (isResponse(ctx)) return ctx;
@@ -36,10 +37,11 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       before,
       after,
     });
-  return mockJson(row);
+  return mockJson(adminView(row));
 }
 
-// DELETE /api/v1/admin/admins/:id
+// DELETE /api/v1/admin/admins/:id → 204. Like the API this is a soft delete: the row leaves the
+// list (it stays as the audit-log actor in the real database, with its e-mail released).
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   const ctx = await mockAdmin(req, { min: 'SUPER_ADMIN', mutate: true });
   if (isResponse(ctx)) return ctx;
@@ -48,12 +50,12 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
   const row = store.admins.find((a) => a.id === id);
   if (!row) return missing();
   if (id === ctx.actor.id)
-    return mockConflict('ADMIN_SELF_CHANGE', '본인 계정은 삭제할 수 없습니다.');
+    return mockError(403, 'ADMIN_SELF_MODIFICATION', '본인 계정은 삭제할 수 없습니다.');
   if (row.role === 'SUPER_ADMIN' && activeSupers(id).length === 0)
     return mockConflict('ADMIN_LAST_SUPER_ADMIN', '최고관리자는 한 명 이상 있어야 합니다.');
   store.admins = store.admins.filter((a) => a.id !== id);
   audit(ctx, req, {
-    action: 'admin.delete',
+    action: 'admin-account.delete',
     resourceType: 'AdminUser',
     resourceId: id,
     resourceLabel: `${row.name} (${row.email})`,

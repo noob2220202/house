@@ -346,7 +346,12 @@ export function toReportListItem(r: MockReport): AdminReportListItem {
   };
 }
 
-export function toReportDetail(r: MockReport): AdminReportDetail {
+/**
+ * GET /admin/reports/:id: shared `AdminReportView` (`handledBy`, one `resolutionNote` — the memo)
+ * plus the mock-only extras the detail screen can show when present (reporter stats, related
+ * reports, timeline, attachments).
+ */
+export function toReportDetail(r: MockReport) {
   const all = reportsDb();
   const reporter = usersDb().find((u) => u.id === r.reporterUserId);
   const mine = all.filter((x) => x.reporterUserId === r.reporterUserId);
@@ -359,9 +364,8 @@ export function toReportDetail(r: MockReport): AdminReportDetail {
       upheldCount: mine.filter((x) => x.status === 'RESOLVED').length,
     },
     reporterPhone: r.reporterPhone,
-    resolutionNote: r.resolutionNote,
-    internalNote: r.internalNote,
-    handledByName: r.handledByName,
+    resolutionNote: r.resolutionNote ?? r.internalNote,
+    handledBy: r.handledByName ? { id: `admin-${r.handledByName}`, name: r.handledByName } : null,
     attachments: r.attachments.map((a) => ({
       id: a.id,
       fileName: a.fileName,

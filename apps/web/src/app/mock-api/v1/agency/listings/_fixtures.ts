@@ -1,11 +1,14 @@
 import {
   AssetType,
+  BuildingUse,
   DealType,
   Direction,
   DirectionBasis,
   FloorDisplay,
   ListingOption,
   ListingStatus,
+  MaintenanceFeeBillingType,
+  MaintenanceFeeKind,
   MoveInType,
   VerificationMethod,
 } from '@house/shared';
@@ -13,6 +16,7 @@ import type {
   AgencyListing,
   AgencyListingAgency,
   AgencyListingPhoto,
+  MaintenanceFeeView,
 } from '@/features/a-listings/api/schemas';
 import { mockUuid } from '@/lib/mock';
 import { OFFICE_ID } from '../../agencies/mine/_fixtures';
@@ -122,6 +126,22 @@ export function mockPhotos(code: string, count: number, scenes = SCENES): Agency
 
 // ---- seeds ----------------------------------------------------------------------------------------
 
+/**
+ * 정액관리비 내역 whose included items add up to `feeWon` (10만원 이상 → 항목별 금액, 세부기준) —
+ * the shape the API stores (`maintenanceFee`).
+ */
+export function fixedFee(feeWon: number): MaintenanceFeeView {
+  return {
+    billingType: MaintenanceFeeBillingType.FIXED,
+    items: [
+      { kind: MaintenanceFeeKind.GENERAL, included: true, amountWon: feeWon - 20_000 },
+      { kind: MaintenanceFeeKind.WATER, included: true, amountWon: 12_000 },
+      { kind: MaintenanceFeeKind.OTHER, included: true, amountWon: 8_000 },
+    ],
+    unavailableReason: null,
+  };
+}
+
 export interface StoredListing extends AgencyListing {
   /** Short fixture code ("L01"), accepted as an id alias. */
   code: string;
@@ -205,7 +225,7 @@ function aptListing(s: AptSeed): StoredListing {
     presalePrice: presale && !noPrice ? (s.price ?? null) : null,
     premium: presale && !noPrice ? (s.premium ?? 0) : null,
     maintenanceFeeWon: blank.has('fee') ? null : 150_000 + area.pyeong * 1000,
-    maintenanceFeeItems: blank.has('fee') ? [] : ['일반관리비', '청소비', '승강기유지비'],
+    maintenanceFee: blank.has('fee') ? null : fixedFee(150_000 + area.pyeong * 1000),
     moveInType: blank.has('moveIn') ? null : presale ? MoveInType.DATE : MoveInType.NEGOTIABLE,
     moveInDate: presale && !blank.has('moveIn') ? '2027-03-31' : null,
     floorDisplay: s.floorDisplay ?? FloorDisplay.CLASS,
@@ -251,6 +271,8 @@ function aptListing(s: AptSeed): StoredListing {
       parkingSpaces: blank.has('detail')
         ? null
         : Math.round(spec.households * spec.parkingPerHousehold),
+      // 아파트: 건축물 용도 follows from the category (the API leaves it null).
+      buildingUse: null,
     },
     complex: { id: complexIdOf(spec.code), name: spec.name, emdName: spec.emdName },
     photos: mockPhotos(s.code, s.photos ?? 8),
@@ -264,6 +286,7 @@ function aptListing(s: AptSeed): StoredListing {
               verifiedAt: dayString(s.verified),
               note: '현장 방문, 내부 사진 촬영',
               verifiedByName: '김서진',
+              byAdmin: false,
             },
             {
               id: `ver-${s.code}-1`,
@@ -271,6 +294,7 @@ function aptListing(s: AptSeed): StoredListing {
               verifiedAt: dayString(s.verified + 1),
               note: null,
               verifiedByName: '오세린',
+              byAdmin: false,
             },
           ],
     agencies: [],
@@ -748,7 +772,7 @@ function extraListings(): StoredListing[] {
     description:
       '신대지구 진입로와 가까운 대지예요. 남측과 동측 2면이 도로에 접해 있고, 경계 측량을 마쳤어요.',
     maintenanceFeeWon: null,
-    maintenanceFeeItems: [],
+    maintenanceFee: null,
     moveInType: null,
     floorDisplay: FloorDisplay.EXACT,
     options: [],
@@ -776,6 +800,7 @@ function extraListings(): StoredListing[] {
       directionBasis: null,
       approvalDate: null,
       parkingSpaces: null,
+      buildingUse: null,
     },
     complex: null,
     photos: mockPhotos('T01', 3, [['land', '전경']]),
@@ -830,6 +855,7 @@ function extraListings(): StoredListing[] {
       directionBasis: null,
       approvalDate: '2019-04-12',
       parkingSpaces: null,
+      buildingUse: BuildingUse.MULTI_FAMILY_HOUSE,
     },
     complex: null,
     photos: mockPhotos('D02', 4, ROOM_SCENES),

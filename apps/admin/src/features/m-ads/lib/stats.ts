@@ -1,5 +1,6 @@
+import { ADS_LIMITS } from '@house/shared';
 import type { BannerStats } from '../api/schemas';
-import { addDays, dayDiff, isDay, kstToday } from './dates';
+import { addDays, dayDiff, isDay, kstToday, toKstDay } from './dates';
 import { ctrOf } from './status';
 
 export type RangePreset = '7' | '14' | '30' | 'all';
@@ -36,6 +37,27 @@ export function resolveRange(
       : DEFAULT_RANGE;
   if (preset === 'all') return { preset };
   return { preset, from: addDays(today, -(Number(preset) - 1)), to: today };
+}
+
+/** The stats endpoint answers at most this many days per request (shared ADS_LIMITS). */
+export const STATS_MAX_DAYS = ADS_LIMITS.STATS_MAX_DAYS;
+
+/**
+ * Whole campaign as an explicit KST range (the API defaults to the last 30 days when `from` / `to`
+ * are omitted): start day → today or the end day, whichever comes first, at most
+ * `STATS_MAX_DAYS` days (the most recent ones). Null before the banner starts.
+ */
+export function totalsRange(
+  banner: { startAt: string; endAt: string },
+  now: Date = new Date(),
+): { from: string; to: string } | null {
+  const today = kstToday(now);
+  const start = toKstDay(banner.startAt);
+  const end = toKstDay(banner.endAt);
+  const to = end < today ? end : today;
+  if (start > to) return null;
+  const earliest = addDays(to, -(STATS_MAX_DAYS - 1));
+  return { from: start < earliest ? earliest : start, to };
 }
 
 export type Metric = 'impressions' | 'clicks' | 'ctr';

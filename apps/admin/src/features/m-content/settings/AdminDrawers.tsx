@@ -32,7 +32,12 @@ import {
 import type { AdminAccount } from '../api/schemas';
 import drawer from '../components/drawer.module.css';
 import s from '../components/shared.module.css';
-import { generateTempPassword, ipAllowedBy, parseIpAllowlist } from '../lib/admins';
+import {
+  adminAccountState,
+  generateTempPassword,
+  ipAllowedBy,
+  parseIpAllowlist,
+} from '../lib/admins';
 import { applyServerErrors } from '../lib/form-errors';
 import styles from './settings.module.css';
 
@@ -274,6 +279,7 @@ export function AdminEditDrawer({
   const { toast } = useToast();
   const [confirm, setConfirm] = useState<'totp' | 'delete' | null>(null);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const locked = account ? adminAccountState(account) === 'locked' : false;
   const { register, handleSubmit, reset, watch, setValue, setError, formState } =
     useForm<AdminEditForm>({
       resolver: zodResolver(adminEditFormSchema),
@@ -338,6 +344,17 @@ export function AdminEditDrawer({
       setConfirm(null);
       toast('관리자 계정을 삭제했어요.');
       onChanged(true);
+    },
+    onError: (e) => {
+      setConfirm(null);
+      toast({ message: errorMessage(e), tone: 'error' });
+    },
+  });
+  const unlock = useMutation({
+    mutationFn: () => admins.unlock(account?.id ?? ''),
+    onSuccess: () => {
+      toast('계정 잠금을 풀었어요.');
+      onChanged(false);
     },
     onError: (e) => {
       setConfirm(null);
@@ -448,10 +465,14 @@ export function AdminEditDrawer({
                     ? `${formatDateTime(account.lastLoginAt)}${account.lastLoginIp ? ` · ${account.lastLoginIp}` : ''}`
                     : '로그인한 적 없음'}
                 </dd>
-                {account.lockedUntil && new Date(account.lockedUntil) > new Date() && (
+                {locked && (
                   <>
                     <dt>잠금</dt>
-                    <dd>{formatDateTime(account.lockedUntil)}까지 (로그인 실패 반복)</dd>
+                    <dd>
+                      {account.lockedUntil
+                        ? `${formatDateTime(account.lockedUntil)}까지 (인증 실패 반복)`
+                        : '인증 실패 반복으로 잠김'}
+                    </dd>
                   </>
                 )}
                 <dt>계정 생성</dt>
@@ -480,6 +501,22 @@ export function AdminEditDrawer({
                   OTP 초기화
                 </Button>
               </div>
+              {locked && (
+                <div className={styles.actionRow}>
+                  <p className={styles.actionText}>
+                    <b>잠금 해제</b>
+                    인증 코드를 여러 번 틀려 잠긴 계정을 바로 풀어요.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    loading={unlock.isPending}
+                    onClick={() => unlock.mutate()}
+                  >
+                    잠금 해제
+                  </Button>
+                </div>
+              )}
               {!isSelf && (
                 <div className={styles.actionRow}>
                   <p className={styles.actionText}>

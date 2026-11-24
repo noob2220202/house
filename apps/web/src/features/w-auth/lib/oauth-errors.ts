@@ -1,7 +1,8 @@
 /**
- * Korean copy for every failure the OAuth landing page (/auth/callback?error=…) can receive:
- * backend AuthErrorCode values, raw OAuth2 `error` values passed through from the provider, and a
- * few client-side situations (no session after the round trip).
+ * Korean copy for every failure of a social login or account link. The backend's OAuth callback
+ * redirects a failed login to `/login?error=<AuthErrorCode>` (a suspended member also gets
+ * `&withdrawable=1`) and a failed link to `/me/account?error=<AuthErrorCode>`. Raw OAuth2 `error`
+ * values and a few client-side situations (no session after the round trip) are covered too.
  */
 export interface OAuthErrorInfo {
   /**
@@ -20,9 +21,14 @@ export interface OAuthErrorInfo {
   tone: 'notice' | 'error';
   /** The failed round trip was linking a provider to a signed-in account, not a login. */
   linking: boolean;
+  /**
+   * A suspended member may still withdraw (POST /auth/withdraw with the ticket the refused login
+   * set): offer the withdrawal flow.
+   */
+  withdrawable: boolean;
 }
 
-type Entry = Omit<OAuthErrorInfo, 'code' | 'linking'>;
+type Entry = Omit<OAuthErrorInfo, 'code' | 'linking' | 'withdrawable'>;
 
 const CANCELLED: Entry = {
   title: '로그인을 취소했어요',
@@ -69,11 +75,19 @@ const TABLE: Record<string, Entry> = {
   INVALID_SCOPE: PROVIDER_FAILED,
   UNAUTHORIZED_CLIENT: PROVIDER_FAILED,
   // --- backend codes (packages/shared/src/errors/auth.ts)
+  AUTH_OAUTH_CANCELLED: CANCELLED,
   AUTH_OAUTH_STATE_INVALID: EXPIRED,
   AUTH_OAUTH_PROVIDER_ERROR: PROVIDER_FAILED,
   AUTH_SESSION_EXPIRED: NO_SESSION,
   UNAUTHENTICATED: NO_SESSION,
   NO_SESSION,
+  AUTH_PROVIDER_DISABLED: {
+    title: '지금은 쓸 수 없는 로그인 방식이에요',
+    description: '이 간편 로그인은 잠시 사용할 수 없어요. 다른 계정으로 로그인해 주세요.',
+    canRetry: true,
+    support: true,
+    tone: 'error',
+  },
   AUTH_ACCOUNT_SUSPENDED: {
     title: '이용이 정지된 계정이에요',
     description:
@@ -89,15 +103,6 @@ const TABLE: Record<string, Entry> = {
     support: false,
     tone: 'error',
   },
-  AUTH_TERMS_REQUIRED: {
-    title: '약관 동의가 필요해요',
-    description:
-      '필수 약관에 동의해야 서비스를 이용할 수 있어요. 다시 로그인하면 동의 화면이 열려요.',
-    canRetry: true,
-    support: false,
-    tone: 'notice',
-  },
-  // --- assumed codes (not in AuthErrorCode yet — see docs/frontend-integration/w-auth.md)
   AUTH_ACCOUNT_WITHDRAWN: {
     title: '탈퇴 처리된 계정이에요',
     description:
@@ -106,13 +111,50 @@ const TABLE: Record<string, Entry> = {
     support: true,
     tone: 'error',
   },
-  AUTH_IDENTITY_ALREADY_LINKED: {
+  AUTH_REJOIN_COOLDOWN: {
+    title: '지금은 다시 가입할 수 없어요',
+    description:
+      '탈퇴한 소셜 계정은 탈퇴 후 일정 기간 동안 다시 가입할 수 없어요. 기간이 지난 뒤 다시 시도하거나 다른 계정으로 가입해 주세요.',
+    canRetry: false,
+    support: true,
+    tone: 'notice',
+  },
+  AUTH_SIGNUP_EXPIRED: {
+    title: '가입 시간이 지났어요',
+    description: '가입 화면을 오래 열어 두었어요. 간편 로그인을 다시 하면 이어서 가입할 수 있어요.',
+    canRetry: true,
+    support: false,
+    tone: 'notice',
+  },
+  AUTH_TERMS_REQUIRED: {
+    title: '약관 동의가 필요해요',
+    description: '바뀐 필수 약관에 동의해야 서비스를 계속 이용할 수 있어요.',
+    canRetry: true,
+    support: false,
+    tone: 'notice',
+  },
+  AUTH_IDENTITY_DUPLICATE: {
     title: '이미 다른 회원에 연결된 계정이에요',
     description:
-      '이 소셜 계정은 다른 회원 정보에 연결돼 있어요. 해당 계정으로 로그인하거나, 연결을 해제한 뒤 다시 시도해 주세요.',
+      '이 소셜 계정은 다른 회원 정보에 연결돼 있어요. 해당 계정으로 로그인하거나, 그 회원 정보에서 연결을 해제한 뒤 다시 시도해 주세요.',
     canRetry: true,
     support: true,
     tone: 'error',
+  },
+  AUTH_PROVIDER_ALREADY_LINKED: {
+    title: '이미 연결된 서비스예요',
+    description:
+      '같은 서비스의 다른 계정이 이미 연결돼 있어요. 바꾸려면 지금 연결된 계정을 먼저 해제해 주세요.',
+    canRetry: true,
+    support: false,
+    tone: 'notice',
+  },
+  AUTH_LAST_IDENTITY: {
+    title: '마지막 로그인 수단이에요',
+    description: '다른 계정을 먼저 연결해야 이 계정의 연결을 해제할 수 있어요.',
+    canRetry: true,
+    support: false,
+    tone: 'notice',
   },
   RATE_LIMITED: {
     title: '요청이 너무 많아요',
@@ -167,18 +209,32 @@ const ACCOUNT_CODES = new Set([
   'AUTH_ACCOUNT_SUSPENDED',
   'AUTH_ACCOUNT_LOCKED',
   'AUTH_ACCOUNT_WITHDRAWN',
-  'AUTH_IDENTITY_ALREADY_LINKED',
+  'AUTH_IDENTITY_DUPLICATE',
+  'AUTH_PROVIDER_ALREADY_LINKED',
   'RATE_LIMITED',
 ]);
+/** Codes the backend only sends back from a link round trip. */
+const LINK_ONLY_CODES = new Set(['AUTH_IDENTITY_DUPLICATE', 'AUTH_PROVIDER_ALREADY_LINKED']);
+
+const SUSPENDED_WITHDRAWABLE: Entry = {
+  title: '이용이 정지된 계정이에요',
+  description:
+    '운영 정책 위반 등의 사유로 이용이 제한된 계정이에요. 이용 정지 중에도 회원 탈퇴는 할 수 있고, 자세한 내용은 고객센터로 문의할 수 있어요.',
+  canRetry: false,
+  support: true,
+  tone: 'error',
+};
 
 export interface OAuthErrorContext {
-  /** `/auth/callback?…&link=1` — the round trip was started from 계정 설정 → 연결하기. */
+  /** The failure came back to 계정 설정 (`/me/account?error=`): the round trip was a link. */
   linking?: boolean;
+  /** `withdrawable=1` next to `AUTH_ACCOUNT_SUSPENDED`: the backend issued a withdrawal ticket. */
+  withdrawable?: boolean;
 }
 
 export function oauthErrorInfo(
   raw: string | null | undefined,
-  { linking: linkParam = false }: OAuthErrorContext = {},
+  { linking: linkParam = false, withdrawable: withdrawParam = false }: OAuthErrorContext = {},
 ): OAuthErrorInfo {
   const normalized = normalizeOAuthErrorCode(raw);
   const known = TABLE[normalized];
@@ -187,13 +243,15 @@ export function oauthErrorInfo(
       ? normalized
       : 'UNKNOWN';
   // An identity that belongs to someone else can only come out of a link attempt.
-  const linking = linkParam || normalized === 'AUTH_IDENTITY_ALREADY_LINKED';
-  if (!linking) return { code, ...(known ?? FALLBACK), linking };
+  const linking = linkParam || LINK_ONLY_CODES.has(normalized);
+  const withdrawable = withdrawParam && normalized === 'AUTH_ACCOUNT_SUSPENDED' && !linking;
+  if (withdrawable) return { code, ...SUSPENDED_WITHDRAWABLE, linking, withdrawable };
+  if (!linking) return { code, ...(known ?? FALLBACK), linking, withdrawable };
   const entry =
     ACCOUNT_CODES.has(normalized) && known
       ? known
       : known === CANCELLED
         ? LINK_CANCELLED
         : LINK_FAILED;
-  return { code, ...entry, linking };
+  return { code, ...entry, linking, withdrawable };
 }

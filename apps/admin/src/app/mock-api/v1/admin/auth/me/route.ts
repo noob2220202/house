@@ -1,12 +1,18 @@
 import type { NextRequest } from 'next/server';
-import { mockAdminRole, mockGuard, mockJson, mockUnauthenticated } from '@/lib/mock';
-import { MOCK_ADMINS } from '../_fixtures';
+import { ERROR_MESSAGES } from '@house/shared';
+import { mockAdminRole, mockError, mockGuard, mockJson, mockUnauthenticated } from '@/lib/mock';
+import { mockAdminMe, mockPending } from '../_mcore';
 
-// GET /api/v1/admin/auth/me — current admin, 401 when signed out.
+/**
+ * GET /api/v1/admin/auth/me → shared `AdminMeResponse`. Like the API guard: a pre-MFA session gets
+ * 401 AUTH_TOTP_REQUIRED, no session 401.
+ */
 export function GET(req: NextRequest) {
   const off = mockGuard();
   if (off) return off;
+  if (mockPending(req))
+    return mockError(401, 'AUTH_TOTP_REQUIRED', ERROR_MESSAGES.AUTH_TOTP_REQUIRED);
   const role = mockAdminRole(req);
   if (!role) return mockUnauthenticated();
-  return mockJson(MOCK_ADMINS[role]);
+  return mockJson(mockAdminMe(role));
 }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState, useSyncExternalStore } from 'react';
 import { ROUTES } from '@/config/nav';
 import { PROVIDERS, loginPath, oauthLoginUrl, type LoginIntent } from '../../lib/flow';
+import { rememberLoginContext } from '../../lib/login-context';
 import { readRecentProvider } from '../../lib/recent-provider';
 import styles from './login.module.css';
 
@@ -107,7 +108,11 @@ export function LoginPanel({ returnTo, initialIntent, notice, mock }: LoginPanel
             </Callout>
           )}
 
-          <div className={styles.sns}>
+          {/* A first-time member comes back on /signup without this context: keep it for the tab. */}
+          <div
+            className={styles.sns}
+            onClickCapture={() => rememberLoginContext({ intent, next: returnTo ?? '' })}
+          >
             {PROVIDERS.map((provider) => (
               <SocialButton
                 key={provider}
@@ -154,6 +159,8 @@ export function LoginPanel({ returnTo, initialIntent, notice, mock }: LoginPanel
             <a href={startUrl(AuthProvider.KAKAO, 'user')}>일반 회원</a>
             <a href={startUrl(AuthProvider.NAVER, 'agent')}>소속 중개사</a>
             <a href={startUrl(AuthProvider.GOOGLE, 'owner')}>대표 중개사</a>
+            <a href={startUrl(AuthProvider.KAKAO, 'reconsent')}>약관 재동의</a>
+            <a href={startUrl(AuthProvider.KAKAO, 'suspended')}>정지 계정</a>
             <a
               href={`${oauthLoginUrl(AuthProvider.KAKAO, { returnTo, intent })}&fail=access_denied`}
             >

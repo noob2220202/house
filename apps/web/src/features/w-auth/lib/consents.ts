@@ -41,13 +41,18 @@ export function countTerms(docs: readonly TermsDocument[]): { required: number; 
   return { required, optional: docs.length - required };
 }
 
-/** 'all' when every document is agreed, 'none' when nothing is, otherwise 'some'. */
+/**
+ * 'all' when every document is agreed, 'none' when nothing is, otherwise 'some'. `extra` are the
+ * other checkboxes 전체 동의 covers (the 만 14세 이상 confirmation of the signup).
+ */
 export function agreeAllState(
   docs: readonly TermsDocument[],
   state: ConsentState,
+  extra: readonly boolean[] = [],
 ): 'all' | 'some' | 'none' {
-  const agreed = docs.filter((d) => state[d.type]).length;
-  if (docs.length > 0 && agreed === docs.length) return 'all';
+  const total = docs.length + extra.length;
+  const agreed = docs.filter((d) => state[d.type]).length + extra.filter(Boolean).length;
+  if (total > 0 && agreed === total) return 'all';
   return agreed === 0 ? 'none' : 'some';
 }
 
@@ -64,9 +69,39 @@ export function missingRequired(
   return docs.filter((d) => d.isRequired && !state[d.type]);
 }
 
-/** Body of POST /me/consents — one record per current document (agree or decline, versioned by id). */
+/** `consents` of a submission — one record per current document (agree or decline, versioned by id). */
 export function buildConsentPayload(docs: readonly TermsDocument[], state: ConsentState) {
   return {
     consents: docs.map((d) => ({ termsDocumentId: d.id, agreed: state[d.type] === true })),
   };
 }
+
+/**
+ * Body of POST /auth/signup (`signupSchema`): nickname, the 만 14세 이상 confirmation, one consent
+ * record per current document and the marketing opt-in (the backend keeps it in step with the
+ * MARKETING record). `phone` is left out so the backend keeps the number the provider shared.
+ */
+export function buildSignupPayload(
+  docs: readonly TermsDocument[],
+  state: ConsentState,
+  nickname: string,
+) {
+  return {
+    nickname: nickname.trim(),
+    ageOver14: true as const,
+    ...buildConsentPayload(docs, state),
+    marketingOptIn: state[TermsType.MARKETING] === true,
+  };
+}
+
+/** Body of POST /me/consents for a re-consent: the given (pending required) documents, agreed. */
+export function buildReconsentPayload(docs: readonly TermsDocument[]) {
+  return { consents: docs.map((d) => ({ termsDocumentId: d.id, agreed: true })) };
+}
+
+/** Public page of a terms type (the 약관 pages), for "전문 보기" links. */
+export const TERMS_PAGE_SLUG: Partial<Record<TermsType, 'service' | 'privacy' | 'location'>> = {
+  SERVICE: 'service',
+  PRIVACY: 'privacy',
+  LOCATION: 'location',
+};

@@ -12,6 +12,7 @@ import { TotpCodeForm } from './TotpStep';
 const api = vi.hoisted(() => ({
   loginWithPassword: vi.fn(),
   verifyTotp: vi.fn(),
+  activateTotp: vi.fn(),
   startTotpSetup: vi.fn(),
 }));
 vi.mock('../../api', () => api);
@@ -19,6 +20,7 @@ vi.mock('../../api', () => api);
 beforeEach(() => {
   api.loginWithPassword.mockReset();
   api.verifyTotp.mockReset();
+  api.activateTotp.mockReset();
   api.startTotpSetup.mockReset();
 });
 
@@ -95,7 +97,7 @@ describe('<CredentialsForm>', () => {
   });
 
   it('hands the result to the flow on success', async () => {
-    api.loginWithPassword.mockResolvedValue({ mfaVerified: false, totpEnrolled: true });
+    api.loginWithPassword.mockResolvedValue({ mfaRequired: true, totpEnrolled: true });
     const onSuccess = vi.fn();
     render(<CredentialsForm onSuccess={onSuccess} />);
     await userEvent.type(screen.getByLabelText('이메일'), ' admin@example.com ');
@@ -107,7 +109,7 @@ describe('<CredentialsForm>', () => {
       password: 'correct horse 1',
     });
     expect(onSuccess).toHaveBeenCalledWith(
-      { mfaVerified: false, totpEnrolled: true },
+      { mfaRequired: true, totpEnrolled: true },
       'admin@example.com',
     );
   });
@@ -161,19 +163,63 @@ describe('<CredentialsForm>', () => {
   });
 });
 
+const session = {
+  admin: {
+    id: '1',
+    email: 'admin@example.com',
+    name: '한지우',
+    role: 'ADMIN',
+    mfaVerified: true,
+    totpEnabled: true,
+    recoveryCodesRemaining: 9,
+    lastLoginAt: null,
+    lastLoginIp: null,
+  },
+  csrfToken: 'rotated',
+};
+
 describe('<TotpCodeForm>', () => {
-  it('submits by itself once six digits are in', async () => {
-    api.verifyTotp.mockResolvedValue({ ok: true });
+  it('verifies with a recovery code instead (no recovery entry unless offered)', async () => {
+    api.verifyTotp
+      .mockRejectedValueOnce(new ApiError(401, { code: 'AUTH_TOTP_INVALID', message: 'x' }))
+      .mockResolvedValueOnce(session);
     const onVerified = vi.fn();
-    render(<TotpCodeForm onVerified={onVerified} />);
+    const { rerender } = render(<TotpCodeForm action={api.verifyTotp} onVerified={onVerified} />);
+    expect(screen.queryByRole('button', { name: '복구 코드로 인증' })).not.toBeInTheDocument();
+    rerender(<TotpCodeForm action={api.verifyTotp} onVerified={onVerified} allowRecovery />);
+    await userEvent.click(screen.getByRole('button', { name: '복구 코드로 인증' }));
+    await userEvent.click(screen.getByRole('button', { name: '인증 앱 코드로 인증' }));
+    expect(screen.getByLabelText(/인증 코드/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '복구 코드로 인증' }));
+    const field = screen.getByLabelText('복구 코드');
+    await waitFor(() => expect(field).toHaveFocus());
+    await userEvent.type(field, 'abcd');
+    await userEvent.click(screen.getByRole('button', { name: '확인' }));
+    expect(await screen.findByText(/복구 코드 8자리를 입력해 주세요/)).toBeInTheDocument();
+    expect(api.verifyTotp).not.toHaveBeenCalled();
+    await userEvent.type(field, 'efgh');
+    expect(field).toHaveValue('ABCD-EFGH');
+    await userEvent.click(screen.getByRole('button', { name: '확인' }));
+    expect(
+      await screen.findByText('복구 코드가 올바르지 않거나 이미 사용한 코드입니다.'),
+    ).toBeInTheDocument();
+    expect(api.verifyTotp).toHaveBeenCalledWith({ kind: 'recovery', value: 'ABCD-EFGH' });
+    await userEvent.click(screen.getByRole('button', { name: '확인' }));
+    await waitFor(() => expect(onVerified).toHaveBeenCalledWith(session));
+  });
+
+  it('submits by itself once six digits are in', async () => {
+    api.verifyTotp.mockResolvedValue(session);
+    const onVerified = vi.fn();
+    render(<TotpCodeForm action={api.verifyTotp} onVerified={onVerified} />);
     await userEvent.type(screen.getByLabelText(/인증 코드/), '123456');
-    await waitFor(() => expect(onVerified).toHaveBeenCalledWith({ ok: true }));
+    await waitFor(() => expect(onVerified).toHaveBeenCalledWith(session));
     expect(api.verifyTotp).toHaveBeenCalledTimes(1);
-    expect(api.verifyTotp).toHaveBeenCalledWith('123456');
+    expect(api.verifyTotp).toHaveBeenCalledWith({ kind: 'code', value: '123456' });
   });
 
   it('asks for all six digits', async () => {
-    render(<TotpCodeForm onVerified={vi.fn()} />);
+    render(<TotpCodeForm action={api.verifyTotp} onVerified={vi.fn()} />);
     await userEvent.type(screen.getByLabelText(/인증 코드/), '123');
     await userEvent.click(screen.getByRole('button', { name: '확인' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('인증 코드 6자리를 입력해 주세요.');
@@ -182,10 +228,12 @@ describe('<TotpCodeForm>', () => {
 
   it('clears a wrong code so the next one can be typed', async () => {
     api.verifyTotp.mockRejectedValue(
-      new ApiError(400, { code: 'AUTH_TOTP_INVALID', message: 'x' }),
+      new ApiError(401, { code: 'AUTH_TOTP_INVALID', message: 'x' }),
     );
     const onSessionLost = vi.fn();
-    render(<TotpCodeForm onVerified={vi.fn()} onSessionLost={onSessionLost} />);
+    render(
+      <TotpCodeForm action={api.verifyTotp} onVerified={vi.fn()} onSessionLost={onSessionLost} />,
+    );
     const input = screen.getByLabelText(/인증 코드/);
     await userEvent.type(input, '000000');
     expect(await screen.findByRole('alert')).toHaveTextContent('인증 코드가 올바르지 않습니다');
@@ -196,7 +244,9 @@ describe('<TotpCodeForm>', () => {
   it('restarts the login when the half-authenticated session expired', async () => {
     api.verifyTotp.mockRejectedValue(new ApiError(401, { code: 'UNAUTHENTICATED', message: 'x' }));
     const onSessionLost = vi.fn();
-    render(<TotpCodeForm onVerified={vi.fn()} onSessionLost={onSessionLost} />);
+    render(
+      <TotpCodeForm action={api.verifyTotp} onVerified={vi.fn()} onSessionLost={onSessionLost} />,
+    );
     await userEvent.type(screen.getByLabelText(/인증 코드/), '123456');
     await waitFor(() => expect(onSessionLost).toHaveBeenCalledTimes(1));
     expect(onSessionLost.mock.calls[0]![0]).toContain('처음부터 다시');
@@ -225,6 +275,54 @@ describe('<TotpEnroll>', () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(screen.queryByText('AAAA AAAA AAAA AAAA')).not.toBeInTheDocument();
     expect(screen.getByText('BBBB CCCC DDDD EEEE')).toBeInTheDocument();
+  });
+
+  it('confirms the enrolment with POST /totp/activate and hands over the recovery codes', async () => {
+    api.startTotpSetup.mockResolvedValue(setup('JBSWY3DPEHPK3PXP'));
+    const activated = { ...session, recoveryCodes: ['AAAA-BBBB'] };
+    api.activateTotp.mockResolvedValue(activated);
+    const onVerified = vi.fn();
+    render(<TotpEnroll onVerified={onVerified} />);
+    await screen.findByText('JBSW Y3DP EHPK 3PXP');
+    expect(api.startTotpSetup).toHaveBeenCalledWith(); // first enrolment: empty body
+    await userEvent.type(screen.getByLabelText(/인증 코드/), '654321');
+    await waitFor(() => expect(onVerified).toHaveBeenCalledWith(activated));
+    expect(api.activateTotp).toHaveBeenCalledWith('654321');
+    expect(api.verifyTotp).not.toHaveBeenCalled();
+  });
+
+  it('requests a new secret when the pending one expired', async () => {
+    api.startTotpSetup
+      .mockResolvedValueOnce(setup('AAAAAAAAAAAAAAAA'))
+      .mockResolvedValueOnce(setup('BBBBCCCCDDDDEEEE'));
+    api.activateTotp.mockRejectedValue(
+      new ApiError(400, { code: 'AUTH_TOTP_SETUP_EXPIRED', message: 'x' }),
+    );
+    render(<TotpEnroll onVerified={vi.fn()} />);
+    await screen.findByText('AAAA AAAA AAAA AAAA');
+    await userEvent.type(screen.getByLabelText(/인증 코드/), '123456');
+    expect(await screen.findByText('BBBB CCCC DDDD EEEE')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('등록 시간(10분)이 지났습니다');
+  });
+
+  it('uses a setup started by the caller without requesting another one', async () => {
+    const onSetupExpired = vi.fn();
+    api.activateTotp.mockRejectedValue(
+      new ApiError(400, { code: 'AUTH_TOTP_SETUP_EXPIRED', message: 'x' }),
+    );
+    render(
+      <StrictMode>
+        <TotpEnroll
+          onVerified={vi.fn()}
+          initialSetup={setup('JBSWY3DPEHPK3PXP')}
+          onSetupExpired={onSetupExpired}
+        />
+      </StrictMode>,
+    );
+    expect(screen.getByText('JBSW Y3DP EHPK 3PXP')).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/인증 코드/), '123456');
+    await waitFor(() => expect(onSetupExpired).toHaveBeenCalledTimes(1));
+    expect(api.startTotpSetup).not.toHaveBeenCalled();
   });
 
   it('offers the otpauth:// hand-off for an authenticator on the same phone', async () => {

@@ -3,7 +3,7 @@ import { isBlocked, matches, modGate } from '@/features/m-moderation/mock/handle
 import { mockJson, mockPaginate } from '@/lib/mock';
 import { agenciesDb, toAgencyListItem } from './_fixtures';
 
-// GET /api/v1/admin/agencies?status&q&page&pageSize — approval queue + office search.
+// GET /api/v1/admin/agencies?status&q&page&pageSize → Paginated<AdminAgencyListItem> (shared).
 // PENDING is ordered oldest first (the queue); everything else newest first.
 export async function GET(req: NextRequest) {
   const gate = await modGate(req);

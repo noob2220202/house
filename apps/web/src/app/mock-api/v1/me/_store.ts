@@ -54,6 +54,7 @@ function seed(role: MockRole): MeMockState {
     identities: seedIdentities(now),
     profile: {
       ...(user as unknown as Profile),
+      agencyId: user.agency?.agencyId ?? null,
       marketingOptIn: optIn,
       marketingOptInAt: new Date(now - SEED_OFFSETS.marketingChanged).toISOString(),
       createdAt: new Date(now - SEED_OFFSETS.accountAge).toISOString(),

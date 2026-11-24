@@ -98,12 +98,12 @@ export function oauthLoginUrl(provider: AuthProvider, params: Omit<FlowParams, '
 }
 
 /**
- * Full-page navigation URL that links one more provider to the signed-in account.
- * ASSUMED: the backend's start endpoint accepts `link=1` (see docs/frontend-integration/w-auth.md).
+ * Full-page navigation URL that links one more provider to the signed-in account
+ * (`intent=link`). The backend comes back to 계정 설정 with `?linked=<slug>` on success and
+ * `?error=<code>` on failure.
  */
 export function oauthLinkUrl(provider: AuthProvider): string {
-  const back = withQuery(AUTH_ROUTES.account, { linked: AUTH_PROVIDER_SLUG[provider] });
-  return `${oauthStartUrl(provider, back)}&link=1`;
+  return `${oauthStartUrl(provider, AUTH_ROUTES.account)}&intent=link`;
 }
 
 export function loginPath(params: Omit<FlowParams, 'provider'> = {}): string {
@@ -131,11 +131,14 @@ export function resolvePostLoginTarget({
 }): string {
   const target = safeNext(next, ROUTES.home);
   if (intent !== 'agent') return target;
-  if (!isAgent(user as SessionUser | null | undefined)) return ROUTES.agentApply;
+  if (!isAgent(user)) return ROUTES.agentApply;
   return target === ROUTES.home ? ROUTES.agent : target;
 }
 
-/** Destination after the OAuth landing: unfinished signups go to /signup first. */
+/**
+ * Destination after the OAuth landing. `signupCompleted` is always true for a backend session (a
+ * session exists only after POST /auth/signup); the check stays for older session payloads.
+ */
 export function resolveCallbackTarget({
   next,
   intent = 'user',
@@ -145,10 +148,31 @@ export function resolveCallbackTarget({
   next?: string | null;
   intent?: LoginIntent;
   provider?: AuthProvider;
-  user: Pick<SessionUser, 'role' | 'signupCompleted'>;
+  user: Pick<SessionUser, 'role'> & { signupCompleted?: boolean };
 }): string {
   if (user.signupCompleted === false) return signupPath({ returnTo: next, intent, provider });
   return resolvePostLoginTarget({ next, intent, user });
+}
+
+/**
+ * Reads the `returnTo` the backend kept with a pending signup (POST /auth/signup answers it): it is
+ * the landing path we sent at OAuth start (`/auth/callback?next=…&intent=agent`), or a plain path.
+ * Returns the final destination and the member intent it carries.
+ */
+export function parseSignupReturnTo(returnTo: string | null | undefined): {
+  next: string;
+  intent: LoginIntent;
+} {
+  const checked = safeReturnTo(returnTo, '');
+  const landing = checked ? normalizePath(checked) : null;
+  if (!landing) return { next: '', intent: 'user' };
+  const url = new URL(landing, PROBE_ORIGIN);
+  if (url.pathname !== AUTH_ROUTES.callback) {
+    const next = safeNext(landing, '');
+    return { next, intent: parseIntent(undefined, next) };
+  }
+  const next = safeNext(url.searchParams.get('next'), '');
+  return { next, intent: parseIntent(url.searchParams.get('intent'), next) };
 }
 
 export const PROVIDERS: readonly AuthProvider[] = [

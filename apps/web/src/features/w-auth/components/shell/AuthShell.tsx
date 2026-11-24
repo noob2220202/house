@@ -43,7 +43,10 @@ const LEGAL: readonly { label: string; href: string; strong?: boolean }[] = [
   { label: '고객센터', href: ROUTES.support },
 ];
 
-/** Minimal footer: logo, legal links and 사업자 정보 from the admin site settings. */
+/**
+ * Minimal footer: logo, legal links and 사업자 정보 from the admin site settings — the same
+ * 전자상거래법 표시사항 as the site footer (통신판매업 신고번호 included).
+ */
 export async function MiniFooter() {
   const biz = await getBusinessInfo();
   const year = new Intl.DateTimeFormat('en', { timeZone: 'Asia/Seoul', year: 'numeric' }).format(
@@ -53,6 +56,7 @@ export async function MiniFooter() {
     { label: '상호', value: biz.companyName },
     { label: '대표', value: biz.ceoName },
     { label: '사업자등록번호', value: biz.businessNumber },
+    { label: '통신판매업 신고', value: biz.mailOrderNumber },
     { label: '주소', value: biz.address },
     { label: '개인정보보호책임자', value: biz.privacyOfficer },
     { label: '고객센터', value: biz.phone },

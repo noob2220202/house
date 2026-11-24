@@ -1,15 +1,15 @@
 import type { NextRequest } from 'next/server';
 import { mockDelay, mockError, mockJson } from '@/lib/mock';
 import { agencyRequestDto, inboxRequests, stageOf } from '../../../agency/deal-requests/_store';
-import { inquiryStore, unreadInquiryCount } from '../../../agency/inquiries/_store';
 import { emptyDashboard, seedDashboard } from '../_fixtures';
 import { agencyContext, agencyNotFound } from '../_store';
 
 /**
- * GET /api/v1/agencies/mine/dashboard (ASSUMED) — aggregate for the console home and the sidebar
- * badges: listing counts, 7-day views, new 내놓기·구하기 requests, inquiries, expiring listings and
- * listings whose 실매물 확인 is due. AGENT / AGENCY_OWNER of an approved agency.
- * Dev: `?_empty=1` (or the dev-state switch) returns the empty states.
+ * GET /api/v1/agencies/mine/dashboard — aggregate for the console home and the sidebar badges:
+ * listing counts, 7-day views, new 내놓기·구하기 requests, expiring listings and listings whose
+ * 실매물 확인 is due. `inquiries` is always empty (D5: no inquiry backend for launch), like the API.
+ * AGENT / AGENCY_OWNER of an approved agency. Dev: `?_empty=1` (or the dev-state switch) returns
+ * the empty states.
  */
 export async function GET(req: NextRequest) {
   const ctx = agencyContext(req);
@@ -24,13 +24,10 @@ export async function GET(req: NextRequest) {
   }
   const empty = ctx.state.emptyDashboard || req.nextUrl.searchParams.get('_empty') === '1';
   if (empty) return mockJson(emptyDashboard());
-  // The feeds are the first rows of the inbox mocks, in their own shapes (agencyDealRequestSchema,
-  // inquirySchema) — the console home and the inbox then name a request the same way.
+  // The feed is the first rows of the inbox mock, in its own shape (agencyDealRequestSchema) —
+  // the console home and the inbox then name a request the same way.
   const requests = [...inboxRequests()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const fresh = requests.filter((r) => stageOf(r) === 'NEW');
-  const inquiries = [...inquiryStore().items].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt),
-  );
   return mockJson({
     ...seedDashboard(),
     dealRequests: {
@@ -39,6 +36,6 @@ export async function GET(req: NextRequest) {
       newWantedCount: fresh.filter((r) => r.type === 'WANTED').length,
       items: requests.slice(0, 4).map((r) => agencyRequestDto(r)),
     },
-    inquiries: { unreadCount: unreadInquiryCount(), items: inquiries.slice(0, 3) },
+    inquiries: { unreadCount: 0, items: [] },
   });
 }

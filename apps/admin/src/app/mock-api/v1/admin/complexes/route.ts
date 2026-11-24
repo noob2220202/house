@@ -12,43 +12,19 @@ import { newId, nowIso } from '@/features/m-content/mock/ids';
 import { audit, db } from '@/features/m-content/mock/store';
 import { mockJson, mockPaginate } from '@/lib/mock';
 
-const SORTS = {
-  name: (a, b) => a.name.localeCompare(b.name, 'ko'),
-  households: (a, b) => (b.households ?? 0) - (a.households ?? 0),
-  builtYear: (a, b) => (b.builtYear ?? 0) - (a.builtYear ?? 0),
-  listings: (a, b) => b.activeListingCount - a.activeListingCount,
-  views: (a, b) => b.viewCount - a.viewCount,
-  updatedAt: (a, b) => b.updatedAt.localeCompare(a.updatedAt),
-} satisfies Record<
-  string,
-  (
-    a: ReturnType<typeof db>['complexes'][number],
-    b: ReturnType<typeof db>['complexes'][number],
-  ) => number
->;
-
-// GET /api/v1/admin/complexes?q&emdCode&missing=photos|areaTypes&sort&dir&page&pageSize — ASSUMED
-// (the README lists only the public GET /complexes; the back-office needs counts + all rows).
+// GET /api/v1/admin/complexes?q&emdCode&missingExternalCode&includeDeleted&page&pageSize →
+// Paginated<AdminComplexListItem> (shared), ordered by name like the API.
 export async function GET(req: NextRequest) {
   const ctx = await mockAdmin(req);
   if (isResponse(ctx)) return ctx;
   const { sp } = ctx;
   const emdCode = sp.get('emdCode');
-  const missing = sp.get('missing');
-  const sortKey = (sp.get('sort') ?? 'updatedAt') as keyof typeof SORTS;
-  const compare = SORTS[sortKey] ?? SORTS.updatedAt;
-  const flip = sp.get('dir') === 'asc' ? -1 : 1;
+  const missingCode = ['1', 'true'].includes(sp.get('missingExternalCode') ?? '');
   const rows = db()
     .complexes.filter((c) => matchesText(sp.get('q'), c.name, c.roadAddress, c.jibunAddress))
     .filter((c) => !emdCode || c.emdCode === emdCode)
-    .filter((c) =>
-      missing === 'photos'
-        ? c.photos.length === 0
-        : missing === 'areaTypes'
-          ? c.areaTypes.length === 0
-          : true,
-    )
-    .sort((a, b) => (sortKey === 'name' ? -flip : flip) * compare(a, b))
+    .filter((c) => !missingCode || !c.externalCode)
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko') || a.id.localeCompare(b.id))
     .map(complexSummary);
   return mockJson(mockPaginate(sp.get('_empty') === '1' ? [] : rows, req, { pageSize: 10 }));
 }

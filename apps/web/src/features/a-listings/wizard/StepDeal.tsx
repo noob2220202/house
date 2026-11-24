@@ -1,5 +1,13 @@
 'use client';
-import { DEAL_TYPE_LABEL, DealType, MOVE_IN_TYPE_LABEL, MoveInType } from '@house/shared';
+import {
+  DEAL_TYPE_LABEL,
+  DealType,
+  MAINTENANCE_FEE_BILLING_TYPE_LABEL,
+  MAINTENANCE_FEE_KIND_LABEL,
+  MOVE_IN_TYPE_LABEL,
+  MaintenanceFeeBillingType,
+  MoveInType,
+} from '@house/shared';
 import {
   Checkbox,
   ChoiceChip,
@@ -22,9 +30,11 @@ import {
   parseMaintenanceFee,
   parseMoney,
   parsePremium,
+  parseWon,
+  type FeeItemValue,
   type ListingFormValues,
 } from '../lib/form';
-import { needsFeeItems } from '../lib/requirements';
+import { needsFeeAmounts } from '../lib/requirements';
 import { FormRow, Readout } from './parts';
 import styles from './wizard.module.css';
 
@@ -37,20 +47,158 @@ const DEAL_HINT: Record<DealType, string> = {
   PRESALE: '분양가 + 프리미엄',
 };
 
-/** 관리비에 포함되는 항목 (표시·광고 세부기준의 비목). */
-export const FEE_ITEMS = [
-  '일반관리비',
-  '청소비',
-  '승강기유지비',
-  '수선유지비',
-  '전기료',
-  '수도료',
-  '가스료',
-  '난방비',
-  '인터넷',
-  'TV',
-  '주차비',
+const BILLING_TYPES = [
+  MaintenanceFeeBillingType.FIXED,
+  MaintenanceFeeBillingType.ACTUAL,
+  MaintenanceFeeBillingType.UNKNOWN,
 ] as const;
+
+const BILLING_HINT: Record<MaintenanceFeeBillingType, string> = {
+  FIXED: '매달 같은 금액',
+  ACTUAL: '쓴 만큼 정산',
+  UNKNOWN: '임대인 미고지 등',
+};
+
+/**
+ * 관리비 세부내역 (「중개대상물의 표시·광고 명시사항 세부기준」): 부과방식, 포함 항목, and — for a
+ * 정액관리비 of 10만원 or more — each item's monthly amount, which must add up to the 관리비.
+ */
+function MaintenanceFeeDetail({ feeWon }: { feeWon: number }) {
+  const { register, setValue, clearErrors, formState } = useFormContext<ListingFormValues>();
+  const { errors } = formState;
+  const v = useWatch<ListingFormValues>() as ListingFormValues;
+  const amounts = needsFeeAmounts(v.feeBillingType, feeWon);
+  const unknown = v.feeBillingType === MaintenanceFeeBillingType.UNKNOWN;
+
+  const setItems = (next: FeeItemValue[]) => {
+    setValue('feeItems', next, { shouldDirty: true });
+    clearErrors('feeItems');
+  };
+  const patchItem = (index: number, patch: Partial<FeeItemValue>) =>
+    setItems(v.feeItems.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+
+  const included = v.feeItems.filter((row) => row.included);
+  const sum = included.reduce((acc, row) => acc + (parseWon(row.amount) ?? 0), 0);
+  const allPriced = included.length > 0 && included.every((row) => parseWon(row.amount) != null);
+
+  return (
+    <>
+      <div className={styles.chipGroup}>
+        <span className={styles.chipGroupT} id="l-feeBillingType">
+          부과방식
+          <span className={styles.req} aria-hidden="true">
+            *
+          </span>
+          <span className="sr-only"> (필수)</span>
+        </span>
+        <div
+          className={styles.chips}
+          role="radiogroup"
+          aria-labelledby="l-feeBillingType"
+          aria-required
+          aria-describedby={errors.feeBillingType ? 'e-feeBillingType' : undefined}
+          id="f-feeBillingType"
+        >
+          {BILLING_TYPES.map((t) => (
+            <ChoiceChip
+              key={t}
+              type="radio"
+              name="feeBillingType"
+              value={t}
+              checked={v.feeBillingType === t}
+              hint={BILLING_HINT[t]}
+              onChange={() => {
+                setValue('feeBillingType', t, { shouldDirty: true });
+                clearErrors(['feeBillingType', 'feeItems', 'feeUnavailableReason']);
+              }}
+            >
+              {MAINTENANCE_FEE_BILLING_TYPE_LABEL[t]}
+            </ChoiceChip>
+          ))}
+        </div>
+        {errors.feeBillingType?.message && (
+          <FieldError id="e-feeBillingType">{errors.feeBillingType.message}</FieldError>
+        )}
+      </div>
+
+      {unknown ? (
+        <div className={styles.w480}>
+          <Input
+            id="f-feeUnavailableReason"
+            label="확인할 수 없는 사유"
+            required
+            maxLength={200}
+            placeholder="예: 임대인이 관리비 내역을 알려주지 않았어요"
+            error={errors.feeUnavailableReason?.message ?? errors.feeBillingType?.message}
+            {...register('feeUnavailableReason')}
+          />
+        </div>
+      ) : (
+        v.feeBillingType !== '' && (
+          <div className={styles.chipGroup}>
+            <span className={styles.chipGroupT} id="l-feeItems">
+              {amounts ? '포함 항목과 금액' : '관리비에 포함된 항목'}
+              <span className={styles.req} aria-hidden="true">
+                *
+              </span>
+              <span className="sr-only"> (필수)</span>
+            </span>
+            <div
+              className={styles.chips}
+              role="group"
+              aria-labelledby="l-feeItems"
+              aria-describedby={errors.feeItems ? 'e-feeItems' : undefined}
+              id="f-feeItems"
+            >
+              {v.feeItems.map((row, i) => (
+                <ChoiceChip
+                  key={row.kind}
+                  type="checkbox"
+                  name="feeItems"
+                  checked={row.included}
+                  onChange={(on) => patchItem(i, { included: on, amount: on ? row.amount : '' })}
+                >
+                  {MAINTENANCE_FEE_KIND_LABEL[row.kind]}
+                </ChoiceChip>
+              ))}
+            </div>
+            {amounts && included.length > 0 && (
+              <div className={styles.inline}>
+                {v.feeItems.map((row, i) =>
+                  row.included ? (
+                    <div key={row.kind} className={cx(styles.w240, styles.num)}>
+                      <Input
+                        aria-label={`${MAINTENANCE_FEE_KIND_LABEL[row.kind]} 월 금액`}
+                        prefix={MAINTENANCE_FEE_KIND_LABEL[row.kind]}
+                        suffix="원"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        placeholder="0"
+                        value={row.amount}
+                        onChange={(e) => patchItem(i, { amount: formatDigits(e.target.value) })}
+                      />
+                    </div>
+                  ) : null,
+                )}
+              </div>
+            )}
+            {amounts && included.length > 0 && (
+              <Readout>
+                항목 합계 <b>{sum.toLocaleString('ko-KR')}원</b>
+                {allPriced && sum !== feeWon && (
+                  <> · 관리비 {feeWon.toLocaleString('ko-KR')}원과 달라요</>
+                )}
+              </Readout>
+            )}
+            {errors.feeItems?.message && (
+              <FieldError id="e-feeItems">{errors.feeItems.message}</FieldError>
+            )}
+          </div>
+        )
+      )}
+    </>
+  );
+}
 
 /** 만원 field = the shared @house/ui MoneyInput (with its "= 4억 4,500만원" reading). */
 function MoneyInput({
@@ -109,8 +257,6 @@ export function StepDeal() {
   const presaleTotal =
     typeof presale === 'number' && typeof premium === 'number' ? presale + premium : null;
   const fee = parseMaintenanceFee(v.maintenanceFee);
-  const itemsRequired =
-    !v.maintenanceNone && needsFeeItems(v.assetType || undefined, fee ?? undefined);
 
   return (
     <>
@@ -270,7 +416,9 @@ export function StepDeal() {
                 checked={v.maintenanceNone}
                 onChange={(e) => {
                   set('maintenanceNone', e.target.checked);
-                  if (e.target.checked) clearErrors('maintenanceFee');
+                  if (e.target.checked) {
+                    clearErrors(['maintenanceFee', 'feeBillingType', 'feeItems']);
+                  }
                 }}
               >
                 관리비 없음
@@ -281,55 +429,12 @@ export function StepDeal() {
                 </Readout>
               )}
             </div>
-            {!v.maintenanceNone && (
-              <div className={styles.chipGroup}>
-                <span className={styles.chipGroupT} id="l-feeItems">
-                  관리비에 포함된 항목
-                  {itemsRequired && (
-                    <>
-                      <span className={styles.req} aria-hidden="true">
-                        *
-                      </span>
-                      <span className="sr-only"> (필수)</span>
-                    </>
-                  )}
-                </span>
-                <div
-                  className={styles.chips}
-                  role="group"
-                  aria-labelledby="l-feeItems"
-                  aria-describedby={errors.maintenanceFeeItems ? 'e-feeItems' : undefined}
-                  id="f-maintenanceFeeItems"
-                >
-                  {FEE_ITEMS.map((item) => (
-                    <ChoiceChip
-                      key={item}
-                      type="checkbox"
-                      name="maintenanceFeeItems"
-                      checked={v.maintenanceFeeItems.includes(item)}
-                      onChange={(on) => {
-                        set(
-                          'maintenanceFeeItems',
-                          on
-                            ? [...v.maintenanceFeeItems, item]
-                            : v.maintenanceFeeItems.filter((x) => x !== item),
-                        );
-                        clearErrors('maintenanceFeeItems');
-                      }}
-                    >
-                      {item}
-                    </ChoiceChip>
-                  ))}
-                </div>
-                {errors.maintenanceFeeItems?.message && (
-                  <FieldError id="e-feeItems">{errors.maintenanceFeeItems.message}</FieldError>
-                )}
-              </div>
+            {!v.maintenanceNone && typeof fee === 'number' && fee > 0 && (
+              <MaintenanceFeeDetail feeWon={fee} />
             )}
             <HelpLine>
-              관리비는 월 평균 금액으로 표시해요. 원룸·오피스텔·주택의{' '}
-              <b>월 10만원 이상 정액 관리비</b>는 포함 항목(일반관리비·사용료 등)을 함께 표시해야
-              해요.
+              관리비는 월 평균 금액과 부과방식, 포함 항목을 함께 표시해요.{' '}
+              <b>월 10만원 이상 정액관리비</b>는 항목별 금액까지 적어야 해요.
             </HelpLine>
           </FormRow>
 

@@ -5,6 +5,7 @@ import {
   FaqCategory,
   KR_CONTACT_PHONE_PATTERN,
   TermsType,
+  appLinksSettingSchema,
   idSchema,
   isSafeLinkUrl,
   localVideoInputSchema,
@@ -14,7 +15,6 @@ import {
 } from '@house/shared';
 import { z } from 'zod';
 import { isValidBusinessNumber } from '../lib/business';
-import { HOME_SECTION_KEYS } from './schemas';
 
 /**
  * Request bodies of the m-content screens. Limits mirror packages/shared/src/schemas/admin.ts
@@ -142,13 +142,6 @@ export function videoPatchBody(
 
 export const orderSchema = z.object({ ids: z.array(z.string()).min(1).max(500) });
 
-export const homeLayoutInputSchema = z.object({
-  sections: z
-    .array(z.object({ key: z.enum(HOME_SECTION_KEYS), visible: z.boolean() }))
-    .min(1)
-    .max(HOME_SECTION_KEYS.length),
-});
-
 // ---------- terms ----------
 
 export const termsFormSchema = z.object({
@@ -214,6 +207,19 @@ export const contactFormSchema = z.object({
     .optional(),
 });
 export type ContactForm = z.infer<typeof contactFormSchema>;
+
+/** One store link of APP_LINKS: empty, or what the shared `appLinksSettingSchema` accepts. */
+const storeUrl = z
+  .string()
+  .trim()
+  .max(500, '500자까지 입력할 수 있어요.')
+  .refine(
+    (v) => v === '' || appLinksSettingSchema.shape.iosUrl.safeParse(v).success,
+    'https:// 로 시작하는 앱 스토어 주소를 입력해 주세요.',
+  );
+
+export const appLinksFormSchema = z.object({ iosUrl: storeUrl, androidUrl: storeUrl });
+export type AppLinksForm = z.infer<typeof appLinksFormSchema>;
 
 export const seoFormSchema = z.object({
   title: required('사이트 제목', 100),
@@ -299,13 +305,11 @@ export const areaTypeFormSchema = z
   });
 export type AreaTypeForm = z.infer<typeof areaTypeFormSchema>;
 
-export const complexPhotoInputSchema = z.object({
-  mediaId: z.string().min(1),
-  caption: z.string().trim().max(100).nullable().optional(),
-});
-export const complexPhotoPatchSchema = z.object({
-  caption: z.string().trim().max(100, '설명은 100자까지 입력할 수 있어요.').nullable(),
-});
+/** One row of PUT /admin/complexes/:id/photos (shared `complexPhotosInputSchema`). */
+export interface ComplexPhotoItem {
+  mediaId: string;
+  caption?: string | null;
+}
 
 export const tradeSyncInputSchema = z.object({
   /** YYYYMM */
@@ -314,10 +318,11 @@ export const tradeSyncInputSchema = z.object({
 
 // ---------- admin accounts ----------
 
+/** Shared `adminPasswordSchema` (12–128, letters + digits) plus a symbol for issued passwords. */
 const password = z
   .string()
   .min(12, '비밀번호는 12자 이상이어야 해요.')
-  .max(200)
+  .max(128, '비밀번호는 128자 이하로 입력해 주세요.')
   .refine(
     (v) => /[A-Za-z]/.test(v) && /\d/.test(v) && /[^A-Za-z0-9]/.test(v),
     '영문, 숫자, 특수문자를 모두 포함해 주세요.',

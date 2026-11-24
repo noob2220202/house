@@ -22,7 +22,7 @@ export interface TermsModalProps<D extends TermsModalDoc = TermsModalDoc> {
   /** Viewing only (consent history): no agree button. */
   readOnly?: boolean;
   /**
-   * Show exactly `doc.version` (GET /terms/:type/versions/:version) instead of the current document —
+   * Show exactly `doc.version` (GET /terms/:type?version=) instead of the current document —
    * the consent history must show the text the user actually agreed to, even after a new version.
    */
   exactVersion?: boolean;

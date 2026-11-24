@@ -3,12 +3,10 @@ import { z } from 'zod';
 import { pageSchema } from '@/lib/api/schemas/listing';
 
 /**
- * Response schemas of the endpoints used by the map search pages (/map/[assetType]).
- *
- * ASSUMED SHAPES — the listings / complexes / ads controllers are not implemented yet (module
- * READMEs + shared query schemas only). Query parameters mirror `mapSearchQuerySchema` /
- * `listingListQuerySchema` from @house/shared exactly; the response shapes below are recorded in
- * docs/frontend-integration/w-map.md. Fix the schema and the mock fixture together.
+ * Response schemas of the endpoints used by the map search pages (/map/[assetType]). Query
+ * parameters mirror `mapSearchQuerySchema` / `listingListQuerySchema` from @house/shared;
+ * `GET /map/search` answers `MapSearchResult` and is mapped by `mapSearchFromWire()`. See
+ * docs/frontend-integration/w-map.md.
  */
 
 const nullish = <T extends z.ZodType>(schema: T) => schema.nullish();
@@ -93,13 +91,24 @@ const complexSummaryObject = z.object({
 export type ComplexSummary = z.infer<typeof complexSummaryObject>;
 
 /**
- * Other page groups assumed slightly different names for the same card (`dealCounts`,
- * `salePriceMin/Max`, `latestTrade.areaLabel`). Accept both until the backend settles the shape.
+ * Accepts the backend complex rows (`ComplexSummary`, `PopularComplexItem`, `FavoriteComplexItem`)
+ * and the older card names (`dealCounts`, `salePriceMin/Max`, `latestTrade.areaLabel`).
  */
 function normalizeComplex(value: unknown): unknown {
   if (typeof value !== 'object' || value === null) return value;
-  const raw = value as Record<string, unknown>;
+  let raw = value as Record<string, unknown>;
+  // `GET /me/favorites/complexes` rows: { favoritedAt, complex: ComplexSummary }.
+  if (typeof raw.complex === 'object' && raw.complex !== null && raw.id === undefined) {
+    raw = { ...(raw.complex as Record<string, unknown>), favoritedAt: raw.favoritedAt };
+  }
   const out: Record<string, unknown> = { ...raw };
+  // `GET /complexes/popular` rows: listingCounts { total, byDealType: Record<DealType, number> }.
+  const lc = raw.listingCounts;
+  if (out.counts === undefined && typeof lc === 'object' && lc !== null) {
+    const by = ((lc as Record<string, unknown>).byDealType ?? {}) as Record<string, unknown>;
+    const n = (k: string) => (typeof by[k] === 'number' ? by[k] : 0);
+    out.counts = { presale: n('PRESALE'), sale: n('SALE'), jeonse: n('JEONSE'), monthly: n('MONTHLY') };
+  }
   if (out.counts === undefined && raw.dealCounts !== undefined) out.counts = raw.dealCounts;
   if (
     out.salePrice === undefined &&
@@ -179,7 +188,100 @@ export const mapListingMarkerSchema = z.object({
 });
 export type MapListingMarker = z.infer<typeof mapListingMarkerSchema>;
 
-export const mapSearchResponseSchema = z.object({
+type Raw = Record<string, unknown>;
+const isObject = (v: unknown): v is Raw => typeof v === 'object' && v !== null;
+const DEAL_ORDER = [DealType.SALE, DealType.PRESALE, DealType.JEONSE, DealType.MONTHLY] as const;
+
+/** `byDealType[deal]` of the backend marker → `{ min, max }` price range (만원) or null. */
+function rangeOf(by: Raw, deal: DealType): { min: number; max: number } | null {
+  const s = by[deal];
+  if (!isObject(s) || typeof s.priceMin !== 'number' || typeof s.priceMax !== 'number') return null;
+  return { min: s.priceMin, max: s.priceMax };
+}
+const countOf = (by: Raw, deal: DealType): number => {
+  const s = by[deal];
+  return isObject(s) && typeof s.count === 'number' ? s.count : 0;
+};
+
+/** Backend `MapComplexMarker` → the COMPLEX marker the map renders. */
+function complexMarkerFromWire(c: Raw): Raw {
+  const by = isObject(c.byDealType) ? c.byDealType : {};
+  const deal = DEAL_ORDER.find((d) => countOf(by, d) > 0);
+  const rep = deal ? rangeOf(by, deal) : null;
+  return {
+    type: 'COMPLEX',
+    id: c.complexId,
+    name: c.name,
+    assetType: c.assetType,
+    lat: c.lat,
+    lng: c.lng,
+    households: c.households ?? null,
+    builtYear: c.builtYear ?? null,
+    count: c.count,
+    counts: {
+      presale: countOf(by, DealType.PRESALE),
+      sale: countOf(by, DealType.SALE),
+      jeonse: countOf(by, DealType.JEONSE),
+      monthly: countOf(by, DealType.MONTHLY),
+    },
+    salePrice: rangeOf(by, DealType.SALE),
+    jeonsePrice: rangeOf(by, DealType.JEONSE),
+    presalePrice: rangeOf(by, DealType.PRESALE),
+    representative:
+      deal && rep ? { pyeongLabel: null, supplyArea: null, price: rep.min, dealType: deal } : null,
+  };
+}
+
+/**
+ * Backend listing markers (one per listing) → one price pill per building: listings at the same
+ * point merge into a marker with `count`, represented by the cheapest one.
+ */
+function listingMarkersFromWire(listings: unknown[]): Raw[] {
+  const groups = new Map<string, Raw[]>();
+  for (const l of listings) {
+    if (!isObject(l) || typeof l.lat !== 'number' || typeof l.lng !== 'number') continue;
+    const key = `${l.lat.toFixed(5)},${l.lng.toFixed(5)}`;
+    groups.set(key, [...(groups.get(key) ?? []), l]);
+  }
+  return [...groups.values()].map((group) => {
+    const price = (l: Raw) => (typeof l.priceSort === 'number' ? l.priceSort : Infinity);
+    const rep = [...group].sort((a, b) => price(a) - price(b))[0]!;
+    return {
+      type: 'LISTING',
+      id: rep.id,
+      lat: rep.lat,
+      lng: rep.lng,
+      dealType: rep.dealType,
+      salePrice: rep.salePrice ?? null,
+      deposit: rep.deposit ?? null,
+      monthlyRent: rep.monthlyRent ?? null,
+      presalePrice: rep.presalePrice ?? null,
+      premium: rep.premium ?? null,
+      count: group.length,
+      title: null,
+    };
+  });
+}
+
+/**
+ * Backend `MapSearchResult` { clusters[key…], complexes[], listings[] } → `{ clusters[id…],
+ * markers[] }`. The backend sends no summary aggregates (the pill hides them).
+ */
+export function mapSearchFromWire(value: unknown): unknown {
+  if (!isObject(value) || Array.isArray(value.markers)) return value;
+  const clusters = Array.isArray(value.clusters)
+    ? value.clusters.map((c) => (isObject(c) && c.id === undefined ? { ...c, id: c.key } : c))
+    : [];
+  const complexes = Array.isArray(value.complexes) ? value.complexes.filter(isObject) : [];
+  const listings = Array.isArray(value.listings) ? value.listings : [];
+  return {
+    ...value,
+    clusters,
+    markers: [...complexes.map(complexMarkerFromWire), ...listingMarkersFromWire(listings)],
+  };
+}
+
+const mapSearchObjectSchema = z.object({
   kind: z.enum(MapResultKind),
   clusters: z.array(mapClusterSchema).default([]),
   markers: z
@@ -202,23 +304,33 @@ export const mapSearchResponseSchema = z.object({
     }),
   ),
 });
-export type MapSearchResponse = z.infer<typeof mapSearchResponseSchema>;
+export const mapSearchResponseSchema = z.preprocess(mapSearchFromWire, mapSearchObjectSchema);
+export type MapSearchResponse = z.infer<typeof mapSearchObjectSchema>;
 
 // ---- regions ------------------------------------------------------------------------------------
 
-/** `GET /regions?sggCode` — 읍면동 / 지구 of the city with a representative point (ASSUMED endpoint). */
+/**
+ * `GET /regions` (default parent = the service 시군구) → `RegionView[]` of the complexes module:
+ * the city's 읍면동 with a representative point. Entries without coordinates are dropped (the
+ * map cannot place them).
+ */
 export const regionSchema = z.object({
   code: z.string(),
   name: z.string(),
-  /** Parent 읍·면 for 리-level entries ("해룡면"). */
+  /** Parent 읍·면 for 리-level entries ("해룡면"); the backend sends `parentCode` only. */
   parentName: nullish(z.string()),
   lat: z.number(),
   lng: z.number(),
 });
 export type Region = z.infer<typeof regionSchema>;
+const regionRowSchema = regionSchema.extend({ lat: nullish(z.number()), lng: nullish(z.number()) });
 export const regionListSchema = z
-  .union([z.array(regionSchema), z.object({ items: z.array(regionSchema) })])
-  .transform((v) => (Array.isArray(v) ? v : v.items));
+  .union([z.array(regionRowSchema), z.object({ items: z.array(regionRowSchema) })])
+  .transform((v): Region[] =>
+    (Array.isArray(v) ? v : v.items).flatMap((r) =>
+      typeof r.lat === 'number' && typeof r.lng === 'number' ? [{ ...r, lat: r.lat, lng: r.lng }] : [],
+    ),
+  );
 
 // ---- banners (MAP_AD) ---------------------------------------------------------------------------
 

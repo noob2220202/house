@@ -3,11 +3,13 @@ import type { NextRequest } from 'next/server';
 import { mockDelay, mockGuard, mockJson, mockPaginate } from '@/lib/mock';
 import type { ListingSummary } from '@/lib/api/schemas/listing';
 import { findAgencyListings } from '../agencies/_fixtures';
+import { findComplexSpec } from '../complexes/_fixtures';
+import { complexListingRows } from '../complexes/_listings';
 import { LISTINGS as MAP_LISTINGS } from '../map/_fixtures';
 import { forcedFailure, queryObject, validationError } from '../map/_query';
 import { inBbox, matchesFilter, parseExtraFilters, sortListings } from '../map/_search';
 import { LISTING_ITEMS, type MockListingItem } from './_list-fixtures';
-import { toListingSummary } from './_summary';
+import { toListingSummary, toListingWire } from './_summary';
 
 const time = (iso: string | null | undefined) => (iso ? Date.parse(iso) : 0);
 
@@ -94,8 +96,9 @@ function agencyListings(q: ListingListQuery & { agencyId: string }): ListingSumm
 
 // GET /api/v1/listings?…filters&sort&page&pageSize — public paginated list (listings module).
 // Query = `listingListQuerySchema` (@house/shared): arrays as CSV, prices in 만원, areas in ㎡.
-// One endpoint, three mock data sets: `bbox` → the map inventory, `agencyId` → that office's
-// listings, otherwise the home sample. Every row goes through `toListingSummary()`.
+// One endpoint, four mock data sets: `complexId` of a w-complex fixture → that 단지's listings,
+// `bbox` → the map inventory, `agencyId` → that office's listings, otherwise the home sample. Rows are built as cards (`toListingSummary()`) and sent in
+// the backend wire shape (`toListingWire()`).
 export async function GET(req: NextRequest) {
   const off = mockGuard();
   if (off) return off;
@@ -108,10 +111,14 @@ export async function GET(req: NextRequest) {
   if (!parsed.success) return validationError(parsed.error);
   const query = parsed.data;
   const { agencyId } = query;
-  const rows = agencyId
+  const complex = query.complexId ? findComplexSpec(query.complexId) : undefined;
+  const rows: ListingSummary[] = complex
+    ? complexListingRows(complex, query)
+    : agencyId
     ? agencyListings({ ...query, agencyId })
     : query.bbox
       ? mapListings(query, sp)
       : sampleListings(query);
-  return mockJson(mockPaginate(rows, req, { pageSize: agencyId ? 12 : 20 }));
+  const page = mockPaginate(rows, req, { pageSize: agencyId ? 12 : 20 });
+  return mockJson({ ...page, items: page.items.map((l) => toListingWire(l)) });
 }

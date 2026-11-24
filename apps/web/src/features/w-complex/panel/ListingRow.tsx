@@ -8,12 +8,14 @@ import {
   VerifiedBadge,
   cx,
 } from '@house/ui';
+import { useQuery } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { ROUTES } from '@/config/nav';
 import { formatPhone, type AreaUnit } from '@/lib/format';
+import { complexKeys, fetchListingAgencies } from '../api/queries';
 import type { ComplexListingItem, ListingAgency } from '../api/schemas';
 import {
   PRICE_RANGE_HINT,
@@ -121,7 +123,16 @@ export function ListingRow({ listing, unit, open, onToggle }: ListingRowProps) {
   const h = listingHeadline(listing);
   const s = listingSpecs(listing, unit);
   const verified = verifiedLabel(listing.verifiedAt ?? null);
-  const count = Math.max(listing.agencyCount, listing.agencies.length);
+  // List rows name the primary office only; the full disclosure loads when the row opens.
+  const loadAgencies = open && listing.agencies.length === 0;
+  const disclosed = useQuery({
+    queryKey: complexKeys.listingAgencies(listing.id),
+    queryFn: ({ signal }) => fetchListingAgencies(listing.id, signal),
+    enabled: loadAgencies,
+    staleTime: 5 * 60_000,
+  });
+  const agencies = listing.agencies.length > 0 ? listing.agencies : (disclosed.data ?? []);
+  const count = Math.max(listing.agencyCount, agencies.length);
   // A price range is explained in code (design: "… · 중개사무소마다 호가가 달라요"), never by the title.
   const note = h.priceTo ? PRICE_RANGE_HINT : listing.title;
   const specs: React.ReactNode[] = [];
@@ -234,12 +245,16 @@ export function ListingRow({ listing, unit, open, onToggle }: ListingRowProps) {
             </span>
             <span>{askingSummary(listing)}</span>
           </p>
-          {listing.agencies.length > 0 ? (
+          {agencies.length > 0 ? (
             <ul>
-              {listing.agencies.map((a, i) => (
+              {agencies.map((a, i) => (
                 <BrokerLine key={a.agencyId} agency={a} listing={listing} emphasised={i === 0} />
               ))}
             </ul>
+          ) : loadAgencies && disclosed.isPending ? (
+            <p className={styles.brkDropH} aria-live="polite">
+              <span>중개사무소 정보를 불러오고 있어요…</span>
+            </p>
           ) : (
             <p className={styles.brkDropH}>
               <span>중개사무소 정보는 매물 상세에서 확인할 수 있어요.</span>

@@ -1,4 +1,10 @@
-import { bannerCreateSchema, BannerSlot, BannerStatus, BannerTargeting } from '@house/shared';
+import {
+  bannerCreateSchema,
+  BannerSlot,
+  BannerStatus,
+  BannerTargeting,
+  bannerUpdateSchema,
+} from '@house/shared';
 import { describe, expect, it } from 'vitest';
 import type { AdminBanner } from '../api/schemas';
 import {
@@ -14,6 +20,7 @@ import {
   statusChoiceOf,
   TITLE_MAX,
   toBannerInput,
+  toBannerUpdateInput,
   type BannerFormValues,
 } from './banner-form';
 
@@ -65,8 +72,8 @@ const banner = (patch: Partial<AdminBanner> = {}): AdminBanner => ({
   targetComplexes: [],
   memo: null,
   status: BannerStatus.SCHEDULED,
-  impressions: 0,
-  clicks: 0,
+  impressions: null,
+  clicks: null,
   ...patch,
 });
 
@@ -274,6 +281,24 @@ describe('toBannerInput', () => {
       valid({ slot: BannerSlot.LISTING_SIDE, mobileImage: { ...IMAGE, mediaId: ID(2) } }),
     );
     expect(input.mobileMediaId).toBeUndefined();
+  });
+});
+
+describe('toBannerUpdateInput', () => {
+  it('never sends the slot (immutable) and passes the strict bannerUpdateSchema', () => {
+    const form = bannerToForm(banner());
+    const body = toBannerUpdateInput(form);
+    expect(body).not.toHaveProperty('slot');
+    expect(bannerUpdateSchema.safeParse(body).success).toBe(true);
+    // the old body (with slot) is what the API refused
+    expect(bannerUpdateSchema.safeParse(toBannerInput(form, { clear: true })).success).toBe(false);
+  });
+
+  it('nulls emptied optionals so the API clears them', () => {
+    const body = toBannerUpdateInput(
+      bannerToForm(banner({ linkUrl: null, memo: null, advertiserName: null })),
+    );
+    expect(body).toMatchObject({ linkUrl: null, memo: null, mobileMediaId: null, agencyId: null });
   });
 });
 

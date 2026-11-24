@@ -19,7 +19,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { ROUTES } from '@/config/nav';
 import { ApiError, errorMessage } from '@/lib/api';
 import type { SessionUser } from '@/lib/auth';
-import { withdrawAccount } from '../../api';
+import { withdrawAccount, withdrawSuspendedAccount } from '../../api';
 import { clearRecentProvider } from '../../lib/recent-provider';
 import {
   WITHDRAW_DETAIL_MAX,
@@ -50,26 +50,44 @@ const NOTES: readonly { icon: IconName; title: string; text: string }[] = [
   {
     icon: 'refresh',
     title: '다시 가입해도 이전 정보는 돌아오지 않아요',
-    text: '같은 소셜 계정으로 새로 가입할 수 있지만 예전 기록은 이어지지 않아요.',
+    text: '탈퇴 후 일정 기간이 지나면 같은 소셜 계정으로 새로 가입할 수 있지만 예전 기록은 이어지지 않아요.',
   },
 ];
 
-export interface WithdrawFormProps {
-  user: Pick<SessionUser, 'nickname' | 'role' | 'email'>;
+export type WithdrawFormProps =
+  /** Signed-in member: POST /me/withdraw. */
+  | { mode?: 'member'; user: Pick<SessionUser, 'nickname' | 'role' | 'email'> }
+  /**
+   * Suspended member without a session (login refused with `withdrawable=1`): POST /auth/withdraw,
+   * authenticated by the single-use ticket cookie the refused login set.
+   */
+  | { mode: 'suspended'; user?: undefined };
+
+interface Blocked {
+  message: string;
+  link?: { href: string; label: string };
 }
 
+const OWNER_BLOCK: Blocked = {
+  message: '중개사무소 대표 계정은 사무소를 폐업 처리하거나 대표를 변경한 뒤 탈퇴할 수 있어요.',
+  link: { href: ROUTES.agent, label: '중개사 콘솔로 가기' },
+};
+const TICKET_EXPIRED: Blocked = {
+  message:
+    '탈퇴를 진행할 수 있는 시간(10분)이 지났어요. 간편 로그인을 다시 시도하면 탈퇴를 이어서 진행할 수 있어요.',
+  link: { href: ROUTES.login, label: '다시 로그인하기' },
+};
+
 /** 회원 탈퇴: consequences, optional reason, explicit consent, then a final confirmation dialog. */
-export function WithdrawForm({ user }: WithdrawFormProps) {
+export function WithdrawForm(props: WithdrawFormProps) {
+  const { user } = props;
+  const suspended = props.mode === 'suspended';
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [pending, setPending] = useState<WithdrawFormValues | null>(null);
   const blockRef = useRef<HTMLParagraphElement>(null);
-  const isOwner = user.role === UserRole.AGENCY_OWNER;
-  const [blocked, setBlocked] = useState<string | null>(
-    isOwner
-      ? '중개사무소 대표 계정은 사무소를 폐업 처리하거나 대표를 변경한 뒤 탈퇴할 수 있어요.'
-      : null,
-  );
+  const isOwner = user?.role === UserRole.AGENCY_OWNER;
+  const [blocked, setBlocked] = useState<Blocked | null>(isOwner ? OWNER_BLOCK : null);
 
   const form = useForm<WithdrawFormValues>({
     resolver: zodResolver(withdrawFormSchema),
@@ -79,8 +97,13 @@ export function WithdrawForm({ user }: WithdrawFormProps) {
   const detailLength = (form.watch('detail') ?? '').length;
 
   const withdraw = useMutation({
-    mutationFn: (values: WithdrawFormValues) =>
-      withdrawAccount({ confirm: true, reason: buildWithdrawReason(values.reason, values.detail) }),
+    mutationFn: (values: WithdrawFormValues) => {
+      const body = {
+        confirm: true as const,
+        reason: buildWithdrawReason(values.reason, values.detail),
+      };
+      return suspended ? withdrawSuspendedAccount(body) : withdrawAccount(body);
+    },
     onSuccess: () => {
       clearRecentProvider();
       queryClient.clear();
@@ -89,8 +112,14 @@ export function WithdrawForm({ user }: WithdrawFormProps) {
     },
     onError: (error) => {
       setPending(null);
-      if (error instanceof ApiError && error.status === 409) {
-        setBlocked(error.message);
+      const refusal =
+        error instanceof ApiError && error.status === 409
+          ? { message: error.message, link: isOwner ? OWNER_BLOCK.link : undefined }
+          : suspended && error instanceof ApiError && error.isUnauthenticated
+            ? TICKET_EXPIRED
+            : null;
+      if (refusal) {
+        setBlocked(refusal);
         // The notice replaces the form at the top — take the reader there.
         requestAnimationFrame(() => blockRef.current?.focus());
       } else toast({ message: errorMessage(error), tone: 'error' });
@@ -109,22 +138,25 @@ export function WithdrawForm({ user }: WithdrawFormProps) {
           <Icon name="info" size={18} />
           <span>
             <b>지금은 탈퇴할 수 없어요</b>
-            {blocked} {isOwner && <Link href={ROUTES.agent}>중개사 콘솔로 가기</Link>}
+            {blocked.message}{' '}
+            {blocked.link && <Link href={blocked.link.href}>{blocked.link.label}</Link>}
           </span>
         </p>
       )}
 
       <section className={styles.card} aria-labelledby="wd-notes-h">
-        <div className={styles.who}>
-          <Avatar name={user.nickname} size={40} />
-          <span className={styles.whoText}>
-            <b>{user.nickname}님</b>
-            <span>
-              {ROLE_LABEL[user.role]}
-              {user.email ? ` · ${user.email}` : ''}
+        {user && (
+          <div className={styles.who}>
+            <Avatar name={user.nickname} size={40} />
+            <span className={styles.whoText}>
+              <b>{user.nickname}님</b>
+              <span>
+                {ROLE_LABEL[user.role]}
+                {user.email ? ` · ${user.email}` : ''}
+              </span>
             </span>
-          </span>
-        </div>
+          </div>
+        )}
         <h2 id="wd-notes-h" className={styles.cardTitle}>
           탈퇴 전에 꼭 확인해 주세요
         </h2>
@@ -141,7 +173,21 @@ export function WithdrawForm({ user }: WithdrawFormProps) {
               </span>
             </li>
           ))}
-          {user.role === UserRole.AGENT && (
+          {suspended && (
+            <li>
+              <span className={styles.noteIc}>
+                <Icon name="info" size={18} />
+              </span>
+              <span className={styles.noteText}>
+                <b>이용 정지 기록은 정해진 기간 동안 보관돼요</b>
+                <span>
+                  분쟁 처리를 위해 정지 사유와 신고 기록은 개인정보처리방침에서 정한 기간 동안
+                  보관한 뒤 파기해요.
+                </span>
+              </span>
+            </li>
+          )}
+          {user?.role === UserRole.AGENT && (
             <li>
               <span className={styles.noteIc}>
                 <Icon name="store" size={18} />
@@ -210,8 +256,13 @@ export function WithdrawForm({ user }: WithdrawFormProps) {
       )}
 
       <div className={styles.actions}>
-        <Button href={ROUTES.me} linkAs={Link} variant="secondary" size="lg">
-          계속 이용하기
+        <Button
+          href={suspended ? ROUTES.home : ROUTES.me}
+          linkAs={Link}
+          variant="secondary"
+          size="lg"
+        >
+          {suspended ? '취소' : '계속 이용하기'}
         </Button>
         <Button type="submit" variant="danger" size="lg" disabled={blocked !== null}>
           탈퇴하기
@@ -223,9 +274,13 @@ export function WithdrawForm({ user }: WithdrawFormProps) {
         onClose={() => setPending(null)}
         onConfirm={() => pending && withdraw.mutate(pending)}
         title="정말 탈퇴할까요?"
-        description="탈퇴하면 모든 기기에서 로그아웃되고, 내 정보와 활동 기록은 되돌릴 수 없어요."
+        description={
+          suspended
+            ? '탈퇴하면 이 계정의 정보와 활동 기록은 되돌릴 수 없어요.'
+            : '탈퇴하면 모든 기기에서 로그아웃되고, 내 정보와 활동 기록은 되돌릴 수 없어요.'
+        }
         confirmLabel="탈퇴하기"
-        cancelLabel="계속 이용하기"
+        cancelLabel={suspended ? '취소' : '계속 이용하기'}
         danger
         loading={withdraw.isPending || withdraw.isSuccess}
       />

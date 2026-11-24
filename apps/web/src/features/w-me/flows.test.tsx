@@ -373,7 +373,7 @@ describe('useMarkNotificationsRead', () => {
 
   it('drops read rows from the "안 읽음" feed at once and refreshes that feed', async () => {
     const { client, wrapper } = setup(seed);
-    const answer = deferred<{ updated: number; unreadCount: number }>();
+    const answer = deferred<{ updated: number; unread: number }>();
     apiPost.mockReturnValueOnce(answer.promise);
     const invalidate = vi.spyOn(client, 'invalidateQueries');
     const { result } = renderHook(() => useMarkNotificationsRead(), { wrapper });
@@ -391,7 +391,7 @@ describe('useMarkNotificationsRead', () => {
     expect(client.getQueryData(meKeys.notificationUnread)).toBe(0);
 
     await act(async () => {
-      answer.resolve({ updated: 2, unreadCount: 0 });
+      answer.resolve({ updated: 2, unread: 0 });
       await answer.promise;
     });
     await waitFor(() =>
@@ -419,6 +419,49 @@ describe('useMarkNotificationsRead', () => {
     });
     await waitFor(() => expect(unreadIds()).toEqual(['n1', 'n2']));
     expect(client.getQueryData(meKeys.notificationUnread)).toBe(2);
+  });
+});
+
+describe('notification scope (B5: console = agency audience)', () => {
+  const agencyRow = (id: string): Notification => ({
+    id,
+    type: 'DEAL_REQUEST_RECEIVED',
+    title: `요청 ${id}`,
+    data: { dealRequestId: 'dr1', agencyId: 'ag1' },
+    readAt: null,
+    createdAt: '2026-11-23T02:42:00Z',
+  });
+
+  it('marks read with ?scope=agency and takes the scope counter from the server', async () => {
+    const { client, wrapper } = setup((c) => {
+      c.setQueryData(meKeys.notificationFeed('all', 'agency'), {
+        pages: [{ items: [agencyRow('a1'), agencyRow('a2')], nextCursor: null, unreadCount: 2 }],
+        pageParams: [null],
+      });
+      c.setQueryData(meKeys.notificationUnreadOf('agency'), 2);
+      c.setQueryData(meKeys.notificationUnread, 5);
+    });
+    apiPost.mockResolvedValueOnce({ updated: 1, unread: 1 });
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    const { result } = renderHook(() => useMarkNotificationsRead('agency'), { wrapper });
+
+    await act(async () => {
+      await result.current.mutateAsync({ ids: ['a1'] });
+    });
+    expect(apiPost).toHaveBeenLastCalledWith(
+      '/me/notifications/read',
+      { ids: ['a1'] },
+      expect.objectContaining({ query: { scope: 'agency' } }),
+    );
+    expect(client.getQueryData(meKeys.notificationUnreadOf('agency'))).toBe(1);
+    // The whole-feed counter (site header, my-page) is refreshed, not guessed.
+    await waitFor(() =>
+      expect(invalidate).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: meKeys.notificationUnread }),
+      ),
+    );
+    expect(meKeys.notificationFeed('all')).toEqual(['me-notifications', 'feed', 'all']);
+    expect(meKeys.notificationUnreadOf()).toEqual(meKeys.notificationUnread);
   });
 });
 

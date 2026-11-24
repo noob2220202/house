@@ -32,9 +32,9 @@ const SORTERS: Record<string, (a: StoredListing, b: StoredListing) => number> = 
 };
 
 /**
- * GET /api/v1/agency/listings (ASSUMED) — listings of the caller's agency, own and co-brokered.
- * Query: status (csv), q, dealTypes (csv), assetTypes (csv), verificationDue, coBrokered, sort,
- * page, pageSize → pagination envelope of rows.
+ * GET /api/v1/agency/listings — listings of the caller's agency, own and co-brokered.
+ * Query: statuses (csv), dealTypes (csv), primaryOnly (API) + the console's q, assetTypes (csv),
+ * verificationDue, coBrokered, sort; page, pageSize → pagination envelope of rows.
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const ctx = listingsContext(req);
@@ -47,7 +47,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       { status: 500 },
     );
   }
-  const statuses = mockCsv(sp, 'status');
+  const statuses = mockCsv(sp, 'statuses');
+  const primaryOnly = sp.get('primaryOnly') === 'true';
   const deals = mockCsv(sp, 'dealTypes');
   const assets = mockCsv(sp, 'assetTypes');
   const q = squash(sp.get('q') ?? '');
@@ -61,6 +62,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .filter((l) => assets.length === 0 || assets.includes(l.property.assetType))
     .filter((l) => !due || isVerificationDue(l))
     .filter((l) => !co || !isPrimaryMine(l))
+    .filter((l) => !primaryOnly || isPrimaryMine(l))
     .filter((l) => {
       if (!q) return true;
       const hay = squash(
@@ -104,8 +106,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     listingNo: null,
     status: ListingStatus.DRAFT,
     floorDisplay: FloorDisplay.EXACT,
-    maintenanceFeeItems: [],
+    maintenanceFee: null,
     options: [],
+    version: 0,
     publishedAt: null,
     expiresAt: null,
     closedAt: null,

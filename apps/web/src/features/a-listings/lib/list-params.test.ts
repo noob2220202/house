@@ -75,7 +75,7 @@ describe('/agent/listings URL state', () => {
 describe('toApiQuery', () => {
   it('sends only what is set, with the fixed page size', () => {
     expect(toApiQuery(LIST_DEFAULTS)).toEqual({
-      status: undefined,
+      statuses: undefined,
       q: undefined,
       dealTypes: undefined,
       assetTypes: undefined,
@@ -100,7 +100,7 @@ describe('toApiQuery', () => {
         page: 4,
       }),
     ).toEqual({
-      status: [ListingStatus.HIDDEN],
+      statuses: [ListingStatus.HIDDEN],
       q: '석현동',
       dealTypes: [DealType.JEONSE],
       assetTypes: [AssetType.HOUSE],

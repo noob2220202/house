@@ -33,24 +33,12 @@ import {
 } from '@/lib/format';
 import { verificationState } from '@/features/a-listings/lib/status';
 import { agencyKeys, fetchDashboard } from '../api/queries';
-import type {
-  AgencyDashboard,
-  DashboardInquiry,
-  DashboardListing,
-  DashboardRequest,
-  MyAgency,
-} from '../api/schemas';
+import type { AgencyDashboard, DashboardListing, DashboardRequest, MyAgency } from '../api/schemas';
 import { useMyAgency } from '../api/useMyAgency';
 import { profileCompleteness } from '../lib/application';
 import { AGENT_ROUTES } from '../nav';
 import { ConsolePage, ConsolePageHeader } from '../shell';
 import styles from './Dashboard.module.css';
-import {
-  inquiryPreview,
-  inquirySource,
-  inquiryTitle,
-  isInquiryUnread,
-} from '@/features/a-inbox/lib/inquiry';
 import {
   requestAreaText,
   requestHeadlinePrice,
@@ -168,28 +156,6 @@ function RequestItem({ request }: { request: DashboardRequest }) {
   );
 }
 
-function InquiryItem({ inquiry }: { inquiry: DashboardInquiry }) {
-  return (
-    <li>
-      <Link href={AGENT_ROUTES.inquiry(inquiry.id)} className={styles.feedItem}>
-        <span className={styles.feedHead}>
-          {isInquiryUnread(inquiry) && (
-            <i className={styles.unread}>
-              <span className="sr-only">읽지 않음</span>
-            </i>
-          )}
-          <span className={styles.feedTitle}>{inquiryTitle(inquiry)}</span>
-          <span className={styles.time}>{formatRelativeTime(inquiry.createdAt)}</span>
-        </span>
-        <span className={styles.preview}>{inquiryPreview(inquiry)}</span>
-        <span className={styles.feedMeta}>
-          <span>{inquirySource(inquiry)}</span>
-        </span>
-      </Link>
-    </li>
-  );
-}
-
 function DashboardSkeleton() {
   return (
     <LoadingRegion label="대시보드를 불러오는 중">
@@ -247,7 +213,7 @@ function ProfileCard({ agency }: { agency: MyAgency }) {
 }
 
 function DashboardBody({ data, agency }: { data: AgencyDashboard; agency: MyAgency | null }) {
-  const { listings, views, dealRequests, inquiries, expiringListings, verificationDue } = data;
+  const { listings, views, dealRequests, expiringListings, verificationDue } = data;
   // The feed is truncated → the split comes from the aggregate; no chips when it is absent.
   const { newSellCount, newWantedCount } = dealRequests;
   const hasSplit = typeof newSellCount === 'number' && typeof newWantedCount === 'number';
@@ -297,15 +263,18 @@ function DashboardBody({ data, agency }: { data: AgencyDashboard; agency: MyAgen
             }
           />
         </Link>
-        <Link href={AGENT_ROUTES.inquiries} className={styles.kpiLink}>
+        {/* D5: no inquiry backend for launch — the 4th tile shows the ads that are about to end. */}
+        <Link href={AGENT_ROUTES.listings} className={styles.kpiLink}>
           <StatTile
             className={styles.kpiTile}
-            label="읽지 않은 문의"
-            value={formatCount(inquiries.unreadCount)}
+            label="광고 만료 임박"
+            value={formatCount(expiringListings.length)}
             unit="건"
-            icon={<Icon name="chat" size={18} />}
+            icon={<Icon name="clock" size={18} />}
             detail={
-              inquiries.unreadCount > 0 ? '빠르게 답할수록 계약률이 올라가요' : '모두 확인했어요'
+              expiringListings.length > 0
+                ? '광고 기간을 연장하거나 거래 상태를 정리해 주세요'
+                : '곧 끝나는 광고가 없어요'
             }
           />
         </Link>
@@ -473,28 +442,6 @@ function DashboardBody({ data, agency }: { data: AgencyDashboard; agency: MyAgen
             )}
           </Panel>
 
-          <Panel
-            title="최근 문의"
-            count={inquiries.unreadCount || undefined}
-            actions={<More href={AGENT_ROUTES.inquiries}>전체</More>}
-            flush
-          >
-            {inquiries.items.length === 0 ? (
-              <EmptyState
-                compact
-                icon="chat"
-                title="아직 문의가 없어요"
-                description="매물에 문의가 들어오면 여기에 보여요."
-              />
-            ) : (
-              <ul className={styles.feed}>
-                {inquiries.items.map((q) => (
-                  <InquiryItem key={q.id} inquiry={q} />
-                ))}
-              </ul>
-            )}
-          </Panel>
-
           {agency && agency.myRole === AgencyMemberRole.OWNER && <ProfileCard agency={agency} />}
         </div>
       </div>
@@ -506,7 +453,7 @@ export interface DashboardViewProps {
   user: SessionUser;
 }
 
-/** /agent — console home: KPIs, views, expiring listings, 실매물 확인 reminders, requests, inquiries. */
+/** /agent — console home: KPIs, views, expiring listings, 실매물 확인 reminders, requests. */
 export function DashboardView({ user }: DashboardViewProps) {
   const agencyQuery = useMyAgency();
   const dashboardQuery = useQuery({

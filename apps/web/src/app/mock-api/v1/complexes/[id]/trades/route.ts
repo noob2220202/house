@@ -2,11 +2,12 @@ import { complexTradesQuerySchema } from '@house/shared';
 import type { NextRequest } from 'next/server';
 import { mockDelay, mockError, mockGuard, mockJson, mockNotFound, mockPaginate } from '@/lib/mock';
 import { findComplexSpec, tradeDataOf } from '../../_fixtures';
+import { toTradeView } from '../../_wire';
 
 type Ctx = { params: Promise<{ id: string }> };
 
 // GET /api/v1/complexes/:id/trades?dealType&areaTypeId&fromYm&toYm&page&pageSize — public,
-// newest first (complexes module, `complexTradesQuerySchema`).
+// newest first (complexes module, `complexTradesQuerySchema`) → Paginated<TradeView>.
 export async function GET(req: NextRequest, ctx: Ctx) {
   const off = mockGuard();
   if (off) return off;
@@ -30,7 +31,9 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       (!q.dealType || t.dealType === q.dealType) &&
       (!q.areaTypeId || t.areaTypeId === q.areaTypeId) &&
       (!q.fromYm || t.dealYm >= q.fromYm) &&
-      (!q.toYm || t.dealYm <= q.toYm),
+      (!q.toYm || t.dealYm <= q.toYm) &&
+      (q.includeCancelled || !t.cancelled),
   );
-  return mockJson(mockPaginate(rows, req, { pageSize: 20 }));
+  const page = mockPaginate(rows, req, { pageSize: 20 });
+  return mockJson({ ...page, items: page.items.map(toTradeView) });
 }

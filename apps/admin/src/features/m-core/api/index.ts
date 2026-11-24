@@ -2,14 +2,22 @@ import type { AdminLoginInput, AgencyStatus } from '@house/shared';
 import { api, qk } from '@/lib/api';
 import { splitTraffic } from '../lib/dashboard';
 import {
+  factorBody,
+  reauthBody,
+  type AdminPasswordChangeInput,
+  type SecondFactor,
+  type TotpReauth,
+} from '../lib/otp';
+import {
   adminAccountSchema,
   adminLoginResultSchema,
+  adminSessionResultSchema,
   adminNotificationPageSchema,
   adminSearchSchema,
   dashboardQueuesSchema,
   dashboardSummarySchema,
+  totpActivateResultSchema,
   totpSetupSchema,
-  totpVerifyResultSchema,
   trafficStatsSchema,
 } from './schemas';
 
@@ -36,17 +44,30 @@ export type TrafficRange = 7 | 30;
 export const loginWithPassword = (input: AdminLoginInput) =>
   api.post('/admin/auth/login', input, { schema: adminLoginResultSchema });
 
-export const startTotpSetup = () =>
-  api.post('/admin/auth/totp/setup', undefined, { schema: totpSetupSchema });
+/**
+ * POST /admin/auth/totp/setup. First enrolment (pre-MFA session): no body. Re-enrolment from a
+ * verified session: the current password plus the current TOTP code or a recovery code
+ * (otherwise 403 `AUTH_REAUTH_REQUIRED`).
+ */
+export const startTotpSetup = (reauth?: TotpReauth) =>
+  api.post('/admin/auth/totp/setup', reauth ? reauthBody(reauth) : undefined, {
+    schema: totpSetupSchema,
+  });
 
-export const verifyTotp = (code: string) =>
-  api.post('/admin/auth/totp/verify', { code }, { schema: totpVerifyResultSchema });
+/** POST /admin/auth/totp/activate { code } — confirms the pending secret of `startTotpSetup`. */
+export const activateTotp = (code: string) =>
+  api.post('/admin/auth/totp/activate', { code }, { schema: totpActivateResultSchema });
+
+/** POST /admin/auth/totp/verify — second factor of an enrolled admin: a TOTP or a recovery code. */
+export const verifyTotp = (factor: SecondFactor) =>
+  api.post('/admin/auth/totp/verify', factorBody(factor), { schema: adminSessionResultSchema });
 
 export const fetchAccount = (signal?: AbortSignal) =>
   api.get('/admin/auth/me', { schema: adminAccountSchema, signal });
 
-export const changePassword = (input: { currentPassword: string; newPassword: string }) =>
-  api.post('/admin/auth/password', input);
+/** POST /admin/auth/password — rotates the session (other sessions end) and returns its token. */
+export const changePassword = (input: AdminPasswordChangeInput) =>
+  api.post('/admin/auth/password', input, { schema: adminSessionResultSchema });
 
 // ---------- dashboard ----------
 

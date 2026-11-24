@@ -55,6 +55,13 @@ function setup(props: Partial<BannerTableProps> = {}) {
 const row = (title: string) => screen.getByText(title).closest('tr') as HTMLElement;
 
 describe('BannerTable', () => {
+  it('shows a dash until the stats totals of a row are loaded', () => {
+    setup({ rows: [makeBanner(4, { title: '집계 전 배너', impressions: null, clicks: null })] });
+    const link = within(row('집계 전 배너')).getByRole('link', { name: /통계 보기/ });
+    expect(link).toHaveAccessibleName('AD-04 집계 전 배너 통계 보기');
+    expect(link).toHaveTextContent('–');
+  });
+
   it('renders slot + order, advertiser, target and stats per row', () => {
     setup();
     const first = within(row('연향들 더 퍼스트 견본주택 오픈'));

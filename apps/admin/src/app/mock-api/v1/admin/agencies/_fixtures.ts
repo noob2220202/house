@@ -1,9 +1,5 @@
 import { AgencyDocumentType, type AgencyStatus, type AssetType, AuthProvider } from '@house/shared';
-import type {
-  AdminAgencyDetail,
-  AdminAgencyListItem,
-  RegistryCheck,
-} from '@/features/m-moderation/api/schemas';
+import type { AdminAgencyDetail, RegistryCheck } from '@/features/m-moderation/api/schemas';
 import { ago, mid, mockTable } from '@/features/m-moderation/mock/handler';
 
 /** Fictional 중개사무소 from design/drafts/system/mockdata.md §4 + the AdminDashboard approval queue. */
@@ -371,9 +367,9 @@ function registryOf(seed: Seed): RegistryCheck | null {
     };
   const registry = {
     name: seed.name,
-    representativeName: seed.rep,
+    representativeName: kind === 'MISMATCH' ? `${seed.rep.slice(0, 1)}○○` : seed.rep,
     registrationNumber: seed.reg,
-    roadAddress: kind === 'MISMATCH' ? full.replace('동천로 121', '동천로 112') : full,
+    roadAddress: full,
     businessStatus: '영업중',
     registeredAt: `20${seed.reg.slice(8, 10)}-0${(seed.n % 9) + 1}-1${seed.n % 9}`,
   };
@@ -382,8 +378,8 @@ function registryOf(seed: Seed): RegistryCheck | null {
     checkedAt,
     source: REGISTRY_SOURCE,
     registry,
-    mismatches: kind === 'MISMATCH' ? ['roadAddress'] : [],
-    message: kind === 'MISMATCH' ? '소재지 도로명 주소가 등록 정보와 다릅니다.' : null,
+    mismatches: kind === 'MISMATCH' ? ['representativeName'] : [],
+    message: kind === 'MISMATCH' ? '대표자 이름이 등록 정보와 다릅니다.' : null,
   };
 }
 
@@ -474,6 +470,7 @@ function build(seed: Seed): AdminAgencyDetail {
     activeListingCount: seed.listings ?? 0,
     warningCount: seed.warnings ?? 0,
     viewCount: seed.views ?? 0,
+    documentCount: docTypes.length,
     documentTypes: docTypes,
     registryStatus: registryOf(seed)?.status ?? null,
     owner: {
@@ -528,24 +525,132 @@ export function agenciesDb(): AdminAgencyDetail[] {
   return mockTable('agencies', () => SEEDS.map(build));
 }
 
-export function toAgencyListItem(a: AdminAgencyDetail): AdminAgencyListItem {
+/** Shared `AdminAgencyListItem` (GET /admin/agencies). */
+export function toAgencyListItem(a: AdminAgencyDetail) {
   return {
     id: a.id,
     name: a.name,
     representativeName: a.representativeName,
     registrationNumber: a.registrationNumber,
-    phone: a.phone,
+    phone: a.phone ?? '',
     roadAddress: a.roadAddress,
-    emdName: a.emdName,
     status: a.status,
-    statusReason: a.statusReason,
-    createdAt: a.createdAt,
-    approvedAt: a.approvedAt,
-    suspendedAt: a.suspendedAt,
-    activeListingCount: a.activeListingCount,
+    owner: { id: a.owner?.id ?? '', name: a.owner?.name ?? null, email: a.owner?.email ?? null },
+    documentCount: a.documents.length,
+    memberCount: a.members.length,
     warningCount: a.warningCount,
-    documentTypes: a.documentTypes,
-    registryStatus: a.registryStatus,
+    createdAt: a.createdAt,
+    approvedAt: a.approvedAt ?? null,
+  };
+}
+
+const MISMATCH_FIELD_VIEW: Record<string, string> = {
+  name: 'officeName',
+  representativeName: 'representativeName',
+  businessStatus: 'operating',
+};
+
+/** Shared `AgencyRegistryCheck` (GET /admin/agencies/:id/registry-check). */
+export function toRegistryCheckView(check: RegistryCheck) {
+  const r = check.registry;
+  return {
+    status: check.status === 'MATCHED' ? 'MATCH' : check.status,
+    checkedAt: check.checkedAt,
+    record: r
+      ? {
+          registrationNumber: r.registrationNumber ?? '',
+          officeName: r.name ?? '',
+          representativeName: r.representativeName ?? null,
+          operating: r.businessStatus === '영업중',
+          statusLabel: r.businessStatus ?? null,
+          regionName: '순천시',
+          registeredOn: r.registeredAt ?? null,
+        }
+      : null,
+    mismatches: check.mismatches.flatMap((m) => MISMATCH_FIELD_VIEW[m] ?? []),
+  };
+}
+
+/**
+ * Shared `AdminAgencyDetail` (GET /admin/agencies/:id, decision response) from the mock row:
+ * documents with `originalFilename`, history with `decidedBy`, `recentWarnings`; no registry
+ * check (separate endpoint) and none of the list-only fields.
+ */
+export function toAgencyDetailView(a: AdminAgencyDetail) {
+  return {
+    id: a.id,
+    name: a.name,
+    representativeName: a.representativeName,
+    registrationNumber: a.registrationNumber,
+    phone: a.phone ?? '',
+    roadAddress: a.roadAddress,
+    addressDetail: a.addressDetail ?? null,
+    emdCode: null,
+    lat: a.lat ?? 0,
+    lng: a.lng ?? 0,
+    specialties: a.specialties,
+    logoUrl: null,
+    businessNumber: a.businessNumber ?? null,
+    mobile: a.mobile ?? null,
+    email: a.email ?? null,
+    jibunAddress: a.jibunAddress ?? null,
+    zipCode: a.zipCode ?? null,
+    intro: a.intro ?? null,
+    businessHours: null,
+    logoMediaId: null,
+    status: a.status,
+    statusReason: a.statusReason ?? null,
+    approvedAt: a.approvedAt ?? null,
+    suspendedAt: a.suspendedAt ?? null,
+    activeListingCount: a.activeListingCount ?? 0,
+    memberCount: a.members.length,
+    documents: a.documents.map((d) => ({
+      id: d.id,
+      type: d.type,
+      mediaId: d.mediaId ?? '',
+      mimeType: d.mimeType ?? 'application/octet-stream',
+      sizeBytes: d.sizeBytes ?? 0,
+      originalFilename: d.fileName ?? null,
+      createdAt: d.createdAt,
+    })),
+    statusHistory: a.statusHistory.map((h) => ({
+      id: h.id,
+      fromStatus: h.fromStatus ?? null,
+      toStatus: h.toStatus,
+      reason: h.reason ?? null,
+      decidedBy: h.decidedByName ? { id: `admin-${h.id}`, name: h.decidedByName } : null,
+      createdAt: h.createdAt,
+    })),
+    createdAt: a.createdAt,
+    updatedAt: a.updatedAt ?? a.createdAt,
+    owner: {
+      id: a.owner?.id ?? '',
+      name: a.owner?.name ?? null,
+      nickname: a.owner?.nickname ?? null,
+      email: a.owner?.email ?? null,
+      phone: a.owner?.phone ?? null,
+      status: 'ACTIVE',
+    },
+    members: a.members.map((m) => ({
+      id: m.id,
+      userId: `user-${m.id}`,
+      role: m.role,
+      status: m.status,
+      displayName: m.displayName,
+      title: m.title ?? null,
+      phone: null,
+      isLicensed: m.isLicensed,
+      licenseNumber: null,
+      joinedAt: m.joinedAt ?? a.createdAt,
+      removedAt: null,
+    })),
+    warningCount: a.warningCount,
+    recentWarnings: a.warnings.map((w) => ({
+      id: w.id,
+      reason: w.reason,
+      reportId: w.reportId ?? null,
+      createdAt: w.createdAt,
+    })),
   };
 }
 

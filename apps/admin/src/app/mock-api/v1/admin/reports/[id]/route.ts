@@ -1,3 +1,4 @@
+import { reportReviewSchema } from '@house/shared';
 import type { NextRequest } from 'next/server';
 import {
   MOCK_ADMIN_NAME,
@@ -6,10 +7,9 @@ import {
   newId,
   nowIso,
   readBody,
-  readText,
   validationError,
 } from '@/features/m-moderation/mock/handler';
-import { mockJson, mockNotFound } from '@/lib/mock';
+import { mockError, mockJson, mockNotFound } from '@/lib/mock';
 import { reportsDb, toReportDetail } from '../_fixtures';
 
 const notFound = () => mockNotFound('REPORT_NOT_FOUND', '신고를 찾을 수 없습니다.');
@@ -23,22 +23,29 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   return report ? mockJson(toReportDetail(report)) : notFound();
 }
 
-// PATCH /api/v1/admin/reports/:id — body { internalNote } saves the moderators' internal memo
-// (status unchanged). Kept apart from resolutionNote, which is forwarded to the reporter / office.
+// PATCH /api/v1/admin/reports/:id — `reportReviewSchema` `{ status?: 'IN_REVIEW', note? }`:
+// 검토 시작 and/or the moderators' note (resolutionNote) of an OPEN report; 409 once handled.
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const gate = await modGate(req, { mutation: true });
   if (isBlocked(gate)) return gate;
   const { id } = await ctx.params;
   const report = reportsDb().find((r) => r.id === id);
   if (!report) return notFound();
-  const note = readText(await readBody(req), 'internalNote');
-  if (note.length > 2000)
-    return validationError('internalNote', '메모는 2,000자 이내로 입력해 주세요.');
-  report.internalNote = note || null;
+  const parsed = reportReviewSchema.safeParse(await readBody(req));
+  if (!parsed.success) return validationError('note', '변경할 내용을 입력해 주세요.');
+  if (report.status !== 'RECEIVED' && report.status !== 'IN_REVIEW')
+    return mockError(409, 'REPORT_ALREADY_HANDLED', '이미 처리된 신고입니다.');
+  const { status, note } = parsed.data;
+  if (status) report.status = status;
+  if (note !== undefined) {
+    report.resolutionNote = note || null;
+    report.internalNote = note || null;
+  }
+  report.handledByName = MOCK_ADMIN_NAME[gate.role];
   report.timeline.unshift({
     id: newId('e4'),
-    status: null,
-    note: note || '메모를 지웠습니다.',
+    status: status ?? null,
+    note: note === undefined ? null : note || '메모를 지웠습니다.',
     adminName: MOCK_ADMIN_NAME[gate.role],
     createdAt: nowIso(),
   });

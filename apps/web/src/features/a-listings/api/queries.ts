@@ -1,6 +1,6 @@
 import { MediaPurpose, type ListingStatus, type VerificationMethod } from '@house/shared';
 import { api, qk } from '@/lib/api';
-import type { DraftPayload } from '../lib/form';
+import type { DraftPayload, UpdatePayload } from '../lib/form';
 import { toApiQuery, type ListParams } from '../lib/list-params';
 import { toPhotosPayload, type PhotoValue } from '../lib/photos';
 import {
@@ -11,7 +11,9 @@ import {
   complexForListingSchema,
   complexSearchPageSchema,
   geocodeResultSchema,
+  listingPhotoListSchema,
   mediaSchema,
+  type AgencyListingPage,
 } from './schemas';
 
 /** Query keys: resource `agency-listings` (invalidate the whole resource after any mutation). */
@@ -30,21 +32,41 @@ const path = (id: string, tail = '') => `/agency/listings/${encodeURIComponent(i
 
 // ---- reads ----------------------------------------------------------------------------------------
 
-/** GET /agency/listings — the caller's agency's listings (own + co-brokered). ASSUMED endpoint. */
-export function fetchListings(params: ListParams, signal?: AbortSignal) {
-  return api.get('/agency/listings', {
+/**
+ * The API's `ListingSummary` rows name the primary office (`primaryAgency.id`) instead of a flag:
+ * with the caller's agency id, mark the rows it is primary on (co-brokered rows keep the name).
+ */
+export function markPrimary(
+  page: AgencyListingPage,
+  agencyId: string | undefined,
+): AgencyListingPage {
+  if (!agencyId) return page;
+  return {
+    ...page,
+    items: page.items.map((row) => {
+      if (!row.primaryAgencyId) return row;
+      const isPrimary = row.primaryAgencyId === agencyId;
+      return { ...row, isPrimary, primaryAgencyName: isPrimary ? null : row.primaryAgencyName };
+    }),
+  };
+}
+
+/** GET /agency/listings — the caller's agency's listings (own + co-brokered). */
+export async function fetchListings(params: ListParams, signal?: AbortSignal, agencyId?: string) {
+  const page = await api.get('/agency/listings', {
     query: toApiQuery(params),
     schema: agencyListingPageSchema,
     signal,
   });
+  return markPrimary(page, agencyId);
 }
 
-/** GET /agency/listings/summary — status counters. ASSUMED endpoint. */
+/** GET /agency/listings/summary — status counters. */
 export function fetchSummary(signal?: AbortSignal) {
   return api.get('/agency/listings/summary', { schema: agencyListingSummarySchema, signal });
 }
 
-/** GET /agency/listings/:id — full editable listing (incl. 호수). ASSUMED endpoint. */
+/** GET /agency/listings/:id — full editable listing (incl. 호수). */
 export function fetchListing(id: string, signal?: AbortSignal) {
   return api.get(path(id), { schema: agencyListingSchema, signal });
 }
@@ -56,7 +78,7 @@ export interface CandidateParams {
   page?: number;
 }
 
-/** GET /agency/listings/co-broker-candidates — other offices' listings in a complex. ASSUMED. */
+/** GET /agency/listings/co-broker-candidates — other offices' listings in a complex. */
 export function fetchCoBrokerCandidates(params: CandidateParams, signal?: AbortSignal) {
   return api.get('/agency/listings/co-broker-candidates', {
     query: {
@@ -87,7 +109,7 @@ export function fetchComplex(id: string, signal?: AbortSignal) {
   });
 }
 
-/** GET /geo/geocode?query= — address search with coordinates (ASSUMED, shared with a-agency). */
+/** GET /geo/geocode?query= — address search with coordinates + 법정동코드 (shared with a-agency). */
 export function geocode(query: string, signal?: AbortSignal) {
   return api.get('/geo/geocode', { query: { query }, schema: geocodeResultSchema, signal });
 }
@@ -99,8 +121,11 @@ export function createListing(body: DraftPayload) {
   return api.post('/agency/listings', body, { schema: agencyListingSchema });
 }
 
-/** PATCH /agency/listings/:id — replaces the draft fields (omitted optional fields are cleared). */
-export function updateListing(id: string, body: DraftPayload) {
+/**
+ * PATCH /agency/listings/:id (`listingUpdateSchema`): omitted = unchanged, null = cleared — the
+ * body comes from `toUpdatePayload`, which nulls every field the form left empty.
+ */
+export function updateListing(id: string, body: UpdatePayload) {
   return api.patch(path(id), body, { schema: agencyListingSchema });
 }
 
@@ -131,9 +156,9 @@ export function addVerification(id: string, input: VerificationInput) {
   return api.post(path(id, '/verifications'), input, { schema: agencyListingSchema });
 }
 
-/** PUT /agency/listings/:id/photos — full ordered list incl. the cover. */
+/** PUT /agency/listings/:id/photos — full ordered list incl. the cover → the saved photos. */
 export function saveListingPhotos(id: string, photos: readonly PhotoValue[]) {
-  return api.put(path(id, '/photos'), toPhotosPayload(photos), { schema: agencyListingSchema });
+  return api.put(path(id, '/photos'), toPhotosPayload(photos), { schema: listingPhotoListSchema });
 }
 
 export interface CoBrokerContact {

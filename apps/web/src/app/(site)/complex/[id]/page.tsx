@@ -7,12 +7,15 @@ import {
   bannerListSchema,
   complexAgenciesSchema,
   complexDetailSchema,
-  complexListingsSchema,
+  complexListingPageSchema,
+  complexListingSummarySchema,
   complexStatsSchema,
   nearbyComplexesSchema,
   tradePageSchema,
 } from '@/features/w-complex/api/schemas';
+import { STATS_WINDOW_MONTHS } from '@/features/w-complex/api/queries';
 import { complexDescription } from '@/features/w-complex/lib/complex';
+import { loadComplexListings } from '@/features/w-complex/lib/complex-listings';
 import { defaultAreaType } from '@/features/w-complex/lib/trend';
 import { ComplexPageView } from '@/features/w-complex/page/ComplexPageView';
 import { ApiError } from '@/lib/api';
@@ -50,12 +53,29 @@ const getComplex = cache(async (id: string) => {
   }
 });
 
+/** First listings + summary of the complex (`GET /listings?complexId=` + `GET /complexes/:id/listings`). */
 const getListings = cache((id: string) =>
-  serverGetOr(`/complexes/${encodeURIComponent(id)}/listings`, null, {
-    query: { pageSize: 4 },
-    schema: complexListingsSchema,
-    revalidate: 60,
-    tags: ['complexes', 'listings'],
+  loadComplexListings(
+    id,
+    { pageSize: 4 },
+    {
+      page: (query) =>
+        serverGet('/listings', {
+          query,
+          schema: complexListingPageSchema,
+          revalidate: 60,
+          tags: ['listings'],
+        }),
+      summary: () =>
+        serverGet(`/complexes/${encodeURIComponent(id)}/listings`, {
+          schema: complexListingSummarySchema,
+          revalidate: 60,
+          tags: ['complexes', 'listings'],
+        }),
+    },
+  ).catch((error: unknown) => {
+    if (error instanceof ApiError) return null;
+    throw error;
   }),
 );
 
@@ -85,7 +105,7 @@ export default async function ComplexPage({ params }: Props) {
   const areaTypeId = defaultAreaType(complex.areaTypes)?.id;
   const [stats, trades, listings, nearby, agencies, featured] = await Promise.all([
     serverGetOr(`${base}/stats`, null, {
-      query: { dealType: 'SALE', areaTypeId },
+      query: { dealType: 'SALE', areaTypeId, months: STATS_WINDOW_MONTHS },
       schema: complexStatsSchema,
       revalidate: REVALIDATE,
       tags: ['complexes'],

@@ -11,7 +11,9 @@ import {
   type ListingDetail,
   type ServedBanner,
 } from '@/features/w-listing/api/schemas';
+import { complexDetailSchema } from '@/features/w-complex/api/schemas';
 import { ListingPage } from '@/features/w-listing/components/ListingPage';
+import { withComplexDetail } from '@/features/w-listing/lib/complex';
 import {
   buildBreadcrumb,
   headlineAmount,
@@ -38,11 +40,20 @@ export function generateStaticParams(): { id: string }[] {
 /** Public listing detail — ISR (60s). Missing / hidden listings resolve to null → 404 page. */
 const getListing = cache(async (id: string): Promise<ListingDetail | null> => {
   try {
-    return await serverGet(`/listings/${encodeURIComponent(id)}`, {
+    const listing = await serverGet(`/listings/${encodeURIComponent(id)}`, {
       schema: listingDetailSchema,
       revalidate: 60,
       tags: ['listings', `listing:${id}`],
     });
+    // 단지 facts, 평형 and 최근 실거래 live on the complex (best effort — the page works without).
+    const complex = listing.complex
+      ? await serverGetOr(`/complexes/${encodeURIComponent(listing.complex.id)}`, null, {
+          schema: complexDetailSchema,
+          revalidate: 300,
+          tags: ['complexes', `complex:${listing.complex.id}`],
+        })
+      : null;
+    return withComplexDetail(listing, complex);
   } catch (error) {
     // 404 = gone / never existed, 400 = malformed id → both are "not found" for visitors.
     if (error instanceof ApiError && (error.isNotFound || error.status === 400)) return null;

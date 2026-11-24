@@ -45,9 +45,9 @@ const BLOCK_TONE: Partial<Record<HomeSection['key'], string | undefined>> = {
 };
 
 /**
- * 메인 화면 편집 — order and visibility of the home page sections. The layout is stored as the site
- * setting `HOME_LAYOUT` (ASSUMED key, not in SiteSettingKey yet): saving works end to end against
- * the mock, and the user site starts honouring it once the backend exposes the key publicly.
+ * 메인 화면 편집 — order and visibility of the home page sections, stored as the site setting
+ * `HOME_LAYOUT` (D9: GET/PUT /admin/site-settings/HOME_LAYOUT, validated with the shared
+ * `homeLayoutSettingSchema`). The user site reads it from GET /site-settings/public.
  */
 export function HomeEditorView() {
   const { toast } = useToast();
@@ -89,10 +89,13 @@ export function HomeEditorView() {
   return (
     <>
       <Callout size="sm">
-        <strong>연동 준비 단계예요.</strong> 여기서 저장한 구성은 관리자 설정에 기록되고, 사용자
-        사이트 반영은 백엔드에 메인 화면 구성 설정이 추가된 뒤에 켜져요. 배너와 팝업의 내용은{' '}
+        저장하면 사용자 사이트의 메인 화면에 반영돼요. 배너와 팝업의 내용은{' '}
         <Link href={ADMIN_ROUTES.banners} className="link">
           배너·팝업 관리
+        </Link>
+        에서, 앱 안내 띠의 스토어 주소는{' '}
+        <Link href={`${ADMIN_ROUTES.siteInfo}?tab=apps`} className="link">
+          사이트 정보 › 앱 링크
         </Link>
         에서 바꿀 수 있어요.
       </Callout>

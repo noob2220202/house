@@ -3,14 +3,19 @@ import {
   COMPLEX_ASSET_TYPES,
   DealType,
   FloorDisplay,
+  MaintenanceFeeBillingType,
+  MaintenanceFeeKind,
+  MoveInType,
+  isBuildingAsset,
   listingDraftSchema,
+  type BuildingUse,
   type Direction,
   type DirectionBasis,
   type ListingOption,
-  type MoveInType,
 } from '@house/shared';
 import { parsePriceInput } from '@/lib/format';
-import type { AgencyListing } from '../api/schemas';
+import type { AgencyListing, MaintenanceFeeView } from '../api/schemas';
+import { listingEmdCode } from './region';
 
 /** Wizard steps, in order. `key` is also the `?step=` value. */
 export const STEPS = [
@@ -30,6 +35,19 @@ export function stepIndexOf(key: string | null | undefined): number {
   return i < 0 ? 0 : i;
 }
 
+/** 관리비 세부 항목 in the order the form lists them (shared `MaintenanceFeeKind`). */
+export const FEE_KINDS: readonly MaintenanceFeeKind[] = Object.values(MaintenanceFeeKind);
+
+/** One 관리비 항목 row of the form: 포함 여부 + 월 금액 (원, digits as typed). */
+export interface FeeItemValue {
+  kind: MaintenanceFeeKind;
+  included: boolean;
+  amount: string;
+}
+
+export const emptyFeeItems = (): FeeItemValue[] =>
+  FEE_KINDS.map((kind) => ({ kind, included: false, amount: '' }));
+
 /** All inputs are strings while editing; `toDraftPayload` converts them. */
 export interface ListingFormValues {
   assetType: AssetType | '';
@@ -44,6 +62,10 @@ export interface ListingFormValues {
   ho: string;
   lat: number | null;
   lng: number | null;
+  /** 법정동코드 of the picked address / complex (10 digits, '' = not resolved). Not typed. */
+  emdCode: string;
+  /** 건축물대장상 용도 (「중개대상물 종류」); '' = not chosen (implied for 아파트·오피스텔). */
+  buildingUse: BuildingUse | '';
   floor: string;
   totalFloors: string;
   floorDisplay: FloorDisplay;
@@ -57,7 +79,12 @@ export interface ListingFormValues {
   maintenanceNone: boolean;
   /** 만원 / 월, one decimal allowed ("15", "8.5"). */
   maintenanceFee: string;
-  maintenanceFeeItems: string[];
+  /** 관리비 부과방식 (정액 / 실비 정산 / 확인불가). */
+  feeBillingType: MaintenanceFeeBillingType | '';
+  /** One row per `FEE_KINDS` entry. */
+  feeItems: FeeItemValue[];
+  /** Why the breakdown cannot be shown (required for 확인불가). */
+  feeUnavailableReason: string;
   moveInType: MoveInType | '';
   moveInDate: string;
   exclusiveArea: string;
@@ -87,6 +114,8 @@ export const FORM_DEFAULTS: ListingFormValues = {
   ho: '',
   lat: null,
   lng: null,
+  emdCode: '',
+  buildingUse: '',
   floor: '',
   totalFloors: '',
   floorDisplay: FloorDisplay.EXACT,
@@ -98,7 +127,9 @@ export const FORM_DEFAULTS: ListingFormValues = {
   premium: '',
   maintenanceNone: false,
   maintenanceFee: '',
-  maintenanceFeeItems: [],
+  feeBillingType: '',
+  feeItems: emptyFeeItems(),
+  feeUnavailableReason: '',
   moveInType: '',
   moveInDate: '',
   exclusiveArea: '',
@@ -127,6 +158,8 @@ export const FIELD_STEP: Record<FormField, number> = {
   ho: 0,
   lat: 0,
   lng: 0,
+  emdCode: 0,
+  buildingUse: 0,
   floor: 0,
   totalFloors: 0,
   floorDisplay: 0,
@@ -138,7 +171,9 @@ export const FIELD_STEP: Record<FormField, number> = {
   premium: 1,
   maintenanceNone: 1,
   maintenanceFee: 1,
-  maintenanceFeeItems: 1,
+  feeBillingType: 1,
+  feeItems: 1,
+  feeUnavailableReason: 1,
   moveInType: 1,
   moveInDate: 1,
   areaTypeId: 2,
@@ -161,7 +196,7 @@ export const FIELD_STEP: Record<FormField, number> = {
 export const isComplexAsset = (t: AssetType | '' | undefined): boolean =>
   !!t && COMPLEX_ASSET_TYPES.includes(t);
 export const isLand = (t: AssetType | '' | undefined): boolean => t === AssetType.LAND;
-/** 주거용: 방·욕실 수가 명시사항. */
+/** 주거용 (방·욕실 wording; 상업·업무 asks for 방(룸)·화장실). */
 export const isResidential = (t: AssetType | '' | undefined): boolean =>
   t === AssetType.APT ||
   t === AssetType.OFFICETEL ||
@@ -189,6 +224,13 @@ export function parseFloor(input: string): number | undefined | null {
   const basement = /^(?:B|b|지하|-)(\d{1,2})$/.exec(s);
   if (basement) return -Number(basement[1]);
   return /^\d{1,3}$/.test(s) ? Number(s) : null;
+}
+
+/** 관리비 항목 금액 in 원: '' → undefined, "70,000" → 70000, invalid → null. */
+export function parseWon(input: string): number | undefined | null {
+  const s = input.replace(/[\s,원]/g, '');
+  if (s === '') return undefined;
+  return /^\d{1,9}$/.test(s) ? Number(s) : null;
 }
 
 /** '' → undefined, non-negative integer → number, anything else → null. */
@@ -259,7 +301,12 @@ export interface DraftPayload {
   presalePrice?: number;
   premium?: number;
   maintenanceFeeWon?: number;
-  maintenanceFeeItems?: string[];
+  /** 관리비 부과방식 + 항목별 내역 (shared `maintenanceFeeSchema`). */
+  maintenanceFee?: {
+    billingType: MaintenanceFeeBillingType;
+    items: { kind: MaintenanceFeeKind; included: boolean; amountWon?: number }[];
+    unavailableReason?: string;
+  };
   moveInType?: MoveInType;
   moveInDate?: string;
   floorDisplay: FloorDisplay;
@@ -275,6 +322,9 @@ export interface DraftPayload {
     ho?: string;
     lat?: number;
     lng?: number;
+    /** 10-digit 법정동코드 (required to publish). */
+    emdCode?: string;
+    buildingUse?: BuildingUse;
     floor?: number;
     totalFloors?: number;
     exclusiveArea?: number;
@@ -341,6 +391,8 @@ export function toDraftPayload(v: ListingFormValues): {
     ho: land ? undefined : withUnit(v.ho, '호'),
     lat: v.lat ?? undefined,
     lng: v.lng ?? undefined,
+    emdCode: listingEmdCode(v.emdCode),
+    buildingUse: asset && isBuildingAsset(asset) && v.buildingUse ? v.buildingUse : undefined,
   };
 
   if (!land) {
@@ -378,10 +430,9 @@ export function toDraftPayload(v: ListingFormValues): {
     ) {
       issues.push({ field: 'supplyArea', message: '공급면적이 전용면적보다 작아요.' });
     }
-    if (isResidential(asset)) {
-      property.rooms = take('rooms', parseCount(v.rooms), '방 수를 숫자로 입력해 주세요.');
-      property.baths = take('baths', parseCount(v.baths), '욕실 수를 숫자로 입력해 주세요.');
-    }
+    // 방·욕실 수는 건축물 전부의 명시사항 (상업·업무는 0도 가능).
+    property.rooms = take('rooms', parseCount(v.rooms), '방 수를 숫자로 입력해 주세요.');
+    property.baths = take('baths', parseCount(v.baths), '욕실 수를 숫자로 입력해 주세요.');
     property.direction = v.direction || undefined;
     property.directionBasis = v.directionBasis || undefined;
     if (v.approvalDate !== '') {
@@ -437,7 +488,9 @@ export function toDraftPayload(v: ListingFormValues): {
         parseMaintenanceFee(v.maintenanceFee),
         '관리비를 만원 단위로 입력해 주세요. (예: 15 또는 8.5)',
       );
-      if (v.maintenanceFeeItems.length > 0) payload.maintenanceFeeItems = v.maintenanceFeeItems;
+      if (payload.maintenanceFeeWon) {
+        payload.maintenanceFee = toMaintenanceFee(v, issues);
+      }
     }
     payload.moveInType = v.moveInType || undefined;
     if (v.moveInType === 'DATE' && v.moveInDate !== '') {
@@ -447,6 +500,110 @@ export function toDraftPayload(v: ListingFormValues): {
   }
 
   return { payload, issues };
+}
+
+/**
+ * 관리비 부과방식 + 포함 항목 (+ 금액). Omitted until a 부과방식 is chosen — and for 확인불가 until the
+ * reason is written (the shared schema requires it) — so a half-filled draft still saves; the
+ * publish check reports what is missing.
+ */
+function toMaintenanceFee(
+  v: ListingFormValues,
+  issues: FieldIssue[],
+): DraftPayload['maintenanceFee'] {
+  if (!v.feeBillingType) return undefined;
+  const reason = text(v.feeUnavailableReason);
+  if (v.feeBillingType === MaintenanceFeeBillingType.UNKNOWN) {
+    return reason
+      ? { billingType: v.feeBillingType, items: [], unavailableReason: reason }
+      : undefined;
+  }
+  const items: NonNullable<DraftPayload['maintenanceFee']>['items'] = [];
+  let bad = false;
+  for (const row of v.feeItems) {
+    if (!row.included) continue;
+    const amount = parseWon(row.amount);
+    if (amount === null) bad = true;
+    items.push(
+      typeof amount === 'number'
+        ? { kind: row.kind, included: true, amountWon: amount }
+        : { kind: row.kind, included: true },
+    );
+  }
+  if (bad) issues.push({ field: 'feeItems', message: '항목 금액을 원 단위 숫자로 입력해 주세요.' });
+  return { billingType: v.feeBillingType, items, ...(reason ? { unavailableReason: reason } : {}) };
+}
+
+/** PATCH body: the draft + `null` for every form-managed field left empty (null = clear). */
+export type UpdatePayload = Omit<DraftPayload, keyof NullableListingFields | 'property'> & {
+  [K in keyof NullableListingFields]?: NullableListingFields[K] | null;
+} & {
+  property: { [K in keyof DraftPayload['property']]?: DraftPayload['property'][K] | null };
+  version?: number;
+};
+type NullableListingFields = Pick<
+  DraftPayload,
+  | 'title'
+  | 'description'
+  | 'salePrice'
+  | 'deposit'
+  | 'monthlyRent'
+  | 'presalePrice'
+  | 'premium'
+  | 'maintenanceFeeWon'
+  | 'maintenanceFee'
+  | 'moveInType'
+  | 'moveInDate'
+>;
+
+const NULLABLE_LISTING_KEYS: readonly (keyof NullableListingFields)[] = [
+  'title',
+  'description',
+  'salePrice',
+  'deposit',
+  'monthlyRent',
+  'presalePrice',
+  'premium',
+  'maintenanceFeeWon',
+  'maintenanceFee',
+  'moveInType',
+  'moveInDate',
+];
+/** Property fields the wizard edits (others — 연면적, 용도지역 … — are left untouched). */
+const NULLABLE_PROPERTY_KEYS: readonly (keyof DraftPayload['property'])[] = [
+  'complexId',
+  'areaTypeId',
+  'jibunAddress',
+  'buildingName',
+  'dong',
+  'ho',
+  'emdCode',
+  'buildingUse',
+  'floor',
+  'totalFloors',
+  'exclusiveArea',
+  'supplyArea',
+  'landArea',
+  'rooms',
+  'baths',
+  'direction',
+  'directionBasis',
+  'approvalDate',
+  'parkingSpaces',
+];
+
+/**
+ * `listingUpdateSchema` treats an omitted field as unchanged, so a value the broker deleted must
+ * be sent as `null`. `version` (from the loaded listing) lets the server refuse a stale edit.
+ */
+export function toUpdatePayload(draft: DraftPayload, version?: number | null): UpdatePayload {
+  const out: UpdatePayload = { ...draft, property: { ...draft.property } };
+  const listing = out as Record<string, unknown>;
+  for (const key of NULLABLE_LISTING_KEYS) if (listing[key] === undefined) listing[key] = null;
+  const property = out.property as Record<string, unknown>;
+  for (const key of NULLABLE_PROPERTY_KEYS) if (property[key] === undefined) property[key] = null;
+  if (typeof version === 'number') out.version = version;
+  return out;
 }
 
 /** The draft can be stored once the server-required property fields exist. */
@@ -459,12 +616,48 @@ export function canSaveDraft(p: DraftPayload): boolean {
   );
 }
 
-/** Server path ("property.exclusiveArea", "maintenanceFeeWon") → form field. */
-export function formFieldOf(path: string): FormField | null {
+/** Price field that is missing for the deal type (the publish check reports one `price` item). */
+function priceFieldOf(d?: Pick<DraftPayload, 'dealType' | 'deposit' | 'presalePrice'>): FormField {
+  switch (d?.dealType) {
+    case DealType.JEONSE:
+      return 'deposit';
+    case DealType.MONTHLY:
+      return d.deposit === undefined ? 'deposit' : 'monthlyRent';
+    case DealType.PRESALE:
+      return (d.presalePrice ?? 0) > 0 ? 'premium' : 'presalePrice';
+    default:
+      return 'salePrice';
+  }
+}
+
+/**
+ * Server path ("property.exclusiveArea", "maintenanceFeeWon", publish fields such as "price" or
+ * "property.area") → form field. The draft resolves the fields that depend on the deal / asset
+ * type. Office fields ("agency.*") have no form field (null).
+ */
+export function formFieldOf(path: string, draft?: DraftPayload): FormField | null {
+  if (path.startsWith('agency.')) return null;
+  if (path.startsWith('maintenanceFee.')) {
+    if (path === 'maintenanceFee.billingType') return 'feeBillingType';
+    if (path === 'maintenanceFee.unavailableReason') return 'feeUnavailableReason';
+    return 'feeItems';
+  }
   const key = path.replace(/^property\./, '');
-  if (key === 'maintenanceFeeWon') return 'maintenanceFee';
-  if (key === 'lat' || key === 'lng' || key === 'location') return 'roadAddress';
-  if (key === 'price') return 'salePrice';
+  switch (key) {
+    case 'maintenanceFeeWon':
+      return 'maintenanceFee';
+    case 'lat':
+    case 'lng':
+    case 'location':
+    case 'emdCode':
+      return 'roadAddress';
+    case 'price':
+      return priceFieldOf(draft);
+    case 'area':
+      return isLand(draft?.property.assetType) ? 'landArea' : 'exclusiveArea';
+    case 'moveIn':
+      return draft?.moveInType === MoveInType.DATE ? 'moveInDate' : 'moveInType';
+  }
   return key in FORM_DEFAULTS ? (key as FormField) : null;
 }
 
@@ -489,6 +682,21 @@ const str = (n: number | null | undefined) => (n === null || n === undefined ? '
 const moneyStr = (n: number | null | undefined) =>
   n === null || n === undefined ? '' : n.toLocaleString('ko-KR');
 
+/** Stored 관리비 내역 → the form rows (every kind, in `FEE_KINDS` order). */
+export function feeItemsOf(fee: MaintenanceFeeView | null | undefined): FeeItemValue[] {
+  return FEE_KINDS.map((kind) => {
+    const item = fee?.items.find((i) => i.kind === kind);
+    return {
+      kind,
+      included: item?.included ?? false,
+      amount:
+        item?.amountWon === null || item?.amountWon === undefined
+          ? ''
+          : item.amountWon.toLocaleString('ko-KR'),
+    };
+  });
+}
+
 export function fromListing(l: AgencyListing): ListingFormValues {
   const p = l.property;
   const fee = l.maintenanceFeeWon;
@@ -504,6 +712,8 @@ export function fromListing(l: AgencyListing): ListingFormValues {
     ho: p.ho ?? '',
     lat: p.lat,
     lng: p.lng,
+    emdCode: p.emdCode ?? '',
+    buildingUse: p.buildingUse ?? '',
     floor:
       p.floor === null || p.floor === undefined ? '' : p.floor < 0 ? `B${-p.floor}` : str(p.floor),
     totalFloors: str(p.totalFloors),
@@ -516,7 +726,9 @@ export function fromListing(l: AgencyListing): ListingFormValues {
     premium: moneyStr(l.premium),
     maintenanceNone: fee === 0,
     maintenanceFee: fee ? String(Math.round(fee / 1000) / 10) : '',
-    maintenanceFeeItems: l.maintenanceFeeItems,
+    feeBillingType: l.maintenanceFee?.billingType ?? '',
+    feeItems: feeItemsOf(l.maintenanceFee),
+    feeUnavailableReason: l.maintenanceFee?.unavailableReason ?? '',
     moveInType: l.moveInType ?? '',
     moveInDate: l.moveInDate?.slice(0, 10) ?? '',
     exclusiveArea: str(p.exclusiveArea),
@@ -549,7 +761,19 @@ export function draftOfListing(l: AgencyListing): DraftPayload {
     presalePrice: opt(l.presalePrice),
     premium: opt(l.premium),
     maintenanceFeeWon: opt(l.maintenanceFeeWon),
-    maintenanceFeeItems: l.maintenanceFeeItems,
+    maintenanceFee: l.maintenanceFee
+      ? {
+          billingType: l.maintenanceFee.billingType,
+          items: l.maintenanceFee.items.map((i) => ({
+            kind: i.kind,
+            included: i.included,
+            ...(typeof i.amountWon === 'number' ? { amountWon: i.amountWon } : {}),
+          })),
+          ...(l.maintenanceFee.unavailableReason
+            ? { unavailableReason: l.maintenanceFee.unavailableReason }
+            : {}),
+        }
+      : undefined,
     moveInType: opt(l.moveInType),
     moveInDate: opt(l.moveInDate),
     floorDisplay: l.floorDisplay,
@@ -565,6 +789,8 @@ export function draftOfListing(l: AgencyListing): DraftPayload {
       ho: opt(p.ho),
       lat: p.lat,
       lng: p.lng,
+      emdCode: opt(p.emdCode),
+      buildingUse: opt(p.buildingUse),
       floor: opt(p.floor),
       totalFloors: opt(p.totalFloors),
       exclusiveArea: opt(p.exclusiveArea),

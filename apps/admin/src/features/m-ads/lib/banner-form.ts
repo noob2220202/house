@@ -4,6 +4,7 @@ import {
   BannerTargeting,
   isSafeLinkUrl,
   type BannerCreateInput,
+  type BannerUpdateInput,
 } from '@house/shared';
 import { z } from 'zod';
 import { mediaUrl, type AdminBanner, type Media } from '../api/schemas';
@@ -208,8 +209,9 @@ export function duplicateToForm(banner: AdminBanner): BannerFormValues {
 }
 
 /**
- * Form values → request body (`bannerCreateSchema`; the PATCH body of `bannerUpdateSchema` uses the same fields). On update (`clear: true`) emptied optional
- * fields are sent as `null` so the backend clears them; on create they are simply omitted.
+ * Form values → POST /admin/banners body (`bannerCreateSchema`). With `clear: true` emptied
+ * optional fields are sent as `null` (what a PATCH needs to clear them); on create they are simply
+ * omitted.
  */
 export function toBannerInput(
   values: BannerFormValues,
@@ -238,6 +240,16 @@ export function toBannerInput(
       values.targeting === BannerTargeting.COMPLEXES ? values.complexes.map((c) => c.id) : [],
     memo: values.memo.trim() || blank,
   };
+}
+
+/**
+ * Form values → PATCH /admin/banners/:id body (`bannerUpdateSchema`, strict): the create fields
+ * without `slot` — a banner stays in the slot it was created in — and emptied optional fields
+ * as `null` so the backend clears them.
+ */
+export function toBannerUpdateInput(values: BannerFormValues): BannerUpdateInput {
+  const { slot: _slot, ...input } = toBannerInput(values, { clear: true });
+  return input;
 }
 
 // ---- status control (노출 / 중지 / 예약) -------------------------------------------------------------

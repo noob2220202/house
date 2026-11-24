@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { formatManwon, type AreaUnit } from '@/lib/format';
 import { complexKeys, fetchComplexStats } from '../api/queries';
-import type { ComplexAreaType } from '../api/schemas';
+import type { ComplexAreaType, TradeRecord } from '../api/schemas';
 import { areaTypeLabel } from '../lib/listing';
 import {
   dealMonthLabel,
@@ -37,11 +37,13 @@ function useWidth(fallback: number) {
 export interface TrendCardProps {
   complexId: string;
   areaTypes: readonly ComplexAreaType[];
+  /** `ComplexDetail.latestTrades` (latest trade of every 평형 × deal type). */
+  latestTrades?: readonly TradeRecord[];
   unit: AreaUnit;
 }
 
 /** 실거래가 card: latest 매매 price + 1-year sparkline of the selected 평형, and the latest trade per 평형. */
-export function TrendCard({ complexId, areaTypes, unit }: TrendCardProps) {
+export function TrendCard({ complexId, areaTypes, latestTrades = [], unit }: TrendCardProps) {
   const [picked, setPicked] = useState<string | null>(null);
   const selected =
     areaTypes.find((a) => a.id === picked) ?? defaultAreaType(areaTypes) ?? undefined;
@@ -57,7 +59,8 @@ export function TrendCard({ complexId, areaTypes, unit }: TrendCardProps) {
   });
 
   if (!selected) return null;
-  const rows = latestByAreaType(areaTypes, data?.latest ?? []);
+  // `stats.latest` covers the selected 평형 only; the complex detail has every 평형's latest trade.
+  const rows = latestByAreaType(areaTypes, [...(data?.latest ?? []), ...latestTrades]);
   const current = rows.find((r) => r.areaType.id === selected.id)?.trade ?? null;
   const amount = current ? tradeAmount(current) : null;
   const trend = summarizeTrend(isPlaceholderData ? [] : (data?.months ?? []), 12);

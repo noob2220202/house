@@ -71,6 +71,20 @@ describe('<LoginPanel>', () => {
     );
   });
 
+  it('remembers the member type and destination for a first-time signup', async () => {
+    const user = userEvent.setup();
+    window.sessionStorage.clear();
+    render(<LoginPanel initialIntent="agent" returnTo="/agent/listings" />);
+    const kakao = screen.getByRole('link', { name: /카카오로 시작하기/ });
+    // jsdom does not navigate; the capture handler runs before the default action.
+    kakao.addEventListener('click', (e) => e.preventDefault());
+    await user.click(kakao);
+    expect(JSON.parse(window.sessionStorage.getItem('house:auth:login-context') ?? '{}')).toEqual({
+      intent: 'agent',
+      next: '/agent/listings',
+    });
+  });
+
   it('marks the provider used last time', () => {
     window.localStorage.setItem('house:auth:recent-provider', AuthProvider.NAVER);
     render(<LoginPanel initialIntent="user" />);
@@ -112,6 +126,20 @@ describe('<CallbackError>', () => {
     expect(screen.getByRole('link', { name: '계정 설정으로' })).toHaveAttribute(
       'href',
       '/me/account',
+    );
+    expect(screen.queryByRole('link', { name: '다시 로그인' })).not.toBeInTheDocument();
+  });
+  it('offers the withdrawal to a suspended member (withdrawable=1)', () => {
+    render(
+      <CallbackError
+        info={oauthErrorInfo('AUTH_ACCOUNT_SUSPENDED', { withdrawable: true })}
+        retryHref="/login"
+        withdrawHref="/auth/withdraw"
+      />,
+    );
+    expect(screen.getByRole('link', { name: '회원 탈퇴 진행' })).toHaveAttribute(
+      'href',
+      '/auth/withdraw',
     );
     expect(screen.queryByRole('link', { name: '다시 로그인' })).not.toBeInTheDocument();
   });
@@ -188,6 +216,34 @@ describe('<TermsAgreement>', () => {
     expect(all).not.toHaveAttribute('aria-checked');
     await user.click(all);
     expect(all).toBeChecked();
+  });
+
+  it('adds the 만 14세 이상 confirmation and covers it with 전체 동의', async () => {
+    const user = userEvent.setup();
+    function WithAge() {
+      const [value, setValue] = useState<ConsentState>({});
+      const [age, setAge] = useState(false);
+      return (
+        <>
+          <TermsAgreement
+            docs={DOCS}
+            value={value}
+            onChange={setValue}
+            age={{ checked: age, onChange: setAge }}
+          />
+          <output>{age ? 'age-yes' : 'age-no'}</output>
+        </>
+      );
+    }
+    render(<WithAge />);
+    const ageBox = screen.getByRole('checkbox', { name: /\[필수\] 만 14세 이상이에요/ });
+    expect(ageBox).toBeRequired();
+    const all = screen.getByRole('checkbox', { name: /전체 동의/ });
+    await user.click(all);
+    expect(ageBox).toBeChecked();
+    expect(screen.getByText('age-yes')).toBeInTheDocument();
+    await user.click(ageBox);
+    expect(all).toBePartiallyChecked();
   });
 
   it('shows loading, error and validation states', () => {

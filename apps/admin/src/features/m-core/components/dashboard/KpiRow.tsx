@@ -61,7 +61,9 @@ export function Trend({
 
 export function KpiRow({ kpis }: { kpis: DashboardSummary['kpis'] }) {
   const visitors = deltaOf(kpis.visitors.today, kpis.visitors.yesterday);
-  const listings = deltaOf(kpis.newListings.today, kpis.newListings.yesterday);
+  const { newListings, dealRequests } = kpis;
+  const listings =
+    newListings.yesterday === null ? null : deltaOf(newListings.today, newListings.yesterday);
   const pending = kpis.pendingAgencies;
   return (
     <section className={styles.kpis} aria-label="오늘의 핵심 지표">
@@ -79,29 +81,43 @@ export function KpiRow({ kpis }: { kpis: DashboardSummary['kpis'] }) {
         href={ADMIN_ROUTES.listings}
         label="신규 매물"
         icon="building"
-        value={kpis.newListings.today}
+        value={newListings.today}
         unit="건"
       >
-        <Trend delta={listings} text={`${formatCount(listings.diff)}건`} />
-        어제 대비 · 검수 대기 {formatCount(kpis.newListings.pendingReview)}
+        {listings && <Trend delta={listings} text={`${formatCount(listings.diff)}건`} />}
+        {[
+          listings ? '어제 대비' : null,
+          newListings.pendingReview !== null
+            ? `검수 대기 ${formatCount(newListings.pendingReview)}`
+            : null,
+          newListings.active !== null ? `광고 중 ${formatCount(newListings.active)}건` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
       </Kpi>
       <Kpi
         href={ADMIN_ROUTES.dealRequests}
         label="내놓기·구하기 요청"
         icon="home-up"
         attention
-        value={kpis.dealRequests.today}
+        value={dealRequests.today}
         unit="건"
       >
-        <span className={styles.split}>
-          <span className={cx(styles.rq, styles.sell)}>
-            내놓기 {formatCount(kpis.dealRequests.sell)}
+        {dealRequests.sell !== null && dealRequests.find !== null && (
+          <span className={styles.split}>
+            <span className={cx(styles.rq, styles.sell)}>
+              내놓기 {formatCount(dealRequests.sell)}
+            </span>
+            <span className={cx(styles.rq, styles.find)}>
+              구하기 {formatCount(dealRequests.find)}
+            </span>
           </span>
-          <span className={cx(styles.rq, styles.find)}>
-            구하기 {formatCount(kpis.dealRequests.find)}
-          </span>
-        </span>
-        배정 대기 {formatCount(kpis.dealRequests.unassigned)}
+        )}
+        {dealRequests.unassigned !== null
+          ? `배정 대기 ${formatCount(dealRequests.unassigned)}`
+          : dealRequests.open !== null
+            ? `진행 중 ${formatCount(dealRequests.open)}건`
+            : null}
       </Kpi>
       <Kpi
         href="#approvals"

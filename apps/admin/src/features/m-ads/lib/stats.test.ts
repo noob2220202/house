@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dailyRows, lastLabelCollides, resolveRange, summarize } from './stats';
+import { dailyRows, lastLabelCollides, resolveRange, summarize, totalsRange } from './stats';
 
 // 2026-11-24 12:00 KST
 const NOW = new Date('2026-11-24T03:00:00Z');
@@ -146,5 +146,40 @@ describe('lastLabelCollides', () => {
   it('ignores tiny series and an unmeasured chart', () => {
     expect(lastLabelCollides(2, 320)).toBe(false);
     expect(lastLabelCollides(14, 0)).toBe(false);
+  });
+});
+
+describe('totalsRange', () => {
+  // 2026-11-24 12:00 KST
+  const now = new Date('2026-11-24T03:00:00Z');
+  it('covers the whole campaign up to today (the API defaults to 30 days otherwise)', () => {
+    expect(
+      totalsRange(
+        { startAt: '2026-09-01T00:00:00+09:00', endAt: '2026-12-31T23:59:59+09:00' },
+        now,
+      ),
+    ).toEqual({ from: '2026-09-01', to: '2026-11-24' });
+  });
+  it('stops at the end day of an ended banner', () => {
+    expect(
+      totalsRange(
+        { startAt: '2026-10-01T00:00:00+09:00', endAt: '2026-10-31T23:59:59+09:00' },
+        now,
+      ),
+    ).toEqual({ from: '2026-10-01', to: '2026-10-31' });
+  });
+  it('keeps the most recent 366 days and returns null before the start', () => {
+    expect(
+      totalsRange(
+        { startAt: '2024-01-01T00:00:00+09:00', endAt: '2027-01-01T00:00:00+09:00' },
+        now,
+      ),
+    ).toEqual({ from: '2025-11-24', to: '2026-11-24' });
+    expect(
+      totalsRange(
+        { startAt: '2026-12-01T00:00:00+09:00', endAt: '2026-12-31T23:59:59+09:00' },
+        now,
+      ),
+    ).toBeNull();
   });
 });

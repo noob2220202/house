@@ -4,10 +4,27 @@ import { MOCK_ADDRESSES } from '../_fixtures';
 
 const squash = (s: string) => s.replace(/\s+/g, '');
 
+/** 법정동/리 → 10-digit 법정동코드 (canonical 12150…, the same codes as the complex fixtures). */
+const EMD_CODES: readonly (readonly [string, string])[] = [
+  ['신대리', '1215033028'],
+  ['선월리', '1215033029'],
+  ['조례동', '1215012000'],
+  ['연향동', '1215012100'],
+  ['오천동', '1215011900'],
+  ['왕지동', '1215012200'],
+  ['석현동', '1215011000'],
+  ['덕연동', '1215011500'],
+  ['장천동', '1215010400'],
+  ['풍덕동', '1215011800'],
+];
+const emdCodeOf = (jibun: string): string | null =>
+  EMD_CODES.find(([name]) => jibun.includes(` ${name} `))?.[1] ?? null;
+
 /**
- * GET /api/v1/geo/geocode?query=<address> (ASSUMED) → `{ items: [{ roadAddress, jibunAddress?,
- * zipCode?, buildingName?, lat, lng }] }` (max 10). Address search with coordinates — the API
- * proxies Naver geocoding server-side (NAVER_MAP_CLIENT_ID/SECRET), limited to the service region.
+ * GET /api/v1/geo/geocode?query=<address> → `{ items: [{ roadAddress, jibunAddress?, zipCode?,
+ * buildingName?, lat, lng, emdCode }] }` (max 10). Address search with coordinates — the API
+ * proxies Naver geocoding server-side, limited to the service region, and adds the canonical
+ * 10-digit 법정동코드 of each hit (null when the reverse lookup fails).
  */
 export async function GET(req: NextRequest) {
   const off = mockGuard();
@@ -25,5 +42,5 @@ export async function GET(req: NextRequest) {
       squash(a.jibunAddress).includes(query) ||
       (a.buildingName ? squash(a.buildingName).includes(query) : false),
   ).slice(0, 10);
-  return mockJson({ items });
+  return mockJson({ items: items.map((a) => ({ ...a, emdCode: emdCodeOf(a.jibunAddress) })) });
 }

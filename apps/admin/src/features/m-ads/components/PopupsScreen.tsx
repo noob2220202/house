@@ -262,7 +262,7 @@ export function PopupsScreen() {
                     const name = `${displayCode(p)} ${p.title}`;
                     const editing = editor?.mode === 'edit' && editor.id === p.id;
                     const image = mediaUrl(p.media);
-                    const notStarted = p.status === BannerStatus.SCHEDULED && p.impressions === 0;
+                    const notStarted = p.status === BannerStatus.SCHEDULED && !p.impressions;
                     return (
                       <tr
                         key={p.id}
@@ -338,10 +338,12 @@ export function PopupsScreen() {
                         </td>
                         <td className={styles.r}>
                           <span className={styles.perfBox}>
-                            {notStarted ? (
+                            {notStarted || p.impressions === null || p.clicks === null ? (
                               <>
                                 <b className={cx(styles.perf, styles.perfNone)}>–</b>
-                                <span className={styles.perfSub}>게시 전</span>
+                                <span className={styles.perfSub}>
+                                  {notStarted ? '게시 전' : '집계 안 함'}
+                                </span>
                               </>
                             ) : (
                               <>

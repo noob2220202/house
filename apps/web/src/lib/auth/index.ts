@@ -5,7 +5,13 @@ export {
   SESSION_QUERY_KEY,
   type SessionState,
 } from './session';
-export { isAgent, sessionUserSchema, type SessionUser } from './types';
+export {
+  FALLBACK_NICKNAME,
+  isAgent,
+  needsReconsent,
+  sessionUserSchema,
+  type SessionUser,
+} from './types';
 export {
   isProtectedPath,
   loginUrl,

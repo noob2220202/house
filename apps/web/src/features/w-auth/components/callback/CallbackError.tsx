@@ -10,10 +10,12 @@ export interface CallbackErrorProps {
   provider?: AuthProvider;
   /** /login?returnTo=… to try again (계정 설정 when the failed round trip was a link). */
   retryHref: string;
+  /** Withdrawal flow of a suspended member (`info.withdrawable`). */
+  withdrawHref?: string;
 }
 
-/** Failure branch of the OAuth landing: what happened (in Korean), how to recover, support code. */
-export function CallbackError({ info, provider, retryHref }: CallbackErrorProps) {
+/** A failed login / link / signup: what happened (in Korean), how to recover, support code. */
+export function CallbackError({ info, provider, retryHref, withdrawHref }: CallbackErrorProps) {
   const notice = info.tone === 'notice';
   return (
     <div className={styles.wrap}>
@@ -33,6 +35,11 @@ export function CallbackError({ info, provider, retryHref }: CallbackErrorProps)
           {info.canRetry && (
             <Button href={retryHref} linkAs={Link} size="lg">
               {info.linking ? '계정 설정으로' : '다시 로그인'}
+            </Button>
+          )}
+          {info.withdrawable && withdrawHref && (
+            <Button href={withdrawHref} linkAs={Link} size="lg" variant="secondary">
+              회원 탈퇴 진행
             </Button>
           )}
           <Button

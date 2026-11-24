@@ -1,4 +1,10 @@
-import type { DealType, Direction, FloorClass } from '@house/shared';
+import {
+  DealType,
+  type Direction,
+  type FloorClass,
+  type ListingListQuery,
+  type ListingSort,
+} from '@house/shared';
 import type { ComplexListingItem, ListingAgency } from '@/features/w-complex/api/schemas';
 import { mockUuid } from '@/lib/mock';
 import { toListingSummary } from '../listings/_summary';
@@ -162,7 +168,11 @@ export interface MockListingAgency {
 /** Every contract key present and never `undefined` (the fixture is the fully known row). */
 type Concrete<T> = { [K in keyof T]-?: Exclude<T[K], undefined> };
 
-export interface MockListing extends Omit<Concrete<ComplexListingItem>, 'agencies' | 'isFavorite'> {
+/** Card keys the complex fixtures do not author (the wire serializer derives them). */
+type DerivedKeys = 'exclusiveAreaPyeong' | 'roadAddress' | 'floorLabel' | 'primaryAgency';
+
+export interface MockListing
+  extends Omit<Concrete<ComplexListingItem>, 'agencies' | 'isFavorite' | DerivedKeys> {
   complexCode: string;
   areaTypeId: string;
   lat: number;
@@ -661,4 +671,56 @@ export function toListingItem(spec: MockComplexSpec, l: MockListing): ComplexLis
     moveInDate: l.moveInDate,
     agencies: l.agencies.flatMap((a, i) => toListingAgency(spec, l, a, i)),
   };
+}
+
+// ---- GET /listings?complexId= -------------------------------------------------------------------
+
+const time = (iso: string | null) => (iso ? Date.parse(iso) : 0);
+
+const SORTERS: Record<ListingSort, (a: MockListing, b: MockListing) => number> = {
+  LATEST: (a, b) => time(b.publishedAt) - time(a.publishedAt),
+  VERIFIED: (a, b) => time(b.verifiedAt) - time(a.verifiedAt),
+  PRICE_ASC: (a, b) => a.priceSort - b.priceSort,
+  PRICE_DESC: (a, b) => b.priceSort - a.priceSort,
+  AREA_ASC: (a, b) => (a.exclusiveArea ?? 0) - (b.exclusiveArea ?? 0),
+  AREA_DESC: (a, b) => (b.exclusiveArea ?? 0) - (a.exclusiveArea ?? 0),
+  BUILT_YEAR_DESC: (a, b) => b.builtYear - a.builtYear,
+  PHOTO: (a, b) => b.photoCount - a.photoCount,
+};
+
+const inRange = (v: number | null, min?: number, max?: number) =>
+  v !== null && (min === undefined || v >= min) && (max === undefined || v <= max);
+
+const isSaleLike = (l: MockListing) =>
+  l.dealType === DealType.SALE || l.dealType === DealType.PRESALE;
+
+/**
+ * The complex's active listings for `GET /listings?complexId=…` with the filter / sort params of
+ * `listingListQuerySchema`. 매매가 filters (priceMin/Max) apply to 매매·분양권, 보증금 filters
+ * (depositMin/Max) to 전세·월세 — like the listings search.
+ */
+export function complexListingRows(spec: MockComplexSpec, q: ListingListQuery): ComplexListingItem[] {
+  const hasPrice = q.priceMin !== undefined || q.priceMax !== undefined;
+  const hasDeposit = q.depositMin !== undefined || q.depositMax !== undefined;
+  const hasRent = q.rentMin !== undefined || q.rentMax !== undefined;
+  const hasArea = q.areaMin !== undefined || q.areaMax !== undefined;
+  return listingsOfComplex(spec)
+    .filter(
+      (l) =>
+        (!q.dealTypes || q.dealTypes.includes(l.dealType)) &&
+        (!q.verifiedOnly || l.verifiedAt !== null) &&
+        (!hasPrice || !isSaleLike(l) || inRange(l.priceSort, q.priceMin, q.priceMax)) &&
+        (!hasDeposit || isSaleLike(l) || inRange(l.deposit, q.depositMin, q.depositMax)) &&
+        (!hasRent ||
+          l.dealType !== DealType.MONTHLY ||
+          inRange(l.monthlyRent, q.rentMin, q.rentMax)) &&
+        (!hasArea || inRange(l.exclusiveArea, q.areaMin, q.areaMax)) &&
+        (q.roomsMin === undefined || (l.rooms ?? 0) >= q.roomsMin) &&
+        (q.bathsMin === undefined || (l.baths ?? 0) >= q.bathsMin) &&
+        (!q.directions || (l.direction !== null && q.directions.includes(l.direction))) &&
+        (!q.floorClasses || (l.floorClass !== null && q.floorClasses.includes(l.floorClass))) &&
+        (!q.agencyId || l.agencies.some((a) => findMockAgency(a.code)?.id === q.agencyId)),
+    )
+    .sort(SORTERS[q.sort])
+    .map((l) => toListingItem(spec, l));
 }

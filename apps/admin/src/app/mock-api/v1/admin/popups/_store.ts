@@ -1,7 +1,7 @@
 import { PopupPage, computeScheduleStatus, type PopupPage as Page } from '@house/shared';
 import type { CreativeSpec } from '../banners/_creatives';
 import { endOfKstDay, kstDay, mockUuid, startOfKstDay } from '../banners/_ids';
-import { mediaDto, registerFixtureMedia } from '../media/_store';
+import { adMediaView, registerFixtureMedia } from '../media/_store';
 
 /**
  * Mutable in-memory popups of the admin mock (mirrors the `popups` table of the ads module).
@@ -130,24 +130,22 @@ export function renumberPopups(): void {
   });
 }
 
-/** Admin popup payload (see docs/frontend-integration/m-ads.md → "Assumed payload shapes"). */
+/** Shared `AdminPopupView` — what GET/POST/PATCH /admin/popups return. */
 export function toAdminPopup(p: MockPopup) {
   return {
     id: p.id,
-    code: p.code,
     title: p.title,
-    media: mediaDto(p.mediaId),
+    image: adMediaView(p.mediaId) ?? { id: p.mediaId, url: '', width: null, height: null },
     linkUrl: p.linkUrl,
     newWindow: p.newWindow,
     targetPages: p.targetPages,
     startAt: p.startAt,
     endAt: p.endAt,
     paused: p.paused,
+    status: popupStatusOf(p),
     dismissDays: p.dismissDays,
     sortOrder: p.sortOrder,
-    status: popupStatusOf(p),
-    impressions: p.totals.impressions,
-    clicks: p.totals.clicks,
+    createdByAdminId: null,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
   };

@@ -1,10 +1,19 @@
 import { redirect } from 'next/navigation';
 import { BRAND } from '@/config/brand';
 import { env } from '@/config/env';
+import { CallbackError } from '@/features/w-auth/components/callback/CallbackError';
 import { BrandPanel } from '@/features/w-auth/components/login/BrandPanel';
 import { LoginPanel, type LoginNotice } from '@/features/w-auth/components/login/LoginPanel';
 import styles from '@/features/w-auth/components/login/login.module.css';
-import { parseIntent, resolveCallbackTarget, safeNext } from '@/features/w-auth/lib/flow';
+import { AuthTopBar } from '@/features/w-auth/components/shell/AuthShell';
+import {
+  loginPath,
+  parseIntent,
+  resolveCallbackTarget,
+  safeNext,
+} from '@/features/w-auth/lib/flow';
+import { oauthErrorInfo } from '@/features/w-auth/lib/oauth-errors';
+import { AUTH_ROUTES } from '@/features/w-auth/routes';
 import { getServerSession } from '@/lib/auth/server';
 import { buildMetadata } from '@/lib/seo';
 
@@ -22,12 +31,31 @@ const NOTICES = {
   required: { tone: 'info', message: '로그인이 필요한 서비스예요.' },
 } satisfies Record<string, LoginNotice>;
 
+/**
+ * Login. Also the landing of a failed social login: the backend's OAuth callback redirects to
+ * `/login?error=<AuthErrorCode>` (a suspended member with `&withdrawable=1`).
+ */
 export default async function LoginPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
   const returnTo = safeNext(sp.returnTo, '');
   const intent = parseIntent(sp.as ?? sp.intent, returnTo);
+  const error = typeof sp.error === 'string' ? sp.error : undefined;
 
-  // Already signed in → straight to the destination (or to the unfinished signup).
+  if (error) {
+    const info = oauthErrorInfo(error, { withdrawable: sp.withdrawable === '1' });
+    return (
+      <>
+        <AuthTopBar />
+        <CallbackError
+          info={info}
+          retryHref={info.linking ? AUTH_ROUTES.account : loginPath({ returnTo, intent })}
+          withdrawHref={AUTH_ROUTES.suspendedWithdraw}
+        />
+      </>
+    );
+  }
+
+  // Already signed in → straight to the destination.
   const user = await getServerSession();
   if (user) redirect(resolveCallbackTarget({ next: returnTo, intent, user }));
 

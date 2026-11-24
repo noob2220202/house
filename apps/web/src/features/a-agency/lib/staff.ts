@@ -1,5 +1,10 @@
-import { AgencyMemberRole, AgencyMemberStatus } from '@house/shared';
-import type { AgencyMember, InviteMemberInput, InviteMemberPayload } from '../api/schemas';
+import {
+  AgencyMemberRole,
+  AgencyMemberStatus,
+  type AgencyInviteCreateInput,
+  type AgencyMemberUpdateInput,
+} from '@house/shared';
+import type { AgencyInvite, AgencyMember, InviteFormValues } from '../api/schemas';
 
 /** 대표 / 소속공인중개사 / 중개보조원. */
 export function memberKindLabel(member: Pick<AgencyMember, 'role' | 'isLicensed'>): string {
@@ -22,40 +27,53 @@ export interface StaffSummary {
   /** Owner + 소속공인중개사. */
   licensed: number;
   assistants: number;
+  /** Open invitations (not expired). */
   invited: number;
   assistantLimit: number;
 }
 
-export function staffSummary(members: readonly AgencyMember[]): StaffSummary {
+/** Invitations that can still be redeemed at `now`. */
+export const openInvites = (invites: readonly AgencyInvite[], now = Date.now()): AgencyInvite[] =>
+  invites.filter((i) => Date.parse(i.expiresAt) > now);
+
+export function staffSummary(
+  members: readonly AgencyMember[],
+  invites: readonly AgencyInvite[] = [],
+  now = Date.now(),
+): StaffSummary {
   const active = members.filter((m) => m.status === AgencyMemberStatus.ACTIVE);
   const licensed = active.filter((m) => m.role === AgencyMemberRole.OWNER || m.isLicensed).length;
   return {
     total: active.length,
     licensed,
     assistants: active.length - licensed,
-    invited: members.filter((m) => m.status === AgencyMemberStatus.INVITED).length,
+    invited: openInvites(invites, now).length,
     assistantLimit: assistantLimit(licensed),
   };
 }
 
+/** Invite form → POST /agencies/mine/invites body (`agencyInviteCreateSchema`; blank memo omitted). */
+export function toInvitePayload(values: InviteFormValues): AgencyInviteCreateInput {
+  const label = values.label.trim();
+  return label
+    ? { label, expiresInHours: values.expiresInHours }
+    : { expiresInHours: values.expiresInHours };
+}
+
 /**
- * Invite form values → POST body: blank optional fields are omitted (never ''), and a licence
- * number typed before switching to 중개보조원 is dropped.
+ * PATCH /agencies/mine/members/:memberId body (`agencyMemberUpdateSchema`): 소속공인중개사 needs the
+ * 자격증 번호 in the same request; 중개보조원 clears it.
  */
-export function toInvitePayload(values: InviteMemberInput): InviteMemberPayload {
-  const blankToUndefined = (v: string | undefined) => {
-    const t = v?.trim();
-    return t ? t : undefined;
-  };
-  const payload: InviteMemberPayload = {
-    displayName: values.displayName.trim(),
-    isLicensed: values.isLicensed,
-  };
-  const title = blankToUndefined(values.title);
-  if (title) payload.title = title;
-  const phone = blankToUndefined(values.phone);
-  if (phone) payload.phone = phone;
-  const licenseNumber = values.isLicensed ? blankToUndefined(values.licenseNumber) : undefined;
-  if (licenseNumber) payload.licenseNumber = licenseNumber;
-  return payload;
+export function licensePayload(
+  isLicensed: boolean,
+  licenseNumber?: string,
+): AgencyMemberUpdateInput {
+  return isLicensed
+    ? { isLicensed: true, licenseNumber: licenseNumber?.trim() }
+    : { isLicensed: false, licenseNumber: null };
+}
+
+/** "72" → "3일", "24" → "1일", "12" → "12시간" (invite validity options). */
+export function expiryLabel(hours: number): string {
+  return hours % 24 === 0 ? `${hours / 24}일` : `${hours}시간`;
 }

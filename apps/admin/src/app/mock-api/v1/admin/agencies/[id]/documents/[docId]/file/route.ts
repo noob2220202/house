@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import type { AdminAgencyDetail } from '@/features/m-moderation/api/schemas';
 import { isBlocked, modGate } from '@/features/m-moderation/mock/handler';
 import { mockNotFound } from '@/lib/mock';
-import { MOCK_DOC_LABEL, agenciesDb } from '../../../_fixtures';
+import { MOCK_DOC_LABEL, agenciesDb } from '../../../../_fixtures';
 
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -76,7 +76,7 @@ function samplePdf(lines: string[]): Uint8Array {
   return new TextEncoder().encode(body);
 }
 
-// GET /api/v1/admin/agencies/:id/documents/:docId — authorized stream of a PRIVATE document.
+// GET /api/v1/admin/agencies/:id/documents/:docId/file — authorized stream of a PRIVATE document.
 // Never cacheable; the real endpoint audit-logs every read.
 export async function GET(
   req: NextRequest,

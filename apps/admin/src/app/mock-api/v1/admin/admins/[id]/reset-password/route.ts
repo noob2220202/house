@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { adminPasswordResetSchema } from '@/features/m-content/api/inputs';
 import { isResponse, mockAdmin, mockBody } from '@/features/m-content/mock/http';
-import { audit, db } from '@/features/m-content/mock/store';
+import { audit, db, adminView } from '@/features/m-content/mock/store';
 import { mockJson, mockNotFound } from '@/lib/mock';
 
 // POST /api/v1/admin/admins/:id/reset-password { password } — ASSUMED: sets a temporary password
@@ -21,5 +21,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     resourceId: id,
     resourceLabel: `${row.name} (${row.email})`,
   });
-  return mockJson(row);
+  return mockJson(adminView(row));
 }

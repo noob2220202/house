@@ -5,6 +5,7 @@ import {
   favoriteComplexPageSchema,
   favoriteListingPageSchema,
   notificationPageSchema,
+  notificationUnreadSchema,
   profileSchema,
   recentViewPageSchema,
   type NotificationPage,
@@ -17,6 +18,12 @@ import {
  */
 
 export type NotificationFilter = 'all' | 'unread';
+
+/**
+ * Audience of a notification feed (B5, `?scope=` of /me/notifications*): `agency` = rows addressed
+ * to the user as a member of an agency (the console), `personal` = everything else. Omitted = all.
+ */
+export type NotificationScope = 'agency' | 'personal';
 
 /** Page sizes: part of the query keys, so both sides must use these constants. */
 export const FAVORITES_PAGE_SIZE = 12;
@@ -31,6 +38,8 @@ interface PageParams {
   page: number;
   pageSize: number;
 }
+
+const meKeysUnread = ['me-notifications', 'unread'] as const;
 
 /** Query keys of the my-page resources (`[resource, scope, params]`). */
 export const meKeys = {
@@ -47,8 +56,14 @@ export const meKeys = {
     params ? (['me-recent-views', 'list', params] as const) : (['me-recent-views'] as const),
   notifications: ['me-notifications'] as const,
   notificationFeeds: ['me-notifications', 'feed'] as const,
-  notificationFeed: (filter: NotificationFilter) => ['me-notifications', 'feed', filter] as const,
+  notificationFeed: (filter: NotificationFilter, scope?: NotificationScope) =>
+    scope
+      ? (['me-notifications', 'feed', filter, scope] as const)
+      : (['me-notifications', 'feed', filter] as const),
+  /** Unread counter of the whole feed (badges of the my-page and the site header). */
   notificationUnread: ['me-notifications', 'unread'] as const,
+  notificationUnreadOf: (scope?: NotificationScope) =>
+    scope ? (['me-notifications', 'unread', scope] as const) : meKeysUnread,
   profile: ['me-profile'] as const,
 };
 
@@ -96,15 +111,17 @@ export const meQueries = {
     fetcher: MeFetcher,
     filter: NotificationFilter,
     onPage?: (page: NotificationPage) => void,
+    scope?: NotificationScope,
   ) =>
     infiniteQueryOptions({
-      queryKey: meKeys.notificationFeed(filter),
+      queryKey: meKeys.notificationFeed(filter, scope),
       queryFn: async ({ pageParam, signal }) => {
         const page = await fetcher('/me/notifications', {
           query: {
             cursor: pageParam ?? undefined,
             limit: NOTIFICATION_PAGE_SIZE,
             unreadOnly: filter === 'unread' ? true : undefined,
+            scope,
           },
           schema: notificationPageSchema,
           signal,
@@ -115,17 +132,17 @@ export const meQueries = {
       initialPageParam: null as string | null,
       getNextPageParam: (last) => last.nextCursor,
     }),
-  /** Unread counter on its own (pages that do not load the feed). */
-  notificationUnread: (fetcher: MeFetcher) =>
+  /** Unread counter on its own (GET /me/notifications/unread-count → `{ unread }`). */
+  notificationUnread: (fetcher: MeFetcher, scope?: NotificationScope) =>
     queryOptions({
-      queryKey: meKeys.notificationUnread,
+      queryKey: meKeys.notificationUnreadOf(scope),
       queryFn: async ({ signal }): Promise<number> => {
-        const page = await fetcher('/me/notifications', {
-          query: { limit: 1, unreadOnly: true },
-          schema: notificationPageSchema,
+        const { unread } = await fetcher('/me/notifications/unread-count', {
+          query: { scope },
+          schema: notificationUnreadSchema,
           signal,
         });
-        return page.unreadCount ?? page.items.filter((n) => !n.readAt).length;
+        return unread;
       },
       staleTime: 60_000,
     }),
