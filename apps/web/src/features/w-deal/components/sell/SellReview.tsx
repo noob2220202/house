@@ -81,6 +81,7 @@ export function SellReview({
         <ReviewItem label="주소">
           {v.roadAddress}
           {v.complexName && <small>{v.complexName}</small>}
+          <PrivateTag />
         </ReviewItem>
         {detail && (
           <ReviewItem label="상세 주소">
@@ -97,22 +98,30 @@ export function SellReview({
         </ReviewItem>
         <ReviewItem label="전용면적">{sellAreaText(v) || '-'}</ReviewItem>
         <ReviewItem label="입주 가능일">{sellMoveInText(v) || '-'}</ReviewItem>
-        {v.description.trim() && <ReviewItem label="매물 설명">{v.description.trim()}</ReviewItem>}
+        {v.description.trim() && (
+          <ReviewItem label="매물 설명">
+            {v.description.trim()}
+            <PrivateTag />
+          </ReviewItem>
+        )}
       </ReviewSection>
       <ReviewSection letter="C" title="사진 · 연락처" onEdit={() => goTo(2)}>
         <ReviewItem label="매물 사진">
           {v.photos.length === 0 ? (
             '없음'
           ) : (
-            <span className={styles.reviewPhotos}>
-              {v.photos.map((p, i) => (
-                <span key={p.id} className={styles.reviewPhoto}>
-                  {p.url && (
-                    <Image src={p.url} alt={`사진 ${i + 1}`} fill sizes="72px" unoptimized />
-                  )}
-                </span>
-              ))}
-            </span>
+            <>
+              <span className={styles.reviewPhotos}>
+                {v.photos.map((p, i) => (
+                  <span key={p.id} className={styles.reviewPhoto}>
+                    {p.url && (
+                      <Image src={p.url} alt={`사진 ${i + 1}`} fill sizes="72px" unoptimized />
+                    )}
+                  </span>
+                ))}
+              </span>
+              <PrivateTag />
+            </>
           )}
         </ReviewItem>
         <ReviewItem label="연락처">

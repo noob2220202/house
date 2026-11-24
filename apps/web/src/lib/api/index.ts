@@ -16,6 +16,7 @@ export {
   actionTermsKey,
   fetchActionTerms,
   isConsentOutdatedError,
+  shownConsents,
   type ActionConsent,
   type ActionTermsDocument,
 } from './consents';

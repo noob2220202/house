@@ -86,7 +86,9 @@ describe('isLocalSsrCachedRead (Next.js cached reads on this host)', () => {
     expect(isLocalSsrCachedRead(ssr({ peer: '203.0.113.9' }))).toBe(false);
     expect(isLocalSsrCachedRead(ssr({ peer: '::ffff:10.0.0.1' }))).toBe(false);
     expect(
-      isLocalSsrCachedRead(ssr({ headers: { 'x-house-ssr': '1', 'x-forwarded-for': '203.0.113.9' } })),
+      isLocalSsrCachedRead(
+        ssr({ headers: { 'x-house-ssr': '1', 'x-forwarded-for': '203.0.113.9' } }),
+      ),
     ).toBe(false);
     expect(isLocalSsrCachedRead(ssr({ headers: {} }))).toBe(false);
     expect(isLocalSsrCachedRead(ssr({ headers: { 'x-house-ssr': 'yes' } }))).toBe(false);

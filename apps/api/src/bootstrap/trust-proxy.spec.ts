@@ -32,9 +32,9 @@ describe('TRUST_PROXY=loopback (production: nginx and Next.js SSR on the same ho
       clientIp('loopback', '127.0.0.1', { 'x-forwarded-for': '198.51.100.1, 203.0.113.9' }),
     ).toBe('203.0.113.9');
     // A forged loopback entry is skipped like a trusted hop, never returned.
-    expect(
-      clientIp('loopback', '127.0.0.1', { 'x-forwarded-for': '203.0.113.9, 127.0.0.1' }),
-    ).toBe('203.0.113.9');
+    expect(clientIp('loopback', '127.0.0.1', { 'x-forwarded-for': '203.0.113.9, 127.0.0.1' })).toBe(
+      '203.0.113.9',
+    );
   });
 
   it('a remote peer cannot set its address with X-Forwarded-For', () => {

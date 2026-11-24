@@ -17,7 +17,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useId, useRef, useState } from 'react';
 import { Controller, useForm, type FieldErrors } from 'react-hook-form';
-import { ApiError, errorMessage } from '@/lib/api';
+import {
+  ApiError,
+  CONSENT_OUTDATED_MESSAGE,
+  errorMessage,
+  isConsentOutdatedError,
+  shownConsents,
+} from '@/lib/api';
+import { useActionTerms } from '@/lib/api/useActionTerms';
 import { agencyKeys, registerAgency, resubmitAgency } from '../api/queries';
 import {
   applyFormSchema,
@@ -26,7 +33,6 @@ import {
   type MyAgency,
 } from '../api/schemas';
 import {
-  APPLICATION_PRIVACY_NOTICE,
   APPLICATION_STEPS,
   EMPTY_APPLY_FORM,
   applyFormFromAgency,
@@ -94,6 +100,7 @@ export function ApplyForm({ agency, onCancel, onSubmitted }: ApplyFormProps) {
   const mapHintId = useId();
   const docsHeadingId = useId();
   const privacyId = useId();
+  const terms = useActionTerms('AGENCY_APPLICATION');
   const pickerRef = useRef<HTMLDivElement>(null);
 
   const form = useForm<ApplyFormInput, unknown, ApplyFormValues>({
@@ -163,7 +170,10 @@ export function ApplyForm({ agency, onCancel, onSubmitted }: ApplyFormProps) {
       // POST /agencies); on a resubmit they are added next to the ones already attached.
       const saved = resubmit
         ? await resubmitAgency(toResubmitPayload(values, uploads.ready))
-        : await registerAgency(toRegisterPayload(values, uploads.ready));
+        : await registerAgency(
+            toRegisterPayload(values, uploads.ready),
+            shownConsents(terms.data),
+          );
       queryClient.setQueryData(agencyKeys.mine, saved);
       await queryClient.invalidateQueries({ queryKey: agencyKeys.mine });
       toast({
@@ -173,6 +183,14 @@ export function ApplyForm({ agency, onCancel, onSubmitted }: ApplyFormProps) {
       router.refresh();
       window.scrollTo({ top: 0 });
     } catch (error) {
+      if (!resubmit && isConsentOutdatedError(error)) {
+        // The notice changed since it was loaded: show the new text and ask for a new agreement.
+        setValue('agreePrivacy', false);
+        void terms.refetch();
+        setError('agreePrivacy', { type: 'server', message: CONSENT_OUTDATED_MESSAGE });
+        focusFirstError({ agreePrivacy: { type: 'server', message: CONSENT_OUTDATED_MESSAGE } });
+        return;
+      }
       if (error instanceof ApiError) {
         const fields = error.fieldErrors();
         if (error.code === AgenciesErrorCode.AGENCY_REGISTRATION_DUPLICATE) {
@@ -425,7 +443,7 @@ export function ApplyForm({ agency, onCancel, onSubmitted }: ApplyFormProps) {
                 <b>[필수]</b> 개인정보 수집·이용에 동의합니다.
               </span>
             </Checkbox>
-            <PrivacySummary id={privacyId} notice={APPLICATION_PRIVACY_NOTICE} />
+            <PrivacySummary id={privacyId} terms={terms} />
           </div>
           {errors.agreePrivacy && (
             <p className={styles.fieldError} role="alert">

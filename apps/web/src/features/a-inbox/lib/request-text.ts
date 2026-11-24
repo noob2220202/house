@@ -13,6 +13,7 @@ import {
   formatMonthly,
   formatPriceRange,
   formatPyeong,
+  formatSqm,
 } from '@/lib/format';
 import type { AgencyDealRequest } from '../api/schemas';
 
@@ -39,8 +40,16 @@ export function requestTitle(r: AgencyDealRequest): string {
 }
 
 export function requestAreaText(r: AgencyDealRequest): string {
-  if (r.type === DealRequestType.SELL_OR_LEASE)
-    return has(r.exclusiveArea) ? `전용 ${formatAreaBoth(r.exclusiveArea)}` : '';
+  if (r.type === DealRequestType.SELL_OR_LEASE) {
+    if (has(r.exclusiveArea)) return `전용 ${formatAreaBoth(r.exclusiveArea)}`;
+    // Before a grant only the band is known ("전용 60~85㎡", "전용 3,300㎡ 이상").
+    const band = r.areaRange;
+    if (!band) return '';
+    if (band.max === null) return `전용 ${formatSqm(band.min)} 이상`;
+    return band.min === 0
+      ? `전용 ${formatSqm(band.max)} 미만`
+      : `전용 ${formatSqm(band.min).replace('㎡', '')}~${formatSqm(band.max)}`;
+  }
   if (has(r.areaMin) && has(r.areaMax))
     return `전용 ${formatPyeong(r.areaMin)}~${formatPyeong(r.areaMax)}`;
   if (has(r.areaMin)) return `전용 ${formatPyeong(r.areaMin)} 이상`;

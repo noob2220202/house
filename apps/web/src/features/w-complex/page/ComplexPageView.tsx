@@ -36,6 +36,7 @@ import { dealMonthLabel, defaultAreaType, latestByAreaType, tradeAmount } from '
 import { FeaturedAgencyCard } from '../panel/FeaturedAgencyCard';
 import { AreaTypeSection } from './AreaTypeSection';
 import { ComplexActions } from './ComplexActions';
+import { ComplexViewTracker } from './ComplexViewTracker';
 import { ListingPreview } from './ListingPreview';
 import { LocationMap } from './LocationMap';
 import { TradeSection } from './TradeSection';
@@ -215,6 +216,7 @@ export function ComplexPageView({ data }: { data: ComplexPageData }) {
                 {total > 0 ? `매물 ${formatCount(total)}건 지도에서 보기` : '지도에서 보기'}
               </Button>
               <ComplexActions complexId={complex.id} name={complex.name} />
+              <ComplexViewTracker complexId={complex.id} />
             </div>
           </section>
 

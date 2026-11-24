@@ -67,6 +67,14 @@ export const complexKeys = {
 export const fetchComplex = (id: string, signal?: AbortSignal) =>
   api.get(path(id), { schema: complexDetailSchema, signal });
 
+/**
+ * Counts one view of the /complex/[id] page. The API has no separate 단지 view beacon — its view
+ * counter runs on `GET /complexes/:id` (deduped per viewer and KST day, bots not counted). The ISR
+ * page's own server-side read is shared by every visitor and never counts (no visitor IP, Node
+ * user agent), so the browser makes this read once per visit. Best effort, never cached.
+ */
+export const recordComplexView = (id: string) => api.get(path(id), { cache: 'no-store' });
+
 /** Trend window asked of `/stats` (months): the longest period the views offer ("전체" ≈ 10년). */
 export const STATS_WINDOW_MONTHS = 120;
 

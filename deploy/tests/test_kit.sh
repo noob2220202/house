@@ -10,6 +10,10 @@ cp -R "$KIT_DIR" "$T_TMP/kit-link" && ln -s /etc/passwd "$T_TMP/kit-link/evil.sh
 check_fails "kit containing a symlink is rejected" kit_validate "$T_TMP/kit-link"
 cp -R "$KIT_DIR" "$T_TMP/kit-miss" && rm "$T_TMP/kit-miss/restore.sh"
 check_fails "incomplete kit is rejected" kit_validate "$T_TMP/kit-miss"
+cp -R "$KIT_DIR" "$T_TMP/kit-nokeys" && rm "$T_TMP/kit-nokeys/set-keys.sh"
+check_fails "kit without set-keys.sh is rejected" kit_validate "$T_TMP/kit-nokeys"
+grep -q 'for s in deploy rollback status backup restore create-admin db-shell set-keys; do' "$KIT_DIR/install.sh" &&
+  pass "install.sh links set-keys.sh into /srv/house" || fail "set-keys.sh not linked by install.sh"
 
 if is_root && id "$HOUSE_USER" >/dev/null 2>&1; then
   bin="$HOUSE_ROOT/bin"

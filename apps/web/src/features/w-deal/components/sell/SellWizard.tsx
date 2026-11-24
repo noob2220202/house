@@ -12,6 +12,7 @@ import {
   CONSENT_OUTDATED_MESSAGE,
   errorMessage,
   isConsentOutdatedError,
+  shownConsents,
 } from '@/lib/api';
 import { useActionTerms } from '@/lib/api/useActionTerms';
 import { dealApi, dealKeys, type DealRequestCreatePayload } from '../../api/client';
@@ -34,7 +35,6 @@ import {
   ScopeFields,
   type ContactScopeSetter,
 } from '../form/ContactScopeFields';
-import { shownDealConsents } from '../form/consent-submit';
 import { focusFirstError, setField, useWizard, type WizardUser } from '../form/useWizard';
 import { WizardShell } from '../form/WizardShell';
 import { ReachCard, useReach } from '../ReachCard';
@@ -153,7 +153,7 @@ export function SellWizard({ user }: { user: WizardUser }) {
   const terms = useActionTerms('DEAL_REQUEST');
   const create = useMutation({
     mutationFn: (payload: DealRequestCreatePayload) =>
-      dealApi.create(payload, shownDealConsents(terms.data)),
+      dealApi.create(payload, shownConsents(terms.data)),
     onSuccess: (created) => {
       wizard.finish();
       void queryClient.invalidateQueries({ queryKey: dealKeys.all });

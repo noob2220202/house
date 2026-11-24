@@ -261,6 +261,25 @@ reboot                                     # 필요할 때만. 1~2분 후 앱은
 - 예전 설치에서 만든 `nginx-limit-req` 차단 규칙에 걸린 IP가 있다면 (install.sh를 다시 실행하면 규칙은 사라집니다):
   `fail2ban-client status nginx-limit-req` → `fail2ban-client set nginx-limit-req unbanip 1.2.3.4`
 
+### 요청 제한 (Nginx, IP별)
+
+| 구역           | 대상                                                  | 한도 (IP당)                  |
+| -------------- | ----------------------------------------------------- | ---------------------------- |
+| `house_auth`   | 로그인·가입·OTP·비밀번호 변경                         | 분당 30, 순간 20~30          |
+| `house_api`    | 그 밖의 `/api/`                                       | 초당 20, 순간 100            |
+| `house_pages`  | 사이트·관리자 **페이지**(HTML, 링크 미리 불러오기)    | 초당 10, 순간 80             |
+| `house_images` | `/_next/image` (사진 크기 변환)                       | 초당 30, 순간 200            |
+| 제한 없음      | `/_next/static/*`(빌드 파일), `/media/*`(업로드 사진) | nginx가 디스크에서 바로 제공 |
+
+- 페이지 제한은 크롤러·스크래퍼 한 곳이 새 페이지를 연달아 렌더링시켜 SSR·API를 소진하지 못하게 하려는 것입니다. 한 사람이 목록 화면을
+  열 때 생기는 미리 불러오기(수십 건)는 순간 한도 안에 들어갑니다. 걸리면 `429`가 나고 접속 로그에 남습니다:
+  `grep ' 429 ' /var/log/nginx/house-web.access.log | awk '{print $1}' | sort | uniq -c | sort -rn | head`
+- 한도를 바꾸려면 저장소의 `deploy/nginx/house-upstreams.conf.template`(rate)·`snippets/house-*-locations.conf.template`(burst)을 고쳐
+  배포 키트를 갱신(`install.sh --kit-only`)한 뒤 `sudo /srv/house/bin/install.sh --nginx-only`.
+- `/_next/static/*`는 지금 서비스 중인 릴리스(`/srv/house/current/apps/{web,admin}/.next/static`)에서 1년 immutable 캐시로 나갑니다.
+  배포 직후 이전 페이지가 옛 파일을 요청하면 Next 서버로 넘겨 받아 옵니다.
+- Next 서버에는 nginx가 `X-Real-IP`, `X-Forwarded-For`를 접속자 IP로 덮어써 보냅니다(브라우저가 보낸 값은 버림).
+
 ### 관리자 화면 IP 제한
 
 ```bash
@@ -272,7 +291,8 @@ allow 203.0.113.10;     # 사무실
 deny all;
 ```
 
-`nginx -t && systemctl reload nginx`. API 수준 제한은 `.env`의 `ADMIN_IP_ALLOWLIST`(배포 필요). 집·사무실 IP가 바뀌면 관리자 화면이 막히므로, 바뀐 IP를 추가하거나 SSH로 접속해 이 파일을 고치면 됩니다.
+`nginx -t && systemctl reload nginx`. 이 파일은 관리자 서버 블록 전체(페이지, `/api/`, 빌드 파일, 사진)에 적용됩니다.
+사용자 사이트 쪽 `/api/v1/admin`은 대소문자·`//`와 상관없이 항상 404입니다. API 수준 제한은 `.env`의 `ADMIN_IP_ALLOWLIST`(배포 필요). 집·사무실 IP가 바뀌면 관리자 화면이 막히므로, 바뀐 IP를 추가하거나 SSH로 접속해 이 파일을 고치면 됩니다.
 
 ### 설정 끄기 (`.env`에서 값 지우기)
 

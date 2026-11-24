@@ -4,7 +4,7 @@ import type { z } from 'zod';
 import { ApiError } from '@/lib/api/errors';
 import { serverGet } from '@/lib/api/server';
 import type { QueryParams } from '@/lib/api/config';
-import { HOME_LIMITS, categoryOf } from '../config';
+import { BANNER_REVALIDATE_SECONDS, HOME_LIMITS, categoryOf } from '../config';
 import { resolveHomeLayout, type HomeSection } from '../lib/home-layout';
 import {
   agencyPageSchema,
@@ -58,9 +58,11 @@ export interface HomeData {
 }
 
 const banners = (slot: BannerSlot) =>
-  safe('/banners', bannerListSchema, { query: { slot }, revalidate: 60, tags: ['banners'] }).then(
-    (r) => r?.items ?? [],
-  );
+  safe('/banners', bannerListSchema, {
+    query: { slot },
+    revalidate: BANNER_REVALIDATE_SECONDS,
+    tags: ['banners'],
+  }).then((r) => r?.items ?? []);
 
 export async function getHomeData(): Promise<HomeData> {
   const [

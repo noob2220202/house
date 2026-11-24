@@ -7,7 +7,8 @@ import {
   ProposalStatus,
 } from '@house/shared';
 import { z } from 'zod';
-import { mediaSchema } from '@/features/w-deal/api/schemas';
+import { mediaSchema, photoFromWire } from '@/features/w-deal/api/schemas';
+import { regionName } from '@/features/w-deal/lib/regions';
 
 /**
  * Response shapes of the broker inbox as the frontend expects them.
@@ -81,7 +82,36 @@ export const requestContactSchema = z.object({
 });
 export type RequestContact = z.infer<typeof requestContactSchema>;
 
-export const agencyDealRequestSchema = z.object({
+type Raw = Record<string, unknown>;
+const isObject = (v: unknown): v is Raw => typeof v === 'object' && v !== null;
+
+/**
+ * Backend `AgencyDealRequestView` → view shape: `complex{id,name}` → `complexId`/`complexName`,
+ * `emdName` from the region table, photo views → media DTOs, the granted `roadAddress` into
+ * `contact`, `detailsShared` → `contactGranted`. Mock fixtures already have the view shape.
+ */
+export function agencyRequestFromWire(v: unknown): unknown {
+  if (!isObject(v)) return v;
+  const out: Raw = { ...v };
+  if (isObject(v.complex) && v.complexId === undefined) {
+    out.complexId = v.complex.id;
+    out.complexName = v.complex.name;
+  }
+  if (out.emdName === undefined && typeof v.emdCode === 'string') {
+    const name = regionName(v.emdCode);
+    out.emdName = name === v.emdCode ? null : name;
+  }
+  if (Array.isArray(v.photos)) out.photos = v.photos.map(photoFromWire);
+  if (isObject(v.contact) && v.contact.roadAddress === undefined) {
+    out.contact = { ...v.contact, roadAddress: v.roadAddress ?? null };
+  }
+  if (out.contactGranted === undefined && typeof v.detailsShared === 'boolean') {
+    out.contactGranted = v.detailsShared;
+  }
+  return out;
+}
+
+const agencyDealRequestObjectSchema = z.object({
   id: z.string(),
   type: z.enum(DealRequestType),
   status: z.enum(DealRequestStatus),
@@ -94,17 +124,23 @@ export const agencyDealRequestSchema = z.object({
   requesterName: nullish(z.string()),
   description: nullish(z.string()),
 
-  // 내놓기 — location down to 읍면동 / 단지 only; 도로명·동·호 come with `contact`.
+  // 내놓기 — before the requester shares details with this agency (`contactGranted`): 읍면동 /
+  // 단지, the area band and a ~200 m grid point only; 도로명·동·호·층·정확한 면적·사진·설명 come
+  // with the grant (DEAL_REQUEST_PROVIDE 제공 항목).
   emdCode: nullish(z.string()),
   emdName: nullish(z.string()),
   complexId: nullish(z.string()),
   complexName: nullish(z.string()),
   exclusiveArea: nullish(z.number()),
+  /** 전용면적 band (㎡, max exclusive / null = open-ended) — what agencies see before a grant. */
+  areaRange: z.object({ min: z.number(), max: z.number().nullable() }).nullish(),
   floor: nullish(z.number()),
   desiredSalePrice: nullish(z.number()),
   desiredDeposit: nullish(z.number()),
   desiredMonthlyRent: nullish(z.number()),
   photos: z.array(mediaSchema).default([]),
+  /** Photos attached (shown only after a grant; the count is known before). */
+  photoCount: nullish(z.number()),
 
   // 구하기
   regionCodes: z.array(z.string()).default([]),
@@ -129,14 +165,23 @@ export const agencyDealRequestSchema = z.object({
   /** Proposals from all agencies so far. */
   proposalCount: z.number().default(0),
   myProposal: myProposalSchema.nullable().default(null),
+  /** The requester shared contact + full details with this agency (backend `detailsShared`). */
   contactGranted: z.boolean().default(false),
 });
-export type AgencyDealRequest = z.infer<typeof agencyDealRequestSchema>;
+export const agencyDealRequestSchema = z.preprocess(
+  agencyRequestFromWire,
+  agencyDealRequestObjectSchema,
+);
+export type AgencyDealRequest = z.infer<typeof agencyDealRequestObjectSchema>;
 
-export const agencyDealRequestDetailSchema = agencyDealRequestSchema.extend({
+const agencyDealRequestDetailObjectSchema = agencyDealRequestObjectSchema.extend({
   contact: requestContactSchema.nullable().default(null),
 });
-export type AgencyDealRequestDetail = z.infer<typeof agencyDealRequestDetailSchema>;
+export const agencyDealRequestDetailSchema = z.preprocess(
+  agencyRequestFromWire,
+  agencyDealRequestDetailObjectSchema,
+);
+export type AgencyDealRequestDetail = z.infer<typeof agencyDealRequestDetailObjectSchema>;
 
 /** Inbox stage of a request from the agency's point of view (derived, see lib/stage.ts). */
 export const INBOX_STAGES = ['NEW', 'PROPOSED', 'ACCEPTED', 'ENDED'] as const;

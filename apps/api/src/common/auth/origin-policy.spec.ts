@@ -7,7 +7,11 @@ const policy = new OriginPolicy({
   publicBaseUrl: 'https://suncheonmap.kr',
   adminBaseUrl: 'https://admin.suncheonmap.kr/',
   // As deploy/install.sh used to write it: both sites in one list.
-  userOrigins: ['https://suncheonmap.kr', 'https://admin.suncheonmap.kr', 'https://www.suncheonmap.kr/'],
+  userOrigins: [
+    'https://suncheonmap.kr',
+    'https://admin.suncheonmap.kr',
+    'https://www.suncheonmap.kr/',
+  ],
   adminOrigins: ['https://suncheonmap.kr', 'http://127.0.0.1:3001'],
 });
 

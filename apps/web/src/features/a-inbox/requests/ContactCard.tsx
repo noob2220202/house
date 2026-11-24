@@ -113,8 +113,8 @@ export function ContactCard({ request: r }: ContactCardProps) {
         </dl>
       )}
       <Callout size="sm" icon="shield" tone="muted">
-        공개받은 연락처와 주소는 이 요청의 중개 목적으로만 사용해 주세요. 요청자는 언제든 공개를
-        취소할 수 있어요.
+        공개받은 연락처와 주소·사진·설명은 이 요청의 중개 목적으로만 사용해 주세요. 요청자는 언제든
+        공개를 취소할 수 있고, 요청이 끝나고 30일이 지나면 더 이상 볼 수 없어요.
       </Callout>
     </div>
   );

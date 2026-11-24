@@ -17,6 +17,6 @@ check_fails "apex is not matched by www (exact names)" cert_covers "$T_TMP/b.pem
 check_fails "missing file" cert_covers "$T_TMP/none.pem" example.com
 grep -q 'cert_matches && openssl x509 -checkend' "$KIT_DIR/install.sh" && pass "install.sh CERT_OK requires matching SANs" ||
   fail "install.sh CERT_OK does not check SANs"
-grep -q 'ADMIN_BASE_URL, API_BASE_URL, CORS_ORIGINS, KAKAO_REDIRECT_URI, NAVER_REDIRECT_URI, GOOGLE_REDIRECT_URI' "$KIT_DIR/install.sh" &&
+grep -q 'ADMIN_BASE_URL, API_BASE_URL, CORS_ORIGINS, NEXT_PUBLIC_SITE_URL, KAKAO_REDIRECT_URI, NAVER_REDIRECT_URI, GOOGLE_REDIRECT_URI' "$KIT_DIR/install.sh" &&
   pass "install.sh warns which .env keys to edit after a domain change" || fail "domain-change .env warning missing"
 t_finish

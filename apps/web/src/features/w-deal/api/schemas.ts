@@ -91,7 +91,9 @@ function proposalListingFromWire(l: unknown): unknown {
 
 /**
  * Backend `ProposalView` → card shape: `agency` (표시·광고 disclosure, null for a deleted office)
- * → brief, `agent.displayName` → `memberName`, `contactShared` → `contactGranted`.
+ * → brief, `agent.displayName` / `agent.isAssistant` → `memberName` / `memberIsAssistant`,
+ * `contactShared` → `contactGranted`. The member's own phone is never used: calls go to the
+ * office number of the disclosure.
  */
 export function proposalFromWire(v: unknown): unknown {
   if (!isObject(v) || !('contactShared' in v || 'agent' in v)) return v;
@@ -109,6 +111,7 @@ export function proposalFromWire(v: unknown): unknown {
         }
       : { id: v.agencyId, name: '탈퇴한 중개사무소' },
     memberName: v.memberName ?? agent?.displayName ?? null,
+    memberIsAssistant: v.memberIsAssistant ?? agent?.isAssistant === true,
     contactGranted: v.contactGranted ?? v.contactShared === true,
     listings: Array.isArray(v.listings) ? v.listings.map(proposalListingFromWire) : [],
   };
@@ -121,6 +124,8 @@ const proposalObjectSchema = z.object({
   agency: agencyBriefSchema,
   /** Name of the agent who wrote the proposal. */
   memberName: nullish(z.string()),
+  /** The writer is a 중개보조원 — shown next to the name (공인중개사법 제18조의4). */
+  memberIsAssistant: z.boolean().default(false),
   message: z.string(),
   status: z.enum(ProposalStatus),
   listings: z.array(proposalListingSchema).default([]),
@@ -134,7 +139,7 @@ export const proposalSchema = z.preprocess(proposalFromWire, proposalObjectSchem
 export type Proposal = z.infer<typeof proposalObjectSchema>;
 
 /** `DealRequestPhotoView` { mediaId, url, thumbUrl } → the media DTO shape the views read. */
-function photoFromWire(p: unknown): unknown {
+export function photoFromWire(p: unknown): unknown {
   if (!isObject(p) || typeof p.mediaId !== 'string' || p.variants !== undefined) return p;
   const url = typeof p.url === 'string' ? p.url : '';
   const thumb = typeof p.thumbUrl === 'string' ? p.thumbUrl : url;

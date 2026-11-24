@@ -77,6 +77,23 @@ export function actionConsentsOf<A extends ConsentAction>(
 }
 
 /**
+ * `consents` of a submission from the documents the form showed. Without them (they never loaded,
+ * e.g. a restored draft submitted at once) the submission is refused locally the way the server
+ * would refuse it (AUTH_CONSENT_REQUIRED), so the form asks for the consent again.
+ */
+export function shownConsents<A extends ConsentAction>(
+  docs: readonly ActionTermsDocument<A>[] | undefined,
+): ActionConsent<A>[] {
+  if (!docs || docs.length === 0) {
+    throw new ApiError(400, {
+      code: ErrorCode.AUTH_CONSENT_REQUIRED,
+      message: ERROR_MESSAGES.AUTH_CONSENT_REQUIRED,
+    });
+  }
+  return actionConsentsOf(docs);
+}
+
+/**
  * The server refused the consents because a document changed (or is missing) since the user read
  * it: show the current text again and ask for a new agreement — never resubmit silently.
  */

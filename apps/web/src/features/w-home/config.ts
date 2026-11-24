@@ -150,6 +150,14 @@ export const HERO_MAP_LABELS: readonly {
 export const HERO_MAP_STATION = { text: '순천역', x: 55, y: 59.26 } as const;
 
 /** How many rows each home block asks for. */
+/**
+ * Data-cache window of the home's banner reads (seconds). Short so that a banner the admin saves
+ * shows up within seconds: the API serve cache is version-bumped on every admin write, so this
+ * window (plus one regeneration, the page is ISR) is all the delay there is. Notice popups are read
+ * in the browser and need nothing here.
+ */
+export const BANNER_REVALIDATE_SECONDS = 15;
+
 export const HOME_LIMITS = {
   ranking: 9,
   listings: 8,

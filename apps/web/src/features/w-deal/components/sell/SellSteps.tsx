@@ -215,11 +215,11 @@ export function StepProperty({
           <HelpLine icon="lock">
             {floorHint ? (
               <>
-                동·호수는 내가 연락처 공개에 동의한 중개사에게만 보이고, 그 전에는{' '}
-                <b>{floorHint}</b>으로만 전달돼요.
+                도로명 주소와 동·호수는 내가 연락처 공개에 동의한 중개사에게만 보이고, 그 전에는
+                단지명과 <b>{floorHint}</b>으로만 전달돼요.
               </>
             ) : (
-              '동·호수는 내가 연락처 공개에 동의한 중개사에게만 보여요.'
+              '도로명 주소와 동·호수는 내가 연락처 공개에 동의한 중개사에게만 보이고, 그 전에는 단지명과 읍면동만 전달돼요.'
             )}
           </HelpLine>
         </FormRow>
@@ -253,7 +253,8 @@ export function StepProperty({
             )}
           </div>
           <HelpLine icon="lock">
-            상세 주소는 내가 연락처 공개에 동의한 중개사에게만 보여요.
+            도로명 주소와 상세 주소는 내가 연락처 공개에 동의한 중개사에게만 보여요. 그 전에는
+            읍면동과 약 200m 단위의 대략적인 위치만 전달돼요.
           </HelpLine>
         </FormRow>
       )}
@@ -507,6 +508,10 @@ export function StepTerms({ form, v, err, set, touch, complex }: SellStepProps) 
         <span className={styles.counter} aria-hidden="true">
           {v.description.length.toLocaleString('ko-KR')} / 2,800
         </span>
+        <HelpLine icon="lock">
+          설명은 내가 연락처 공개에 동의한 중개사에게만 보여요. 체크한 조건(가격 협의 가능 등)은
+          요청을 받은 모든 중개사에게 보여요.
+        </HelpLine>
       </FormRow>
     </FormSection>
   );
@@ -528,6 +533,9 @@ export function StepPhotos({
         onBusyChange={onBusyChange}
         error={err('photos')}
       />
+      <HelpLine icon="lock">
+        사진은 내가 연락처 공개에 동의한 중개사에게만 보여요. 그 전에는 사진 장수만 전달돼요.
+      </HelpLine>
     </FormRow>
   );
 }

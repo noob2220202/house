@@ -14,6 +14,17 @@ assert_eq "documented key missing from .env is passed as ''" "$(key ADMIN_IP_ALL
 assert_eq "commented-out documented key (# COOKIE_DOMAIN=) also blanked" "$(key COOKIE_DOMAIN)" '""'
 assert_eq "NODE_ENV still forced" "$(key NODE_ENV)" '"production"'
 assert_eq "JOBS_ENABLED still forced for the API" "$(key JOBS_ENABLED)" '"false"'
+j="$(api_env house-web)"
+assert_eq "web gets the loopback MEDIA_ORIGIN by default" "$(key MEDIA_ORIGIN)" '"http://127.0.0.1:8088"'
+assert_eq "web never gets API secrets" "$(key DATABASE_URL)" '<undefined>'
+printf 'DATABASE_URL=postgresql://x@h/d\nMEDIA_ORIGIN=http://media.local:9/\n' >"$ENV_FILE"
+j="$(api_env house-admin)"
+assert_eq "admin MEDIA_ORIGIN follows shared/.env" "$(key MEDIA_ORIGIN)" '"http://media.local:9"'
+printf 'MEDIA_PORT=8123\n' >"$DEPLOY_CONF"
+printf 'DATABASE_URL=postgresql://x@h/d\nGOOGLE_CLIENT_ID=abc\n' >"$ENV_FILE"
+j="$(api_env house-web)"
+assert_eq "MEDIA_PORT from deploy.conf" "$(key MEDIA_ORIGIN)" '"http://127.0.0.1:8123"'
+rm -f "$DEPLOY_CONF"
 j="$(api_env house-worker)"
 assert_eq "worker gets the blanks too" "$(key GOOGLE_CLIENT_SECRET)" '""'
 assert_eq "worker JOBS_ENABLED forced" "$(key JOBS_ENABLED)" '"true"'

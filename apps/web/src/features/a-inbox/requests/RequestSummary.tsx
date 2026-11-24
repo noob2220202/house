@@ -14,6 +14,8 @@ import {
 import { isRequestActive } from '../lib/stage';
 import styles from './Requests.module.css';
 
+const photosOf = (r: AgencyDealRequestDetail) => r.photos.length;
+
 function Fact({ label, wide, children }: { label: string; wide?: boolean; children: ReactNode }) {
   return (
     <div className={wide ? `${styles.fact} ${styles.factWide}` : styles.fact}>
@@ -28,13 +30,19 @@ export interface RequestSummaryProps {
   now?: Date;
 }
 
-/** What the requester asked for: prices, conditions, their own words and photos. No private data. */
+/**
+ * What the requester asked for: prices, conditions, their own words and photos. Before the
+ * requester shares details with this office a 내놓기 request arrives reduced (읍면동 / 단지, area
+ * band, the form's flags, photo count) — rendered as received, nothing reconstructed.
+ */
 export function RequestSummary({ request: r, now }: RequestSummaryProps) {
   const sell = r.type === DealRequestType.SELL_OR_LEASE;
   const prices = requestPriceLines(r);
   const { flags, text } = splitFlags(r.description);
   const area = requestAreaText(r);
   const places = wantedPlaces(r);
+  const shared = r.contactGranted || r.contact !== null;
+  const hiddenPhotos = !shared && photosOf(r) === 0 ? (r.photoCount ?? 0) : 0;
   const photos = r.photos
     .map((p) => ({
       id: p.id,
@@ -85,7 +93,11 @@ export function RequestSummary({ request: r, now }: RequestSummaryProps) {
             )}
           </Fact>
         )}
-        {area && <Fact label={sell ? '전용면적' : '희망 면적'}>{area.replace(/^전용 /, '')}</Fact>}
+        {area && (
+          <Fact label={sell ? (shared ? '전용면적' : '전용면적 구간') : '희망 면적'}>
+            {area.replace(/^전용 /, '')}
+          </Fact>
+        )}
         {sell && typeof r.floor === 'number' && <Fact label="층">{r.floor}층</Fact>}
         {!sell && typeof r.roomsMin === 'number' && <Fact label="방 수">{r.roomsMin}개 이상</Fact>}
         {r.moveInDate && (
@@ -138,9 +150,17 @@ export function RequestSummary({ request: r, now }: RequestSummaryProps) {
         </div>
       )}
 
-      {sell && !r.contact && isRequestActive(r.status) && (
+      {sell && hiddenPhotos > 0 && (
+        <div className={styles.says}>
+          <h3 className={styles.saysTitle}>첨부 사진 {hiddenPhotos}장</h3>
+          <p className={styles.saysText}>요청자가 연락처를 공개하면 사진을 볼 수 있어요.</p>
+        </div>
+      )}
+
+      {sell && !shared && isRequestActive(r.status) && (
         <Callout size="sm" icon="lock" tone="muted" className={styles.privacy}>
-          도로명 주소와 동·호수는 요청자가 연락처를 공개하면 함께 볼 수 있어요.
+          도로명 주소·동·호수·층·정확한 면적·사진·요청자가 쓴 설명은 요청자가 연락처를 공개하면
+          함께 볼 수 있어요.
         </Callout>
       )}
     </div>

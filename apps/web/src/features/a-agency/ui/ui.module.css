@@ -65,18 +65,16 @@
   line-height: 1.55;
   color: var(--text-3);
 }
-.privacy dl {
-  display: grid;
-  gap: 4px;
-}
-.privacy dl > div {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 8px;
-}
-.privacy dt {
-  font-weight: 700;
+.privacy .privacyMeta {
+  margin-top: 0;
   color: var(--text-2);
+}
+.privacyText {
+  margin-top: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .privacy p {
   margin-top: 8px;

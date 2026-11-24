@@ -896,3 +896,18 @@ a.listing:hover {
     bottom: calc(var(--tabbar-h, 64px) + 12px + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* 중개보조원 disclosure of a proposal (공인중개사법 제18조의4). */
+.propNote {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.propNote svg {
+  flex: none;
+  margin-top: 2px;
+}

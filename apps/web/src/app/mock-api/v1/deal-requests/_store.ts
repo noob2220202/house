@@ -22,6 +22,8 @@ export interface MockProposal {
   dealRequestId: string;
   agencyId: string;
   memberName: string | null;
+  /** The sender is a 중개보조원 (labelled as such; no own phone in the requester's view). */
+  memberIsAssistant?: boolean;
   message: string;
   status: 'SENT' | 'VIEWED' | 'ACCEPTED' | 'DECLINED' | 'WITHDRAWN';
   listings: Record<string, unknown>[];
@@ -415,7 +417,9 @@ function proposalDto(r: MockDealRequest, p: MockProposal): ProposalView {
     suggestedMonthlyRent: null,
     agencyId: p.agencyId,
     agency: agency ? disclosureOf(agency) : null,
-    agent: p.memberName ? { displayName: p.memberName, phone: null } : null,
+    agent: p.memberName
+      ? { displayName: p.memberName, isAssistant: p.memberIsAssistant === true, phone: null }
+      : null,
     listings: p.listings.map(proposalListingOf),
     contactShared: p.agencyId in r.grants,
     viewedAt: p.viewedAt,

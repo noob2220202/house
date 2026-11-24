@@ -72,9 +72,29 @@ function Private() {
   );
 }
 
-/** Text of what a contact grant reveals: "김하늘 · 010-0000-1234 · 103동 1502호". */
+/**
+ * Text of what a contact grant reveals: "김하늘 · 010-0000-1234 · 103동 1502호 · 매물 상세 정보…".
+ * For 내놓기 a grant also unlocks the details agencies do not get before it (DEAL_REQUEST_PROVIDE).
+ */
 export function revealTextOf(r: DealRequestDetail): string {
-  return [r.contactName, formatPhone(r.contactPhone), r.addressDetail].filter(Boolean).join(' · ');
+  return [
+    r.contactName,
+    formatPhone(r.contactPhone),
+    r.addressDetail,
+    r.type === DealRequestType.SELL_OR_LEASE && '매물 상세 정보(도로명 주소·층·면적·사진·설명)',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/**
+ * What else a grant unlocks besides the contact (DEAL_REQUEST_PROVIDE 제공 항목): for 내놓기 the
+ * full details — 도로명 주소·동·호수·층·면적·사진·설명; for 구하기 only the contact.
+ */
+export function revealHintOf(r: Pick<DealRequestDetail, 'type'>): string {
+  return r.type === DealRequestType.SELL_OR_LEASE
+    ? '이름·휴대폰 번호와 매물 상세 정보(도로명 주소·동·호수·층·면적·사진·설명)'
+    : '이름과 휴대폰 번호';
 }
 
 /** Proposals in display order: waiting for an answer first (newest first), then answered ones. */
@@ -460,7 +480,7 @@ export function RequestDetailView({ initial, now }: RequestDetailViewProps) {
               proposal={p}
               active={active}
               revealText={revealText}
-              revealHint={r.addressDetail ? '이름·휴대폰 번호와 상세 주소' : '이름과 휴대폰 번호'}
+              revealHint={revealHintOf(r)}
               now={now}
               busy={busy}
               onAccept={() => {

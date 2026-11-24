@@ -23,8 +23,8 @@ afterEach(() => vi.unstubAllGlobals());
 type Init = RequestInit & { next?: { revalidate?: number } };
 const callsTo = (path: string) =>
   fetchMock.mock.calls
-    .filter(([url]) => new URL(String(url)).pathname.endsWith(path))
-    .map(([url, init]) => ({ url: String(url), init: init as Init }));
+    .filter(([url]) => new URL(url as string).pathname.endsWith(path))
+    .map(([url, init]) => ({ url: url as string, init: init as Init }));
 
 describe('getSearchResults caching', () => {
   it('reads free-text q per request: nothing lands in the fetch cache', async () => {

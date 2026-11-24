@@ -139,6 +139,29 @@ export async function seedSiteSettings(prisma: PrismaClient): Promise<void> {
   }
 }
 
+/**
+ * 내놓기·구하기 notices. Every statement matches the deal-requests module (keep them in sync —
+ * `test/e2e/deal-requests/compliance.e2e-spec.ts` checks the numbers against the code):
+ * retention = DEAL_REQUEST_LIMITS.CONTACT_RETENTION_DAYS after the request ended (scrub job
+ * `DealRequestMaintenanceService.scrubDue`, withdrawal `scrubUser`); pre-grant 제공 항목 =
+ * `DealRequestMapper.agency` (grid DEAL_REQUEST_LOCATION_GRID_DEG ≈ 200 m, area bands, form flags).
+ */
+export const DEAL_REQUEST_PRIVACY_BODY = [
+  '- 수집 항목: 이름, 휴대폰 번호, (내놓기) 매물 주소(도로명·동·호수)·위치·층·면적·희망 가격 등 매물 정보·사진·설명, (구하기) 희망 지역·단지·예산·면적 등 찾는 조건과 설명',
+  '- 수집·이용 목적: 내놓기·구하기 요청 등록, 중개사무소 제안 전달, 요청 관리와 알림',
+  '- 보유·이용 기간: 요청이 끝난 날(거래 완료·취소·기간 만료)부터 30일. 30일이 지나면 이름·휴대폰 번호·동·호수·도로명 주소·위치·층·면적·사진·설명을 파기하고, 요청 기록(요청 유형·매물 유형·거래 유형·희망 가격·읍면동·단지·찾는 조건·등록일)만 내 요청 내역에 남깁니다. 회원 탈퇴 시에는 탈퇴와 함께 같은 항목을 파기합니다.',
+  '- 동의를 거부할 권리와 불이익: 동의하지 않을 수 있으며, 동의하지 않으면 요청을 등록할 수 없습니다.',
+].join('\n');
+
+export const DEAL_REQUEST_PROVIDE_BODY = [
+  '- 제공받는 자: 요청의 공개 범위에 해당하는 이 서비스의 중개사무소(전체 공개: 순천시에서 승인된 모든 중개사무소, 선택 공개: 회원이 고른 중개사무소)와 이미 제안을 보낸 중개사무소',
+  '- 제공 목적: 중개 제안과 상담 연락',
+  '- 요청을 받은 모든 중개사무소에 제공하는 항목: (내놓기) 매물 유형·거래 유형·희망 가격·입주 가능일, 읍면동·단지명, 전용면적 구간, 약 200m 단위로 낮춘 대략적인 위치, 사진 장수, 체크한 조건(가격 협의 가능·즉시 입주 가능·저/중/고층), (구하기) 희망 지역·단지·예산·면적·방 수·입주 희망일과 설명',
+  '- 연락처를 공개한 중개사무소에만 제공하는 항목: 이름·휴대폰 번호와 (내놓기) 도로명 주소·동·호수·정확한 위치·층·전용면적·사진·설명. 제안을 수락하면서 공개를 선택하거나 요청 상세에서 직접 공개한 중개사무소만 해당하며, 공개는 언제든 취소할 수 있습니다.',
+  '- 보유·이용 기간: 요청이 끝난 날부터 30일까지. 거래 완료된 요청은 30일이 지나면, 공개를 취소하거나 요청이 취소·기간 만료·운영자 종료되면 그때부터 중개사무소에서도 연락처와 상세 정보를 볼 수 없습니다.',
+  '- 동의를 거부할 권리와 불이익: 동의하지 않을 수 있으며, 동의하지 않으면 요청을 등록할 수 없습니다.',
+].join('\n');
+
 const TERMS_V1: { type: TermsType; title: string; isRequired: boolean; body: string }[] = [
   {
     type: TermsType.SERVICE,
@@ -192,24 +215,13 @@ const TERMS_V1: { type: TermsType; title: string; isRequired: boolean; body: str
     type: TermsType.DEAL_REQUEST_PRIVACY,
     title: '[필수] 내놓기·구하기 개인정보 수집·이용 동의',
     isRequired: true,
-    body: [
-      '- 수집 항목: 이름, 휴대폰 번호, (내놓기) 매물 주소(동·호수 포함)·매물 정보·사진, (구하기) 희망 지역·예산 등 찾는 조건',
-      '- 수집·이용 목적: 내놓기·구하기 요청 등록, 중개사무소 제안 전달, 요청 관리와 알림',
-      '- 보유·이용 기간: 요청 종료 후 30일까지 (관계 법령에 보존 의무가 있으면 그 기간까지)',
-      '- 동의를 거부할 권리와 불이익: 동의하지 않을 수 있으며, 동의하지 않으면 요청을 등록할 수 없습니다.',
-    ].join('\n'),
+    body: DEAL_REQUEST_PRIVACY_BODY,
   },
   {
     type: TermsType.DEAL_REQUEST_PROVIDE,
     title: '[필수] 내놓기·구하기 개인정보 제3자(중개사무소) 제공 동의',
     isRequired: true,
-    body: [
-      '- 제공받는 자: 요청의 공개 범위에 해당하는 중개사무소(요청 근처 또는 회원이 선택한 곳, 이 서비스에 가입한 공인중개사사무소)',
-      '- 제공 목적: 중개 제안과 상담 연락',
-      '- 제공 항목: 매물 유형·거래 조건·단지와 대략적인 위치 또는 찾는 조건. 이름·휴대폰 번호·동·호수는 회원이 연락처 공개에 동의한 중개사무소에만 제공합니다.',
-      '- 보유·이용 기간: 요청 종료 후 30일까지',
-      '- 동의를 거부할 권리와 불이익: 동의하지 않을 수 있으며, 동의하지 않으면 요청을 등록할 수 없습니다.',
-    ].join('\n'),
+    body: DEAL_REQUEST_PROVIDE_BODY,
   },
 ];
 

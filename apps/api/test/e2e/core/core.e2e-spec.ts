@@ -251,7 +251,9 @@ describe('core pipeline (e2e)', () => {
       expect((await preflight('/api/v1/admin/__probe', ADMIN_ORIGIN)).headers[acao]).toBe(
         ADMIN_ORIGIN,
       );
-      expect((await preflight('/api/v1/__probe/write', ADMIN_ORIGIN)).headers[acao]).toBeUndefined();
+      expect(
+        (await preflight('/api/v1/__probe/write', ADMIN_ORIGIN)).headers[acao],
+      ).toBeUndefined();
       expect((await preflight('/api/v1/__probe/write', WEB_ORIGIN)).headers[acao]).toBe(WEB_ORIGIN);
     });
 

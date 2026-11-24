@@ -147,8 +147,15 @@ export function ProposalCard({
           </h3>
           <p className={styles.propMeta}>
             {a.specialty && <b>{a.specialty}</b>}
-            {(p.memberName ?? a.representativeName) && (
-              <span>담당 {p.memberName ?? a.representativeName}</span>
+            {p.memberName && p.memberIsAssistant ? (
+              <span>
+                중개보조원 {p.memberName}
+                {a.representativeName && ` · 대표 공인중개사 ${a.representativeName}`}
+              </span>
+            ) : (
+              (p.memberName ?? a.representativeName) && (
+                <span>담당 {p.memberName ?? a.representativeName}</span>
+              )
             )}
             {typeof a.avgResponseMinutes === 'number' && (
               <span>평균 응답 {a.avgResponseMinutes}분</span>
@@ -164,6 +171,13 @@ export function ProposalCard({
         </div>
       </div>
 
+      {p.memberName && p.memberIsAssistant && (
+        <p className={styles.propNote}>
+          <Icon name="info" size={14} />
+          중개보조원이 보낸 제안이에요. 중개보조원은 공인중개사의 업무를 돕는 직원이며, 연락은 사무소
+          대표번호로 연결돼요.
+        </p>
+      )}
       <p className={cx(styles.propMsg, long && !open && styles.clamp)}>{p.message}</p>
       {long && (
         <button

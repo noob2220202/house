@@ -16,6 +16,11 @@ conf "RCLONE_REMOTE=x; touch $marker" "BACKUP_NOTIFY_URL=\$(touch $marker)"
 check_fails "shell metacharacters are rejected, not executed" load_ok
 [[ ! -e "$marker" ]] && pass "no command ran while reading deploy.conf" || fail "command ran while reading deploy.conf"
 
+conf 'MEDIA_PORT=8090'
+out="$( load_conf; printf '%s' "$MEDIA_PORT" )"
+assert_eq "MEDIA_PORT is a known deploy.conf key" "$out" "8090"
+conf 'MEDIA_PORT=99999'
+check_fails "MEDIA_PORT must be a port" load_ok
 conf 'API_PORT=4000' 'PATH=/tmp/evil'
 check_fails "unknown keys are rejected" load_ok
 conf 'API_PORT=40a0'

@@ -33,6 +33,7 @@ import {
   CONSENT_OUTDATED_MESSAGE,
   errorMessage,
   isConsentOutdatedError,
+  shownConsents,
 } from '@/lib/api';
 import { useActionTerms } from '@/lib/api/useActionTerms';
 import {
@@ -72,7 +73,6 @@ import {
   ScopeFields,
   type ContactScopeSetter,
 } from '../form/ContactScopeFields';
-import { shownDealConsents } from '../form/consent-submit';
 import styles from '../form/form.module.css';
 import { MoneyInput } from '../form/MoneyInput';
 import { AssetTypeTiles } from '../form/parts';
@@ -737,7 +737,7 @@ export function FindWizard({ user }: { user: WizardUser }) {
   const terms = useActionTerms('DEAL_REQUEST');
   const create = useMutation({
     mutationFn: (payload: DealRequestCreatePayload) =>
-      dealApi.create(payload, shownDealConsents(terms.data)),
+      dealApi.create(payload, shownConsents(terms.data)),
     onSuccess: (created) => {
       wizard.finish();
       void queryClient.invalidateQueries({ queryKey: dealKeys.all });

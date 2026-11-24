@@ -2,6 +2,8 @@
 
 이 문서는 서버를 처음 다뤄 보는 분도 따라 할 수 있도록 **도메인 구입부터 첫 배포, 업데이트, 백업**까지 순서대로 설명합니다.
 명령어는 회색 상자 안의 내용을 **그대로 복사해서** 붙여 넣으면 됩니다. `example.com`, `OWNER/REPO` 같은 부분만 내 값으로 바꾸세요.
+**이 서비스(순천부동산지도)의 실제 값**: 사용자 사이트 `suncheonmap.kr`(`www`는 apex로 이동), 관리자 `admin.suncheonmap.kr`.
+아래에서 `example.com`은 이 값으로 읽으면 되고, 바로 쓰는 명령에는 `suncheonmap.kr` 예시를 함께 적었습니다.
 
 - Docker, 컨테이너, 가상환경은 쓰지 않습니다. 서버에 Node.js, PostgreSQL, Redis, Nginx를 직접 설치합니다.
 - 소셜 로그인은 **카카오, 네이버, Google**만 씁니다.
@@ -20,6 +22,7 @@
  │ example.com         → 사용자 사이트 (Next.js, 3000)                     │
  │ example.com/api/    → API (NestJS, 4000)  ← 2개 프로세스 (무중단 교체)   │
  │ example.com/media/  → 업로드 이미지 파일 (/var/lib/house/uploads/public) │
+ │ /_next/static/      → 빌드 파일(JS·CSS)을 nginx가 current 릴리스에서 직접 │
  │ admin.example.com   → 관리자 사이트 (Next.js, 3001) + /api/              │
  │ www.example.com     → example.com 으로 이동                             │
  └─────────────────────────────────────────────────────────────────────────┘
@@ -143,6 +146,14 @@ cd /root/house-setup
 | `--branch`          | 배포할 브랜치 (기본 `main`)                                                       |
 | `--admin-subdomain` | 관리자 주소를 `admin` 대신 다른 이름으로 (예: `office` → `office.example.com`)    |
 
+순천부동산지도 서버라면 (관리자 주소는 자동으로 `admin.suncheonmap.kr`):
+
+```bash
+cd /root/house-setup
+./deploy/install.sh --domain suncheonmap.kr --email 내메일@example.com \
+  --repo git@github.com:OWNER/REPO.git --branch main
+```
+
 설치는 5~15분 걸립니다. 스크립트가 하는 일:
 
 - 시스템 업데이트, **자동 보안 업데이트**, 시간대 **Asia/Seoul**, 메모리가 4GB 미만이면 **스왑** 생성
@@ -153,6 +164,9 @@ cd /root/house-setup
 - **Nginx** 설정, **Let's Encrypt HTTPS 인증서** 발급 (`example.com`, `www`, `admin` 한 번에)
 - **방화벽(UFW)**: SSH, 80, 443만 허용 / **fail2ban**: 로그인 공격 차단
 - `/srv/house/shared/.env` 생성 (비밀값 자동 생성. **이미 있으면 절대 덮어쓰지 않음**. root 소유, 앱은 읽기만 가능)
+  - 웹·관리자 빌드 설정도 함께 넣습니다: `NEXT_PUBLIC_SITE_URL=https://<도메인>`(캐노니컬 주소·사이트맵), `MEDIA_ORIGIN`
+    (이미지 최적화가 원본 사진을 읽는 서버 내부 주소, `http://127.0.0.1:8088`), 지도·검색 등록 키 자리(`NEXT_PUBLIC_*`).
+    이미 있는 `.env`에 다시 실행하면 **빠진 키만 끝에 추가**하고 기존 값은 그대로 둡니다.
 - 매일 새벽 3시 30분 **자동 백업** 등록
 
 끝나면 한국어 요약이 나옵니다. 스크립트는 **여러 번 실행해도 안전**합니다. 중간에 실패했으면 원인을 고치고 같은 명령을 다시 실행하세요.
@@ -174,6 +188,22 @@ cd /root/house-setup
 
 ## 7. 외부 서비스 키 넣기 (.env)
 
+### 7-0. 키 입력 도우미 (권장): `set-keys.sh`
+
+편집기 없이 키를 하나씩 붙여 넣을 수 있습니다. Enter만 누르면 지금 값을 그대로 둡니다. 비밀값은 화면에 보이지 않습니다.
+
+```bash
+sudo /srv/house/set-keys.sh          # 전체 (카카오 → 네이버 → Google → 지도 → 공공데이터 → 브이월드)
+sudo /srv/house/set-keys.sh map      # 한 가지만: kakao | naver | google | map | data | vworld
+```
+
+- 따옴표·공백·역슬래시가 섞인 값은 받지 않고 다시 묻습니다(복사할 때 딸려 온 글자). 형식이 예상과 다르면 저장할지 한 번 더 묻습니다.
+- 다른 줄은 건드리지 않고 그 키만 바꾸거나 추가합니다. 파일 권한(`root:house` 0640)도 그대로입니다.
+- 네이버 지도 Client ID(`NAVER_MAP_CLIENT_ID`)는 브라우저 지도용 `NEXT_PUBLIC_NAVER_MAP_KEY_ID`에도 자동으로 같은 값을 넣습니다.
+- 끝나면 `sudo /srv/house/deploy.sh`로 반영합니다. `NEXT_PUBLIC_*` 값이 바뀌었으면 같은 커밋이어도 웹·관리자를 **자동으로 다시 빌드**합니다.
+
+직접 편집하려면:
+
 ```bash
 sudo nano /srv/house/shared/.env
 ```
@@ -192,6 +222,9 @@ https://example.com/api/v1/auth/oauth/kakao/callback
 https://example.com/api/v1/auth/oauth/naver/callback
 https://example.com/api/v1/auth/oauth/google/callback
 ```
+
+순천부동산지도: `https://suncheonmap.kr/api/v1/auth/oauth/kakao/callback`, `.../naver/callback`, `.../google/callback`
+(관리자 주소나 한글 도메인은 Redirect URI로 등록하지 않습니다).
 
 ### 카카오 로그인 → `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`
 
@@ -224,8 +257,10 @@ https://example.com/api/v1/auth/oauth/google/callback
 1. [네이버 클라우드 플랫폼](https://www.ncloud.com) 가입 → 결제 수단 등록(무료 사용량 이후 과금)
 2. 콘솔 → **Services → Application Services → Maps** → **Application 등록**
 3. 사용할 API: **Dynamic Map**(지도 표시), **Geocoding**(주소 → 좌표), 필요 시 **Reverse Geocoding**
-4. **Web 서비스 URL**에 `https://example.com`, `https://admin.example.com` 등록
+4. **Web 서비스 URL**에 `https://example.com`, `https://admin.example.com` 등록 (예: `https://suncheonmap.kr`, `https://admin.suncheonmap.kr`)
 5. 인증 정보의 **Client ID** → `NAVER_MAP_CLIENT_ID`, **Client Secret** → `NAVER_MAP_CLIENT_SECRET`
+   (브라우저 지도는 같은 Client ID를 `NEXT_PUBLIC_NAVER_MAP_KEY_ID`로 씁니다. `set-keys.sh map`은 두 줄을 함께 넣습니다.
+   `nano`로 넣을 때는 두 줄 모두 같은 값으로 적으세요.)
 
 ### 공공데이터포털(실거래가) → `DATA_GO_KR_SERVICE_KEY`
 
@@ -259,6 +294,9 @@ https://example.com/api/v1/auth/oauth/google/callback
 
 설정을 끌 때는 줄을 지우지 말고 값을 비워 두세요 (`GOOGLE_CLIENT_ID=`).
 저장한 뒤에는 배포(8단계)를 실행해야 반영됩니다. 이미 배포된 상태에서 `.env`만 바꿨다면 `deploy.sh`가 새로 빌드하지 않고 설정만 다시 읽어 재시작합니다.
+단, **`NEXT_PUBLIC_*`와 `MEDIA_ORIGIN`은 웹·관리자 빌드에 들어가는 값**이라 재시작만으로는 바뀌지 않습니다. `deploy.sh`가 릴리스마다
+빌드 설정의 지문(`BUILD_ENV.sha256`)을 저장해 두고, 이 값들이 바뀌었으면 같은 커밋이어도 `빌드 설정(NEXT_PUBLIC_* 등)이 바뀌어 새로 빌드합니다`라고
+알리고 자동으로 다시 빌드합니다(`--force`가 필요 없습니다). 비밀값(`COOKIE_SECRET` 등)은 빌드에 들어가지 않습니다.
 이때도 **먼저 새 `.env`로 앱을 임시 포트에서 켜 보고**(사전 점검), 켜지지 않으면 재시작하지 않고 멈춥니다. 화면에 `현재 서비스는 바뀌지 않았습니다`와 함께
 마지막으로 정상 동작한 설정(`/var/backups/house/config/env.last-good`)으로 되돌리는 명령이 나오니, 오류 내용을 보고 고치거나 그 명령으로 되돌리세요.
 
@@ -332,15 +370,16 @@ https://example.com/api/v1/auth/oauth/google/callback
    소유확인에서 **HTML 태그**를 고르면 `<meta name="naver-site-verification" content="값">`이 보입니다. `content`의 **값만** 복사합니다.
 2. **구글 서치 콘솔**(search.google.com/search-console) → 속성 추가 → **URL 접두어** `https://example.com` →
    다른 확인 방법 → **HTML 태그**의 `content` 값만 복사합니다.
-3. 서버 `.env`(`sudo nano /srv/house/shared/.env`)에 붙여 넣습니다. 비워 두면 태그가 나가지 않습니다.
-   **`NEXT_PUBLIC_SITE_URL`도 함께 확인하세요.** 설치 스크립트가 만든 `.env`에는 이 줄이 없어서, 없으면 캐노니컬 주소·사이트맵이
-   `http://localhost:3000`으로 만들어집니다. 실제 대표 주소(https, 끝에 `/` 없음)로 넣습니다.
+3. 서버 `.env`(`sudo nano /srv/house/shared/.env`)의 빈 줄에 붙여 넣습니다(install.sh가 자리를 만들어 둡니다). 비워 두면 태그가 나가지 않습니다.
+   **`NEXT_PUBLIC_SITE_URL`도 함께 확인하세요.** install.sh가 `https://<도메인>`으로 넣어 두며, 실제 대표 주소(https, 끝에 `/` 없음)와 같아야 합니다.
+   예전 install.sh로 만든 서버라 이 줄이 없다면 `sudo /srv/house/bin/install.sh --domain <도메인> --email <메일>`을 다시 실행하면 추가됩니다
+   (그 전에도 `deploy.sh`는 경고와 함께 `https://<도메인>`으로 빌드합니다).
    ```
-   NEXT_PUBLIC_SITE_URL=https://example.com
+   NEXT_PUBLIC_SITE_URL=https://suncheonmap.kr
    NEXT_PUBLIC_NAVER_SITE_VERIFICATION=네이버에서_복사한_값
    NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=구글에서_복사한_값
    ```
-4. 이 값은 사이트 **빌드에 들어가므로** `/srv/house/deploy.sh --force`로 다시 빌드·배포합니다(그냥 `deploy.sh`는 빌드 없이 재시작만 합니다).
+4. 이 값은 사이트 **빌드에 들어갑니다**. `/srv/house/deploy.sh`를 실행하면 값이 바뀐 것을 알아채고 같은 커밋이어도 다시 빌드·배포합니다.
    배포 뒤 브라우저에서 `https://example.com` 페이지 소스를 열어 두 `<meta>` 태그가 보이면, 각 콘솔에서 **확인(소유확인)**을 누릅니다.
 5. 두 콘솔 모두 **사이트맵 제출**에 `https://example.com/sitemap.xml` 을 넣습니다(사이트맵 색인 — 기본·지역별 시세·단지·매물·중개사무소
    파일을 묶은 것). `https://example.com/robots.txt`에도 같은 주소가 적혀 있습니다.
@@ -371,6 +410,8 @@ https://example.com/api/v1/auth/oauth/google/callback
 | `--skip-migrate`     | DB 변경 없이 코드만 (DB 마이그레이션·시드 생략) |
 | `--skip-build-cache` | 빌드가 이상할 때 캐시 없이 처음부터 빌드        |
 | `--force`            | 같은 커밋이라도 새로 빌드                       |
+
+`.env`의 `NEXT_PUBLIC_*`·`MEDIA_ORIGIN`이 바뀐 경우에는 `--force` 없이도 다시 빌드합니다(7단계 끝 참고).
 
 - 배포는 한 번에 하나만 실행됩니다. 누가 배포 중이면 `다른 배포가 진행 중입니다`라고 나옵니다.
 - 배포는 **별도 세션**에서 실행되고 화면은 그 로그를 보여 주기만 합니다. 그래서 중간에 **SSH가 끊기거나 Ctrl+C를 눌러도 배포는 끝까지 진행**되고,
@@ -447,27 +488,29 @@ tail -f /var/log/house/deploy.log          # 배포 기록
 
 ## 15. 문제 해결
 
-| 증상                                | 확인할 것                                                                                                                 |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| 인증서 발급 실패                    | `nslookup`으로 DNS 확인 → 6단계 명령 다시 실행. Cloudflare 주황 구름이면 회색으로.                                        |
-| `502 Bad Gateway`                   | 앱이 꺼짐: `/srv/house/status.sh`, `sudo -u house pm2 logs --err --lines 100`                                             |
-| 소셜 로그인 후 오류                 | 콘솔의 Redirect URI가 7단계 주소와 **글자 하나까지** 같은지(https, 도메인). `.env`의 CLIENT_ID/SECRET 확인 후 `deploy.sh` |
-| 로그인이 유지되지 않음              | HTTPS로 접속했는지 (HTTP에서는 로그인 쿠키가 동작하지 않음)                                                               |
-| `다른 배포가 진행 중입니다`         | 다른 창에서 배포 중인지 확인. 진행 중인 것이 없다면 잠시 후 다시 실행                                                     |
-| 배포 중 `preflight api: FAILED`     | 새 코드가 켜지지 않음 (서비스는 이전 버전 그대로). 화면의 오류 내용 또는 `.env` 값 확인                                   |
-| `Invalid environment configuration` | `.env` 값 형식 오류 (줄에 표시된 키 확인). 서비스는 그대로이며, 화면의 명령으로 직전 정상 `.env`로 되돌릴 수 있음         |
-| `deploy.conf N번째 줄 ...`          | 그 줄의 키 이름 또는 값 형식 오류: `sudo nano /srv/house/shared/deploy.conf`                                              |
-| `잠금 파일이 없습니다`              | 이전 버전으로 설치된 서버: 18단계의 "기존 서버 업그레이드" 실행                                                           |
-| 디스크 가득 참                      | `df -h`, `du -sh /var/backups/house /var/log/house /srv/house/releases` (OPERATIONS.md 참고)                              |
-| 저장소를 가져오지 못함              | 6-1 배포 키 등록 확인: `sudo -u house ssh -T git@github.com` (환영 메시지가 나오면 정상)                                  |
+| 증상                                | 확인할 것                                                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 인증서 발급 실패                    | `nslookup`으로 DNS 확인 → 6단계 명령 다시 실행. Cloudflare 주황 구름이면 회색으로.                                                                |
+| `502 Bad Gateway`                   | 앱이 꺼짐: `/srv/house/status.sh`, `sudo -u house pm2 logs --err --lines 100`                                                                     |
+| 소셜 로그인 후 오류                 | 콘솔의 Redirect URI가 7단계 주소와 **글자 하나까지** 같은지(https, 도메인). `.env`의 CLIENT_ID/SECRET 확인 후 `deploy.sh`                         |
+| 로그인이 유지되지 않음              | HTTPS로 접속했는지 (HTTP에서는 로그인 쿠키가 동작하지 않음)                                                                                       |
+| `다른 배포가 진행 중입니다`         | 다른 창에서 배포 중인지 확인. 진행 중인 것이 없다면 잠시 후 다시 실행                                                                             |
+| 배포 중 `preflight api: FAILED`     | 새 코드가 켜지지 않음 (서비스는 이전 버전 그대로). 화면의 오류 내용 또는 `.env` 값 확인                                                           |
+| `Invalid environment configuration` | `.env` 값 형식 오류 (줄에 표시된 키 확인). 서비스는 그대로이며, 화면의 명령으로 직전 정상 `.env`로 되돌릴 수 있음                                 |
+| `deploy.conf N번째 줄 ...`          | 그 줄의 키 이름 또는 값 형식 오류: `sudo nano /srv/house/shared/deploy.conf`                                                                      |
+| `잠금 파일이 없습니다`              | 이전 버전으로 설치된 서버: 18단계의 "기존 서버 업그레이드" 실행                                                                                   |
+| 사진이 안 보임(`/_next/image` 오류) | `.env`의 `MEDIA_ORIGIN`(기본 `http://127.0.0.1:8088`)과 `curl -sI http://127.0.0.1:8088/media/<사진경로>` 확인. 바꿨다면 `deploy.sh`(자동 재빌드) |
+| 사이트 페이지에서 `429`             | 한 IP에서 초당 10페이지 이상(순간 80까지 허용)을 계속 요청함 — 크롤러·스크래퍼. 정상 사용자는 해당 없음 (OPERATIONS.md "요청 제한")               |
+| 디스크 가득 참                      | `df -h`, `du -sh /var/backups/house /var/log/house /srv/house/releases` (OPERATIONS.md 참고)                                                      |
+| 저장소를 가져오지 못함              | 6-1 배포 키 등록 확인: `sudo -u house ssh -T git@github.com` (환영 메시지가 나오면 정상)                                                          |
 
 ## 16. 서버 설정 바꾸기
 
 - **도메인/관리자 주소 변경**: 3단계 DNS를 먼저 바꾸고, 6단계 명령을 새 `--domain`(필요하면 `--admin-subdomain`)으로 다시 실행합니다.
   install.sh가 기존 인증서에 새 이름이 없음을 알아채고 **새 이름으로 인증서를 다시 발급**합니다.
   `.env`는 덮어쓰지 않으므로, 요약의 경고에 나온 키(`PUBLIC_BASE_URL`, `ADMIN_BASE_URL`, `API_BASE_URL`, `CORS_ORIGINS`,
-  `KAKAO_REDIRECT_URI`, `NAVER_REDIRECT_URI`, `GOOGLE_REDIRECT_URI`)를 `sudo nano /srv/house/shared/.env`로 고치고, 각 로그인 콘솔의
-  Redirect URI도 새 주소로 바꾼 뒤 `/srv/house/deploy.sh`.
+  `NEXT_PUBLIC_SITE_URL`, `KAKAO_REDIRECT_URI`, `NAVER_REDIRECT_URI`, `GOOGLE_REDIRECT_URI`)를 `sudo nano /srv/house/shared/.env`로 고치고,
+  각 로그인 콘솔의 Redirect URI도 새 주소로 바꾼 뒤 `/srv/house/deploy.sh` (`NEXT_PUBLIC_SITE_URL`이 바뀌었으므로 자동으로 다시 빌드합니다).
 - **저장소/브랜치 변경**: 6단계 명령을 새 `--repo`/`--branch`로 다시 실행
 - **프로세스 수** (`API_INSTANCES`, `WEB_INSTANCES`, `ADMIN_INSTANCES`): `sudo nano /srv/house/shared/deploy.conf`에서 고친 뒤 **중단 없이**
   ```bash
@@ -482,6 +525,8 @@ tail -f /var/log/house/deploy.log          # 배포 기록
   sudo /srv/house/bin/install.sh --nginx-only           # nginx upstream을 새 포트로
   ```
   `API_PORT`를 바꿨다면 web/admin도 내부 API 주소가 바뀌므로 `house-api`, `house-web`, `house-admin` 모두 위처럼 다시 등록합니다.
+- **이미지 원본 내부 포트** (`MEDIA_PORT`, 기본 8088): nginx가 `127.0.0.1`에서만 여는 `/media` 전용 주소입니다(이미지 최적화용).
+  다른 프로그램과 겹칠 때만 `deploy.conf`에서 바꾸고 `install.sh --nginx-only` → `.env`의 `MEDIA_ORIGIN`도 같은 포트로 → `deploy.sh`.
 - **Nginx 설정만 다시 만들기**: `/srv/house/bin/install.sh --nginx-only`
 
 ## 17. 파일 소유권 (보안 구조)
@@ -513,6 +558,9 @@ root가 실행하거나 읽는 파일은 모두 root 소유입니다.
   ```
   소유권 정리, `current` 링크 구조 변경, 잠금 파일 생성, fail2ban의 nginx 차단 규칙 제거가 자동으로 됩니다. 그다음 `/srv/house/deploy.sh --force`로
   한 번 배포하세요(관리자 사이트가 무중단 모드로 다시 등록되며 이때만 수 초 끊깁니다).
+- **2026-11 배포 키트 갱신 후** (빌드 파일 nginx 직접 제공, 페이지 요청 제한, 이미지 원본 내부 주소, `.env` 웹 빌드 설정):
+  `install.sh --kit-only` 로 키트를 갱신한 뒤 6단계 install.sh를 한 번 다시 실행하면 nginx 설정이 새로 만들어지고 `.env`에
+  `NEXT_PUBLIC_SITE_URL`·`MEDIA_ORIGIN` 등 빠진 키가 추가됩니다(기존 값 유지). 이어서 `/srv/house/deploy.sh` — 빌드 설정이 바뀌었으므로 자동으로 다시 빌드합니다.
 
 ## 부록: 컨테이너 종단 검증 기록 (2026-11-23)
 

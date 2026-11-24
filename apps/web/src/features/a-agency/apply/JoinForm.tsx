@@ -1,9 +1,15 @@
 'use client';
 import { Button, Callout, Checkbox, Icon, Input, Panel, useToast } from '@house/ui';
 import { useId, useRef, useState, type FormEvent } from 'react';
-import { ApiError, errorMessage } from '@/lib/api';
+import {
+  ApiError,
+  CONSENT_OUTDATED_MESSAGE,
+  errorMessage,
+  isConsentOutdatedError,
+  shownConsents,
+} from '@/lib/api';
+import { useActionTerms } from '@/lib/api/useActionTerms';
 import { joinAgency } from '../api/queries';
-import { JOIN_PRIVACY_NOTICE } from '../lib/application';
 import {
   INVITE_CODE_LENGTH,
   formatInviteCode,
@@ -32,6 +38,7 @@ export function JoinForm() {
   const codeRef = useRef<HTMLInputElement>(null);
   const agreeRef = useRef<HTMLInputElement>(null);
   const privacyId = useId();
+  const terms = useActionTerms('AGENCY_JOIN');
 
   /** Show a code error and put the keyboard / screen-reader focus back on the code input. */
   const failCode = (message: string) => {
@@ -58,17 +65,23 @@ export function JoinForm() {
     setBusy(true);
     setError(undefined);
     try {
-      const result = await joinAgency({
-        code: normalizeInviteCode(code),
-        displayName: name.trim(),
-      });
+      const result = await joinAgency(
+        { code: normalizeInviteCode(code), displayName: name.trim() },
+        shownConsents(terms.data),
+      );
       setJoined(result.agency.name);
       toast({ message: `${result.agency.name}에 합류했어요.` });
       // Full navigation: the session role changed, so every server guard must re-run.
       window.location.assign(AGENT_ROUTES.dashboard);
     } catch (err) {
       const fields = err instanceof ApiError ? err.fieldErrors() : {};
-      if (err instanceof ApiError && err.isValidation && fields.displayName && !fields.code) {
+      if (isConsentOutdatedError(err)) {
+        // The notice changed since it was loaded: show the new text and ask for a new agreement.
+        setAgreed(false);
+        void terms.refetch();
+        setAgreeError(CONSENT_OUTDATED_MESSAGE);
+        agreeRef.current?.focus();
+      } else if (err instanceof ApiError && err.isValidation && fields.displayName && !fields.code) {
         setNameError(fields.displayName);
         nameRef.current?.focus();
       } else if (
@@ -135,7 +148,7 @@ export function JoinForm() {
                 <b>[필수]</b> 개인정보 수집·이용에 동의합니다.
               </span>
             </Checkbox>
-            <PrivacySummary id={privacyId} notice={JOIN_PRIVACY_NOTICE} action="합류" />
+            <PrivacySummary id={privacyId} terms={terms} action="합류" />
             {agreeError && (
               <p className={styles.fieldError} role="alert">
                 {agreeError}

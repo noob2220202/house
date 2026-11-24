@@ -1,3 +1,4 @@
+import { dealRequestAreaRange, publicDealRequestDescription } from '@house/shared';
 import type { NextRequest, NextResponse } from 'next/server';
 import type {
   AgencyDealRequest,
@@ -124,9 +125,15 @@ export function myProposalDto(p: MockProposal, withBody: boolean): MyProposal {
   };
 }
 
-/** List item: location down to 읍면동 / 단지 — no 도로명·동·호, no contact. */
+/**
+ * List item: location down to 읍면동 / 단지 — no 도로명·동·호, no contact. Like the API, a 내놓기
+ * request reaches an office without a grant reduced: area band instead of the area, no floor,
+ * photos or own words (only the form's flag lines).
+ */
 export function agencyRequestDto(r: MockDealRequest, withBody = false): AgencyDealRequest {
   const proposal = r.proposals.find((p) => p.agencyId === MY_AGENCY_ID);
+  const shared = MY_AGENCY_ID in r.grants;
+  const reduce = !shared && r.type === 'SELL_OR_LEASE';
   return {
     id: r.id,
     type: r.type,
@@ -136,17 +143,19 @@ export function agencyRequestDto(r: MockDealRequest, withBody = false): AgencyDe
     visibility: r.visibility,
     targeted: r.visibility === 'SELECTED_AGENCIES',
     requesterName: maskName(r.contactName),
-    description: r.description,
+    description: reduce ? publicDealRequestDescription(r.description) : r.description,
     emdCode: r.emdCode,
     emdName: r.emdName,
     complexId: r.complexId,
     complexName: r.complexName,
-    exclusiveArea: r.exclusiveArea,
-    floor: r.floor,
+    exclusiveArea: reduce ? null : r.exclusiveArea,
+    areaRange: r.type === 'SELL_OR_LEASE' ? dealRequestAreaRange(r.exclusiveArea) : null,
+    floor: reduce ? null : r.floor,
     desiredSalePrice: r.desiredSalePrice,
     desiredDeposit: r.desiredDeposit,
     desiredMonthlyRent: r.desiredMonthlyRent,
-    photos: r.photos as AgencyDealRequest['photos'],
+    photos: reduce ? [] : (r.photos as AgencyDealRequest['photos']),
+    photoCount: r.photos.length,
     regionCodes: r.regionCodes,
     complexIds: r.complexIds,
     complexNames: r.complexIds.map((id) => COMPLEX_NAMES.get(id) ?? '선택한 단지'),
@@ -166,7 +175,7 @@ export function agencyRequestDto(r: MockDealRequest, withBody = false): AgencyDe
     updatedAt: r.updatedAt,
     proposalCount: r.proposals.length,
     myProposal: proposal ? myProposalDto(proposal, withBody) : null,
-    contactGranted: MY_AGENCY_ID in r.grants,
+    contactGranted: shared,
   };
 }
 
@@ -203,6 +212,8 @@ export function addProposal(
     dealRequestId: r.id,
     agencyId: MY_AGENCY_ID,
     memberName: MEMBER_NAME[role],
+    // Both mock senders are 공인중개사 (오세린 is a licensed member of B01, mem-2).
+    memberIsAssistant: false,
     message: input.message,
     status: 'SENT',
     listings: input.listings.map(proposalListing),
