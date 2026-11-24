@@ -69,9 +69,35 @@ move the shared read into the owning module's exported service.
 - CSRF: state-changing requests with a session need header `x-csrf-token` = the `house_csrf` cookie
   and an allowed `Origin`/`Referer` (CsrfGuard, global). Nothing to do in controllers.
   `@SkipCsrf()` is reserved for non-browser webhooks and needs review.
-- Rate limits: global per-IP default; tighten per route with `@Throttle(THROTTLE.AUTH)` etc.
-  (`common/throttle/throttle.constants.ts`). Per-user daily caps:
+- **Origins are split by surface** (`common/auth/origin-policy.ts`, used by both the CORS delegate in
+  `bootstrap/configure-app.ts` and CsrfGuard): `/api/v1/admin/**` accepts only the `ADMIN_BASE_URL`
+  origin + `ADMIN_CORS_ORIGINS`; every other route only the `PUBLIC_BASE_URL` origin + `CORS_ORIGINS`.
+  The other site's base origin is dropped even if an env list names it. So a script on the public
+  site cannot read `GET /admin/auth/csrf` with the (same-site) admin cookie, and admin writes from it
+  fail with `403 CSRF_FAILED`. Both frontends reach the API same-origin (nginx / Next rewrites), so
+  an admin page must only call admin routes for writes, and the user site never calls admin routes.
+- Rate limits: global default keyed per signed-in account, else per client IP (`req.ip`); tighten
+  per route with `@Throttle(THROTTLE.AUTH)` etc. (`common/throttle/throttle.constants.ts`).
+  Per-user daily caps:
   `await this.dailyCaps.consume('DEAL_REQUEST_CREATE', user.userId)` (`DailyCapService`, global).
+- **Client IP and the SSR → API contract.** `req.ip` (throttler buckets, `ADMIN_IP_ALLOWLIST`, admin
+  login lockout, report/audit IPs, visitor counter) follows Express `trust proxy` = `TRUST_PROXY`.
+  Production is `loopback`: `X-Forwarded-For` is honoured only when the TCP peer is 127.0.0.0/8 or
+  ::1 (nginx, and the Next.js servers, which listen on 127.0.0.1 only), and `req.ip` is the
+  right-most untrusted address of the chain. A peer anywhere else cannot change `req.ip` with the
+  header; nginx overwrites the header with `$remote_addr` (`deploy/nginx/snippets/house-proxy.conf`).
+  The Next.js SSR layers (`apps/{web,admin}/src/lib/api/server.ts`) call `INTERNAL_API_URL`
+  (127.0.0.1) directly, so on every server-side API call they must send:
+  - `x-forwarded-for: <visitor address>` — the value nginx put in the incoming request's
+    `X-Forwarded-For` (a single address). Without it the call is keyed as `127.0.0.1`, and all SSR
+    traffic shares one bucket per route (one client could exhaust it), and the admin console's SSR
+    calls fail `ADMIN_IP_ALLOWLIST`.
+  - `x-house-ssr: 1` — marks the call as coming from SSR. The API does not act on it today; it is
+    **not** a credential and must never grant anything (nginx passes it through from anyone).
+  - (optional) `user-agent` of the visitor.
+  Calls with no visitor (ISR revalidation, `next build`) send no `x-forwarded-for` and share the
+  loopback bucket; keep them few (cache) and rate-limit page routes at nginx.
+  Tests: `src/bootstrap/trust-proxy.spec.ts`, core e2e "throttle" (`/__probe/ip`).
 - Swagger is on only when `SWAGGER_ENABLED=true` (`/api/v1/docs`). Decorate with
   `@ApiTags('<module>')`.
 

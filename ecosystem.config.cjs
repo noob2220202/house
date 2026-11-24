@@ -79,6 +79,11 @@ const API_PORT = num(conf.API_PORT ?? env.PORT, 4000);
 const WORKER_PORT = num(conf.WORKER_PORT, 4100);
 const WEB_PORT = num(conf.WEB_PORT, 3000);
 const ADMIN_PORT = num(conf.ADMIN_PORT, 3001);
+const MEDIA_PORT = num(conf.MEDIA_PORT, 8088);
+// The Next image optimizer fetches /media/* originals from nginx's loopback media server
+// (deploy/nginx/house-upstreams.conf.template); the API does not serve /media. Same value as the
+// build (deploy/lib/common.sh build_env_lines).
+const MEDIA_ORIGIN = (env.MEDIA_ORIGIN || `http://127.0.0.1:${MEDIA_PORT}`).replace(/\/$/, '');
 
 const apiDir = path.join(CURRENT, 'apps', 'api');
 // Releases built before apps/api shipped dist/worker.js ran the worker as a second main.js on
@@ -117,6 +122,7 @@ const nextApp = (name, dir, port, instances, memory) => ({
     HOSTNAME: '127.0.0.1',
     // Server-side rendering talks to the API directly instead of looping through nginx.
     INTERNAL_API_URL: `http://127.0.0.1:${API_PORT}`,
+    MEDIA_ORIGIN,
   },
 });
 

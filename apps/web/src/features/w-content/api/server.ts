@@ -3,6 +3,7 @@ import { DEFAULT_SGG_CODE, type TermsType } from '@house/shared';
 import { regionListSchema } from '@/features/w-map/api/schemas';
 import { ApiError } from '@/lib/api/errors';
 import { serverGet } from '@/lib/api/server';
+import { searchCacheSeconds } from '../search/popular';
 import { matchRegions } from '../search/targets';
 import {
   faqListSchema,
@@ -120,8 +121,10 @@ const getRegions = () =>
  * `GET /complexes?q` (complexes module), `GET /agencies?q` (agencies module) and `GET /regions`
  * matched by name here. Each section fails on its own; totals come from the pagination envelope.
  * With `type`, the other sections are asked for one row only — just enough for their tab counts.
+ * The q-dependent reads are not data-cached unless q is a popular keyword (`searchCacheSeconds`).
  */
 export async function getSearchResults(q: string, type?: SearchSectionType): Promise<SearchResult> {
+  const revalidate = searchCacheSeconds(q);
   const sizeOf = (s: SearchSectionType) =>
     type === undefined ? SEARCH_SECTION_LIMIT : type === s ? SEARCH_TAB_LIMIT : 1;
   const [regions, complexes, agencies] = await Promise.all([
@@ -133,7 +136,7 @@ export async function getSearchResults(q: string, type?: SearchSectionType): Pro
       serverGet('/complexes', {
         query: { q, page: 1, pageSize: sizeOf('complex') },
         schema: searchComplexPageSchema,
-        revalidate: 60,
+        revalidate,
         tags: ['search', 'complexes'],
       }),
     ),
@@ -141,7 +144,7 @@ export async function getSearchResults(q: string, type?: SearchSectionType): Pro
       serverGet('/agencies', {
         query: { q, page: 1, pageSize: sizeOf('agency') },
         schema: searchAgencyPageSchema,
-        revalidate: 60,
+        revalidate,
         tags: ['search', 'agencies'],
       }),
     ),

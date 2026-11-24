@@ -14,6 +14,7 @@ import type {
   DealRequestAgencyRow,
   DealRequestBaseRow,
   DealRequestContactRow,
+  ProposalOwnerRow,
 } from './deal-request.selects';
 import { parseCursor } from './notifications/notifications.service';
 import type { DealRequestMediaPort } from './ports/media.port';
@@ -100,18 +101,106 @@ describe('DealRequestMapper', () => {
   });
 
   it('agency view hides contact without an active grant even if contact was passed', () => {
-    const v = mapper.agency(agencyRow(), contact);
+    const v = mapper.agency(agencyRow(), contact, NOW);
     expect(v.contact).toBeNull();
+    expect(v.detailsShared).toBe(false);
     expect(JSON.stringify(v)).not.toContain('1001호');
   });
 
-  it('agency view shows contact with an active grant', () => {
-    const v = mapper.agency(agencyRow({ contactGrants: [{ agencyId: AGENCY }] }), contact);
+  it('agency view before a grant: 읍면동, grid point, area band, flags only — no address, floor, photos, own words', () => {
+    const v = mapper.agency(
+      agencyRow({
+        lat: 34.950123,
+        lng: 127.487654,
+        description: '· 가격 협의 가능\n\n101동 남향, 올수리',
+      }),
+      null,
+      NOW,
+    );
+    expect(v).toMatchObject({
+      emdCode: '1215010100',
+      roadAddress: null,
+      lat: 34.951,
+      lng: 127.487,
+      exclusiveArea: null,
+      areaRange: { min: 60, max: 85 },
+      floor: null,
+      description: '· 가격 협의 가능',
+      photos: [],
+      photoCount: 1,
+      desiredSalePrice: 30000,
+      detailsShared: false,
+    });
+    expect(JSON.stringify(v)).not.toMatch(/중앙로|올수리|a\.webp/);
+  });
+
+  it('구하기 requests are not reduced (their conditions are the 제공 항목)', () => {
+    const v = mapper.agency(
+      agencyRow({ type: DealRequestType.WANTED, description: '역세권 원룸 찾아요' }),
+      null,
+      NOW,
+    );
+    expect(v.description).toBe('역세권 원룸 찾아요');
+  });
+
+  it('agency view shows contact and the full details with an active grant', () => {
+    const v = mapper.agency(agencyRow({ contactGrants: [{ agencyId: AGENCY }] }), contact, NOW);
     expect(v.contact).toEqual({
       name: '홍길동',
       phone: '01012345678',
       addressDetail: '101동 1001호',
     });
+    expect(v).toMatchObject({
+      detailsShared: true,
+      roadAddress: '전남광주통합특별시 순천시 중앙로 1',
+      lat: 34.95,
+      exclusiveArea: 84.97,
+      floor: 7,
+      photoCount: 1,
+    });
+    expect(v.photos).toHaveLength(1);
+  });
+
+  it('a granted agency loses contact and details 30 days after the request ended', () => {
+    const day = 86_400_000;
+    const ended = (days: number) =>
+      agencyRow({
+        status: DealRequestStatus.CLOSED,
+        closedAt: new Date(NOW.getTime() - days * day),
+        contactGrants: [{ agencyId: AGENCY }],
+      });
+    expect(mapper.agency(ended(29), contact, NOW).detailsShared).toBe(true);
+    const late = mapper.agency(ended(30), contact, NOW);
+    expect(late.contact).toBeNull();
+    expect(late.roadAddress).toBeNull();
+  });
+
+  it('proposal agent: a 중개보조원 is labelled and never shows their own phone', () => {
+    const row = (member: ProposalOwnerRow['member']): ProposalOwnerRow => ({
+      id: 'p1',
+      dealRequestId: 'r1',
+      agencyId: AGENCY,
+      status: ProposalStatus.SENT,
+      message: '제안',
+      suggestedPrice: null,
+      suggestedDeposit: null,
+      suggestedMonthlyRent: null,
+      viewedAt: null,
+      respondedAt: null,
+      createdAt: NOW,
+      member,
+      listings: [],
+    });
+    const m = { displayName: '김보조', phone: '01055556666', status: 'ACTIVE' as const };
+    expect(
+      mapper.proposalForOwner(row({ ...m, role: 'AGENT', isLicensed: false }), null, false).agent,
+    ).toEqual({ displayName: '김보조', isAssistant: true, phone: null });
+    expect(
+      mapper.proposalForOwner(row({ ...m, role: 'AGENT', isLicensed: true }), null, false).agent,
+    ).toEqual({ displayName: '김보조', isAssistant: false, phone: '01055556666' });
+    expect(
+      mapper.proposalForOwner(row({ ...m, role: 'OWNER', isLicensed: false }), null, false).agent,
+    ).toMatchObject({ isAssistant: false });
   });
 
   it('agency view exposes own proposal + targeted flag', () => {
@@ -155,7 +244,7 @@ describe('DealRequestMapper', () => {
 });
 
 describe('canSeeContact', () => {
-  const granted = { contactGrants: [{ agencyId: AGENCY }], contactScrubbedAt: null };
+  const granted = { contactGrants: [{ agencyId: AGENCY }], contactScrubbedAt: null, closedAt: null };
   it.each([
     [DealRequestStatus.OPEN, true],
     [DealRequestStatus.MATCHED, true],
@@ -163,15 +252,23 @@ describe('canSeeContact', () => {
     [DealRequestStatus.CANCELLED, false],
     [DealRequestStatus.EXPIRED, false],
   ])('%s → %s', (status, expected) => {
-    expect(canSeeContact({ ...granted, status })).toBe(expected);
+    expect(canSeeContact({ ...granted, status }, NOW)).toBe(expected);
   });
 
   it('never after scrubbing or without grant', () => {
     expect(
-      canSeeContact({ ...granted, status: DealRequestStatus.OPEN, contactScrubbedAt: NOW }),
+      canSeeContact({ ...granted, status: DealRequestStatus.OPEN, contactScrubbedAt: NOW }, NOW),
     ).toBe(false);
     expect(
-      canSeeContact({ contactGrants: [], contactScrubbedAt: null, status: DealRequestStatus.OPEN }),
+      canSeeContact(
+        {
+          contactGrants: [],
+          contactScrubbedAt: null,
+          closedAt: null,
+          status: DealRequestStatus.OPEN,
+        },
+        NOW,
+      ),
     ).toBe(false);
   });
 });

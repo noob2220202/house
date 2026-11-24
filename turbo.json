@@ -6,6 +6,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build", "db:generate"],
+      "env": ["NEXT_PUBLIC_*", "MEDIA_ORIGIN", "INTERNAL_API_URL"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
     },
     "db:generate": {
