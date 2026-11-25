@@ -818,6 +818,8 @@ CERT_OK=false
 if [[ "$TLS_ENABLED" == true ]]; then
   step "Let's Encrypt 인증서 (${DOMAIN}, www.${DOMAIN}, ${ADMIN_DOMAIN})"
   apt_install_missing certbot python3-certbot-nginx
+  # certbot creates /etc/letsencrypt only on its first run, which comes after this hook.
+  install -d -m 0755 /etc/letsencrypt/renewal-hooks/deploy
   write_if_changed /etc/letsencrypt/renewal-hooks/deploy/house-nginx-reload.sh 0755 <<'EOF' || true
 #!/bin/sh
 # Reload nginx after certbot renews the certificate (installed by house deploy/install.sh).

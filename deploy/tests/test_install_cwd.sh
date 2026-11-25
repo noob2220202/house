@@ -14,6 +14,15 @@ else
   fail "cd / must come before the first as_house call" "cd at ${cd_line:-none}, as_house at ${first_house:-none}"
 fi
 
+# The certbot renewal hook is written before certbot's first run creates /etc/letsencrypt.
+hook_dir_line="$(grep -n 'install -d .*/etc/letsencrypt/renewal-hooks/deploy' "$inst" | head -1 | cut -d: -f1)"
+hook_line="$(grep -n 'renewal-hooks/deploy/house-nginx-reload.sh' "$inst" | grep write_if_changed | head -1 | cut -d: -f1)"
+if [[ -n "$hook_dir_line" && -n "$hook_line" ]] && ((hook_dir_line < hook_line)); then
+  pass "renewal-hooks directory is created before the reload hook is written"
+else
+  fail "renewal hook written without creating its directory first" "dir ${hook_dir_line:-none}, hook ${hook_line:-none}"
+fi
+
 if is_root && id "${HOUSE_USER:-house}" >/dev/null 2>&1 && have_cmd corepack; then
   # Reproduce the failure mode: a 0700 root directory as cwd breaks corepack for 'house'; '/' works.
   d="$(mktemp -d /root/house-cwd-test.XXXXXX)"
