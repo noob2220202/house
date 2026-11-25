@@ -22,6 +22,10 @@ if [[ -f "$SCRIPT_DIR/../apps/api/.env.example" ]]; then
 else
   SRC_ROOT="$(readlink -f "${HOUSE_ROOT:-/srv/house}/current" 2>/dev/null || true)"
 fi
+# Commands run as the service user (corepack, pnpm, git) inherit our working directory. Started
+# from a root-only checkout such as /root/house-setup (0700), that directory is unreadable for
+# 'house' and corepack aborts with EACCES. Every path below is absolute, so work from '/'.
+cd /
 
 usage() {
   cat <<'EOF'
