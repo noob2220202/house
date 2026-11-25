@@ -27,12 +27,26 @@ export function middleware(req: NextRequest) {
     res.headers.set('Content-Security-Policy', csp);
     return res;
   }
-  // Relative Location: behind nginx `req.nextUrl` is the Next server's own address
-  // (https://localhost:3001), so an absolute redirect built from it would leave the site.
-  return new NextResponse(null, {
-    status: 307,
-    headers: { Location: loginUrl(`${pathname}${search}`), 'Content-Security-Policy': csp },
-  });
+  const res = publicRedirect(req, loginUrl(`${pathname}${search}`));
+  res.headers.set('Content-Security-Policy', csp);
+  return res;
+}
+
+/**
+ * Absolute redirect on the PUBLIC origin. Behind nginx `req.nextUrl` is the Next server's own
+ * address (https://localhost:3000), and Next's middleware adapter rejects relative Locations
+ * (it parses them with `new NextURL()` → 500), so the origin comes from the Host / X-Forwarded-*
+ * headers nginx sets. nginx answers only our server_names (default_server returns 444), and the
+ * value is still checked to be a bare host[:port] before use.
+ */
+export function publicRedirect(req: NextRequest, location: string): NextResponse {
+  const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host');
+  const proto = req.headers.get('x-forwarded-proto');
+  const origin =
+    host && /^[a-z0-9.-]+(:\d{1,5})?$/i.test(host)
+      ? `${proto === 'http' || proto === 'https' ? proto : req.nextUrl.protocol.replace(':', '')}://${host}`
+      : req.nextUrl.origin;
+  return NextResponse.redirect(new URL(location, origin), 307);
 }
 
 export const config = {
