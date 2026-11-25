@@ -24,7 +24,8 @@ import {
   type TestSession,
 } from '../../utils';
 
-export const EMD = `${DEFAULT_SGG_CODE}10100`;
+/** 삼거동, stored form (8-digit 읍면동 code). */
+export const EMD = `${DEFAULT_SGG_CODE}101`;
 
 /** Records enqueued jobs instead of handing them to the worker. */
 export interface RecordingQueue {

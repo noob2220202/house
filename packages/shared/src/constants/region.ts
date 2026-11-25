@@ -55,6 +55,22 @@ export function canonicalRegionCode(code: string): string {
 }
 
 /**
+ * The one stored form of a 법정동 code: {@link canonicalRegionCode} (legacy 46150… → 12150…),
+ * then a 10-digit 읍면동-level code — 법정동코드 with 리 digits 00, as Kakao `b_code` and the
+ * postcode `bcode` send it ("1215013300") — becomes its 8-digit 읍면동 code ("12150133"), the
+ * form the regions table uses. 리 codes (10 digits, not ending in 00) and 시도/시군구 codes keep
+ * their length; non-code strings are returned unchanged. Idempotent. Apply it wherever a region
+ * code enters the system so "1215013300" and "12150133" can never both be stored.
+ */
+export function normalizeRegionCode(code: string): string {
+  const canonical = canonicalRegionCode(code);
+  if (!REGION_CODE_PATTERN.test(canonical)) return canonical;
+  return canonical.length === REGION_CODE_LENGTH.FULL && canonical.endsWith('00')
+    ? canonical.slice(0, REGION_CODE_LENGTH.EMD)
+    : canonical;
+}
+
+/**
  * Inverse of {@link canonicalRegionCode} for external lookups that may still be keyed by the
  * old code (실거래가 / 브이월드 fallbacks): "12150…" → "46150…", "12" → "46"; `null` when the
  * code has no legacy alias.

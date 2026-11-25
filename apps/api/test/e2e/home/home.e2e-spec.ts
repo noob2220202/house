@@ -90,8 +90,9 @@ describe('home: summary + popular regions (e2e)', () => {
           code: YEONHYANG,
           name: '연향동',
           emdName: '연향동',
-          lat: expect.closeTo(34.951, 3),
-          lng: expect.closeTo(127.521, 3),
+          // The region's own point (verified list), not the listings' mean position.
+          lat: 34.939582,
+          lng: 127.521019,
           listingCount: 2,
           // 30,000만원 / (112.4㎡ / 3.305785) ≈ 882만원/평 (공급 평당).
           avgPricePerPyeong: 882,
@@ -100,11 +101,42 @@ describe('home: summary + popular regions (e2e)', () => {
           code: JORYE,
           name: '조례동',
           emdName: '조례동',
-          lat: 34.96,
-          lng: 127.53,
+          lat: 34.961766,
+          lng: 127.523528,
           listingCount: 1,
           avgPricePerPyeong: null,
         },
+      ]);
+    });
+
+    it('never shows a raw code as a region name (the live 12150133 bug)', async () => {
+      const { agency } = await createAgency(t.prisma);
+      // 조례동 without a regions row (the table still held the sample rows), named from the
+      // bundled verified list; a code nothing can name is left out of the 지역 list.
+      await t.prisma.region.delete({ where: { code: JORYE } });
+      await createListing(t.prisma, {
+        agencyId: agency.id,
+        property: { emdCode: JORYE, lat: 34.9618, lng: 127.5235 },
+      });
+      await createListing(t.prisma, {
+        agencyId: agency.id,
+        property: { emdCode: '12150999', lat: 34.95, lng: 127.5 },
+      });
+      const res = await t.http().get('/api/v1/home/summary').expect(200);
+      expect(res.body.listingCount).toBe(2);
+      expect(res.body.regions).toEqual([
+        expect.objectContaining({
+          code: JORYE,
+          name: '조례동',
+          emdName: '조례동',
+          listingCount: 1,
+        }),
+      ]);
+      for (const r of res.body.regions as { name: string }[]) expect(r.name).not.toMatch(/^\d+$/);
+
+      const popular = await t.http().get('/api/v1/home/popular-regions').expect(200);
+      expect(popular.body.items).toEqual([
+        expect.objectContaining({ rank: 1, code: JORYE, name: '조례동' }),
       ]);
     });
 
@@ -139,8 +171,8 @@ describe('home: summary + popular regions (e2e)', () => {
           code: JORYE,
           name: '조례동',
           emdName: '조례동',
-          lat: 34.96,
-          lng: 127.53,
+          lat: 34.961766,
+          lng: 127.523528,
           listingCount: 1,
           dealCounts: { presale: 0, sale: 1, jeonse: 0, monthly: 0 },
           avgPricePerPyeong: null,

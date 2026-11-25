@@ -575,7 +575,7 @@ describe('complexes: admin API (e2e)', () => {
       expect(
         (list.body as { code: string; lat: number | null }[]).find((x) => x.code === '12150114')
           ?.lat,
-      ).toBeNull();
+      ).toBe(34.939582); // the verified list's point
       const r = await withSession(t.http().put('/api/v1/admin/regions/12150114'), admin)
         .send({
           name: '연향동',

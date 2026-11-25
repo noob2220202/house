@@ -1,7 +1,7 @@
 // Owned by the listings module team.
 import { z } from 'zod';
 import { MAX_LISTING_PHOTOS } from '../constants/media';
-import { canonicalRegionCode } from '../constants/region';
+import { normalizeRegionCode } from '../constants/region';
 import {
   AgencyListingSort,
   AssetType,
@@ -141,13 +141,14 @@ const propertyShape = {
   /** 호 — PRIVATE, never returned by public endpoints. */
   ho: text(20),
   /**
-   * 10-digit 법정동코드 from the address lookup (Kakao postcode `bcode`); must be inside the
-   * service region. A legacy 46150… code is canonicalized to 12150….
+   * 법정동코드 from the address lookup (Kakao postcode `bcode`, 10 digits) or as stored (8-digit
+   * 읍면동 / 10-digit 리); must be inside the service region. Stored normalized
+   * ({@link normalizeRegionCode}): "4615013300" / "1215013300" → "12150133", 리 codes unchanged.
    */
   emdCode: z
     .string()
-    .regex(/^\d{10}$/, '법정동코드는 10자리 숫자입니다.')
-    .transform(canonicalRegionCode),
+    .regex(/^\d{8}(\d{2})?$/, '법정동코드는 8자리 또는 10자리 숫자입니다.')
+    .transform(normalizeRegionCode),
   lat: latSchema,
   lng: lngSchema,
   /** Negative = basement (B1 = -1); there is no 0층. Must not exceed totalFloors. */

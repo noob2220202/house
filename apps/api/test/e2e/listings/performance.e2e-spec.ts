@@ -241,7 +241,7 @@ describe('listings query performance (e2e, 20k rows)', () => {
     expect(map.body.total).toBeGreaterThan(15_000);
     expect(
       (map.body.clusters as { regionCode: string }[]).some(
-        (c) => c.regionCode === `${EMD_CODE.slice(0, 5)}10100`,
+        (c) => c.regionCode === `${EMD_CODE.slice(0, 5)}101`, // 8-digit 읍면동 cluster key
       ),
     ).toBe(true);
     const t2 = Date.now();

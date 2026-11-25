@@ -14,12 +14,13 @@ import { RequestContext } from '../../../common/context/request-context';
 import { AppException } from '../../../common/errors/app.exception';
 import { AppConfig } from '../../../config/app-config.service';
 import { PrismaService } from '../../../prisma/prisma.service';
-import { CACHE_TTL_SECONDS, COMPLEXES_CACHE } from '../constants';
+import { CACHE_TTL_SECONDS, COMPLEXES_CACHE, REGIONS_DATA_REVISION } from '../constants';
 import {
   SUNCHEON_REGIONS,
   SUNCHEON_SGG,
   SUNCHEON_SGG_CODE,
   SUNCHEON_SIDO,
+  suncheonRegionFullName,
 } from '../regions/suncheon-regions.data';
 
 const CODE_LENGTH_BY_LEVEL: Record<RegionLevel, number> = {
@@ -62,7 +63,7 @@ export class RegionsService {
   async list(q: RegionListQuery): Promise<RegionView[]> {
     const parentCode = q.parentCode ?? (q.level ? undefined : this.sggCode);
     const version = await this.cache.version(COMPLEXES_CACHE.REGIONS);
-    const key = `cache:complexes:regions:v${version}:${parentCode ?? '-'}:${q.level ?? '-'}:${q.includeInactive ? 1 : 0}`;
+    const key = `cache:complexes:regions:r${REGIONS_DATA_REVISION}:v${version}:${parentCode ?? '-'}:${q.level ?? '-'}:${q.includeInactive ? 1 : 0}`;
     return this.cache.getOrSet(key, CACHE_TTL_SECONDS.REGIONS, async () => {
       const rows = await this.prisma.region.findMany({
         where: {
@@ -96,7 +97,7 @@ export class RegionsService {
   async activeSubRegions(): Promise<RegionView[]> {
     const version = await this.cache.version(COMPLEXES_CACHE.REGIONS);
     return this.cache.getOrSet(
-      `cache:complexes:regions:v${version}:sub:${this.sggCode}`,
+      `cache:complexes:regions:r${REGIONS_DATA_REVISION}:v${version}:sub:${this.sggCode}`,
       CACHE_TTL_SECONDS.REGIONS,
       async () =>
         (
@@ -198,19 +199,16 @@ export class RegionsService {
         lng: SUNCHEON_SGG.lng,
       },
     ];
-    const emdNames = new Map<string, string>();
-    SUNCHEON_REGIONS.forEach(([code, name], i) => {
-      const isEmd = code.length === REGION_CODE_LENGTH.EMD;
-      if (isEmd) emdNames.set(code, name);
-      const parentCode = isEmd ? SUNCHEON_SGG_CODE : code.slice(0, REGION_CODE_LENGTH.EMD);
-      const emdName = isEmd ? '' : `${emdNames.get(parentCode) ?? ''} `;
+    SUNCHEON_REGIONS.forEach((r, i) => {
       rows.push({
-        code,
-        name,
-        fullName: `${SUNCHEON_SGG.fullName} ${emdName}${name}`.replace(/\s+/g, ' '),
-        level: isEmd ? RegionLevel.EMD : RegionLevel.RI,
-        parentCode,
+        code: r.code,
+        name: r.name,
+        fullName: suncheonRegionFullName(r),
+        level: r.level === 'RI' ? RegionLevel.RI : RegionLevel.EMD,
+        parentCode: r.parentCode,
         sortOrder: i + 1,
+        lat: r.lat,
+        lng: r.lng,
       });
     });
 

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { MAP_MAX_BBOX_SPAN_DEG, MAP_ZOOM } from '../constants/map';
 import { PAGINATION } from '../constants/pagination';
-import { canonicalRegionCode, REGION_CODE_PATTERN } from '../constants/region';
+import { normalizeRegionCode, REGION_CODE_PATTERN } from '../constants/region';
 import { KR_CONTACT_PHONE_PATTERN, KR_MOBILE_PATTERN, normalizePhone } from '../utils/phone';
 import { isSafeLinkUrl } from '../utils/url';
 
@@ -20,14 +20,15 @@ export const lngSchema = z.number().min(124).max(132);
 export const latLngSchema = z.object({ lat: latSchema, lng: lngSchema });
 
 /**
- * 법정동코드 (2/5/8/10 digits). Legacy codes of the service region (전라남도 순천시 46150…, e.g.
- * from an old URL or a cached Kakao bcode) are mapped to the current code (12150…), so callers
- * may send either and only current codes reach the database.
+ * 법정동코드 (2/5/8/10 digits), stored form ({@link normalizeRegionCode}): legacy codes of the
+ * service region (전라남도 순천시 46150…, e.g. from an old URL or a cached Kakao bcode) are mapped
+ * to the current code (12150…), and a 10-digit 읍면동 code ("1215013300") becomes its 8-digit
+ * form ("12150133"), so callers may send any of them and only one spelling reaches the database.
  */
 export const regionCodeSchema = z
   .string()
   .regex(REGION_CODE_PATTERN, '올바른 지역코드가 아닙니다.')
-  .transform(canonicalRegionCode);
+  .transform(normalizeRegionCode);
 
 /**
  * Korean mobile number (contact field only — never verified, no SMS is ever sent).

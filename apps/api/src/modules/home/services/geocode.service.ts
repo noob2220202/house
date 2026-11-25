@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { canonicalRegionCode, DEFAULT_SGG_CODE, ErrorCode } from '@house/shared';
+import { DEFAULT_SGG_CODE, ErrorCode, normalizeRegionCode } from '@house/shared';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { CacheService } from '../../../common/cache/cache.service';
 import { AppException } from '../../../common/errors/app.exception';
@@ -24,8 +24,9 @@ const SERVICE_CITY = '순천시';
 
 /**
  * Address search with coordinates, limited to the service 시군구 (REGION_SGG_CODE): proxies the
- * geocoder server-side, maps each hit's 법정동 code through canonicalRegionCode (legacy
- * 46150… → 12150…) and caches answers by normalized query.
+ * geocoder server-side, maps each hit's 법정동 code through normalizeRegionCode (legacy
+ * 46150… → 12150…, a 10-digit 읍면동 b_code → its 8-digit code) and caches answers by
+ * normalized query.
  */
 @Injectable()
 export class GeocodeService {
@@ -45,7 +46,15 @@ export class GeocodeService {
     const anchored = this.anchor(query, sgg);
     const key = `cache:home:geocode:${sgg}:${createHash('sha256').update(anchored).digest('hex').slice(0, 32)}`;
     const cached = await this.cache.get<GeocodeItemView[]>(key);
-    if (cached) return { items: cached };
+    // Entries cached before codes were normalized may still carry the 10-digit 읍면동 form.
+    if (cached) {
+      return {
+        items: cached.map((h) => ({
+          ...h,
+          emdCode: h.emdCode ? normalizeRegionCode(h.emdCode) : null,
+        })),
+      };
+    }
 
     let hits: GeocoderHit[];
     try {
@@ -60,7 +69,7 @@ export class GeocodeService {
         // The address answer usually carries the 법정동 code (b_code); else look the point up.
         const { legalCode: known, ...hit } = h;
         const code = known ?? (await this.geocoder.legalCode(h.lat, h.lng));
-        return { ...hit, emdCode: code ? canonicalRegionCode(code) : null };
+        return { ...hit, emdCode: code ? normalizeRegionCode(code) : null };
       }),
     );
     const items = coded.filter((h) =>

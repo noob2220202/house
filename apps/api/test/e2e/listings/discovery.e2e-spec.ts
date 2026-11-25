@@ -92,8 +92,9 @@ describe('listings: similar, view beacon, broker console (e2e)', () => {
 
       const res = await t.http().get(`/api/v1/listings/${base.listing.id}/similar`).expect(200);
       expect(res.body).toMatchObject({
-        criteria: '매매 · 34평 · 2.4억~3.6억',
-        regionName: null,
+        // No regions row in this test: the name comes from the bundled verified list.
+        criteria: '남내동 · 매매 · 34평 · 2.4억~3.6억',
+        regionName: '남내동',
         regionListingCount: 4,
       });
       const groups = res.body.groups as {
@@ -104,7 +105,7 @@ describe('listings: similar, view beacon, broker console (e2e)', () => {
       }[];
       expect(groups.map((g) => [g.key, g.label, g.total, g.items.map((i) => i.id)])).toEqual([
         ['SAME_COMPLEX', '같은 단지', 1, [sameComplex.listing.id]],
-        ['SAME_AREA', '같은 평형', 1, [sameArea.listing.id]],
+        ['SAME_AREA', '남내동 같은 평형', 1, [sameArea.listing.id]],
         ['SAME_PRICE', '같은 가격대', 1, [samePrice.listing.id]],
       ]);
       // Cards are the shared public summary (never 호).

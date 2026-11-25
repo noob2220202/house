@@ -1,9 +1,9 @@
 import {
   AssetType,
-  canonicalRegionCode,
   csvArray,
   idParamSchema,
   paginationQuerySchema,
+  normalizeRegionCode,
 } from '@house/shared';
 import { z } from 'zod';
 import { createZodDto } from '../../common/pipes/zod-validation.pipe';
@@ -79,7 +79,7 @@ export const interestRegionKeySchema = z
   .min(1)
   .max(40)
   .regex(/^[A-Za-z0-9_-]+$/, '지역 값이 올바르지 않습니다.')
-  .transform((k) => (/^\d+$/.test(k) ? canonicalRegionCode(k) : k));
+  .transform((k) => (/^\d+$/.test(k) ? normalizeRegionCode(k) : k));
 
 /** PUT /me/interest-regions — replaces the selection (max 5, duplicates dropped). */
 export const interestRegionsInputSchema = z.object({

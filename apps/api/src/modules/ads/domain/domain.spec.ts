@@ -90,6 +90,10 @@ describe('regionCodePrefixes', () => {
   it('canonicalizes legacy 46150… codes first', () => {
     expect(regionCodePrefixes(['4615025021'])).toEqual(['12', '12150', '12150250', '1215025021']);
   });
+  it('treats a 10-digit 읍면동 code as its 8-digit stored form', () => {
+    expect(regionCodePrefixes(['1215013300'])).toEqual(['12', '12150', '12150133']);
+    expect(regionCodePrefixes(['4615013300'])).toEqual(['12', '12150', '12150133']);
+  });
   it('merges, dedupes and skips invalid/empty codes', () => {
     expect(regionCodePrefixes(['12150', '12150101', null, undefined, 'abc', '461'])).toEqual([
       '12',

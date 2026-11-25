@@ -17,7 +17,9 @@ import {
   agencyWithOwner,
   createPublished,
   EMD_CODE,
+  EMD_CODE_8,
   OTHER_EMD_CODE,
+  OTHER_EMD_CODE_8,
   seedListing,
 } from './helpers';
 
@@ -99,9 +101,10 @@ describe('public listing search (e2e)', () => {
         property: { emdCode: '1215031022' },
         listing: { emdCode: '1215031022', publishedAt: new Date('2026-03-02T00:00:00Z') },
       });
+      // A code neither the table nor the bundled verified list knows: no name, never the code.
       const unknown = await seedListing(t, agency.id, {
-        property: { emdCode: OTHER_EMD_CODE },
-        listing: { emdCode: OTHER_EMD_CODE, publishedAt: new Date('2026-03-01T00:00:00Z') },
+        property: { emdCode: '1215099900' },
+        listing: { emdCode: '1215099900', publishedAt: new Date('2026-03-01T00:00:00Z') },
       });
 
       const res = await t.http().get('/api/v1/listings').expect(200);
@@ -114,7 +117,7 @@ describe('public listing search (e2e)', () => {
       ).toEqual([
         [emd.listing.id, EMD_CODE, '남내동'],
         [ri.listing.id, '1215031022', '해룡면 신대리'],
-        [unknown.listing.id, OTHER_EMD_CODE, null],
+        [unknown.listing.id, '1215099900', null],
       ]);
       const detail = await t.http().get(`/api/v1/listings/${ri.listing.id}`).expect(200);
       expect(detail.body.emdName).toBe('해룡면 신대리');
@@ -277,9 +280,10 @@ describe('public listing search (e2e)', () => {
       const { agency } = await agencyWithOwner(t);
       await t.prisma.region.create({
         data: {
+          // a 읍면동 row still in the 10-digit form (before codes were normalized)
           code: EMD_CODE,
-          name: '연향동',
-          fullName: '전남광주통합특별시 순천시 연향동',
+          name: '남내동',
+          fullName: '전남광주통합특별시 순천시 남내동',
           level: RegionLevel.EMD,
           lat: 34.951,
           lng: 127.512,
@@ -328,11 +332,12 @@ describe('public listing search (e2e)', () => {
       const res = await t.http().get(`/api/v1/map/search?bbox=${BBOX}&zoom=11`).expect(200);
       expect(res.body.kind).toBe(MapResultKind.REGION_CLUSTERS);
       expect(res.body.total).toBe(4);
-      const yeonhyang = (res.body.clusters as { regionCode: string }[]).find(
-        (c) => c.regionCode === EMD_CODE,
+      // One cluster per 8-digit 읍면동 code.
+      const namnae = (res.body.clusters as { regionCode: string }[]).find(
+        (c) => c.regionCode === EMD_CODE_8,
       );
-      expect(yeonhyang).toMatchObject({
-        name: '연향동',
+      expect(namnae).toMatchObject({
+        name: '남내동',
         lat: 34.951,
         lng: 127.512,
         count: 3,
@@ -342,10 +347,11 @@ describe('public listing search (e2e)', () => {
           MONTHLY: { count: 1, priceMin: 300, priceMax: 300, rentMin: 35, rentMax: 35 },
         },
       });
+      // No regions row: named from the bundled verified list (행동), never the raw code.
       const other = (res.body.clusters as { regionCode: string }[]).find(
-        (c) => c.regionCode === OTHER_EMD_CODE,
+        (c) => c.regionCode === OTHER_EMD_CODE_8,
       );
-      expect(other).toMatchObject({ count: 1, name: null });
+      expect(other).toMatchObject({ count: 1, name: '행동' });
     });
 
     it('mid zoom → grid clusters; filters apply', async () => {

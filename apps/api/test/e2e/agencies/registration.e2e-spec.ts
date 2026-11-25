@@ -399,7 +399,7 @@ describe('agencies: registration & my agency (e2e)', () => {
       expect(res.body).toMatchObject({
         intro: '새 소개',
         phone: '15881234',
-        emdCode: '1215025300',
+        emdCode: '12150253', // stored as the 8-digit 읍면동 code
         logoMediaId: logo.id,
         logoUrl: '/media/logos/a.thumb.webp',
         businessHours: null,

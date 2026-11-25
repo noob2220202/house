@@ -29,7 +29,7 @@ const wanted = {
   targetAgencyIds: [AGENCY],
   contactName: '김철수',
   contactPhone: '+82 10 9876 5432',
-  regionCodes: ['1215010100'],
+  regionCodes: ['12150105'],
   depositMin: 300,
   depositMax: 1000,
   rentMax: 50,
@@ -42,8 +42,8 @@ function issuePaths(input: unknown): string[] {
 
 describe('dealRequestCreateSchema', () => {
   it('canonicalizes legacy 46150… region codes (Kakao bcode / old URLs)', () => {
-    const v = dealRequestCreateSchema.parse({ ...wanted, regionCodes: ['4615010100', '12150'] });
-    expect(v.type === DealRequestType.WANTED && v.regionCodes).toEqual(['1215010100', '12150']);
+    const v = dealRequestCreateSchema.parse({ ...wanted, regionCodes: ['4615010500', '12150'] });
+    expect(v.type === DealRequestType.WANTED && v.regionCodes).toEqual(['12150105', '12150']);
     const s = dealRequestCreateSchema.parse({ ...sell, emdCode: '4615031022' });
     expect(s.type === DealRequestType.SELL_OR_LEASE && s.emdCode).toBe('1215031022');
   });
@@ -181,7 +181,7 @@ describe('helpers', () => {
   });
 
   it('regionCodesWithinSgg', () => {
-    expect(regionCodesWithinSgg(['12150', '1215010100'], '12150')).toBe(true);
+    expect(regionCodesWithinSgg(['12150', '12150105'], '12150')).toBe(true);
     expect(regionCodesWithinSgg(['4613010100'], '12150')).toBe(false);
     expect(regionCodesWithinSgg(['46'], '12150')).toBe(false);
   });

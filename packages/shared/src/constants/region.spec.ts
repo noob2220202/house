@@ -8,6 +8,7 @@ import {
   DEFAULT_SGG_CODE,
   DEFAULT_SIDO_CODE,
   legacyRegionCode,
+  normalizeRegionCode,
   sggCodeOf,
 } from './region';
 
@@ -91,10 +92,50 @@ describe('input schemas canonicalize legacy region codes', () => {
   it('regions / 단지 / 매물 search queries', () => {
     expect(regionCodeParamSchema.parse({ code: '46150132' }).code).toBe('12150132');
     expect(complexSearchQuerySchema.parse({ emdCode: '46150132' }).emdCode).toBe('12150132');
-    expect(listingListQuerySchema.parse({ emdCode: '4615013200' }).emdCode).toBe('1215013200');
+    expect(listingListQuerySchema.parse({ emdCode: '4615013200' }).emdCode).toBe('12150132');
+    expect(listingListQuerySchema.parse({ emdCode: '1215031022' }).emdCode).toBe('1215031022');
   });
 
   it('agency search filter', () => {
     expect(agencySearchQuerySchema.parse({ emdCode: '46150132' }).emdCode).toBe('12150132');
+  });
+});
+
+describe('normalizeRegionCode', () => {
+  it.each([
+    // 10-digit 읍면동 (Kakao b_code / postcode bcode) → 8 digits
+    ['1215013300', '12150133'],
+    ['4615013300', '12150133'],
+    [' 1215031000 ', '12150310'],
+    // already stored form / other levels keep their length
+    ['12150133', '12150133'],
+    ['46150133', '12150133'],
+    ['1215031022', '1215031022'],
+    ['4615031022', '1215031022'],
+    ['12150', '12150'],
+    ['46150', '12150'],
+    ['12', '12'],
+    ['46', '12'],
+    // other regions are only shortened, never renumbered
+    ['1219010100', '12190101'],
+  ])('%s → %s', (input, expected) => {
+    expect(normalizeRegionCode(input)).toBe(expected);
+  });
+
+  it('is idempotent and leaves non-code strings alone', () => {
+    for (const code of ['1215013300', '1215031022', '12150', 'sindae', '1215-0']) {
+      expect(normalizeRegionCode(normalizeRegionCode(code))).toBe(normalizeRegionCode(code));
+    }
+    expect(normalizeRegionCode('sindae')).toBe('sindae');
+    expect(normalizeRegionCode('121501330')).toBe('121501330');
+  });
+
+  it('is what every region-code input schema stores', () => {
+    expect(regionCodeSchema.parse('1215013300')).toBe('12150133');
+    expect(regionCodeSchema.parse('4615031022')).toBe('1215031022');
+    expect(regionCodeParamSchema.parse({ code: '1215013300' }).code).toBe('12150133');
+    expect(complexSearchQuerySchema.parse({ emdCode: '1215013300' }).emdCode).toBe('12150133');
+    expect(complexSearchQuerySchema.safeParse({ emdCode: '1215031022' }).success).toBe(false);
+    expect(agencySearchQuerySchema.parse({ emdCode: '4615013300' }).emdCode).toBe('12150133');
   });
 });

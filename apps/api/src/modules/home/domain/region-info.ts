@@ -1,4 +1,8 @@
 import type { RegionView } from '@house/shared';
+import {
+  bundledRegionLabel,
+  type BundledRegionLabel,
+} from '../../complexes/regions/bundled-region';
 
 /** How a 지역 (8-digit 읍면동 / 10-digit 리 key) is shown on the home page. */
 export interface RegionInfo {
@@ -32,4 +36,28 @@ export function regionInfoIndex(regions: readonly RegionView[]): Map<string, Reg
     });
   }
   return out;
+}
+
+/**
+ * Display info of region key `key` (8-digit 읍면동 / 10-digit 리), never the raw code: the
+ * regions row, else the bundled verified 순천시 list, else — for a 리 — its 읍·면 (from the table,
+ * then the list). Null when nothing names it; the caller then leaves the region out.
+ */
+export function resolveRegionInfo(
+  key: string,
+  index: ReadonlyMap<string, RegionInfo>,
+): RegionInfo | null {
+  const own = index.get(key);
+  if (own) return own;
+  const bundled = bundledRegionLabel(key);
+  if (bundled?.code === key) return bundledInfo(bundled);
+  if (key.length === 10) {
+    const parent = index.get(key.slice(0, 8));
+    if (parent) return parent;
+  }
+  return bundled ? bundledInfo(bundled) : null;
+}
+
+function bundledInfo(b: BundledRegionLabel): RegionInfo {
+  return { name: b.name, emdName: b.emdName, parentName: b.parentName, lat: b.lat, lng: b.lng };
 }

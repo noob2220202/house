@@ -119,7 +119,8 @@ Swagger 문서는 `SWAGGER_ENABLED=true`일 때 `http://localhost:4000/api/v1/do
 
 ## 알아 둘 점
 
-- 읍면동 법정동코드는 **샘플 값**입니다. 오픈 전 행정표준코드관리시스템의 공식 목록으로 바꿔야 합니다
-  (`apps/api/prisma/seed/regions.ts`, 관리자 지역 API).
+- 순천시 법정동 목록(읍면동 44 · 리 163)은 **공식 코드로 검증된 목록**입니다(2026-11-25, 카카오 로컬 API 대조,
+  `apps/api/src/modules/complexes/regions/suncheon-regions.data.ts`). 예전 견본 코드가 들어간 서버는 다음 배포의
+  마이그레이션이 자동으로 고칩니다([docs/DEPLOY.md](docs/DEPLOY.md) "순천시 법정동 목록").
 - 약관·사이트 설정은 자리표시 문구입니다. 관리자 화면에서 법률 검토를 거친 내용으로 교체하세요.
 - SMS·휴대폰 인증·Apple 로그인은 만들지 않습니다 (운영자 결정).

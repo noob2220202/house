@@ -106,7 +106,9 @@ describe('regions', () => {
     // 읍면동 (8 digits) or 리 (10 digits) of 시군구 12150.
     expect(codes.every((c) => /^12150\d{3}(\d{2})?$/.test(c))).toBe(true);
     expect(regionName('12150114')).toBe('연향동');
-    expect(regionName('9999999999')).toBe('9999999999');
+    // 10-digit 법정동 form of an 읍면동 resolves like the 8-digit one; unknown codes never show raw.
+    expect(regionName('1215011400')).toBe('연향동');
+    expect(regionName('9999999999')).toBe('지역 정보 없음');
     expect(regionSummary([])).toBe('');
     // 해룡면 신대리 / 선월리 (행정안전부 법정동코드 4615031022 / 4615031028 → 12150…).
     expect(regionSummary(['1215031022', '1215031028'])).toBe('신대지구 · 선월지구');

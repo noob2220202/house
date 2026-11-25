@@ -62,7 +62,7 @@ import {
   type SeedComplex,
 } from './demo-data';
 import { ensureImage } from './images';
-import { REGION } from './regions';
+import { regionByName, suncheonRegionFullName } from './regions';
 import {
   dateOnly,
   daysAgo,
@@ -93,9 +93,12 @@ interface Counts {
 }
 
 function regionCode(name: string): string {
-  const r = REGION[name];
-  if (!r) throw new Error(`unknown seed region ${name}`);
-  return r.code;
+  return regionByName(name).code;
+}
+
+/** "전남광주통합특별시 순천시 조례동" / "… 해룡면 신대리" (jibun addresses of the demo places). */
+function regionFullName(name: string): string {
+  return suncheonRegionFullName(regionByName(name));
 }
 
 /** 사업자등록번호 check digit (same rule as isValidBusinessNumber). */
@@ -122,7 +125,7 @@ async function seedComplexes(prisma: PrismaClient, sggCode: string, r: Rand) {
   const out = new Map<string, { id: string; data: SeedComplex; areaTypeIds: string[] }>();
   for (const c of COMPLEXES) {
     const id = seedId('complex', c.key);
-    const emd = REGION[c.emd];
+    const emd = regionByName(c.emd);
     const approval = c.approval ? new Date(`${c.approval}T00:00:00Z`) : null;
     await prisma.complex.upsert({
       where: { id },
@@ -132,10 +135,10 @@ async function seedComplexes(prisma: PrismaClient, sggCode: string, r: Rand) {
         assetType: c.assetType,
         name: c.name,
         roadAddress: c.roadAddress,
-        jibunAddress: `전남광주통합특별시 순천시 ${c.emd} ${c.jibun}`,
+        jibunAddress: `${regionFullName(c.emd)} ${c.jibun}`,
         sggCode,
         emdCode: regionCode(c.emd),
-        emdName: emd?.name ?? null,
+        emdName: emd.name,
         jibun: c.jibun,
         lat: c.lat,
         lng: c.lng,
@@ -489,7 +492,7 @@ function planListings(
         complexId: cx.id,
         areaTypeId: atId,
         roadAddress: c.roadAddress,
-        jibunAddress: `전남광주통합특별시 순천시 ${c.emd} ${c.jibun}`,
+        jibunAddress: `${regionFullName(c.emd)} ${c.jibun}`,
         buildingName: c.name,
         dong: isOt ? null : `${100 + intBetween(r, 1, c.buildings)}동`,
         ho: `${floor}${String(intBetween(r, 1, 4)).padStart(2, '0')}호`,
@@ -574,7 +577,7 @@ function planListings(
     const p: PropertyState = {
       ...emptyProperty(assetType, sggCode),
       roadAddress: `전남광주통합특별시 순천시 ${spot.street} ${intBetween(r, 2, 120)}`,
-      jibunAddress: `전남광주통합특별시 순천시 ${spot.emd} ${intBetween(r, 100, 999)}-${intBetween(r, 1, 30)}`,
+      jibunAddress: `${regionFullName(spot.emd)} ${intBetween(r, 100, 999)}-${intBetween(r, 1, 30)}`,
       emdCode: regionCode(spot.emd),
       lat: pos.lat,
       lng: pos.lng,

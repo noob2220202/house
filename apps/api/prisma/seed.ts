@@ -1,7 +1,8 @@
 /**
  * Idempotent seed (safe to re-run; deploy.sh runs it after every migration).
  *
- *   pnpm db:seed                    base data only: 순천시 regions, banner slot limits, site-setting
+ *   pnpm db:seed                    base data only: 순천시 regions (the verified 법정동 list: 44
+ *                                   읍면동 + 163 리), banner slot limits, site-setting
  *                                   placeholders, terms v1, and the first SUPER_ADMIN when
  *                                   ADMIN_BOOTSTRAP_EMAIL / ADMIN_BOOTSTRAP_PASSWORD are set
  *   SEED_DEMO=true pnpm db:seed     + FICTIONAL demo data (단지, 중개사무소, ~200 매물, 실거래가,
@@ -41,11 +42,6 @@ async function main(): Promise<void> {
   console.warn(
     `seed: base ok (regions ${regions}${admin ? `, created SUPER_ADMIN ${admin}` : ''})`,
   );
-  if (sggCode === DEFAULT_SGG_CODE) {
-    console.warn(
-      'seed: 읍면동 codes are SAMPLE values — load the official 법정동코드 list before launch',
-    );
-  }
 
   if (!truthy(env.SEED_DEMO)) return;
   if (env.NODE_ENV === 'production' && !truthy(env.SEED_DEMO_FORCE)) {

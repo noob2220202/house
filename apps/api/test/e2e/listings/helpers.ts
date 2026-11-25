@@ -20,9 +20,14 @@ import {
   type TestSession,
 } from '../../utils';
 
-/** 법정동코드 inside 순천시 (12150). */
-export const EMD_CODE = '1215010400';
+/**
+ * 법정동코드 inside 순천시 (12150), in the 10-digit form Kakao sends (남내동 / 행동). The API
+ * stores 읍면동 codes as 8 digits (EMD_CODE_8); rows seeded directly keep the 10-digit form.
+ */
+export const EMD_CODE = '1215012000';
+export const EMD_CODE_8 = '12150120';
 export const OTHER_EMD_CODE = '1215010500';
+export const OTHER_EMD_CODE_8 = '12150105';
 
 export interface AgencyCtx {
   agency: Agency;

@@ -1,9 +1,9 @@
 import {
   AssetType,
-  canonicalRegionCode,
   csvArray,
   idParamSchema,
   isValidYearMonth,
+  normalizeRegionCode,
 } from '@house/shared';
 import { z } from 'zod';
 import { createZodDto } from '../../common/pipes/zod-validation.pipe';
@@ -14,12 +14,15 @@ import type { SeoSitemapKind } from './seo.types';
  * in apps/web/src/app/mock-api/v1/seo/**.
  */
 
-/** Region key: 8-digit 읍면동 or 10-digit 리 (legacy 46150… codes are canonicalized). */
+/**
+ * Region key: 8-digit 읍면동 or 10-digit 리. Legacy 46150… codes are canonicalized and a 10-digit
+ * 읍면동 code ("1215013300") becomes its 8-digit key.
+ */
 export const seoRegionParamSchema = z.object({
   code: z
     .string()
     .regex(/^\d{8}(\d{2})?$/, '올바른 지역코드가 아닙니다.')
-    .transform(canonicalRegionCode),
+    .transform(normalizeRegionCode),
 });
 export type SeoRegionParam = z.infer<typeof seoRegionParamSchema>;
 

@@ -47,8 +47,8 @@ describe('home: GET /search/suggest (e2e)', () => {
         id: JORYE,
         label: '조례동',
         description: '순천시',
-        lat: null,
-        lng: null,
+        lat: 34.961766,
+        lng: 127.523528,
       },
       {
         type: 'COMPLEX',

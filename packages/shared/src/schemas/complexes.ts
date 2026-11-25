@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { RegionLevel } from '../enums/region';
 import { TradeDealType, TradeSyncKind, TradeSyncStatus } from '../enums/complex';
 import { AssetType } from '../enums/listing';
-import { canonicalRegionCode, REGION_CODE_LENGTH } from '../constants/region';
+import { normalizeRegionCode, REGION_CODE_LENGTH } from '../constants/region';
 import { canonicalAptSeq } from '../complexes/normalize';
 import { isValidYearMonth } from '../complexes/year-month';
 import {
@@ -25,11 +25,14 @@ export const yearMonthSchema = z.coerce
 /** 단지 asset types (아파트 / 오피스텔). */
 export const complexAssetTypeSchema = z.enum([AssetType.APT, AssetType.OFFICETEL]);
 
-/** 읍면동 code (8 digits: 시도 2 + 시군구 3 + 읍면동 3); legacy 46150… codes are canonicalized. */
+/**
+ * 읍면동 code (8 digits: 시도 2 + 시군구 3 + 읍면동 3). The 10-digit 법정동코드 of a 읍면동
+ * ("1215013300") is accepted too and stored as 8 digits; legacy 46150… codes are canonicalized.
+ */
 export const emdCodeSchema = z
   .string()
-  .regex(new RegExp(`^\\d{${REGION_CODE_LENGTH.EMD}}$`), '올바른 읍면동 코드가 아닙니다.')
-  .transform(canonicalRegionCode);
+  .regex(new RegExp(`^\\d{${REGION_CODE_LENGTH.EMD}}(00)?$`), '올바른 읍면동 코드가 아닙니다.')
+  .transform(normalizeRegionCode);
 
 const searchText = z.string().trim().min(1).max(50);
 

@@ -19,11 +19,12 @@ import {
   type BannerSlot,
 } from '@house/shared';
 import { AdminRole, type PrismaClient, RegionLevel, TermsType } from '@prisma/client';
-import { SEED_SGG_CODE, SUNCHEON_REGIONS } from './regions';
+import { SEED_SGG_CODE, SUNCHEON_REGIONS, suncheonRegionFullName } from './regions';
 
 /**
- * 시도 + 시군구 rows for the configured REGION_SGG_CODE, plus the bundled 순천시 읍면동/리 list
- * when that code is 순천시. The code is canonicalized first, so a legacy 46150 (전라남도 순천시,
+ * 시도 + 시군구 rows for the configured REGION_SGG_CODE, plus the full verified 순천시 법정동 list
+ * (44 읍면동 + 163 리, src/modules/complexes/regions/suncheon-regions.data.ts) when that code is
+ * 순천시. The code is canonicalized first, so a legacy 46150 (전라남도 순천시,
  * before 2026-07-01) seeds the current 12150 rows instead of silently skipping the 읍면동.
  */
 export async function seedRegions(
@@ -55,19 +56,18 @@ export async function seedRegions(
   // The 읍면동/리 list below is 순천시's. With another REGION_SGG_CODE the operator loads that
   // 시군구's 법정동 list instead (admin regions API).
   if (!isSuncheon) return 2;
+  // Parents first: the list is in 법정동코드 order with every 리 after its 읍면.
   let order = 0;
   for (const r of SUNCHEON_REGIONS) {
-    const parentCode = r.level === 'RI' ? `${r.code.slice(0, 8)}00` : sggCode;
-    const parentName = SUNCHEON_REGIONS.find((p) => p.code === parentCode)?.name;
     await prisma.region.upsert({
       where: { code: r.code },
       update: {},
       create: {
         code: r.code,
         name: r.name,
-        fullName: [DEFAULT_REGION_NAME, parentName, r.name].filter(Boolean).join(' '),
+        fullName: suncheonRegionFullName(r),
         level: r.level === 'RI' ? RegionLevel.RI : RegionLevel.EMD,
-        parentCode,
+        parentCode: r.parentCode,
         lat: r.lat,
         lng: r.lng,
         sortOrder: order++,

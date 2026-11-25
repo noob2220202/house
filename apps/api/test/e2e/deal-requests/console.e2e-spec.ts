@@ -32,8 +32,8 @@ import {
 } from './factories';
 
 const DAY = 86_400_000;
-const JORYE = '1215012700';
-const YEONHYANG = '1215012800';
+const JORYE = '12150133';
+const YEONHYANG = '12150114';
 
 describe('deal-requests: console additions (e2e)', () => {
   let t: TestApp;
@@ -51,7 +51,7 @@ describe('deal-requests: console additions (e2e)', () => {
     for (const [code, name] of [
       [JORYE, '조례동'],
       [YEONHYANG, '연향동'],
-      ['12150360', '해룡면'],
+      ['12150310', '해룡면'],
     ] as const) {
       await t.prisma.region.create({
         data: { code, name, fullName: `순천시 ${name}`, level: 'EMD', parentCode: '12150' },
@@ -59,11 +59,11 @@ describe('deal-requests: console additions (e2e)', () => {
     }
     await t.prisma.region.create({
       data: {
-        code: '1215036022',
+        code: '1215031022',
         name: '신대리',
         fullName: '순천시 해룡면 신대리',
         level: 'RI',
-        parentCode: '12150360',
+        parentCode: '12150310',
       },
     });
   }
@@ -278,7 +278,7 @@ describe('deal-requests: console additions (e2e)', () => {
       // Legacy 46150 codes are canonicalized; several codes → joined label.
       const legacy = await t
         .http()
-        .get('/api/v1/deal-requests/target-agencies?regionCodes=4615012800,1215012700')
+        .get('/api/v1/deal-requests/target-agencies?regionCodes=4615011400,1215013300')
         .expect(200);
       expect(legacy.body.areaLabel).toBe('연향동·조례동');
       expect(itemIds(legacy.body)).toEqual([far.agency.id, near.agency.id]);
@@ -321,7 +321,7 @@ describe('deal-requests: console additions (e2e)', () => {
       const c = await createComplex(t.prisma, {
         name: '신대 레이크파크 1단지',
         roadAddress: '전남광주통합특별시 순천시 해룡면 신대2로 40',
-        emdCode: '1215036022',
+        emdCode: '1215031022',
         households: 1412,
         builtYear: 2019,
         floorsMax: 25,
@@ -376,10 +376,10 @@ describe('deal-requests: console additions (e2e)', () => {
       const res = await t
         .http()
         .get('/api/v1/deal-requests/address-match')
-        .query({ roadAddress: '전남 순천시 해룡면 신대2로 40', bcode: '4615036022' })
+        .query({ roadAddress: '전남 순천시 해룡면 신대2로 40', bcode: '4615031022' })
         .expect(200);
       expect(res.body).toEqual({
-        emdCode: '1215036022',
+        emdCode: '1215031022',
         emdName: '해룡면 신대리',
         lat: 34.9372,
         lng: 127.5512,
@@ -431,7 +431,7 @@ describe('deal-requests: console additions (e2e)', () => {
       const none = await t
         .http()
         .get('/api/v1/deal-requests/address-match')
-        .query({ roadAddress: '전남 순천시 조례1길 7', bcode: '4615012700' })
+        .query({ roadAddress: '전남 순천시 조례1길 7', bcode: '4615013300' })
         .expect(200);
       expect(none.body).toEqual({
         emdCode: JORYE,

@@ -18,14 +18,14 @@ describe('deal-requests form domain', () => {
 
   it('regionNameOf names 읍면동 and 리 codes', () => {
     const rows: RegionNameRow[] = [
-      { code: '12150360', name: '해룡면', level: 'EMD', parent: null },
-      { code: '1215036022', name: '신대리', level: 'RI', parent: { name: '해룡면' } },
-      { code: '1215012700', name: '조례동', level: 'EMD', parent: null },
+      { code: '12150310', name: '해룡면', level: 'EMD', parent: null },
+      { code: '1215031022', name: '신대리', level: 'RI', parent: { name: '해룡면' } },
+      { code: '1215013300', name: '조례동', level: 'EMD', parent: null },
     ];
     const byCode = new Map(rows.map((r) => [r.code, r]));
-    expect(regionNameOf('1215036022', byCode)).toBe('해룡면 신대리');
-    expect(regionNameOf('1215036099', byCode)).toBe('해룡면');
-    expect(regionNameOf('12150127', byCode)).toBe('조례동');
+    expect(regionNameOf('1215031022', byCode)).toBe('해룡면 신대리');
+    expect(regionNameOf('1215031099', byCode)).toBe('해룡면');
+    expect(regionNameOf('12150133', byCode)).toBe('조례동');
     expect(regionNameOf('12150', byCode)).toBeNull();
     expect(regionNameOf(null, byCode)).toBeNull();
   });
@@ -37,7 +37,7 @@ describe('deal-requests form domain', () => {
       dealTypes: [DealType.JEONSE],
       emdCode: null,
       complexId: null,
-      regionCodes: ['12150127'],
+      regionCodes: ['12150133'],
       complexIds: [],
       priceMin: null,
       priceMax: null,
@@ -57,7 +57,7 @@ describe('deal-requests form domain', () => {
       monthlyRent: null,
       exclusiveArea: 84.9,
       rooms: 3,
-      emdCode: '1215012700',
+      emdCode: '1215013300',
       complexId: null,
       ...over,
     });
@@ -83,7 +83,7 @@ describe('deal-requests form domain', () => {
         ...wanted,
         type: DealRequestType.SELL_OR_LEASE,
         dealTypes: [DealType.SALE],
-        emdCode: '1215012700',
+        emdCode: '1215013300',
         complexId: 'c1',
         regionCodes: [],
       };
@@ -93,7 +93,7 @@ describe('deal-requests form domain', () => {
         full: true,
         score: 3,
       });
-      expect(matchScore(sell, sale({ emdCode: '1215012799' })).score).toBe(3);
+      expect(matchScore(sell, sale({ emdCode: '1215013399' })).score).toBe(3);
       expect(matchScore(sell, sale({ emdCode: '1215099900' })).score).toBe(2);
     });
   });

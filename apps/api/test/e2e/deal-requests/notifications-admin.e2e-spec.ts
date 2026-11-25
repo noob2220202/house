@@ -190,7 +190,13 @@ describe('deal-requests: notifications + admin moderation (e2e)', () => {
       await t.prisma.region.createMany({
         data: [
           { code: '12150', name: '순천시', fullName: '전남광주통합특별시 순천시', level: 'SGG' },
-          { code: EMD, name: '향동', fullName: '순천시 향동', level: 'EMD', parentCode: '12150' },
+          {
+            code: EMD,
+            name: '삼거동',
+            fullName: '순천시 삼거동',
+            level: 'EMD',
+            parentCode: '12150',
+          },
         ],
       });
       // A live Google sign-up: no nickname.
@@ -234,7 +240,7 @@ describe('deal-requests: notifications + admin moderation (e2e)', () => {
       );
       expect(byId.get(liveReq.id)).toMatchObject({
         userId: live.id,
-        emdName: '향동',
+        emdName: '삼거동',
         regionNames: [],
         requester: {
           id: live.id,
@@ -246,7 +252,7 @@ describe('deal-requests: notifications + admin moderation (e2e)', () => {
       });
       expect(byId.get(goneReq.id)).toMatchObject({
         emdName: null,
-        regionNames: ['향동'],
+        regionNames: ['삼거동'],
         requester: { id: withdrawn.id, nickname: null, status: 'WITHDRAWN', dealRequestCount: 1 },
       });
       expect(byId.get(scrubbedReq.id)).toMatchObject({
@@ -274,7 +280,7 @@ describe('deal-requests: notifications + admin moderation (e2e)', () => {
       ).expect(200);
       expect(detail.body).toMatchObject({
         requester: { id: live.id, nickname: null, status: 'ACTIVE', dealRequestCount: 2 },
-        emdName: '향동',
+        emdName: '삼거동',
         targets: [{ agencyId: b.agency.id, name: '순천중앙공인중개사사무소' }],
         proposals: [
           {
@@ -298,7 +304,7 @@ describe('deal-requests: notifications + admin moderation (e2e)', () => {
         s,
       ).expect(200);
       expect(goneDetail.body.requester).toMatchObject({ nickname: null, status: 'WITHDRAWN' });
-      expect(goneDetail.body.regionNames).toEqual(['향동']);
+      expect(goneDetail.body.regionNames).toEqual(['삼거동']);
 
       // Moderation actions show up in the history with the admin's name.
       await withSession(t.http().post(`/api/v1/admin/deal-requests/${liveReq.id}/spam-flag`), s)

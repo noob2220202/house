@@ -24,6 +24,13 @@ export const COMPLEXES_CACHE = {
   REGIONS: 'complexes:regions',
 } as const;
 
+/**
+ * Part of every regions cache key. Bump it with a migration that rewrites the regions table, so a
+ * release never serves lists cached from the old rows (data migrations cannot reach Redis).
+ * 2: verified 법정동 list (migration 20261125140000_regions_verified_list).
+ */
+export const REGIONS_DATA_REVISION = 2;
+
 export const CACHE_TTL_SECONDS = {
   POPULAR: 120,
   AUTOCOMPLETE: 60,

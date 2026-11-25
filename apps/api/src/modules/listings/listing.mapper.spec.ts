@@ -52,7 +52,7 @@ function row(): ListingAgencyDetailRow {
     floorClass: 'MID',
     floorDisplay: 'CLASS',
     builtYear: 2015,
-    emdCode: '1215010400',
+    emdCode: '12150133',
     lat: 34.9,
     lng: 127.4,
     photoCount: 1,
@@ -77,7 +77,7 @@ function row(): ListingAgencyDetailRow {
     property: {
       id: 'p1',
       ho: 'SECRET-HO',
-      emdCode: '1215010400',
+      emdCode: '12150133',
       complexId: null,
       areaTypeId: null,
       assetType: 'APT',
@@ -173,7 +173,7 @@ describe('ListingMapper', () => {
     expect(out.exclusiveAreaPyeong).toBe(25.7);
     // Only disclosable agencies are counted: the suspended a2 is not.
     expect(out.agencyCount).toBe(1);
-    expect(out).toMatchObject({ emdCode: '1215010400', emdName: '조례동' });
+    expect(out).toMatchObject({ emdCode: '12150133', emdName: '조례동' });
   });
 
   it('public detail shows the 관리비 breakdown and the 건축물 용도 (implied for 아파트)', () => {

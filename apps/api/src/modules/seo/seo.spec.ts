@@ -34,19 +34,19 @@ const region = (
 const REGIONS: RegionView[] = [
   region('12150114', '연향동', 'EMD', '12150'),
   region('1215011400', '연향동', 'EMD', '12150'),
-  region('1215037000', '해룡면', 'EMD', '12150'),
-  region('1215037021', '신대리', 'RI', '1215037000'),
-  region('1215038000', '서면', 'EMD', '12150'),
-  region('1215038021', '대곡리', 'RI', '1215038000'),
-  region('1215039000', '황전면', 'EMD', '12150'),
-  region('1215039022', '대곡리', 'RI', '1215039000'),
+  region('1215031000', '해룡면', 'EMD', '12150'),
+  region('1215031022', '신대리', 'RI', '1215031000'),
+  region('1215032000', '서면', 'EMD', '12150'),
+  region('1215032022', '대구리', 'RI', '1215032000'),
+  region('1215035000', '주암면', 'EMD', '12150'),
+  region('1215035038', '대구리', 'RI', '1215035000'),
 ];
 
 describe('seo region helpers', () => {
   it('normalizes region keys (10-digit 읍면동 → 8 digits, 리 stays 10)', () => {
     expect(regionKeyOf('1215011400')).toBe('12150114');
     expect(regionKeyOf('12150114')).toBe('12150114');
-    expect(regionKeyOf('1215037021')).toBe('1215037021');
+    expect(regionKeyOf('1215031022')).toBe('1215031022');
     expect(regionKeyOf('12150')).toBeNull();
     expect(regionKeyOf(null)).toBeNull();
   });
@@ -54,8 +54,8 @@ describe('seo region helpers', () => {
   it('indexes 읍면동 and 리 with 법정동 labels (8-digit row wins)', () => {
     const index = buildRegionIndex(REGIONS);
     expect(index.get('12150114')).toMatchObject({ name: '연향동', emdName: '연향동' });
-    expect(index.get('12150370')).toMatchObject({ name: '해룡면', parentName: null });
-    expect(index.get('1215037021')).toMatchObject({
+    expect(index.get('12150310')).toMatchObject({ name: '해룡면', parentName: null });
+    expect(index.get('1215031022')).toMatchObject({
       name: '신대리',
       emdName: '해룡면 신대리',
       parentName: '해룡면',
@@ -66,21 +66,21 @@ describe('seo region helpers', () => {
   it('resolves 국토교통부 법정동 names, never guessing an ambiguous 리', () => {
     const resolve = regionNameResolver(buildRegionIndex(REGIONS));
     expect(resolve('연향동')).toBe('12150114');
-    expect(resolve('신대리')).toBe('1215037021');
-    expect(resolve('해룡면 신대리')).toBe('1215037021');
-    expect(resolve('대곡리')).toBeNull();
-    expect(resolve('서면 대곡리')).toBe('1215038021');
-    expect(resolve('해룡면 대곡리')).toBeNull();
+    expect(resolve('신대리')).toBe('1215031022');
+    expect(resolve('해룡면 신대리')).toBe('1215031022');
+    expect(resolve('대구리')).toBeNull();
+    expect(resolve('서면 대구리')).toBe('1215032022');
+    expect(resolve('해룡면 대구리')).toBeNull();
     expect(resolve('없는동')).toBeNull();
     expect(resolve(null)).toBeNull();
   });
 
   it('matches a 리 inside its 읍·면 landing but not the reverse', () => {
-    expect(inRegion('1215037021', '12150370')).toBe(true);
-    expect(inRegion('12150370', '12150370')).toBe(true);
-    expect(inRegion('12150370', '1215037021')).toBe(false);
-    expect(inRegion('12150114', '12150370')).toBe(false);
-    expect(inRegion(null, '12150370')).toBe(false);
+    expect(inRegion('1215031022', '12150310')).toBe(true);
+    expect(inRegion('12150310', '12150310')).toBe(true);
+    expect(inRegion('12150310', '1215031022')).toBe(false);
+    expect(inRegion('12150114', '12150310')).toBe(false);
+    expect(inRegion(null, '12150310')).toBe(false);
   });
 });
 
@@ -146,13 +146,13 @@ describe('seo statistics', () => {
       row({ complexRegionKey: '12150114', complexId: 'c1', complexName: '연향 A' }),
       row({ complexRegionKey: '12150114', complexId: 'c1', complexName: '연향 A' }),
       row({ emdName: '신대리', aptName: 'B' }),
-      row({ emdName: '대곡리', aptName: 'C' }),
+      row({ emdName: '대구리', aptName: 'C' }),
     ];
     const groups = groupByRegion(rows, index, resolve);
     expect(groups.map((g) => [g.regionCode, g.name, g.rows.length])).toEqual([
       ['12150114', '연향동', 2],
-      ['1215037021', '해룡면 신대리', 1],
-      [null, '대곡리', 1],
+      ['1215031022', '해룡면 신대리', 1],
+      [null, '대구리', 1],
     ]);
     expect(topComplexes(rows, 2)).toEqual([
       { complexId: 'c1', name: '연향 A', emdName: '연향동', prices: [30_000, 30_000] },

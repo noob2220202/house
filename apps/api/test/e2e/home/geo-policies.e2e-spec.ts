@@ -93,7 +93,8 @@ describe('home: GET /geo/geocode + policies (e2e)', () => {
           buildingName: null,
           lat: 34.9466,
           lng: 127.5161,
-          emdCode: '1215011400',
+          // b_code 1215011400 is stored as the 8-digit 읍면동 code.
+          emdCode: '12150114',
         },
       ]);
       expect(res.body.items[0]).not.toHaveProperty('legalCode');

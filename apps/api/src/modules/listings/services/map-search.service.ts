@@ -10,10 +10,11 @@ import {
   type MapSearchQuery,
   type MapSearchResult,
 } from '@house/shared';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { CacheService } from '../../../common/cache/cache.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { bundledRegionLabel } from '../../complexes/regions/bundled-region';
 import { LISTINGS_SEARCH_CACHE_NS, MAP_TILE_CACHE_TTL_SECONDS } from '../constants';
 import { mapTileCacheKey, planMapQuery, type MapPlan } from '../domain/map-tiles';
 import {
@@ -50,6 +51,8 @@ const round7 = (n: number): number => Math.round(n * 1e7) / 1e7;
  */
 @Injectable()
 export class MapSearchService {
+  private readonly logger = new Logger(MapSearchService.name);
+
   constructor(
     private readonly repo: ListingSearchRepository,
     private readonly prisma: PrismaService,
@@ -113,7 +116,8 @@ export class MapSearchService {
     const rows = await this.repo.regionAggregates(where);
     const groups = new Map<string | null, Group>();
     for (const r of rows) {
-      const key = r.emd8 ? `${r.emd8}00` : null;
+      // One cluster per 8-digit 읍면동 (stored form; 리 roll up to their 읍면).
+      const key = r.emd8 && r.emd8.length === 8 ? r.emd8 : null;
       const g = groups.get(key) ?? newGroup();
       addAgg(g, r, r.lat, r.lng);
       groups.set(key, g);
@@ -123,13 +127,21 @@ export class MapSearchService {
       codes.length === 0
         ? []
         : await this.prisma.region.findMany({
-            where: { code: { in: codes } },
+            // 읍면동 rows created before codes were normalized may still be "…00".
+            where: { code: { in: codes.flatMap((c) => [c, `${c}00`]) } },
             select: { code: true, name: true, lat: true, lng: true },
           });
-    const regionByCode = new Map(regions.map((r) => [r.code, r]));
-    return [...groups.entries()]
+    const regionByCode = new Map(
+      [...regions]
+        .sort((a, b) => b.code.length - a.code.length) // the 8-digit row wins
+        .map((r) => [r.code.slice(0, 8), r]),
+    );
+    const unknown: string[] = [];
+    const clusters = [...groups.entries()]
       .map(([code, g]): MapCluster => {
-        const region = code ? regionByCode.get(code) : undefined;
+        // Never the raw code as a name: the regions row, else the bundled list, else no label.
+        const region = code ? (regionByCode.get(code) ?? bundledRegionLabel(code)) : undefined;
+        if (code && !region) unknown.push(code);
         return {
           key: code ?? 'unknown',
           regionCode: code,
@@ -141,6 +153,10 @@ export class MapSearchService {
         };
       })
       .sort((a, b) => b.count - a.count);
+    if (unknown.length > 0) {
+      this.logger.warn({ emdCodes: unknown }, 'map clusters without a regions row (no label)');
+    }
+    return clusters;
   }
 
   private async gridClusters(where: Prisma.Sql, size: number, tile: Bbox): Promise<MapCluster[]> {

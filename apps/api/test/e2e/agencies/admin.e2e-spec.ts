@@ -560,7 +560,7 @@ describe('agencies: admin review (e2e)', () => {
       expect(res.body).toMatchObject({
         roadAddress: '전남광주통합특별시 순천시 연향로 5',
         addressDetail: '2층',
-        emdCode: '1215010800',
+        emdCode: '12150108', // the 10-digit 읍면동 code is stored as 8 digits
         lat: 34.95,
         lng: 127.52,
       });

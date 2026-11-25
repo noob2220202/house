@@ -19,7 +19,10 @@ import {
   createDraft,
   createPublished,
   NIL_UUID,
+  EMD_CODE,
+  EMD_CODE_8,
   OTHER_EMD_CODE,
+  OTHER_EMD_CODE_8,
   ownerMemberId,
   publishablePayload,
 } from './helpers';
@@ -50,7 +53,7 @@ describe('agency listings (e2e)', () => {
         floorLabel: '12/20층',
         builtYear: 2015,
         isPrimaryAgency: true,
-        property: { ho: '1203', dong: '101', emdCode: '1215010400', complexId: complex.id },
+        property: { ho: '1203', dong: '101', emdCode: EMD_CODE_8, complexId: complex.id },
         complex: { id: complex.id },
       });
       expect(res.body.agencies).toHaveLength(1);
@@ -61,20 +64,37 @@ describe('agency listings (e2e)', () => {
         contactName: a.agency.representativeName,
       });
       const row = await t.prisma.listing.findUniqueOrThrow({ where: { id: res.body.id } });
-      expect(row).toMatchObject({ sggCode: '12150', emdCode: '1215010400', lat: 34.95, rooms: 3 });
+      expect(row).toMatchObject({ sggCode: '12150', emdCode: EMD_CODE_8, lat: 34.95, rooms: 3 });
       const [loc] = await t.prisma.$queryRaw<{ ok: boolean }[]>`
         SELECT location IS NOT NULL AS ok FROM listings WHERE id = ${row.id}::uuid`;
       expect(loc?.ok).toBe(true);
     });
 
-    it('stores a legacy 46150… 법정동 code (old Kakao bcode) as the current 12150… code', async () => {
+    it('stores a legacy 46150… 법정동 code (old Kakao bcode) as the current 8-digit 12150… code', async () => {
       const a = await agencyWithOwner(t);
       const res = await withSession(t.http().post(BASE), a.ownerSession)
         .send(publishablePayload({ property: { emdCode: '4615010400' } }))
         .expect(201);
-      expect(res.body.property.emdCode).toBe('1215010400');
+      expect(res.body.property.emdCode).toBe('12150104');
       const row = await t.prisma.listing.findUniqueOrThrow({ where: { id: res.body.id } });
-      expect(row).toMatchObject({ sggCode: '12150', emdCode: '1215010400' });
+      expect(row).toMatchObject({ sggCode: '12150', emdCode: '12150104' });
+    });
+
+    it('accepts the stored 8-digit form and keeps 리 codes; both spellings store one code', async () => {
+      const a = await agencyWithOwner(t);
+      for (const [sent, stored] of [
+        [EMD_CODE_8, EMD_CODE_8],
+        [EMD_CODE, EMD_CODE_8],
+        ['1215031022', '1215031022'],
+      ] as const) {
+        const res = await withSession(t.http().post(BASE), a.ownerSession)
+          .send(publishablePayload({ property: { emdCode: sent } }))
+          .expect(201);
+        expect(res.body.property.emdCode).toBe(stored);
+      }
+      await withSession(t.http().post(BASE), a.ownerSession)
+        .send(publishablePayload({ property: { emdCode: '121501200' } }))
+        .expect(400);
     });
 
     it('a licensed AGENT member can create; contact defaults to the member', async () => {
@@ -263,14 +283,14 @@ describe('agency listings (e2e)', () => {
         priceSort: 1000,
         floorClass: 'LOW',
         floorLabel: '저/20층',
-        emdCode: OTHER_EMD_CODE,
+        emdCode: OTHER_EMD_CODE_8, // the 10-digit 읍면동 b_code is stored as 8 digits
       });
       expect(res.body.agencies[0]).toMatchObject({
         contactName: a.agency.representativeName,
         contactPhone: '0617001234',
       });
       const row = await t.prisma.listing.findUniqueOrThrow({ where: { id } });
-      expect(row).toMatchObject({ lat: 34.96, emdCode: OTHER_EMD_CODE, priceSort: 1000 });
+      expect(row).toMatchObject({ lat: 34.96, emdCode: OTHER_EMD_CODE_8, priceSort: 1000 });
     });
 
     it('a deal-type change drops prices that no longer apply', async () => {

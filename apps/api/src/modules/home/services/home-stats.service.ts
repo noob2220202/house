@@ -5,7 +5,7 @@ import {
   DEFAULT_SGG_CODE,
   kstDayKey,
 } from '@house/shared';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CacheService } from '../../../common/cache/cache.service';
 import { AppConfig } from '../../../config/app-config.service';
 import { PrismaService } from '../../../prisma/prisma.service';
@@ -22,7 +22,7 @@ import {
 import { kstDayStart, kstToday } from '../../listings/domain/dates';
 import { HOME_CACHE_TTL_SECONDS } from '../constants';
 import type { PopularRegionsQuery } from '../dto';
-import { regionInfoIndex, type RegionInfo } from '../domain/region-info';
+import { regionInfoIndex, resolveRegionInfo, type RegionInfo } from '../domain/region-info';
 
 /** Region row of GET /home/summary (web w-home `homeRegionSchema`). */
 export interface HomeRegionView {
@@ -136,6 +136,8 @@ export function rankRegions(
 /** Home hero counters and the 지역 ranking, from public listings + region view counters. */
 @Injectable()
 export class HomeStatsService {
+  private readonly logger = new Logger(HomeStatsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
@@ -182,6 +184,29 @@ export class HomeStatsService {
     return regionInfoIndex(await this.regions.activeSubRegions());
   }
 
+  /**
+   * Region stats that can be named (resolveRegionInfo), with their info. A region whose code
+   * nothing names is left out — never shown as its raw code — and logged.
+   */
+  private named<T extends { regionKey: string }>(
+    stats: readonly T[],
+    index: ReadonlyMap<string, RegionInfo>,
+  ): { stat: T; info: RegionInfo }[] {
+    const unknown: string[] = [];
+    const out = stats.flatMap((stat) => {
+      const info = resolveRegionInfo(stat.regionKey, index);
+      if (!info) unknown.push(stat.regionKey);
+      return info ? [{ stat, info }] : [];
+    });
+    if (unknown.length > 0) {
+      this.logger.warn(
+        { regionKeys: unknown },
+        'listings carry 법정동 codes without a regions row; left out of the home 지역 lists',
+      );
+    }
+    return out;
+  }
+
   private async computeSummary(now: Date): Promise<HomeSummaryView> {
     const sgg = this.sggCode;
     const [regionName, totals, agencyCount, regionStats, perPyeong, index] = await Promise.all([
@@ -194,20 +219,23 @@ export class HomeStatsService {
       this.stats.perPyeongByRegion(sgg, PerPyeongBasis.APT),
       this.regionIndex(),
     ]);
-    const regions = regionStats
-      .sort((a, b) => b.listingCount - a.listingCount || a.regionKey.localeCompare(b.regionKey))
-      .map((s): HomeRegionView => {
-        const info = index.get(s.regionKey);
-        return {
+    const regions = this.named(regionStats, index)
+      .sort(
+        (a, b) =>
+          b.stat.listingCount - a.stat.listingCount ||
+          a.stat.regionKey.localeCompare(b.stat.regionKey),
+      )
+      .map(
+        ({ stat: s, info }): HomeRegionView => ({
           code: s.regionKey,
-          name: info?.name ?? s.regionKey,
-          emdName: info?.emdName ?? null,
-          lat: info?.lat ?? s.lat,
-          lng: info?.lng ?? s.lng,
+          name: info.name,
+          emdName: info.emdName,
+          lat: info.lat ?? s.lat,
+          lng: info.lng ?? s.lng,
           listingCount: s.listingCount,
           avgPricePerPyeong: perPyeong.get(s.regionKey) ?? null,
-        };
-      });
+        }),
+      );
     return {
       regionName,
       listingCount: totals.listingCount,
@@ -233,24 +261,25 @@ export class HomeStatsService {
       this.views.regionViews(7, 13, now),
       this.regionIndex(),
     ]);
-    const byKey = new Map(regionStats.map((s) => [s.regionKey, s]));
+    const named = this.named(regionStats, index);
+    const byKey = new Map(named.map((n) => [n.stat.regionKey, n]));
     const ranked = rankRegions(
-      regionStats.map((s) => ({ key: s.regionKey, listingCount: s.listingCount })),
+      named.map(({ stat: s }) => ({ key: s.regionKey, listingCount: s.listingCount })),
       viewsFor(thisWeek, assetTypes),
       viewsFor(lastWeek, assetTypes),
     ).slice(0, limit);
     const items = ranked.flatMap((r): PopularRegionView[] => {
-      const s = byKey.get(r.key);
-      if (!s) return [];
-      const info = index.get(r.key);
+      const n = byKey.get(r.key);
+      if (!n) return [];
+      const { stat: s, info } = n;
       return [
         {
           rank: r.rank,
           code: r.key,
-          name: info?.name ?? r.key,
-          emdName: info?.emdName ?? null,
-          lat: info?.lat ?? s.lat,
-          lng: info?.lng ?? s.lng,
+          name: info.name,
+          emdName: info.emdName,
+          lat: info.lat ?? s.lat,
+          lng: info.lng ?? s.lng,
           listingCount: s.listingCount,
           dealCounts: s.dealCounts,
           avgPricePerPyeong: basis ? (perPyeong.get(r.key) ?? null) : null,

@@ -1,3 +1,4 @@
+import { normalizeRegionCode } from '@house/shared';
 import { env } from '@/config/env';
 
 /**
@@ -62,8 +63,17 @@ const BY_CODE = new Map(SUNCHEON_REGIONS.map((r) => [r.code, r]));
 const PRESET_BY_NAME = new Map(SUNCHEON_REGIONS.map((r) => [r.name, r]));
 
 /** Region display name for a code ("1215012100" → "연향동"); unknown codes are shown as-is. */
+/** Shown instead of an unknown code: a raw 법정동 code must never be presented as a place name. */
+export const UNKNOWN_REGION_LABEL = '지역 정보 없음';
+
 export function regionName(code: string): string {
-  return BY_CODE.get(code)?.name ?? (env.apiMock ? MOCK_REGION_NAMES[code] : undefined) ?? code;
+  const key = normalizeRegionCode(code);
+  return (
+    BY_CODE.get(key)?.name ??
+    BY_CODE.get(code)?.name ??
+    (env.apiMock ? (MOCK_REGION_NAMES[code] ?? MOCK_REGION_NAMES[key]) : undefined) ??
+    UNKNOWN_REGION_LABEL
+  );
 }
 
 /** Region as returned by `GET /regions`. */

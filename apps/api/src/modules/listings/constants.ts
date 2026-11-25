@@ -36,7 +36,8 @@ export const EXPIRE_LISTING_ADS_BATCH = 500;
 /**
  * Coarse service-region guard (no 시군구 boundary polygons yet): a property must lie within this
  * distance of the 시군구 centroid (regions table, REGION_SGG_CODE) and, when its 법정동 has a
- * centroid, within EMD_MAX_DISTANCE_M of it.
+ * centroid, within EMD_MAX_DISTANCE_M of it. 순천시 reaches ~32 km from 시청 (주암면 운룡리's
+ * point is 31.5 km away), hence 40 km.
  */
-export const SERVICE_REGION_RADIUS_M = 30_000;
+export const SERVICE_REGION_RADIUS_M = 40_000;
 export const EMD_MAX_DISTANCE_M = 15_000;
