@@ -7,7 +7,6 @@ import {
   homeSummarySchema,
   videoItemSchema,
 } from '../api/schemas';
-import { heroRegionChips, highlightedRegion, projectToHero } from './hero-map';
 import { bannerClickHref, mapHref, searchHref } from './links';
 import { imageProps, isOptimizableImage } from './media';
 import { formatDuration, toVideoCard, videoThumbnail } from './video';
@@ -75,54 +74,6 @@ describe('video', () => {
     const bare = videoItemSchema.parse({ id: 'v2', title: '제목만' });
     expect(videoThumbnail(bare)).toBeNull();
     expect(toVideoCard(bare, now)).toMatchObject({ duration: undefined, caption: '' });
-  });
-});
-
-describe('hero map', () => {
-  const summary = homeSummarySchema.parse({
-    regions: [
-      {
-        code: 'a',
-        name: '신대지구',
-        emdName: '해룡면 신대리',
-        lat: 34.9335,
-        lng: 127.556,
-        listingCount: 318,
-        avgPricePerPyeong: 1180,
-      },
-      {
-        code: 'b',
-        name: '연향동',
-        emdName: '연향동',
-        lat: 34.944,
-        lng: 127.522,
-        listingCount: 412,
-      },
-      { code: 'c', name: '가곡동', lat: 34.975, lng: 127.47, listingCount: 40 },
-      { code: 'd', name: '가곡동 옆', lat: 34.9751, lng: 127.471, listingCount: 12 },
-    ],
-  });
-
-  it('uses the design anchors, projects the rest and drops overlapping chips', () => {
-    const chips = heroRegionChips(summary.regions);
-    expect(chips.map((c) => c.name)).toEqual(['연향동', '신대지구', '가곡동']);
-    expect(chips[0]).toMatchObject({ x: 75.33, y: 52.22, count: 412 });
-    const projected = chips[2]!;
-    expect(projected.x).toBeGreaterThanOrEqual(10);
-    expect(projected.y).toBeGreaterThanOrEqual(22);
-    expect(heroRegionChips(summary.regions, 1)).toHaveLength(1);
-  });
-
-  it('clamps projections into the frame', () => {
-    expect(projectToHero(36, 130)).toEqual({ x: 90, y: 22 });
-    expect(projectToHero(33, 125)).toEqual({ x: 10, y: 92 });
-  });
-
-  it("highlights the featured listing's district, else the busiest", () => {
-    const chips = heroRegionChips(summary.regions);
-    expect(highlightedRegion(chips, summary.regions, '해룡면 신대리')).toBe('a');
-    expect(highlightedRegion(chips, summary.regions, '없는 동')).toBe('b');
-    expect(highlightedRegion([], [], null)).toBeNull();
   });
 });
 

@@ -30,26 +30,6 @@
   pointer-events: none;
   z-index: 0;
 }
-.label {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--map-label);
-  pointer-events: none;
-  white-space: nowrap;
-  z-index: 0;
-}
-.water {
-  color: var(--map-water-text);
-  letter-spacing: 0.04em;
-}
-.park {
-  color: var(--map-park-text);
-  letter-spacing: 0;
-  font-size: 12px;
-}
 .markers {
   position: absolute;
   inset: 0;

@@ -25,23 +25,10 @@ import styles from './StaticMapView.module.css';
 
 const ART = SUNCHEON_MAP_VIEWBOX;
 
-/** Place names drawn on the stylized map (positions in % of the art, from the design). */
-const LABELS: readonly { text: string; x: number; y: number; kind?: 'water' | 'park' }[] = [
-  { text: '조례동', x: 42, y: 14 },
-  { text: '왕지동', x: 83, y: 10 },
-  { text: '연향동', x: 38, y: 50 },
-  { text: '덕연동', x: 24, y: 27 },
-  { text: '장천동', x: 17, y: 74 },
-  { text: '풍덕동', x: 66, y: 92 },
-  { text: '동천', x: 29, y: 33, kind: 'water' },
-  { text: '조례호수공원', x: 58, y: 20, kind: 'park' },
-  { text: '순천만국가정원', x: 54, y: 96, kind: 'park' },
-  { text: '봉화산', x: 6, y: 47, kind: 'park' },
-];
-
 /**
  * Fallback map used when no Kakao map key is configured (dev, tests, CI): the stylized Suncheon SVG
- * from the design with markers projected from lat/lng onto its bbox. Supports drag-pan,
+ * from the design with markers projected from lat/lng onto its bbox. The art is not real geography,
+ * so it carries no place names — only the markers (real data) are labelled. Supports drag-pan,
  * wheel/keyboard zoom and emits the same `onViewChange` (with bounds) as the Kakao map.
  */
 export default function StaticMapView({
@@ -240,23 +227,6 @@ export default function StaticMapView({
             preserveAspectRatio="none"
             style={{ transform: `translate(${tx}px, ${ty}px) scale(${scale})` }}
           />
-          {LABELS.map((l) => (
-            <span
-              key={l.text}
-              className={cx(
-                styles.label,
-                l.kind === 'water' && styles.water,
-                l.kind === 'park' && styles.park,
-              )}
-              style={{
-                left: tx + (l.x / 100) * ART.width * scale,
-                top: ty + (l.y / 100) * ART.height * scale,
-              }}
-              aria-hidden="true"
-            >
-              {l.text}
-            </span>
-          ))}
           <div className={styles.markers}>
             {markers.map((m) => {
               const p = projectToScreen(m.position, view.center, view.zoom, size, ART);

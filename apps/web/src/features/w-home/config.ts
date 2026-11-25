@@ -109,45 +109,19 @@ export const REGION_ZOOM = 15;
 export const COMPLEX_ZOOM = 17;
 
 /**
- * District anchors on the stylized hero map (design: Main.dc.html `.hmap`), in % of the frame.
- * The art is not geographically exact, so known districts sit where the design drew them; anything
- * else is projected from lat/lng with `HERO_MAP_BOUNDS`. `mobile` = position ≤ 720px (the mobile
- * home has no hero map, but the tablet-width layout reuses the anchors); `wide` = desktop only.
+ * Home hero map (design: Main.dc.html `.hmap`, see `lib/hero-map.ts`). Every chip sits at its
+ * region's real lat/lng; these only size the frame and the chrome the chips must stay clear of.
  */
-export const HERO_REGION_ANCHORS: Record<string, { x: number; y: number; wide?: boolean }> = {
-  석현동: { x: 25, y: 21.3 },
-  덕연동: { x: 17.33, y: 32.96, wide: true },
-  조례동: { x: 71.67, y: 19.63 },
-  왕지동: { x: 88.67, y: 42.59, wide: true },
-  연향동: { x: 75.33, y: 52.22 },
-  오천지구: { x: 35.67, y: 58.89 },
-  신대지구: { x: 81.67, y: 74.07 },
-  선월지구: { x: 87.33, y: 91.48, wide: true },
-};
-
-/** Rough extent of the hero art for projecting districts without an anchor. */
-export const HERO_MAP_BOUNDS = {
-  swLat: 34.905,
-  swLng: 127.465,
-  neLat: 34.995,
-  neLng: 127.585,
-} as const;
-
-/** Place labels printed on the hero art (decorative). */
-export const HERO_MAP_LABELS: readonly {
-  text: string;
-  x: number;
-  y: number;
-  kind: 'water' | 'park';
-  wide?: boolean;
-}[] = [
-  { text: '동천', x: 52.33, y: 45.56, kind: 'water' },
-  { text: '조례호수공원', x: 71.83, y: 42.59, kind: 'park', wide: true },
-  { text: '봉화산', x: 15.67, y: 47.41, kind: 'park' },
-  { text: '순천만국가정원', x: 66, y: 94.81, kind: 'park', wide: true },
-  { text: '순천만', x: 93.33, y: 97.41, kind: 'water', wide: true },
-];
-export const HERO_MAP_STATION = { text: '순천역', x: 55, y: 59.26 } as const;
+export const HERO_CHIP_MAX = 8;
+/** Virtual frame of the static fallback (the card keeps this aspect ratio). */
+export const HERO_MAP_FRAME = { width: 600, height: 540 } as const;
+/** Room kept free around the fitted regions: top bar (+ half a chip), half a chip elsewhere. */
+export const HERO_STATIC_INSETS = { top: 110, right: 64, bottom: 30, left: 64 } as const;
+/** Top bar (summary pill + "지도에서 찾기") and featured card areas in the virtual frame (px). */
+export const HERO_STATIC_TOP_BAR = { x: 0, y: 0, width: 600, height: 84 } as const;
+export const HERO_STATIC_CARD = { x: 0, y: 344, width: 348, height: 196 } as const;
+/** Kakao levels the hero may use (6 ≈ a few 동, 9 ≈ the whole 시). */
+export const HERO_KAKAO_LEVEL = { MIN: 6, MAX: 9 } as const;
 
 /** How many rows each home block asks for. */
 /**

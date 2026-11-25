@@ -50,27 +50,19 @@ export function RegionPicker({
     <>
       <div className={styles.miniMap} aria-hidden="true">
         <div className={styles.mapInner}>
+          {/* Abstract backdrop, not real geography: no place names drawn on it. */}
           <SuncheonMapArt />
-          <span
-            className={`${styles.mapLabel} ${styles.mapLabelWater}`}
-            style={{ left: '27%', top: '38%' }}
-          >
-            동천
-          </span>
-          <span className={styles.mapLabel} style={{ left: '61%', top: '29%' }}>
-            조례호수공원
-          </span>
-          {selected.map((region) => (
-            <span
-              key={region.key}
-              className={styles.pin}
-              // Clamped so pins of regions near the map edge (승주읍, 해룡면 …) are never cut off.
-              style={{ left: `clamp(40px, ${region.x}%, calc(100% - 40px))`, top: `${region.y}%` }}
-            >
-              {region.pin ?? region.name}
-            </span>
-          ))}
         </div>
+        {/* The picks are listed over the art, not placed on it (it has no real coordinates). */}
+        {selected.length > 0 && (
+          <div className={styles.pins}>
+            {selected.map((region) => (
+              <span key={region.key} className={styles.pin}>
+                {region.pin ?? region.name}
+              </span>
+            ))}
+          </div>
+        )}
         {selected.length === 0 && (
           <span className={styles.mapEmpty}>아래에서 관심 지역을 골라 보세요</span>
         )}

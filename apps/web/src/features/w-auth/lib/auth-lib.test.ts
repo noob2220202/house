@@ -193,14 +193,12 @@ describe('response schemas', () => {
 });
 
 describe('interest regions', () => {
-  it('has unique keys and positions inside the map', () => {
+  it('has unique keys and no invented map positions', () => {
     const keys = INTEREST_REGIONS.map((r) => r.key);
     expect(new Set(keys).size).toBe(keys.length);
     for (const r of INTEREST_REGIONS) {
-      expect(r.x).toBeGreaterThan(0);
-      expect(r.x).toBeLessThan(100);
-      expect(r.y).toBeGreaterThanOrEqual(35);
-      expect(r.y).toBeLessThanOrEqual(76);
+      expect(r).not.toHaveProperty('x');
+      expect(r).not.toHaveProperty('y');
     }
   });
   it('toggles and refuses a sixth region', () => {

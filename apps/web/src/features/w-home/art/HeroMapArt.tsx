@@ -1,8 +1,8 @@
-// Ported from design/drafts/project/Main.dc.html (.hmap-svg) — stylized Suncheon map for the home hero.
-// Decorative only; district chips are positioned over it (see ../hero/regions.ts).
+// Ported from design/drafts/project/Main.dc.html (.hmap-svg) — abstract city backdrop of the home
+// hero card when no real (Kakao) map is shown. NOT real geography: it carries no place names,
+// station or district outline; the district chips over it are placed from real coordinates
+// (../lib/hero-map.ts).
 import type { SVGProps } from 'react';
-
-export const HERO_MAP_VIEWBOX = { width: 600, height: 540 } as const;
 
 export function HeroMapArt(props: SVGProps<SVGSVGElement>) {
   return (
@@ -252,14 +252,6 @@ export function HeroMapArt(props: SVGProps<SVGSVGElement>) {
         <path d="M188 340 C182 410 194 470 188 540" />
         <path d="M480 0 C478 80 488 150 480 200 S560 210 600 206" />
       </g>
-      <path
-        d="M410 360 C460 344 550 348 588 368 L594 452 C548 474 466 476 420 458 Z"
-        fill="rgba(29,79,242,.08)"
-        stroke="#1D4FF2"
-        strokeWidth="2"
-        strokeDasharray="7 5"
-      />
-      <circle cx="330" cy="320" r="6" fill="#FFFFFF" stroke="#1F2836" strokeWidth="2.6" />
     </svg>
   );
 }
