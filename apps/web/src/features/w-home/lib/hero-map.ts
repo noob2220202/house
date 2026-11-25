@@ -2,6 +2,7 @@ import { formatCount } from '@/lib/format/number';
 import { formatPerPyeong } from '@/lib/format/price';
 import { kakaoMetresPerPx } from '@/lib/map/kakao-level';
 import type { LatLng } from '@/lib/map/types';
+import { DEFAULT_MAP_CENTER } from '@house/shared';
 import type { HomeRegion } from '../api/schemas';
 import {
   HERO_CHIP_MAX,
@@ -353,9 +354,17 @@ export function kakaoHeroLayout(
   },
 ): KakaoHeroLayout | null {
   const { size } = options;
+  if (size.width <= 0 || size.height <= 0) return null;
   const candidates = heroCandidates(regions);
   const box = geoBox(candidates);
-  if (!box || size.width <= 0 || size.height <= 0) return null;
+  // No listings yet (e.g. right after launch): still show the real city, without chips.
+  if (!box)
+    return {
+      chips: [],
+      onCode: null,
+      center: { ...DEFAULT_MAP_CENTER },
+      level: HERO_KAKAO_LEVEL.EMPTY,
+    };
   const insetOptions = options.card
     ? [options.insets, insetsAbove(options.insets, options.card, size)]
     : [options.insets];

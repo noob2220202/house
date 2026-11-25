@@ -67,7 +67,7 @@ export function HeroMapLayer({ regions, featuredEmdName, staticLayout, art }: He
   useEffect(() => {
     const layer = layerRef.current;
     const el = mapRef.current;
-    if (!key || !layer || !el || initial.current.regions.length === 0) return;
+    if (!key || !layer || !el) return;
     let cancelled = false;
     let teardown: (() => void) | null = null;
     const cancelWait = whenVisibleAndIdle(layer, () => {

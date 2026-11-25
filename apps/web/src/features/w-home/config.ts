@@ -121,7 +121,8 @@ export const HERO_STATIC_INSETS = { top: 110, right: 64, bottom: 30, left: 64 } 
 export const HERO_STATIC_TOP_BAR = { x: 0, y: 0, width: 600, height: 84 } as const;
 export const HERO_STATIC_CARD = { x: 0, y: 344, width: 348, height: 196 } as const;
 /** Kakao levels the hero may use (6 ≈ a few 동, 9 ≈ the whole 시). */
-export const HERO_KAKAO_LEVEL = { MIN: 6, MAX: 9 } as const;
+/** Kakao levels the hero may use; EMPTY = city view used when there are no region chips yet. */
+export const HERO_KAKAO_LEVEL = { MIN: 6, MAX: 9, EMPTY: 7 } as const;
 
 /** How many rows each home block asks for. */
 /**

@@ -1,3 +1,4 @@
+import { DEFAULT_MAP_CENTER } from '@house/shared';
 import { describe, expect, it } from 'vitest';
 import { kakaoMetresPerPx } from '@/lib/map/kakao-level';
 import {
@@ -256,6 +257,20 @@ describe('static hero layout', () => {
 });
 
 describe('kakao hero layout', () => {
+  it('still shows the real city (no chips) when there are no regions yet', () => {
+    const layout = kakaoHeroLayout([], {
+      size: { width: 600, height: 540 },
+      insets: { top: 80, right: 20, bottom: 20, left: 20 },
+      obstacles: [],
+    });
+    expect(layout).toEqual({
+      chips: [],
+      onCode: null,
+      center: { ...DEFAULT_MAP_CENTER },
+      level: HERO_KAKAO_LEVEL.EMPTY,
+    });
+  });
+
   const size = { width: 600, height: 540 };
   const top: Rect = { x: 20, y: 20, width: 560, height: 44 };
   const card: Rect = { x: 20, y: 350, width: 316, height: 170 };
@@ -318,10 +333,12 @@ describe('kakao hero layout', () => {
       expect(layout.onCode).toBe(layout.chips[0]!.code);
   });
 
-  it('returns null before the frame has a size or without regions', () => {
+  it('returns null before the frame has a size', () => {
     expect(
       kakaoHeroLayout(REGIONS, { size: { width: 0, height: 0 }, insets, obstacles: [] }),
     ).toBeNull();
-    expect(kakaoHeroLayout([], { size, insets, obstacles: [] })).toBeNull();
+    expect(
+      kakaoHeroLayout([], { size: { width: 0, height: 0 }, insets, obstacles: [] }),
+    ).toBeNull();
   });
 });
