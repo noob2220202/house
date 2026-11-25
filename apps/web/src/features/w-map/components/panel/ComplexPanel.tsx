@@ -2,7 +2,7 @@
 import { Button, DealCount, EmptyState, ErrorState, Skeleton, Tabs, cx } from '@house/ui';
 import type { UseQueryResult } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { loginUrl } from '@/lib/auth';
 import type { ComplexSummary } from '../../api/schemas';
 import type { AssetConfig } from '../../config/assets';
@@ -139,6 +139,13 @@ export interface ComplexPanelProps {
   loginReturnTo: string;
   selectedId: string | null;
   onSelect: (c: ComplexRowData) => void;
+  /** Mobile: the listings of the picked price pill, at the top of the scrolling body. */
+  top?: ReactNode;
+  /**
+   * Section under the complex rows ("단지 정보 없는 매물", see StandaloneListings). It stands in for
+   * the generic "표시할 단지가 없어요" of the 자주 찾는 단지 tab.
+   */
+  standalone?: ReactNode;
 }
 
 /** 아파트 left panel body (MapApt design): tabs, summary line with sort, complex rows. */
@@ -154,6 +161,8 @@ export function ComplexPanel({
   loginReturnTo,
   selectedId,
   onSelect,
+  top,
+  standalone,
 }: ComplexPanelProps) {
   const [sort, setSort] = useState<ComplexSort>('views');
   const source: readonly ComplexRowData[] | undefined =
@@ -187,6 +196,13 @@ export function ComplexPanel({
       <PanelState>
         <ErrorState compact onRetry={() => void query.refetch()} />
       </PanelState>
+    );
+  } else if (rows.length === 0 && tab === 'popular' && standalone) {
+    // No 단지 to rank yet, but the map shows listings without one: the section below lists them.
+    content = (
+      <p className={s.soloNote}>
+        자주 찾는 단지가 아직 없어요. 지도에 보이는 단지 정보 없는 매물은 아래에 있어요.
+      </p>
     );
   } else if (rows.length === 0) {
     content = (
@@ -257,7 +273,16 @@ export function ComplexPanel({
           </p>
           <SortMenu label="단지 정렬" value={sort} options={SORTS} onChange={setSort} />
         </div>
-        {content}
+        {top || standalone ? (
+          // One scroll for everything under the summary line (the rows stop scrolling on their own).
+          <div className={cx(s.lpScroll, s.lpFlow)}>
+            {top}
+            {content}
+            {standalone}
+          </div>
+        ) : (
+          content
+        )}
       </div>
     </>
   );

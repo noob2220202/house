@@ -7,7 +7,9 @@ import { ASSETS } from '../config/assets';
 import { FILTER_SPEC, type MapFilters } from '../lib/filters';
 import { FilterControl, QuickOptionChips } from './filters/FilterBar';
 import { ListingPhotoCard, ListingRow } from './panel/ListingItems';
+import { ComplexPanel, type ComplexPanelProps } from './panel/ComplexPanel';
 import { ListingList, SortTabs, type ListingListQuery } from './panel/ListingList';
+import { StandaloneListings } from './panel/StandaloneListings';
 
 const DEFAULTS = defaultFilters(FILTER_SPEC);
 const filters = (patch: Partial<MapFilters> = {}): MapFilters => ({ ...DEFAULTS, ...patch });
@@ -183,5 +185,108 @@ describe('listing list', () => {
       />,
     );
     expect(screen.getAllByRole('article')).toHaveLength(2);
+  });
+});
+
+describe('아파트 panel: listings without a 단지', () => {
+  // The owner's test listing: an 아파트 registered with "직접 입력" (no 단지 in the DB yet).
+  const solo: ListingSummary = {
+    ...room,
+    id: 'l-solo',
+    assetType: 'APT',
+    roomType: null,
+    buildingName: '연향 그린맨션',
+    emdName: '연향동',
+    locationNote: null,
+    deposit: 300,
+    monthlyRent: 30,
+    complexId: null,
+  };
+  const ofComplex: ListingSummary = { ...solo, id: 'l-cx', complexId: 'c1', complexName: '단지' };
+  const listQuery = (items: ListingSummary[]) =>
+    ({
+      data: {
+        pages: [{ items, page: 1, pageSize: 20, total: items.length, totalPages: 1 }],
+        pageParams: [1],
+      },
+      isPending: false,
+      isError: false,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: vi.fn(),
+      refetch: vi.fn(),
+    }) as unknown as ListingListQuery;
+  const ok = <T,>(data: T) =>
+    ({
+      data,
+      isPending: false,
+      isError: false,
+      refetch: vi.fn(),
+    }) as unknown as ComplexPanelProps['popular'];
+  const panelProps = (patch: Partial<ComplexPanelProps> = {}): ComplexPanelProps => ({
+    asset: ASSETS.apt,
+    tab: 'popular',
+    onTabChange: () => {},
+    popular: ok([]),
+    favorites: ok({ items: [], total: 0 }) as unknown as ComplexPanelProps['favorites'],
+    recents: [],
+    authed: false,
+    sessionLoading: false,
+    loginReturnTo: '/map/apt',
+    selectedId: null,
+    onSelect: () => {},
+    ...patch,
+  });
+  const section = (
+    items: ListingSummary[],
+    extra: { selectedId?: string; exclude?: string[] } = {},
+  ) => (
+    <StandaloneListings
+      count={items.filter((l) => !l.complexId).length}
+      query={listQuery(items)}
+      unit="sqm"
+      selectedId={extra.selectedId}
+      excludeIds={extra.exclude ? new Set(extra.exclude) : undefined}
+      isFavorite={() => false}
+      onFavorite={() => {}}
+    />
+  );
+
+  it('keeps the generic empty state when the map shows no such listing', () => {
+    render(<ComplexPanel {...panelProps()} />);
+    expect(screen.getByText('표시할 단지가 없어요')).toBeInTheDocument();
+  });
+
+  it('lists them under the complex rows instead of "표시할 단지가 없어요"', () => {
+    render(<ComplexPanel {...panelProps({ standalone: section([solo, ofComplex]) })} />);
+    expect(screen.queryByText('표시할 단지가 없어요')).not.toBeInTheDocument();
+    const block = screen.getByRole('region', { name: /단지 정보 없는 매물 1건/ });
+    const rows = within(block).getAllByRole('article');
+    // Rows of a 단지 that the bbox list returns are left out.
+    expect(rows).toHaveLength(1);
+    expect(within(block).getByRole('link', { name: /월세 300\/30/ })).toHaveAttribute(
+      'href',
+      '/listing/l-solo',
+    );
+  });
+
+  it('highlights the listing of the selected pill', () => {
+    render(section([solo], { selectedId: 'l-solo' }));
+    expect(screen.getByRole('article')).toHaveAttribute('aria-current', 'true');
+  });
+
+  it('mobile: the picked pill heads the sheet and the section leaves it out', () => {
+    render(
+      <ComplexPanel
+        {...panelProps({
+          top: <section aria-label="지도에서 선택한 매물">picked</section>,
+          standalone: section([solo, { ...solo, id: 'l-solo-2' }], { exclude: ['l-solo'] }),
+        })}
+      />,
+    );
+    const top = screen.getByRole('region', { name: '지도에서 선택한 매물' });
+    const block = screen.getByRole('region', { name: /단지 정보 없는 매물 2건/ });
+    expect(top.compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(block).getAllByRole('article')).toHaveLength(1);
   });
 });

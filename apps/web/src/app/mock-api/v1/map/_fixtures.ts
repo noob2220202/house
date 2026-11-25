@@ -750,7 +750,42 @@ function landListings(): MockListing[] {
 
 // ---- catalog ------------------------------------------------------------------------------------
 
-export const APT_LISTINGS: readonly MockListing[] = aptListings();
+/**
+ * 아파트 listings registered WITHOUT a 단지 (wizard "직접 입력", or a complex that is not in the
+ * database yet): `complexId` null, so the map draws them as price pills, not complex markers.
+ */
+function standaloneAptListings(): MockListing[] {
+  const r = region('연향동');
+  return [
+    {
+      ...base(mockUuid('listing-APT-SOLO-1'), AssetType.APT, MONTHLY, r, {
+        lat: 34.94395,
+        lng: 127.52418,
+      }),
+      title: '연향동 아파트 월세',
+      buildingName: '연향 그린맨션',
+      complexId: null,
+      complexName: null,
+      deposit: 300,
+      monthlyRent: 30,
+      exclusiveArea: 59.8,
+      supplyArea: 79.3,
+      floor: 7,
+      totalFloors: 15,
+      direction: Direction.SOUTH,
+      rooms: 3,
+      baths: 1,
+      builtYear: 1998,
+      maintenanceFeeWon: 120_000,
+      options: [...APT_ALWAYS],
+      verifiedAt: day(22),
+      publishedAt: day(22),
+      photoCount: 0,
+    },
+  ];
+}
+
+export const APT_LISTINGS: readonly MockListing[] = [...aptListings(), ...standaloneAptListings()];
 export const ROOM_LISTINGS: readonly MockListing[] = ROOM_BUILDINGS.flatMap(roomListings);
 export const HOUSE_LISTINGS: readonly MockListing[] = houseListings();
 export const SHOP_LISTINGS: readonly MockListing[] = shopListings();

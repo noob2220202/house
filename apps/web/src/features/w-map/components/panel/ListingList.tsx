@@ -69,6 +69,8 @@ export interface ListingListProps {
   selectedId?: string | null;
   /** Listings shown elsewhere on the screen (the mobile "선택한 위치" block) — left out here. */
   excludeIds?: ReadonlySet<string>;
+  /** Keep only the listings that pass (the endpoint cannot filter them, e.g. 단지 없는 매물). */
+  include?: (listing: ListingSummary) => boolean;
   isFavorite: (id: string) => boolean;
   onFavorite: (id: string) => void;
   /** Print the building / location line on rows (non-complex lists). */
@@ -89,6 +91,7 @@ export function ListingList({
   unit,
   selectedId,
   excludeIds,
+  include,
   isFavorite,
   onFavorite,
   showName,
@@ -97,7 +100,10 @@ export function ListingList({
   emptyTitle = '조건에 맞는 매물이 없어요',
   className,
 }: ListingListProps) {
-  const all = useMemo(() => flattenPages(query.data), [query.data]);
+  const all = useMemo(() => {
+    const rows = flattenPages(query.data);
+    return include ? rows.filter(include) : rows;
+  }, [query.data, include]);
   const items = useMemo(
     () => (excludeIds?.size ? all.filter((l) => !excludeIds.has(l.id)) : all),
     [all, excludeIds],
@@ -141,7 +147,8 @@ export function ListingList({
       </PanelState>
     );
   }
-  if (all.length === 0) {
+  // With `include`, a loaded page may hold none of the kept listings while later pages do.
+  if (all.length === 0 && !hasNextPage) {
     return (
       <PanelState>
         <EmptyState

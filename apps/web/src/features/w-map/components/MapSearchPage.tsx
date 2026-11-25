@@ -56,7 +56,14 @@ import {
 } from '../lib/geo';
 import { useElementSize, useIsMobile } from '../lib/hooks';
 import { useMapMotion, useSearchPick, useSelectionPopover } from '../lib/interaction';
-import { groupListingMarkers, pointArea, toMapMarkers, type ListingGroup } from '../lib/markers';
+import { groupListingMarkers, toMapMarkers, type ListingGroup } from '../lib/markers';
+import {
+  resolvePickedPill,
+  samePoint,
+  standaloneBbox,
+  standaloneCount,
+  type PickedPill,
+} from '../lib/selection';
 import { useMapPageState } from '../lib/state';
 import { pushRecentComplex, readRecentComplexes, type RecentComplex } from '../lib/storage';
 import { FilterBar } from './filters/FilterBar';
@@ -77,6 +84,7 @@ import { ComplexPanel, type ComplexRowData } from './panel/ComplexPanel';
 import { ListingRow } from './panel/ListingItems';
 import { ListingList, SortTabs, flattenPages } from './panel/ListingList';
 import { ListingPanel } from './panel/ListingPanel';
+import { StandaloneListings } from './panel/StandaloneListings';
 import { SearchBox, useFavorite } from './shared';
 import s from './MapSearchPage.module.css';
 
@@ -122,10 +130,7 @@ const MOBILE_TOP_PX = 170;
 /** Mobile pages shorter than this open with the sheet lowered (the half stop would hide the map). */
 const SHORT_PAGE_PX = 620;
 
-const samePoint = (a: LatLng, b: LatLng) => a.lat === b.lat && a.lng === b.lng;
 type SheetOpenStop = Exclude<SheetStop, 'full'>;
-/** What a selected price pill stands for: its point and the box that holds its listings. */
-type PickedPill = LatLng & { id: string; area: MapBounds; merged: boolean };
 
 /** Minimal complex card from a "recent" row, so a stored complex can be re-selected. */
 function recentToSummary(r: RecentComplex): ComplexSummary {
@@ -310,25 +315,24 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
     return groupListingMarkers(pills, pxLng > 0 ? { lng: pxLng, lat: pxLat } : null);
   }, [map.data, pxLng, pxLat]);
 
+  // ---- 단지 정보 없는 매물 (complex mode) ---------------------------------------------------------
+  // In complex mode the price pills are exactly the listings without a 단지 (the API draws every
+  // other listing as its complex marker). The panel lists them under the complex rows.
+  const soloCount = complexMode ? standaloneCount(groups) : 0;
+  const soloBbox = complexMode ? standaloneBbox(groups) : null;
+  const soloQuery = useListingList(
+    { filters: apiFilters, sort: ui.sort, bbox: soloBbox },
+    complexMode && soloBbox !== null,
+  );
+  const soloItems = useMemo(() => flattenPages(soloQuery.data), [soloQuery.data]);
+
   // ---- selection: listing (a pill = one building, or a few merged neighbours) --------------------
+  // Both modes: in complex mode a pill is a listing without a 단지 and opens the same preview.
   const foundPick = useMemo<PickedPill | null>(() => {
-    if (complexMode || !selected) return null;
-    const of = (g: ListingGroup): PickedPill => ({
-      id: selected,
-      lat: g.rep.lat,
-      lng: g.rep.lng,
-      area: g.area,
-      merged: g.members.length > 1,
-    });
-    const group = groups.find((g) => g.members.some((m) => m.id === selected));
-    if (group) return of(group);
+    if (!selected || (complexMode && foundComplex)) return null;
     // Not a marker id (a shared link to another room of the building): locate it through the list.
-    const item = listItems.find((l) => l.id === selected);
-    if (item?.lat == null || item.lng == null) return null;
-    const point = { lat: item.lat, lng: item.lng };
-    const around = groups.find((g) => g.members.some((m) => samePoint(m, point)));
-    return around ? of(around) : { id: selected, ...point, area: pointArea(point), merged: false };
-  }, [complexMode, selected, groups, listItems]);
+    return resolvePickedPill(selected, groups, complexMode ? soloItems : listItems);
+  }, [complexMode, foundComplex, selected, groups, listItems, soloItems]);
   const [stickyPick, setStickyPick] = useState<PickedPill | null>(null);
   useEffect(() => {
     if (foundPick) setStickyPick(foundPick);
@@ -344,12 +348,13 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
           0,
           roomsAtPoint.findIndex((l) => l.id === selected),
         );
-  const highlightedListingId = complexMode ? null : (roomsAtPoint[roomIndex]?.id ?? selected);
+  const highlightedListingId =
+    complexMode && !selectedPick ? null : (roomsAtPoint[roomIndex]?.id ?? selected);
   /** Marker to draw as selected: the pill standing on the selected point. */
   const selectedMarkerId = useMemo(() => {
-    if (complexMode || !selectedPick) return selected;
+    if (!selectedPick) return selected;
     return groups.find((g) => samePoint(g.rep, selectedPick))?.rep.id ?? selected;
-  }, [complexMode, selected, selectedPick, groups]);
+  }, [selected, selectedPick, groups]);
   /** Mobile: the picked listings head the sheet, so the main list below leaves them out. */
   const pickedIds = useMemo(
     () => new Set(selectedPick ? roomsAtPoint.map((l) => l.id) : []),
@@ -441,16 +446,21 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
       return;
     }
     rememberOpener();
+    // A price pill in complex mode is a listing without a 단지: it opens the listing preview (and
+    // closes an open complex panel) instead of a complex panel of its own.
+    const isComplex = complexMode && m.kind === 'complex';
+    const closeComplex = !isComplex && !!openComplexId;
     if (isMobile) {
       // Bring the marker into the visible band above the sheet; a complex opens its panel there.
       select(m.id, {
         view: { center: centerOn(m.position, view.zoom), zoom: view.zoom },
-        complex: complexMode,
+        complex: isComplex,
+        closeComplex,
       });
       setSheet('half');
     } else {
       // Desktop: the summary popover first — unless a complex panel is open, which switches over.
-      select(m.id, { complex: !!openComplexId });
+      select(m.id, { complex: isComplex && !!openComplexId, closeComplex });
     }
   };
 
@@ -533,31 +543,31 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
   const shownStats =
     mapSize.width > 0 && mapSize.width < 520 ? summaryStats.slice(0, 2) : summaryStats;
 
+  /** The open popover is the complex summary (else the listing preview of a price pill). */
+  const complexPop = complexMode && !selectedPick;
   const popAnchor =
     !isMobile && bounds && mapSize.width > 0
-      ? complexMode
-        ? selectedComplex?.lat != null && selectedComplex.lng != null
+      ? selectedPick
+        ? projectToViewport(selectedPick, bounds, mapSize)
+        : complexMode && selectedComplex?.lat != null && selectedComplex.lng != null
           ? projectToViewport(
               { lat: selectedComplex.lat, lng: selectedComplex.lng },
               bounds,
               mapSize,
             )
           : null
-        : selectedPick
-          ? projectToViewport(selectedPick, bounds, mapSize)
-          : null
       : null;
   const adInColumn = adDock !== 'inline' && adSize.height > 0;
   const placement = popAnchor
     ? placePopover(
-        { x: popAnchor.x, y: popAnchor.y - (complexMode ? 26 : 20) },
+        { x: popAnchor.x, y: popAnchor.y - (complexPop ? 26 : 20) },
         {
-          width: popSize.width || (complexMode ? 264 : 272),
-          height: popSize.height || (complexMode ? 300 : 150),
+          width: popSize.width || (complexPop ? 264 : 272),
+          height: popSize.height || (complexPop ? 300 : 150),
         },
         mapSize,
         {
-          ...(complexMode ? { gap: 92, ratio: 0.34 } : { gap: 62, ratio: 0.5 }),
+          ...(complexPop ? { gap: 92, ratio: 0.34 } : { gap: 62, ratio: 0.5 }),
           // Never cover the ad card or the tool column on the right edge.
           avoid: [
             {
@@ -613,6 +623,48 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
     <MapStatus>매물이 많아 일부만 표시했어요. 지도를 확대해 보세요.</MapStatus>
   ) : null;
 
+  /** Mobile: the listings of the picked price pill head the sheet (there is no popover). */
+  const pickedBlock =
+    isMobile && selectedPick && roomsAtPoint.length > 0 ? (
+      <section className={s.mPicked} aria-label="지도에서 선택한 매물">
+        <div className={s.mPickedHd}>
+          <p>
+            선택한 위치의 매물 <b className="num">{roomsAtPoint.length}</b>
+          </p>
+          <button type="button" onClick={() => select(null)}>
+            선택 해제
+          </button>
+        </div>
+        <ul>
+          {roomsAtPoint.map((l) => (
+            <li key={l.id}>
+              <ListingRow
+                listing={l}
+                unit={ui.unit}
+                favorite={listingFav.has(l.id)}
+                onFavorite={listingFav.toggle}
+                showName
+              />
+            </li>
+          ))}
+        </ul>
+      </section>
+    ) : null;
+
+  const standaloneSection =
+    soloCount > 0 ? (
+      <StandaloneListings
+        count={soloCount}
+        query={soloQuery}
+        unit={ui.unit}
+        // Mobile: the picked listings sit in the block above, so the section leaves them out.
+        selectedId={pickedBlock ? null : highlightedListingId}
+        excludeIds={pickedBlock ? pickedIds : undefined}
+        isFavorite={listingFav.has}
+        onFavorite={listingFav.toggle}
+      />
+    ) : null;
+
   const complexPanel = (
     <ComplexPanel
       asset={asset}
@@ -626,10 +678,12 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
       loginReturnTo={returnTo}
       selectedId={selected}
       onSelect={onSelectComplex}
+      top={pickedBlock}
+      standalone={standaloneSection}
     />
   );
 
-  const adTarget = { regionCode: currentRegion?.code, complexId: complexMode ? selected : null };
+  const adTarget = { regionCode: currentRegion?.code, complexId: complexPop ? selected : null };
   const layerProps = {
     layers: { trade: ui.tradeLayer },
     onToggleTrade: () => setUi({ tradeLayer: !ui.tradeLayer }),
@@ -720,7 +774,7 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
           )}
         </div>
       )}
-      {!isMobile && complexMode && selectedComplex && !openComplexId && (
+      {!isMobile && complexPop && selectedComplex && !openComplexId && (
         <div className={s.popLayer} data-moving={moving || undefined} onPointerDown={stopDrag}>
           <SelectedComplexCard
             ref={popRef}
@@ -735,7 +789,7 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
           />
         </div>
       )}
-      {!isMobile && !complexMode && selectedPick && (
+      {!isMobile && selectedPick && (
         <div className={s.popLayer} data-moving={moving || undefined} onPointerDown={stopDrag}>
           <SelectedListingCard
             ref={popRef}
@@ -840,31 +894,7 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
                 onChange={(sort) => setUi({ sort })}
               />
               <div ref={mScrollRef} className={s.mScroll}>
-                {selectedPick && roomsAtPoint.length > 0 && (
-                  <section className={s.mPicked} aria-label="지도에서 선택한 매물">
-                    <div className={s.mPickedHd}>
-                      <p>
-                        선택한 위치의 매물 <b className="num">{roomsAtPoint.length}</b>
-                      </p>
-                      <button type="button" onClick={() => select(null)}>
-                        선택 해제
-                      </button>
-                    </div>
-                    <ul>
-                      {roomsAtPoint.map((l) => (
-                        <li key={l.id}>
-                          <ListingRow
-                            listing={l}
-                            unit={ui.unit}
-                            favorite={listingFav.has(l.id)}
-                            onFavorite={listingFav.toggle}
-                            showName
-                          />
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                )}
+                {pickedBlock}
                 <ListingList
                   query={listQuery}
                   layout="row"
