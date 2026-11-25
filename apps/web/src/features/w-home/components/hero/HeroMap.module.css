@@ -17,32 +17,40 @@
   width: 100%;
   height: 100%;
 }
-.label {
+/* map layer: static art + chips, or the Kakao map once its tiles have loaded */
+.layer {
   position: absolute;
-  z-index: 1;
-  transform: translate(-50%, -50%);
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-  pointer-events: none;
+  inset: 0;
 }
-.water {
-  color: var(--map-water-text);
-  letter-spacing: 0.04em;
-}
-.park {
-  color: var(--map-park-text);
-  font-size: 12px;
-}
-.station {
+.kakao {
   position: absolute;
+  inset: 0;
   z-index: 1;
-  transform: translate(10px, -50%);
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-2);
-  white-space: nowrap;
-  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--dur-2),
+    visibility 0s var(--dur-2);
+}
+.kakaoOn {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity var(--dur-2);
+}
+.kakaoMap {
+  width: 100%;
+  height: 100%;
+}
+/* Overlay chips sit in a 0×0 box at the region's coordinate. */
+.kakaoMap .chip {
+  left: 0;
+  top: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kakao,
+  .kakaoOn {
+    transition: none;
+  }
 }
 
 /* district chip: name + count (+ 평당가 when highlighted) */

@@ -36,6 +36,8 @@ export interface KakaoMap {
   panTo(latlng: KakaoLatLng): void;
   setLevel(level: number, options?: { animate?: boolean | { duration: number } }): void;
   setZoomable(zoomable: boolean): void;
+  /** Moves the Kakao logo + copyright (`maps.CopyrightPosition`); `reversed` swaps their order. */
+  setCopyrightPosition?(position: number, reversed?: boolean): void;
   /** Re-reads the container size and redraws the tiles (after the element was resized). */
   relayout(): void;
 }
@@ -62,6 +64,8 @@ export interface KakaoMaps {
     /** true: clicks on the content do not reach the map (no map `click`, no drag start). */
     clickable?: boolean;
   }) => KakaoCustomOverlay;
+  /** Corners for `Map.setCopyrightPosition`. */
+  CopyrightPosition?: { BOTTOMLEFT: number; BOTTOMRIGHT: number };
   event: {
     addListener(target: object, type: string, handler: KakaoHandler): void;
     removeListener(target: object, type: string, handler: KakaoHandler): void;
