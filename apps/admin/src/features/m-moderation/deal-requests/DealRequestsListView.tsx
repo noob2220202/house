@@ -22,6 +22,7 @@ import {
   dealRequestSpamState,
   dealRequestTitle,
   dealRequestTypeLabel,
+  memberLabel,
 } from '../lib/labels';
 import { hasActiveFilters, type ParamSpec } from '../lib/list-params';
 import { useListParams } from '../lib/use-list-params';
@@ -185,9 +186,7 @@ export function DealRequestsListView() {
       {
         key: 'requester',
         header: '요청자',
-        cell: (row) => (
-          <span className={s.cellStrong}>{row.requester?.nickname ?? '탈퇴한 회원'}</span>
-        ),
+        cell: (row) => <span className={s.cellStrong}>{memberLabel(row.requester)}</span>,
       },
       { key: 'progress', header: '진행', cell: (row) => <ProgressCell request={row} /> },
       { key: 'created', header: '등록', cell: (row) => <CreatedCell request={row} /> },
@@ -311,7 +310,7 @@ export function DealRequestsListView() {
               meta={
                 <>
                   <span>
-                    {row.requester?.nickname ?? '탈퇴한 회원'} · {formatRelativeTime(row.createdAt)}
+                    {memberLabel(row.requester)} · {formatRelativeTime(row.createdAt)}
                   </span>
                   <span>
                     대상 {formatCount(row.targetAgencyCount)}곳 · 제안{' '}

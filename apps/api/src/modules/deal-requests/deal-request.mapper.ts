@@ -2,12 +2,17 @@ import {
   AgencyMemberStatus,
   DEAL_REQUEST_CONTACT_STATUSES,
   DEAL_REQUEST_LIMITS,
+  DealRequestStatus,
   DealRequestType,
+  ProposalStatus,
   coarseDealRequestPoint,
   dealRequestAreaRange,
   isAdvertisableMember,
   maskPhone,
   publicDealRequestDescription,
+  type AdminDealRequestDetailView,
+  type AdminDealRequestHistoryEntry,
+  type AdminDealRequestRequesterView,
   type AdminDealRequestView,
   type AgencyDealRequestView,
   type AgencyDisclosure,
@@ -23,6 +28,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { decimalToNumber } from '../../common/utils/decimal';
 import type {
+  DealRequestAdminDetailRow,
   DealRequestAdminRow,
   DealRequestAgencyRow,
   DealRequestBaseRow,
@@ -44,6 +50,25 @@ export interface AdminDealRequestModerationView extends AdminDealRequestView {
   spamReason: string | null;
   spamSignalCount: number;
   spamSignals: string[];
+}
+
+/** Detail: the moderation view + offices, proposals, grants and history (shared detail view). */
+export type AdminDealRequestModerationDetailView = AdminDealRequestModerationView &
+  Omit<AdminDealRequestDetailView, keyof AdminDealRequestView>;
+
+/** What the admin views add beyond the row: requester summary and region names (batched). */
+export interface AdminDealRequestExtras {
+  requester: AdminDealRequestRequesterView | null;
+  regionNames: ReadonlyMap<string, string>;
+}
+
+/** An audit row of an admin action on the request (`dealRequest.close` / `dealRequest.spamFlag`). */
+export interface DealRequestAuditRow {
+  id: string;
+  action: string;
+  after: Prisma.JsonValue | null;
+  createdAt: Date;
+  adminUser: { name: string } | null;
 }
 
 const iso = (d: Date | null | undefined): string | null => (d ? d.toISOString() : null);
@@ -171,10 +196,15 @@ export class DealRequestMapper {
     };
   }
 
-  admin(r: DealRequestAdminRow): AdminDealRequestModerationView {
+  admin(r: DealRequestAdminRow, extras: AdminDealRequestExtras): AdminDealRequestModerationView {
     return {
       ...this.base(r),
       userId: r.userId,
+      requester: extras.requester,
+      emdName: r.emdCode ? (extras.regionNames.get(r.emdCode) ?? null) : null,
+      regionNames: r.regionCodes
+        .map((c) => extras.regionNames.get(c))
+        .filter((n): n is string => !!n),
       contactNameMasked: maskName(r.contactName),
       contactPhoneMasked: r.contactPhone ? maskPhone(r.contactPhone) : '',
       targetAgencyIds: r.targets.map((t) => t.agencyId),
@@ -185,6 +215,34 @@ export class DealRequestMapper {
       spamReason: r.spamFlaggedAt ? r.spamReason : null,
       spamSignalCount: 0,
       spamSignals: [],
+    };
+  }
+
+  adminDetail(
+    r: DealRequestAdminDetailRow,
+    extras: AdminDealRequestExtras,
+    audits: readonly DealRequestAuditRow[],
+  ): AdminDealRequestModerationDetailView {
+    return {
+      ...this.admin(r, extras),
+      targets: r.targets.map((t) => ({ agencyId: t.agencyId, name: t.agency.name })),
+      proposals: r.proposals.map((p) => ({
+        id: p.id,
+        agencyId: p.agencyId,
+        agencyName: p.agency.name,
+        status: p.status,
+        message: p.message,
+        listingCount: p._count.listings,
+        createdAt: p.createdAt.toISOString(),
+      })),
+      contactGrants: r.contactGrants
+        .filter((g) => g.revokedAt === null)
+        .map((g) => ({
+          agencyId: g.agencyId,
+          agencyName: g.agency.name,
+          grantedAt: g.grantedAt.toISOString(),
+        })),
+      history: adminHistory(r, audits),
     };
   }
 
@@ -299,4 +357,84 @@ export function retentionOver(closedAt: Date | null, now: Date): boolean {
 
 function toContact(c: DealRequestContactRow): DealRequestContactView {
   return { name: c.contactName, phone: c.contactPhone, addressDetail: c.addressDetail };
+}
+
+/**
+ * The request's history, newest first, from its own timestamps (created, proposals, grants, the
+ * terminal transition) and the admin audit rows (close, spam flag / clear).
+ */
+export function adminHistory(
+  r: DealRequestAdminDetailRow,
+  audits: readonly DealRequestAuditRow[],
+): AdminDealRequestHistoryEntry[] {
+  const out: (AdminDealRequestHistoryEntry & { at: number })[] = [];
+  const push = (e: Omit<AdminDealRequestHistoryEntry, 'createdAt'>, at: Date) =>
+    out.push({ ...e, createdAt: at.toISOString(), at: at.getTime() });
+  push(
+    { id: `created:${r.id}`, action: 'DEAL_REQUEST_CREATED', actorName: null, note: null },
+    r.createdAt,
+  );
+  for (const p of r.proposals)
+    push(
+      { id: `proposal:${p.id}`, action: 'PROPOSAL_SENT', actorName: p.agency.name, note: null },
+      p.createdAt,
+    );
+  for (const g of r.contactGrants)
+    push(
+      {
+        id: `grant:${g.agencyId}`,
+        action: 'CONTACT_GRANTED',
+        actorName: g.agency.name,
+        note: g.revokedAt ? '공개 철회됨' : null,
+      },
+      g.grantedAt,
+    );
+  let adminClosed = false;
+  for (const a of audits) {
+    const after = jsonObject(a.after);
+    const note = (key: string) => (typeof after?.[key] === 'string' ? after[key] : null);
+    const actorName = a.adminUser?.name ?? null;
+    if (a.action === 'dealRequest.close') {
+      adminClosed = true;
+      push(
+        { id: a.id, action: 'DEAL_REQUEST_CLOSED', actorName, note: note('closeReason') },
+        a.createdAt,
+      );
+    } else if (a.action === 'dealRequest.spamFlag') {
+      const flagged = typeof after?.spamFlaggedAt === 'string';
+      push(
+        {
+          id: a.id,
+          action: flagged ? 'DEAL_REQUEST_SPAM_FLAGGED' : 'DEAL_REQUEST_SPAM_CLEARED',
+          actorName,
+          note: flagged ? note('spamReason') : null,
+        },
+        a.createdAt,
+      );
+    }
+  }
+  const accepted = r.proposals.find((p) => p.status === ProposalStatus.ACCEPTED);
+  if (r.status === DealRequestStatus.MATCHED && accepted)
+    push(
+      {
+        id: `matched:${r.id}`,
+        action: 'DEAL_REQUEST_MATCHED',
+        actorName: accepted.agency.name,
+        note: null,
+      },
+      accepted.respondedAt ?? accepted.createdAt,
+    );
+  if (r.closedAt) {
+    const action =
+      r.status === DealRequestStatus.CANCELLED
+        ? 'DEAL_REQUEST_CANCELLED'
+        : r.status === DealRequestStatus.EXPIRED
+          ? 'DEAL_REQUEST_EXPIRED'
+          : r.status === DealRequestStatus.CLOSED && !adminClosed
+            ? 'DEAL_REQUEST_COMPLETED'
+            : null;
+    if (action)
+      push({ id: `ended:${r.id}`, action, actorName: null, note: r.closeReason }, r.closedAt);
+  }
+  return out.sort((a, b) => b.at - a.at || a.id.localeCompare(b.id)).map(({ at: _at, ...e }) => e);
 }

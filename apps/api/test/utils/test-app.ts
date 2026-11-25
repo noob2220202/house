@@ -3,8 +3,11 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import type Redis from 'ioredis';
 import request from 'supertest';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from '../../src/app.module';
 import { configureApp, createHttpAdapter } from '../../src/bootstrap/configure-app';
+import { AppConfig } from '../../src/config/app-config.service';
+import type { Env } from '../../src/config/env.schema';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { REDIS } from '../../src/redis/redis.constants';
 
@@ -54,6 +57,31 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
     http: () => request(app.getHttpServer()),
     close: () => app.close(),
   };
+}
+
+/**
+ * `override` helper: AppConfig with some validated values replaced for one suite. The app reads
+ * only the validated env (ConfigModule skipProcessEnv), which is parsed when AppModule is first
+ * imported — so setting process.env in a beforeAll no longer reaches the app; use this instead.
+ *   createTestApp({ override: withConfig({ KAKAO_CLIENT_ID: '…' }) })
+ */
+export function withConfig(values: Partial<Env>) {
+  return (builder: TestingModuleBuilder): TestingModuleBuilder =>
+    builder.overrideProvider(AppConfig).useFactory({
+      inject: [ConfigService],
+      factory: (config: ConfigService<Env, true>) => {
+        const base = new AppConfig(config);
+        return new Proxy(base, {
+          get(target, prop, receiver) {
+            if (prop === 'get') {
+              return <K extends keyof Env>(key: K): Env[K] =>
+                key in values ? (values[key] as Env[K]) : target.get(key);
+            }
+            return Reflect.get(target, prop, receiver) as unknown;
+          },
+        });
+      },
+    });
 }
 
 function assertTestEnv(): void {

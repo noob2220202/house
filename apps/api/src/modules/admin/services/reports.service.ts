@@ -1,6 +1,8 @@
 import {
+  type AdminReportDetailView,
   type AdminReportView,
   AgencyStatus,
+  ReportAction,
   ErrorCode,
   isReportActionAllowed,
   isReportOpen,
@@ -31,7 +33,13 @@ import { DailyCapService } from '../../../common/throttle/daily-cap.service';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
 import { AgenciesService } from '../../agencies/services/agencies.service';
 import { NotificationsService } from '../../deal-requests/notifications/notifications.service';
-import { reportSelect, toAdminReportView, type ReportRow } from '../admin.mapper';
+import {
+  reportSelect,
+  reportTargetKey,
+  toAdminReportView,
+  type ReportExtras,
+  type ReportRow,
+} from '../admin.mapper';
 import { REPORT_CONTACT_RETENTION_DAYS } from '../constants';
 import { LISTING_MODERATION, type ListingModerationPort } from '../ports/listing-moderation.port';
 
@@ -133,14 +141,15 @@ export class ReportsService {
         }),
       () => this.prisma.report.count({ where }),
     );
-    return { ...page, items: page.items.map((r) => toAdminReportView(r)) };
+    const extras = await this.extrasFor(page.items);
+    return { ...page, items: page.items.map((r) => toAdminReportView(r, { extras })) };
   }
 
   /**
    * Full view including the reporter's callback number. Viewing it is a 개인정보 접속기록
    * (안전성 확보조치 기준 제8조), so it writes a `report.pii-view` audit row (no PII in the row).
    */
-  async detail(id: string): Promise<AdminReportView> {
+  async detail(id: string): Promise<AdminReportDetailView> {
     const row = await this.load(id);
     if (row.reporterPhone) {
       await this.audit.record({
@@ -150,12 +159,188 @@ export class ReportsService {
         after: { fields: ['reporterPhone'] },
       });
     }
-    return toAdminReportView(row, { revealContact: true });
+    return this.full(row, { revealContact: true });
   }
 
   /** Masked view returned by mutations (and therefore stored in their audit rows). */
   private async view(id: string, db: PrismaTx = this.prisma): Promise<AdminReportView> {
-    return toAdminReportView(await this.load(id, db));
+    return this.snapshot(await this.load(id, db), db);
+  }
+
+  private async snapshot(row: ReportRow, db: PrismaTx = this.prisma): Promise<AdminReportView> {
+    return toAdminReportView(row, { extras: await this.extrasFor([row], db) });
+  }
+
+  /**
+   * The detail: the view + other reports against the same target and the handling timeline
+   * (접수 + `report.review` / `report.resolve` audit rows). `pending` is the change being answered
+   * when its audit row is written only after the response (PATCH).
+   */
+  private async full(
+    row: ReportRow,
+    opts: {
+      revealContact?: boolean;
+      pending?: { status: ReportStatus | null; note: string | null; at: Date };
+    } = {},
+  ): Promise<AdminReportDetailView> {
+    const key = reportTargetKey(row);
+    const [extras, related, audits] = await Promise.all([
+      this.extrasFor([row]),
+      key
+        ? this.prisma.report.findMany({
+            where: {
+              id: { not: row.id },
+              ...(row.targetType === ReportTargetType.LISTING
+                ? { targetType: row.targetType, listingId: row.listingId }
+                : { targetType: row.targetType, agencyId: row.agencyId }),
+            },
+            select: { id: true, reason: true, status: true, action: true, createdAt: true },
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+          })
+        : [],
+      this.prisma.auditLog.findMany({
+        where: {
+          resourceType: 'Report',
+          resourceId: row.id,
+          action: { in: ['report.review', 'report.resolve'] },
+        },
+        select: {
+          id: true,
+          action: true,
+          before: true,
+          after: true,
+          createdAt: true,
+          adminUser: { select: { name: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      }),
+    ]);
+    const field = (v: Prisma.JsonValue | null, k: string): string | null => {
+      const o = v && typeof v === 'object' && !Array.isArray(v) ? v : null;
+      const x = o?.[k];
+      return typeof x === 'string' ? x : null;
+    };
+    const timeline: AdminReportDetailView['timeline'] = audits.map((a) => {
+      const status = field(a.after, 'status') as ReportStatus | null;
+      const note = field(a.after, 'resolutionNote');
+      const statusChanged = a.action === 'report.resolve' || status !== field(a.before, 'status');
+      const noteChanged =
+        a.action === 'report.resolve' || note !== field(a.before, 'resolutionNote');
+      return {
+        id: a.id,
+        status: statusChanged ? status : null,
+        note: noteChanged ? note : null,
+        adminName: a.adminUser?.name ?? null,
+        createdAt: a.createdAt.toISOString(),
+      };
+    });
+    if (opts.pending)
+      timeline.unshift({
+        id: `pending:${row.id}`,
+        status: opts.pending.status,
+        note: opts.pending.note,
+        adminName: row.handledBy?.name ?? null,
+        createdAt: opts.pending.at.toISOString(),
+      });
+    timeline.push({
+      id: `received:${row.id}`,
+      status: ReportStatus.RECEIVED,
+      note: null,
+      adminName: null,
+      createdAt: row.createdAt.toISOString(),
+    });
+    return {
+      ...toAdminReportView(row, { revealContact: opts.revealContact, extras }),
+      relatedReports: related.map((r) => ({
+        id: r.id,
+        reason: r.reason,
+        status: r.status,
+        action: r.action,
+        createdAt: r.createdAt.toISOString(),
+      })),
+      timeline,
+    };
+  }
+
+  /** Reporter totals and same-target counts for a page of reports (at most four queries). */
+  private async extrasFor(
+    rows: readonly ReportRow[],
+    db: PrismaTx = this.prisma,
+  ): Promise<ReportExtras> {
+    const reporterIds = [...new Set(rows.flatMap((r) => (r.reporter ? [r.reporter.id] : [])))];
+    const listingIds = [
+      ...new Set(
+        rows.flatMap((r) =>
+          r.targetType === ReportTargetType.LISTING && r.listingId ? [r.listingId] : [],
+        ),
+      ),
+    ];
+    const agencyIds = [
+      ...new Set(
+        rows.flatMap((r) =>
+          r.targetType === ReportTargetType.AGENCY && r.agencyId ? [r.agencyId] : [],
+        ),
+      ),
+    ];
+    const [filed, upheld, byListing, byAgency] = await Promise.all([
+      reporterIds.length
+        ? db.report.groupBy({
+            by: ['reporterUserId'],
+            where: { reporterUserId: { in: reporterIds } },
+            _count: { _all: true },
+          })
+        : [],
+      reporterIds.length
+        ? db.report.groupBy({
+            by: ['reporterUserId'],
+            where: {
+              reporterUserId: { in: reporterIds },
+              status: ReportStatus.RESOLVED,
+              action: { not: ReportAction.NONE },
+            },
+            _count: { _all: true },
+          })
+        : [],
+      listingIds.length
+        ? db.report.groupBy({
+            by: ['listingId'],
+            where: { targetType: ReportTargetType.LISTING, listingId: { in: listingIds } },
+            _count: { _all: true },
+          })
+        : [],
+      agencyIds.length
+        ? db.report.groupBy({
+            by: ['agencyId'],
+            where: { targetType: ReportTargetType.AGENCY, agencyId: { in: agencyIds } },
+            _count: { _all: true },
+          })
+        : [],
+    ]);
+    const upheldOf = new Map(upheld.map((u) => [u.reporterUserId, u._count._all]));
+    return {
+      reporterStats: new Map(
+        filed.flatMap((f) =>
+          f.reporterUserId
+            ? [
+                [
+                  f.reporterUserId,
+                  { reportCount: f._count._all, upheldCount: upheldOf.get(f.reporterUserId) ?? 0 },
+                ] as const,
+              ]
+            : [],
+        ),
+      ),
+      sameTarget: new Map([
+        ...byListing.flatMap((g) =>
+          g.listingId ? [[`L:${g.listingId}`, g._count._all] as const] : [],
+        ),
+        ...byAgency.flatMap((g) =>
+          g.agencyId ? [[`A:${g.agencyId}`, g._count._all] as const] : [],
+        ),
+      ]),
+    };
   }
 
   /**
@@ -182,10 +367,10 @@ export class ReportsService {
     id: string,
     dto: ReportReviewInput,
     admin: AdminPrincipal,
-  ): Promise<AdminReportView> {
+  ): Promise<AdminReportDetailView> {
     const before = await this.load(id);
     if (!isReportOpen(before.status)) throw AppException.conflict(ErrorCode.REPORT_ALREADY_HANDLED);
-    RequestContext.setAuditBefore(toAdminReportView(before));
+    RequestContext.setAuditBefore(await this.snapshot(before));
     const { count } = await this.prisma.report.updateMany({
       where: { id, status: { in: [...OPEN_REPORT_STATUSES] } },
       data: {
@@ -195,14 +380,24 @@ export class ReportsService {
       },
     });
     if (count === 0) throw AppException.conflict(ErrorCode.REPORT_ALREADY_HANDLED);
-    return this.view(id);
+    const after = await this.load(id);
+    return this.full(after, {
+      pending: {
+        status: dto.status && dto.status !== before.status ? dto.status : null,
+        note:
+          dto.note !== undefined && (dto.note || null) !== before.resolutionNote
+            ? dto.note || null
+            : null,
+        at: new Date(),
+      },
+    });
   }
 
   async resolve(
     id: string,
     dto: ReportResolveInput,
     admin: AdminPrincipal,
-  ): Promise<AdminReportView> {
+  ): Promise<AdminReportDetailView> {
     const before = await this.load(id);
     if (!isReportOpen(before.status)) throw AppException.conflict(ErrorCode.REPORT_ALREADY_HANDLED);
     const hideListing =
@@ -265,7 +460,7 @@ export class ReportsService {
           action: 'report.resolve',
           resourceType: 'Report',
           resourceId: id,
-          before: toAdminReportView(before),
+          before: await this.snapshot(before, tx),
           after,
         },
         tx,
@@ -274,7 +469,7 @@ export class ReportsService {
     });
     if (hideListing) await this.moderation.invalidateSearch();
     await this.notifications.dispatch(notifications);
-    return this.view(id);
+    return this.full(await this.load(id));
   }
 
   private async notify(

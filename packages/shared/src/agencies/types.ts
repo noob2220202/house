@@ -6,6 +6,7 @@ import type {
   AgencyStatus,
 } from '../enums/agency';
 import type { AssetType, DealType } from '../enums/listing';
+import type { AuthProvider } from '../enums/user';
 import type { MapResultKind } from '../constants/map';
 import type { AgencyDisclosure } from './disclosure';
 import type { BusinessHours } from './hours';
@@ -203,6 +204,10 @@ export interface AdminAgencyListItem {
   status: AgencyStatus;
   owner: { id: string; name: string | null; email: string | null };
   documentCount: number;
+  /** Distinct types of the submitted documents (which required ones are missing). */
+  documentTypes: AgencyDocumentType[];
+  /** Listings currently advertised (agencies.active_listing_count). */
+  activeListingCount: number;
   memberCount: number;
   warningCount: number;
   createdAt: string;
@@ -217,8 +222,12 @@ export interface AdminAgencyDetail extends MyAgency {
     email: string | null;
     phone: string | null;
     status: string;
+    createdAt: string;
+    providers: AuthProvider[];
   };
   members: AgencyMemberView[];
+  /** Public profile views. */
+  viewCount: number;
   warningCount: number;
   recentWarnings: { id: string; reason: string; reportId: string | null; createdAt: string }[];
 }

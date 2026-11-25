@@ -1,4 +1,12 @@
-import { AdminRole, ErrorCode, ListingStatus, NotificationType } from '@house/shared';
+import {
+  AdminRole,
+  ErrorCode,
+  ListingStatus,
+  NotificationType,
+  ReportReason,
+  ReportTargetType,
+  VerificationMethod,
+} from '@house/shared';
 import {
   createAgency,
   createComplex,
@@ -11,7 +19,7 @@ import {
   type TestSession,
   withoutUuids,
 } from '../../utils';
-import { adminActor, api, as, auditRows, expectAdminAuthz, expectCode } from './helpers';
+import { adminActor, api, as, auditRows, expectAdminAuthz, expectCode, pluck } from './helpers';
 
 describe('admin listing moderation (e2e)', () => {
   let t: TestApp;
@@ -67,7 +75,17 @@ describe('admin listing moderation (e2e)', () => {
       }),
     ]);
     const detail = await as(t, session, 'get', `/admin/listings/${listing.id}`).expect(200);
-    expect(detail.body.agencies).toEqual([{ id: agency.id, name: agency.name, isPrimary: true }]);
+    expect(detail.body.agencies).toEqual([
+      {
+        id: agency.id,
+        name: agency.name,
+        isPrimary: true,
+        status: 'ACTIVE',
+        contactName: null,
+        phone: null,
+        joinedAt: expect.any(String),
+      },
+    ]);
     // Random UUIDs can contain the digits 1203: check everything but the ids.
     expect(withoutUuids(detail.body)).not.toContain('1203');
     expectCode(
@@ -76,6 +94,96 @@ describe('admin listing moderation (e2e)', () => {
       ),
       ErrorCode.ADMIN_LISTING_NOT_FOUND,
     );
+  });
+
+  it('list/detail carry what the moderation screens render (co-brokers, verification, review queue, history)', async () => {
+    const { listing, agency, complex } = await fixture();
+    const co = await createAgency(t.prisma);
+    await t.prisma.listingAgency.create({
+      data: { listingId: listing.id, agencyId: co.agency.id, contactName: '김중개' },
+    });
+    await t.prisma.listing.update({
+      where: { id: listing.id },
+      data: { favoriteCount: 4, photoCount: 0, verifiedAt: null },
+    });
+    await t.prisma.report.create({
+      data: {
+        targetType: ReportTargetType.LISTING,
+        listingId: listing.id,
+        agencyId: agency.id,
+        reason: ReportReason.NOT_EXIST,
+      },
+    });
+    const verified = await createListing(t.prisma, {
+      agencyId: co.agency.id,
+      listing: { verifiedAt: new Date(), title: '확인된 매물' },
+    });
+    await t.prisma.listingVerification.create({
+      data: {
+        listingId: verified.listing.id,
+        method: VerificationMethod.OWNER_CALL,
+        verifiedAt: new Date(),
+        note: '소유자 통화',
+      },
+    });
+    const { session } = await adminActor(t, AdminRole.OPERATOR);
+
+    const list = await as(t, session, 'get', '/admin/listings').expect(200);
+    const items = list.body.items as { id: string }[];
+    const row = items.find((i) => i.id === listing.id);
+    expect(row).toMatchObject({
+      complexName: complex.name,
+      agencyCount: 2,
+      favoriteCount: 4,
+      verifiedAt: null,
+      exclusiveArea: 84.97,
+      floor: 5,
+      totalFloors: 15,
+      coverUrl: null,
+      reviewFlags: ['REPORTED', 'UNVERIFIED'],
+    });
+    expect(items.find((i) => i.id === verified.listing.id)).toMatchObject({
+      agencyCount: 1,
+      reviewFlags: [],
+      verifiedAt: expect.any(String),
+    });
+
+    const review = await as(t, session, 'get', '/admin/listings?needsReview=true').expect(200);
+    expect(pluck(review.body.items, 'id')).toEqual([listing.id]);
+    const byReports = await as(t, session, 'get', '/admin/listings?sort=REPORTS').expect(200);
+    expect(byReports.body.items[0].id).toBe(listing.id);
+    await as(t, session, 'get', '/admin/listings?sort=NOPE').expect(400);
+    const verifiedDetail = await as(
+      t,
+      session,
+      'get',
+      `/admin/listings/${verified.listing.id}`,
+    ).expect(200);
+    expect(verifiedDetail.body.verifications).toEqual([
+      expect.objectContaining({ method: 'OWNER_CALL', note: '소유자 통화', byName: null }),
+    ]);
+
+    await as(t, session, 'post', `/admin/listings/${listing.id}/hide`)
+      .send({ reason: '사진 도용 확인' })
+      .expect(200);
+    const detail = await as(t, session, 'get', `/admin/listings/${listing.id}`).expect(200);
+    expect(detail.body).toMatchObject({ rooms: 3, baths: 2, options: [], photos: [] });
+    expect(pluck(detail.body.agencies, 'contactName')).toEqual([null, '김중개']);
+    const actions = (detail.body.history as { action: string }[]).map((h) => h.action);
+    expect(actions[0]).toBe('LISTING_HIDDEN');
+    expect(actions).toEqual(
+      expect.arrayContaining([
+        'LISTING_CREATED',
+        'LISTING_PUBLISHED',
+        'LISTING_CO_BROKER_JOINED',
+        'LISTING_REPORTED',
+      ]),
+    );
+    expect(detail.body.history[0]).toMatchObject({
+      actorType: 'ADMIN',
+      actorName: expect.any(String),
+      note: '사진 도용 확인',
+    });
   });
 
   it('hide → unhide (to DRAFT) with counters, notification and audit', async () => {

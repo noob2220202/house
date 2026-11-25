@@ -3,7 +3,10 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from 
 import { ApiTags } from '@nestjs/swagger';
 import type { AdminPrincipal } from '../../../common/auth/principal';
 import { AdminOnly, Audit, CurrentAdmin } from '../../../common/decorators';
-import type { AdminDealRequestModerationView } from '../deal-request.mapper';
+import type {
+  AdminDealRequestModerationDetailView,
+  AdminDealRequestModerationView,
+} from '../deal-request.mapper';
 import {
   AdminDealRequestCloseDto,
   AdminDealRequestListQueryDto,
@@ -27,7 +30,7 @@ export class AdminDealRequestsController {
   }
 
   @Get(':id')
-  get(@Param() p: IdParamDto): Promise<AdminDealRequestModerationView> {
+  get(@Param() p: IdParamDto): Promise<AdminDealRequestModerationDetailView> {
     return this.admin.get(p.id);
   }
 
@@ -37,7 +40,7 @@ export class AdminDealRequestsController {
   close(
     @Param() p: IdParamDto,
     @Body() dto: AdminDealRequestCloseDto,
-  ): Promise<AdminDealRequestModerationView> {
+  ): Promise<AdminDealRequestModerationDetailView> {
     return this.admin.close(p.id, dto);
   }
 
@@ -52,7 +55,7 @@ export class AdminDealRequestsController {
     @Param() p: IdParamDto,
     @Body() dto: AdminDealRequestSpamFlagDto,
     @CurrentAdmin() admin: AdminPrincipal,
-  ): Promise<AdminDealRequestModerationView> {
+  ): Promise<AdminDealRequestModerationDetailView> {
     return this.admin.setSpamFlag(p.id, dto, admin.adminId);
   }
 }

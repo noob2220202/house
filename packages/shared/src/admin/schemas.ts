@@ -4,7 +4,7 @@ import { AgencyStatus } from '../enums/agency';
 import { AssetType, DealType, ListingStatus } from '../enums/listing';
 import { AdminRole, AdminStatus, UserRole, UserStatus } from '../enums/user';
 import { adminPasswordSchema } from '../schemas/auth';
-import { idSchema, paginationQuerySchema } from '../schemas/common';
+import { idSchema, paginationQuerySchema, queryBoolean } from '../schemas/common';
 import { isValidIpOrCidr } from './rules';
 
 const searchTermSchema = z.string().trim().min(1).max(100);
@@ -74,6 +74,9 @@ export const adminListingListQuerySchema = paginationQuerySchema.extend({
   complexId: idSchema.optional(),
   /** address or title */
   q: searchTermSchema.optional(),
+  /** 검수 필요: open reports, or ACTIVE / RESERVED without a 실매물 확인. */
+  needsReview: queryBoolean,
+  sort: z.enum(['LATEST', 'REPORTS', 'VIEWS', 'PRICE_DESC']).default('LATEST'),
 });
 export type AdminListingListQuery = z.infer<typeof adminListingListQuerySchema>;
 

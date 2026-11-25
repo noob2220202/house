@@ -42,6 +42,8 @@ export class NotificationReadDto extends createZodDto(notificationReadSchema) {}
  */
 export const adminDealRequestListQueryWithSpamSchema = adminDealRequestListQuerySchema.extend({
   spam: z.enum(['flagged', 'suspected']).optional(),
+  /** Search (admin search box): 단지, 주소, 내용, 요청자 닉네임. */
+  q: z.string().trim().min(1).max(100).optional(),
 });
 export type AdminDealRequestListQueryWithSpam = z.infer<
   typeof adminDealRequestListQueryWithSpamSchema

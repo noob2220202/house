@@ -8,8 +8,15 @@ import {
   ProposalStatus,
 } from '@house/shared';
 import { Prisma } from '@prisma/client';
-import { canSeeContact, DealRequestMapper, maskName } from './deal-request.mapper';
+import {
+  adminHistory,
+  canSeeContact,
+  DealRequestMapper,
+  maskName,
+  type AdminDealRequestExtras,
+} from './deal-request.mapper';
 import type {
+  DealRequestAdminDetailRow,
   DealRequestAdminRow,
   DealRequestAgencyRow,
   DealRequestBaseRow,
@@ -228,7 +235,8 @@ describe('DealRequestMapper', () => {
       deletedAt: null,
       targets: [],
     };
-    const v = mapper.admin(row);
+    const extras: AdminDealRequestExtras = { requester: null, regionNames: new Map() };
+    const v = mapper.admin(row, extras);
     expect(v.contactNameMasked).toBe('홍*동');
     expect(v.contactPhoneMasked).toBe('010-****-5678');
     expect(JSON.stringify(v)).not.toContain('01012345678');
@@ -238,8 +246,98 @@ describe('DealRequestMapper', () => {
       spamSignalCount: 0,
       spamSignals: [],
     });
-    const flagged = mapper.admin({ ...row, spamFlaggedAt: NOW, spamReason: '광고성 요청' });
+    const flagged = mapper.admin({ ...row, spamFlaggedAt: NOW, spamReason: '광고성 요청' }, extras);
     expect(flagged).toMatchObject({ spamFlaggedAt: NOW.toISOString(), spamReason: '광고성 요청' });
+  });
+
+  it('admin view carries the requester and region names', () => {
+    const row: DealRequestAdminRow = {
+      ...baseRow({ emdCode: '12150132', regionCodes: ['12150101', '99999999', '12150132'] }),
+      userId: 'u1',
+      contactName: '홍길동',
+      contactPhone: '01012345678',
+      closeReason: null,
+      contactScrubbedAt: null,
+      spamFlaggedAt: null,
+      spamReason: null,
+      deletedAt: null,
+      targets: [{ agencyId: AGENCY }],
+    };
+    const requester = {
+      id: 'u1',
+      nickname: null,
+      status: 'ACTIVE' as const,
+      createdAt: NOW.toISOString(),
+      dealRequestCount: 3,
+    };
+    const v = mapper.admin(row, {
+      requester,
+      regionNames: new Map([
+        ['12150132', '조례동'],
+        ['12150101', '향동'],
+      ]),
+    });
+    expect(v.requester).toEqual(requester);
+    expect(v.emdName).toBe('조례동');
+    expect(v.regionNames).toEqual(['향동', '조례동']);
+  });
+
+  it('admin history: created, proposals, grants, admin actions and the end, newest first', () => {
+    const t = (min: number) => new Date(NOW.getTime() + min * 60_000);
+    const row: DealRequestAdminDetailRow = {
+      ...baseRow({ status: DealRequestStatus.CANCELLED, closedAt: t(50), createdAt: t(0) }),
+      userId: 'u1',
+      contactName: '',
+      contactPhone: '',
+      closeReason: null,
+      contactScrubbedAt: null,
+      spamFlaggedAt: null,
+      spamReason: null,
+      deletedAt: null,
+      targets: [{ agencyId: AGENCY, agency: { name: '순천공인' } }],
+      proposals: [
+        {
+          id: 'p1',
+          agencyId: AGENCY,
+          status: ProposalStatus.SENT,
+          message: '안녕하세요',
+          respondedAt: null,
+          createdAt: t(10),
+          agency: { name: '순천공인' },
+          _count: { listings: 2 },
+        },
+      ],
+      contactGrants: [
+        { agencyId: AGENCY, grantedAt: t(20), revokedAt: t(50), agency: { name: '순천공인' } },
+      ],
+    };
+    const history = adminHistory(row, [
+      {
+        id: 'a1',
+        action: 'dealRequest.spamFlag',
+        after: { spamFlaggedAt: t(30).toISOString(), spamReason: '광고성' },
+        createdAt: t(30),
+        adminUser: { name: '운영자' },
+      },
+      {
+        id: 'a2',
+        action: 'dealRequest.spamFlag',
+        after: { spamFlaggedAt: null, spamReason: null },
+        createdAt: t(40),
+        adminUser: null,
+      },
+    ]);
+    expect(history.map((h) => [h.action, h.actorName, h.note])).toEqual([
+      ['DEAL_REQUEST_CANCELLED', null, null],
+      ['DEAL_REQUEST_SPAM_CLEARED', null, null],
+      ['DEAL_REQUEST_SPAM_FLAGGED', '운영자', '광고성'],
+      ['CONTACT_GRANTED', '순천공인', '공개 철회됨'],
+      ['PROPOSAL_SENT', '순천공인', null],
+      ['DEAL_REQUEST_CREATED', null, null],
+    ]);
+    expect(
+      mapper.adminDetail(row, { requester: null, regionNames: new Map() }, []).contactGrants,
+    ).toEqual([]);
   });
 });
 

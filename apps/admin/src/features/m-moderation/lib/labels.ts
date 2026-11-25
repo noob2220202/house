@@ -14,7 +14,7 @@ import {
   maskPhone,
   ReportAction,
   ReportStatus,
-  type UserStatus,
+  UserStatus,
   type AssetType,
 } from '@house/shared';
 import type { StatusTone } from '@house/ui';
@@ -398,6 +398,29 @@ export function maskPhoneOnce(phone: string | null | undefined): string {
 /** Best display name of a member: nickname → name → "회원". */
 export function userDisplayName(u: { nickname?: string | null; name?: string | null }): string {
   return u.nickname || u.name || '이름 없음';
+}
+
+/**
+ * Label of a requester / reporter: "탈퇴한 회원" only when the member is gone (no requester) or
+ * withdrawn; a live member without a nickname (e.g. a Google sign-up) is "닉네임 없음 회원".
+ */
+export function memberLabel(
+  r: { nickname?: string | null; status?: UserStatus | null } | null | undefined,
+): string {
+  if (!r || r.status === UserStatus.WITHDRAWN) return '탈퇴한 회원';
+  return r.nickname || '닉네임 없음 회원';
+}
+
+/**
+ * A member whose identity is gone: withdrawn and no name left (PII scrubbed). Decided by the
+ * status, never by a missing nickname alone — live social sign-ups may have neither.
+ */
+export function isScrubbedMember(u: {
+  status: UserStatus;
+  nickname?: string | null;
+  name?: string | null;
+}): boolean {
+  return u.status === UserStatus.WITHDRAWN && !u.nickname && !u.name;
 }
 
 // ---------- reports: target & resolution helpers ------------------------------------------------

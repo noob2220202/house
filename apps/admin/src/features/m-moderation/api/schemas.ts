@@ -486,6 +486,8 @@ const adminReportDetailModel = adminReportListItemSchema.extend({
     z.object({
       id: str,
       nickname: opt(str),
+      /** WITHDRAWN (nickname null) = 탈퇴한 회원; a live member may have no nickname. */
+      status: opt(z.enum(UserStatus)),
       /** Reports this member has filed / how many of them were upheld. */
       reportCount: opt(z.number()),
       upheldCount: opt(z.number()),
@@ -572,7 +574,19 @@ const adminDealRequestListItemModel = z.object({
   areaMax: opt(z.number()),
   targetAgencyCount: z.number().default(0),
   proposalCount: z.number().default(0),
-  requester: opt(z.object({ id: str, nickname: opt(str) })),
+  /**
+   * The requesting member (API `requester`). `status: WITHDRAWN` (nickname null) or a missing
+   * requester = 탈퇴한 회원; a live member may have no nickname (Google sign-ups).
+   */
+  requester: opt(
+    z.object({
+      id: str,
+      nickname: opt(str),
+      status: opt(z.enum(UserStatus)),
+      createdAt: opt(iso),
+      dealRequestCount: opt(z.number()),
+    }),
+  ),
   contactName: opt(str),
   /** Set while the request is flagged as spam (hidden from agencies). */
   spamFlaggedAt: opt(iso),
@@ -583,9 +597,10 @@ const adminDealRequestListItemModel = z.object({
   closedAt: opt(iso),
 });
 /**
- * Shared `AdminDealRequestView` → the moderation model: `complex.name` → `complexName`,
- * `targetAgencyIds` → `targetAgencyCount`, masked contact → `contactName` / `contactPhone`,
- * `userId` → `requester.id`.
+ * Shared `AdminDealRequestView` / `AdminDealRequestDetailView` → the moderation model:
+ * `complex.name` → `complexName`, `targetAgencyIds` → `targetAgencyCount`, masked contact →
+ * `contactName` / `contactPhone`. `requester` comes from the API; an older response with only
+ * `userId` keeps the id and leaves the status unknown (never read as withdrawn).
  */
 export function normalizeDealRequest(raw: unknown): unknown {
   if (!raw || typeof raw !== 'object' || !('userId' in raw)) return raw;
@@ -602,7 +617,7 @@ export function normalizeDealRequest(raw: unknown): unknown {
     targetAgencyCount: v.targetAgencyCount ?? v.targetAgencyIds?.length ?? 0,
     contactName: v.contactName ?? v.contactNameMasked ?? null,
     contactPhone: v.contactPhone ?? v.contactPhoneMasked ?? null,
-    requester: v.requester ?? (v.userId ? { id: v.userId, nickname: null } : null),
+    requester: v.requester ?? (v.userId ? { id: v.userId } : null),
   };
 }
 
@@ -625,16 +640,6 @@ const adminDealRequestDetailModel = adminDealRequestListItemModel.extend({
   /** Automatic abuse signals, human readable ("24시간 내 같은 연락처로 4건 등록"). */
   spamSignals: z.array(str).default([]),
   closeReason: opt(str),
-  requester: opt(
-    z.object({
-      id: str,
-      nickname: opt(str),
-      name: opt(str),
-      status: opt(z.enum(UserStatus)),
-      createdAt: opt(iso),
-      dealRequestCount: opt(z.number()),
-    }),
-  ),
   targets: z.array(z.object({ agencyId: str, name: str })).default([]),
   proposals: z
     .array(

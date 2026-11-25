@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AdminReportView } from '@house/shared';
+import type { AdminDealRequestDetailView, AdminReportView } from '@house/shared';
 import {
   agenciesDb,
   toAgencyDetailView,
@@ -212,7 +212,8 @@ describe('other real admin views', () => {
         photoCount: 6,
       },
       agency: { id: 'a1', name: '오천그린공인중개사사무소', status: 'APPROVED', warningCount: 0 },
-      reporter: { id: 'u1', nickname: '신고자' },
+      reporter: { id: 'u1', nickname: null, status: 'ACTIVE', reportCount: 3, upheldCount: 1 },
+      sameTargetCount: 2,
       reporterPhone: null,
       reason: 'ALREADY_DEALT',
       detail: '이미 거래가 끝난 매물입니다.',
@@ -232,6 +233,8 @@ describe('other real admin views', () => {
       photoCount: 6,
     });
     expect(adminReportListItemSchema.parse(view).listing?.dealType).toBe('JEONSE');
+    expect(parsed.reporter).toMatchObject({ status: 'ACTIVE', reportCount: 3, upheldCount: 1 });
+    expect(parsed.sameTargetCount).toBe(2);
   });
 
   it('maps AdminDealRequestView (complex, targets, masked contact, userId)', () => {
@@ -285,6 +288,90 @@ describe('other real admin views', () => {
       contactName: '김*수',
       contactPhone: '010-****-5678',
       requester: { id: 'u1' },
+    });
+    // An older response without `requester` never reads as withdrawn.
+    expect(parsed.requester?.status).toBeUndefined();
+  });
+
+  it('keeps the API requester summary, region names, offices and history', () => {
+    const view: AdminDealRequestDetailView = {
+      id: 'd2',
+      type: 'WANTED',
+      status: 'OPEN',
+      assetType: 'APT',
+      dealTypes: ['SALE'],
+      visibility: 'ALL_AGENCIES_IN_REGION',
+      sggCode: '12150',
+      emdCode: null,
+      roadAddress: null,
+      complex: null,
+      lat: null,
+      lng: null,
+      exclusiveArea: null,
+      floor: null,
+      desiredSalePrice: null,
+      desiredDeposit: null,
+      desiredMonthlyRent: null,
+      regionCodes: ['12150101'],
+      complexIds: [],
+      priceMin: null,
+      priceMax: 30000,
+      depositMin: null,
+      depositMax: null,
+      rentMin: null,
+      rentMax: null,
+      areaMin: null,
+      areaMax: null,
+      roomsMin: null,
+      moveInDate: null,
+      description: null,
+      photos: [],
+      proposalCount: 1,
+      expiresAt: null,
+      closedAt: null,
+      createdAt: T,
+      userId: 'u2',
+      requester: {
+        id: 'u2',
+        nickname: null,
+        status: 'ACTIVE',
+        createdAt: T,
+        dealRequestCount: 2,
+      },
+      emdName: null,
+      regionNames: ['향동'],
+      contactNameMasked: '김*수',
+      contactPhoneMasked: '010-****-5678',
+      targetAgencyIds: ['a1'],
+      closeReason: null,
+      contactScrubbedAt: null,
+      deletedAt: null,
+      targets: [{ agencyId: 'a1', name: '순천공인' }],
+      proposals: [
+        {
+          id: 'p1',
+          agencyId: 'a1',
+          agencyName: '순천공인',
+          status: 'SENT',
+          message: '추천 매물',
+          listingCount: 1,
+          createdAt: T,
+        },
+      ],
+      contactGrants: [],
+      history: [
+        { id: 'h1', action: 'DEAL_REQUEST_CREATED', actorName: null, note: null, createdAt: T },
+      ],
+    };
+    const parsed = adminDealRequestDetailSchema.parse(view);
+    expect(parsed.requester).toEqual(view.requester);
+    expect(parsed.regionNames).toEqual(['향동']);
+    expect(parsed.targets).toEqual([{ agencyId: 'a1', name: '순천공인' }]);
+    expect(parsed.proposals[0]).toMatchObject({ agencyName: '순천공인', listingCount: 1 });
+    expect(parsed.history).toHaveLength(1);
+    expect(adminDealRequestListItemSchema.parse(view).requester).toMatchObject({
+      status: 'ACTIVE',
+      nickname: null,
     });
   });
 

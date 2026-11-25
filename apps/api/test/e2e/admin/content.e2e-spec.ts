@@ -47,7 +47,11 @@ describe('content: notices / FAQ / videos / site settings (e2e)', () => {
       const draft = await as(t, session, 'post', '/admin/notices')
         .send({ title: '초안', content: '내용' })
         .expect(201);
-      expect(draft.body).toMatchObject({ isPublished: false, publishedAt: null });
+      expect(draft.body).toMatchObject({
+        isPublished: false,
+        publishedAt: null,
+        createdByAdminName: admin.name,
+      });
       const normal = await as(t, session, 'post', '/admin/notices')
         .send({ title: '일반 공지', content: '본문', isPublished: true })
         .expect(201);
@@ -93,6 +97,9 @@ describe('content: notices / FAQ / videos / site settings (e2e)', () => {
         '/admin/notices?isPublished=true&q=공지',
       ).expect(200);
       expect(adminList.body.total).toBe(2);
+      expect(pluck(adminList.body.items, 'createdByAdminName')).toEqual([admin.name, admin.name]);
+      // The public views never name the author.
+      expect(list.body.items[0]).not.toHaveProperty('createdByAdminName');
       await as(t, session, 'get', `/admin/notices/${draft.body.id}`).expect(200);
 
       await as(t, session, 'delete', `/admin/notices/${normal.body.id}`).expect(204);

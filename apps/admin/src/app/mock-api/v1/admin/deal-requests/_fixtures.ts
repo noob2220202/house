@@ -303,7 +303,8 @@ const SEEDS: Seed[] = [
     type: 'WANTED',
     asset: 'APT',
     deals: ['SALE'],
-    member: 22,
+    // A withdrawn member's request (requester.status WITHDRAWN, nickname null).
+    member: 12,
     age: [0, 20, 0],
     regions: ['오천지구'],
     priceMax: 30000,
@@ -353,24 +354,19 @@ function build(s: Seed): AdminDealRequestDetail {
     add(
       'DEAL_REQUEST_CLOSED',
       ago({ d: Math.max(0, d - 2), h: 2 }),
-      user?.nickname ?? '요청자',
+      '한지우',
       s.closeReason ?? null,
     );
   if (status === 'CANCELLED')
-    add('DEAL_REQUEST_CANCELLED', ago({ d: Math.max(0, d - 1), h: 2 }), user?.nickname ?? '요청자');
+    add('DEAL_REQUEST_CANCELLED', ago({ d: Math.max(0, d - 1), h: 2 }), null);
   if (status === 'EXPIRED')
     add('DEAL_REQUEST_EXPIRED', ago({ d: Math.max(0, d - 30) }), null, '등록 후 30일 경과');
-  if (status === 'MATCHED') add('DEAL_REQUEST_MATCHED', ago({ h: 6 }), user?.nickname ?? '요청자');
+  if (status === 'MATCHED') add('DEAL_REQUEST_MATCHED', ago({ h: 6 }), null);
   (s.grants ?? []).forEach((key) =>
-    add(
-      'CONTACT_GRANTED',
-      ago({ d: Math.max(0, d - 1), h: Math.max(1, h - 2) }),
-      user?.nickname ?? '요청자',
-      office(key).name,
-    ),
+    add('CONTACT_GRANTED', ago({ d: Math.max(0, d - 1), h: Math.max(1, h - 2) }), office(key).name),
   );
   proposals.forEach((p) => add('PROPOSAL_SENT', p.createdAt, p.agencyName));
-  add('DEAL_REQUEST_CREATED', createdAt, user?.nickname ?? '요청자');
+  add('DEAL_REQUEST_CREATED', createdAt, null);
   history.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   return {
@@ -403,10 +399,10 @@ function build(s: Seed): AdminDealRequestDetail {
     description: s.description ?? null,
     targetAgencyCount: s.targets.length,
     proposalCount: proposals.length,
+    // Real API: the requester summary; a withdrawn member has no nickname.
     requester: {
       id: memberId(s.member),
-      nickname: user?.nickname ?? null,
-      name: user?.name ?? null,
+      nickname: user?.status === 'WITHDRAWN' ? null : (user?.nickname ?? null),
       status: user?.status ?? 'ACTIVE',
       createdAt: user?.createdAt ?? null,
       dealRequestCount: Math.max(
@@ -458,14 +454,10 @@ export function toDealRequestListItem(r: AdminDealRequestDetail): AdminDealReque
     proposals,
     contactGrants,
     history,
-    requester,
     ...item
   } = r;
   /* eslint-enable @typescript-eslint/no-unused-vars */
-  return {
-    ...item,
-    requester: requester ? { id: requester.id, nickname: requester.nickname } : null,
-  };
+  return item;
 }
 
 export function addDealRequestHistory(

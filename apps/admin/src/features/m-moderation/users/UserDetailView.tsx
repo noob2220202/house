@@ -35,6 +35,7 @@ import {
   USER_STATUS_META,
   isScrubbed,
   shortId,
+  isScrubbedMember,
   userDisplayName,
 } from '../lib/labels';
 import { USER_SUSPEND_PRESETS } from '../lib/reasons';
@@ -206,7 +207,7 @@ export function UserDetailView({ id }: { id: string }) {
 
   const status = USER_STATUS_META[user.status];
   const scrubbed = isScrubbed(user);
-  const anonymous = !user.nickname && !user.name;
+  const anonymous = isScrubbedMember(user);
   const name = anonymous ? '탈퇴한 회원' : userDisplayName(user);
   const isBroker = user.role !== UserRole.USER;
   const activity = user.activity;

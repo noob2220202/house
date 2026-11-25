@@ -107,6 +107,43 @@ export type DealRequestAdminRow = Prisma.DealRequestGetPayload<{
   select: typeof dealRequestAdminSelect;
 }>;
 
+/**
+ * Admin detail: the admin select + the offices the request went to, their proposals and every
+ * contact grant (revoked ones too, for the history) with agency names.
+ */
+export const dealRequestAdminDetailSelect = {
+  ...dealRequestAdminSelect,
+  targets: {
+    select: { agencyId: true, agency: { select: { name: true } } },
+    orderBy: { createdAt: 'asc' },
+  },
+  proposals: {
+    select: {
+      id: true,
+      agencyId: true,
+      status: true,
+      message: true,
+      respondedAt: true,
+      createdAt: true,
+      agency: { select: { name: true } },
+      _count: { select: { listings: true } },
+    },
+    orderBy: { createdAt: 'asc' },
+  },
+  contactGrants: {
+    select: {
+      agencyId: true,
+      grantedAt: true,
+      revokedAt: true,
+      agency: { select: { name: true } },
+    },
+    orderBy: { grantedAt: 'asc' },
+  },
+} satisfies Prisma.DealRequestSelect;
+export type DealRequestAdminDetailRow = Prisma.DealRequestGetPayload<{
+  select: typeof dealRequestAdminDetailSelect;
+}>;
+
 /** A proposal as the requester sees it (agency disclosure is joined via AgenciesService). */
 export const proposalOwnerSelect = {
   id: true,

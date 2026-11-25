@@ -47,6 +47,7 @@ import {
   listingSpec,
   reportActionOf,
   reportSlaLabel,
+  memberLabel,
   reportTargetTitle,
   shortId,
 } from '../lib/labels';
@@ -418,7 +419,7 @@ export function ReportDetailView({ id }: { id: string }) {
                             href={`${ADMIN_ROUTES.users}/${report.reporter.id}`}
                             className="link"
                           >
-                            {report.reporter.nickname ?? '닉네임 없음'}
+                            {memberLabel(report.reporter)}
                           </Link>
                           {report.reporter.reportCount != null && (
                             <span className={s.mutedText}>

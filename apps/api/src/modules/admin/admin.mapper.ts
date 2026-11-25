@@ -10,6 +10,8 @@ import {
   maskPhone,
   type NoticeListItem,
   type NoticeView,
+  ReportTargetType,
+  UserStatus,
   youtubeEmbedUrl,
 } from '@house/shared';
 import type { AdminUser, Faq, LocalVideo, Notice, Prisma } from '@prisma/client';
@@ -86,16 +88,40 @@ export const reportSelect = {
     },
   },
   agency: { select: { id: true, name: true, status: true, warningCount: true } },
-  reporter: { select: { id: true, nickname: true } },
+  reporter: { select: { id: true, nickname: true, status: true, piiScrubbedAt: true } },
   handledBy: { select: { id: true, name: true } },
 } satisfies Prisma.ReportSelect;
 export type ReportRow = Prisma.ReportGetPayload<{ select: typeof reportSelect }>;
 
+/** Batched per-page figures of the report views (ReportsService.extrasFor). */
+export interface ReportExtras {
+  /** reporter user id → reports filed / upheld. */
+  reporterStats: ReadonlyMap<string, { reportCount: number; upheldCount: number }>;
+  /** `reportTargetKey` → reports against that target. */
+  sameTarget: ReadonlyMap<string, number>;
+}
+
+const NO_EXTRAS: ReportExtras = { reporterStats: new Map(), sameTarget: new Map() };
+
+/** The target a report is about: its listing, or its agency for an AGENCY report. */
+export function reportTargetKey(
+  r: Pick<ReportRow, 'targetType' | 'listingId' | 'agencyId'>,
+): string | null {
+  if (r.targetType === ReportTargetType.LISTING) return r.listingId ? `L:${r.listingId}` : null;
+  return r.agencyId ? `A:${r.agencyId}` : null;
+}
+
 /** `revealContact`: full reporterPhone (audited read); masked otherwise. */
 export function toAdminReportView(
   r: ReportRow,
-  opts: { revealContact?: boolean } = {},
+  opts: { revealContact?: boolean; extras?: ReportExtras } = {},
 ): AdminReportView {
+  const extras = opts.extras ?? NO_EXTRAS;
+  const key = reportTargetKey(r);
+  const gone = r.reporter
+    ? r.reporter.status === UserStatus.WITHDRAWN || r.reporter.piiScrubbedAt !== null
+    : false;
+  const stats = r.reporter ? extras.reporterStats.get(r.reporter.id) : undefined;
   return {
     id: r.id,
     targetType: r.targetType,
@@ -126,7 +152,16 @@ export function toAdminReportView(
         }
       : null,
     agency: r.agency,
-    reporter: r.reporter,
+    reporter: r.reporter
+      ? {
+          id: r.reporter.id,
+          nickname: gone ? null : r.reporter.nickname,
+          status: gone ? UserStatus.WITHDRAWN : r.reporter.status,
+          reportCount: stats?.reportCount ?? 1,
+          upheldCount: stats?.upheldCount ?? 0,
+        }
+      : null,
+    sameTargetCount: (key ? extras.sameTarget.get(key) : undefined) ?? 1,
     reporterPhone:
       r.reporterPhone && !opts.revealContact ? maskPhone(r.reporterPhone) : r.reporterPhone,
     reason: r.reason,
@@ -157,10 +192,14 @@ export function toNoticeView(n: Notice): NoticeView {
   return { ...toNoticeListItem(n), content: n.content };
 }
 
-export function toAdminNoticeView(n: Notice): AdminNoticeView {
+/** `createdByAdmin` must be loaded (NoticesService includes it); null when the admin is gone. */
+export function toAdminNoticeView(
+  n: Notice & { createdByAdmin: { name: string } | null },
+): AdminNoticeView {
   return {
     ...toNoticeView(n),
     isPublished: n.isPublished,
+    createdByAdminName: n.createdByAdmin?.name ?? null,
     createdAt: n.createdAt.toISOString(),
     updatedAt: n.updatedAt.toISOString(),
   };

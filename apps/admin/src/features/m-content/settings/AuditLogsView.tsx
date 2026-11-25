@@ -54,8 +54,13 @@ const ROW_CLASS = {
   unchanged: undefined,
 } as const;
 
+/** A USER row is a member's own action; an ADMIN row without a name is a deleted account. */
 const actorName = (log: AuditLog) =>
-  log.actorType === 'SYSTEM' ? '시스템 (자동 실행)' : (log.adminName ?? log.adminEmail ?? '회원');
+  log.actorType === 'SYSTEM'
+    ? '시스템 (자동 실행)'
+    : log.actorType === 'USER'
+      ? '회원'
+      : (log.adminName ?? log.adminEmail ?? '삭제된 관리자 계정');
 
 /** A missing value reads "없음" in muted text (never struck through). */
 function DiffValue({ value }: { value: unknown }) {

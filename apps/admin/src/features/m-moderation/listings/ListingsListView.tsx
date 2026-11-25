@@ -244,9 +244,7 @@ export function ListingsListView() {
         flush
         title={tab === 'REVIEW' ? '검수가 필요한 매물' : '매물 목록'}
         count={list.data ? formatCount(list.data.total) : undefined}
-        description={
-          tab === 'REVIEW' ? '신고 접수 · 실매물 미확인 · 확인 기한 경과 · 시세 이탈' : undefined
-        }
+        description={tab === 'REVIEW' ? '신고 접수 · 실매물 미확인' : undefined}
         actions={
           <div className={s.filters}>
             {filtered && <ResetFiltersButton onClick={() => reset({ tab, sort: values.sort })} />}

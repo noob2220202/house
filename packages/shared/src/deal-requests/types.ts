@@ -7,7 +7,7 @@ import type {
   ProposalStatus,
 } from '../enums/deal-request';
 import type { AssetType, DealType, ListingStatus } from '../enums/listing';
-import type { NotificationType } from '../enums/user';
+import type { NotificationType, UserStatus } from '../enums/user';
 import type { DealRequestAreaRange } from './public-view';
 
 export interface DealRequestPhotoView {
@@ -202,13 +202,79 @@ export interface NotificationReadResult {
   unread: number;
 }
 
+/**
+ * The requesting member as admins see it. A withdrawn member (or one whose PII was scrubbed) is
+ * `status: WITHDRAWN` with `nickname: null`; a live member may also have no nickname (social
+ * sign-ups such as Google), which must not be read as "withdrawn".
+ */
+export interface AdminDealRequestRequesterView {
+  id: string;
+  nickname: string | null;
+  status: UserStatus;
+  createdAt: string;
+  /** Requests this member has registered (deleted ones included). */
+  dealRequestCount: number;
+}
+
+export interface AdminDealRequestAgencyRef {
+  agencyId: string;
+  name: string;
+}
+
+export interface AdminDealRequestProposalRef {
+  id: string;
+  agencyId: string;
+  agencyName: string;
+  status: ProposalStatus;
+  message: string | null;
+  listingCount: number;
+  createdAt: string;
+}
+
+export interface AdminDealRequestGrantRef {
+  agencyId: string;
+  agencyName: string;
+  grantedAt: string;
+}
+
 /** Admin moderation view: requester id and a masked phone, never the full contact. */
 export interface AdminDealRequestView extends DealRequestBaseView {
   userId: string;
+  /** Null only when the member row no longer exists. */
+  requester: AdminDealRequestRequesterView | null;
+  /** 내놓기: 법정동 name of `emdCode` (null when unknown). */
+  emdName: string | null;
+  /** 구하기: names of `regionCodes` that resolve, in order. */
+  regionNames: string[];
   contactNameMasked: string;
   contactPhoneMasked: string;
   targetAgencyIds: string[];
   closeReason: string | null;
   contactScrubbedAt: string | null;
   deletedAt: string | null;
+}
+
+/**
+ * One line of an admin request history. `action` is one of DEAL_REQUEST_CREATED, PROPOSAL_SENT,
+ * CONTACT_GRANTED, DEAL_REQUEST_CLOSED, DEAL_REQUEST_SPAM_FLAGGED, DEAL_REQUEST_SPAM_CLEARED,
+ * DEAL_REQUEST_CANCELLED, DEAL_REQUEST_MATCHED, DEAL_REQUEST_EXPIRED, DEAL_REQUEST_COMPLETED
+ * (closed by the requester).
+ */
+export interface AdminDealRequestHistoryEntry {
+  id: string;
+  action: string;
+  /** Office or admin name; null for the requester / the system. */
+  actorName: string | null;
+  note: string | null;
+  createdAt: string;
+}
+
+/** GET /admin/deal-requests/:id: the list view + offices, proposals, grants and history. */
+export interface AdminDealRequestDetailView extends AdminDealRequestView {
+  targets: AdminDealRequestAgencyRef[];
+  proposals: AdminDealRequestProposalRef[];
+  /** Active (unrevoked) grants. */
+  contactGrants: AdminDealRequestGrantRef[];
+  /** Newest first. */
+  history: AdminDealRequestHistoryEntry[];
 }

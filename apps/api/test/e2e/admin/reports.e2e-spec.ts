@@ -381,6 +381,69 @@ describe('reports (e2e)', () => {
         .expect(409);
     });
 
+    it('reporter summary, same-target count, related reports and the handling timeline', async () => {
+      const { reportId, listing, agency, reporter } = await openReport();
+      // An earlier, rejected report on the same listing by a member who has since withdrawn.
+      const gone = await createUser(t.prisma, {
+        nickname: '떠난신고자',
+        status: 'WITHDRAWN',
+        withdrawnAt: new Date(),
+      });
+      const old = await t.prisma.report.create({
+        data: {
+          targetType: ReportTargetType.LISTING,
+          listingId: listing.id,
+          agencyId: agency.id,
+          reporterUserId: gone.id,
+          reason: ReportReason.WRONG_PRICE,
+          status: ReportStatus.REJECTED,
+          handledAt: new Date(),
+          createdAt: new Date(Date.now() - 86_400_000),
+        },
+      });
+      const { session } = await adminActor(t, AdminRole.OPERATOR);
+
+      const list = await as(t, session, 'get', '/admin/reports').expect(200);
+      const byId = new Map(
+        (list.body.items as { id: string }[]).map((i) => [i.id, i as Record<string, unknown>]),
+      );
+      expect(byId.get(reportId)).toMatchObject({
+        sameTargetCount: 2,
+        reporter: {
+          id: reporter.id,
+          nickname: reporter.nickname,
+          status: 'ACTIVE',
+          reportCount: 1,
+          upheldCount: 0,
+        },
+      });
+      expect(byId.get(old.id)).toMatchObject({
+        reporter: { id: gone.id, nickname: null, status: 'WITHDRAWN' },
+      });
+      expect(JSON.stringify(list.body)).not.toContain('떠난신고자');
+
+      const reviewed = await as(t, session, 'patch', `/admin/reports/${reportId}`)
+        .send({ status: 'IN_REVIEW', note: '현장 확인 예정' })
+        .expect(200);
+      expect(reviewed.body.relatedReports).toEqual([
+        expect.objectContaining({ id: old.id, status: 'REJECTED', reason: 'WRONG_PRICE' }),
+      ]);
+      expect(reviewed.body.timeline).toMatchObject([
+        { status: 'IN_REVIEW', note: '현장 확인 예정' },
+        { status: 'RECEIVED', note: null, adminName: null },
+      ]);
+      await as(t, session, 'post', `/admin/reports/${reportId}/resolve`)
+        .send({ status: 'RESOLVED', action: ReportAction.LISTING_HIDDEN, note: '허위 확인' })
+        .expect(200);
+      const detail = await as(t, session, 'get', `/admin/reports/${reportId}`).expect(200);
+      expect(detail.body.timeline).toMatchObject([
+        { status: 'RESOLVED', note: '허위 확인', adminName: expect.any(String) },
+        { status: 'IN_REVIEW', note: '현장 확인 예정', adminName: expect.any(String) },
+        { status: 'RECEIVED' },
+      ]);
+      expect(detail.body.reporter).toMatchObject({ reportCount: 1, upheldCount: 1 });
+    });
+
     it('rejects actions that do not fit the target (400) and validates the body', async () => {
       const { reportId, session: userSession } = await openReport(ReportTargetType.AGENCY);
       const { session } = await adminActor(t, AdminRole.OPERATOR);

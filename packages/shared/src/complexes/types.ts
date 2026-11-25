@@ -185,11 +185,27 @@ export interface FavoriteComplexItem {
   complex: ComplexSummary;
 }
 
+export interface AdminComplexAreaTypeView extends ComplexAreaTypeView {
+  /** Trades matched to this 평형 (cancelled included). */
+  tradeCount: number;
+  /** 만원, latest non-cancelled 매매 of this 평형. */
+  lastSalePrice: number | null;
+}
+
 export interface AdminComplexView
-  extends Omit<ComplexDetail, 'latestTrades' | 'listingSummary' | 'isFavorite'> {
+  extends Omit<ComplexDetail, 'latestTrades' | 'listingSummary' | 'isFavorite' | 'areaTypes'> {
   jibun: string | null;
   externalCode: string | null;
+  areaTypes: AdminComplexAreaTypeView[];
   tradeCount: number;
+  trades: {
+    /** Trades matched to the 단지 (= tradeCount). */
+    total: number;
+    /** Matched to the 단지 but to no 평형 (non-cancelled). */
+    unmatched: number;
+    /** Latest non-cancelled deal date (YYYY-MM-DD). */
+    lastDealDate: string | null;
+  };
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;

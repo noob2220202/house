@@ -60,6 +60,8 @@ describe('agencies: admin review (e2e)', () => {
       expect(res.body.items[0]).toMatchObject({
         status: 'PENDING',
         documentCount: 1,
+        documentTypes: ['REGISTRATION_CERT'],
+        activeListingCount: 0,
         memberCount: 1,
         owner: { id: first.owner.id },
       });
@@ -99,6 +101,10 @@ describe('agencies: admin review (e2e)', () => {
   describe('GET /api/v1/admin/agencies/:id', () => {
     it('200: full detail incl. owner contact, documents and members', async () => {
       const { agency, owner } = await createPendingAgency(t.prisma);
+      await t.prisma.identity.create({
+        data: { userId: owner.id, provider: 'GOOGLE', providerUserId: `g-${owner.id}` },
+      });
+      await t.prisma.agency.update({ where: { id: agency.id }, data: { viewCount: 7 } });
       const { s } = await admin();
       const res = await withSession(t.http().get(`/api/v1/admin/agencies/${agency.id}`), s).expect(
         200,
@@ -107,7 +113,13 @@ describe('agencies: admin review (e2e)', () => {
         id: agency.id,
         status: 'PENDING',
         businessNumber: '2208162517',
-        owner: { id: owner.id, email: owner.email },
+        owner: {
+          id: owner.id,
+          email: owner.email,
+          createdAt: owner.createdAt.toISOString(),
+          providers: ['GOOGLE'],
+        },
+        viewCount: 7,
         warningCount: 0,
       });
       expect(res.body.documents).toHaveLength(1);

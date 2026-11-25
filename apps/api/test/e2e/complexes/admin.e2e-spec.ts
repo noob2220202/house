@@ -167,7 +167,7 @@ describe('complexes: admin API (e2e)', () => {
 
   describe('GET /admin/complexes[/:id]', () => {
     it('lists (optionally with deleted / missing 국토교통부 code) and shows admin-only fields', async () => {
-      const { complex } = await seedBuyoung(t, { externalCode: '12150-1001' });
+      const { complex, at84 } = await seedBuyoung(t, { externalCode: '12150-1001' });
       const gone = await createComplex(t.prisma, { name: '철거단지', deletedAt: new Date() });
       await insertTrade(t, { complexId: complex.id });
 
@@ -194,6 +194,36 @@ describe('complexes: admin API (e2e)', () => {
         jibun: '1234-5',
         externalCode: '12150-1001',
         tradeCount: 1,
+        trades: { total: 1, unmatched: 1, lastDealDate: '2024-10-01' },
+      });
+      // Per-평형 trade figures: count (cancelled included) and the latest non-cancelled 매매.
+      await insertTrade(t, {
+        complexId: complex.id,
+        areaTypeId: at84.id,
+        price: 41000,
+        dealDate: new Date('2024-11-02T00:00:00Z'),
+      });
+      await insertTrade(t, {
+        complexId: complex.id,
+        areaTypeId: at84.id,
+        price: 99000,
+        cancelled: true,
+        dealDate: new Date('2024-12-01T00:00:00Z'),
+      });
+      const again = await withSession(t.http().get(`${BASE}/${complex.id}`), operator).expect(200);
+      expect(again.body.trades).toEqual({ total: 3, unmatched: 1, lastDealDate: '2024-11-02' });
+      const types = again.body.areaTypes as {
+        id: string;
+        tradeCount: number;
+        lastSalePrice: number | null;
+      }[];
+      expect(types.find((a) => a.id === at84.id)).toMatchObject({
+        tradeCount: 2,
+        lastSalePrice: 41000,
+      });
+      expect(types.find((a) => a.id !== at84.id)).toMatchObject({
+        tradeCount: 0,
+        lastSalePrice: null,
       });
       const deleted = await withSession(t.http().get(`${BASE}/${gone.id}`), operator).expect(200);
       expect(deleted.body.deletedAt).not.toBeNull();

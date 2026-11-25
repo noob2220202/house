@@ -1,4 +1,4 @@
-import type { AdminReportView, Paginated } from '@house/shared';
+import type { AdminReportDetailView, AdminReportView, Paginated } from '@house/shared';
 import { AdminPermission } from '@house/shared';
 import {
   Body,
@@ -31,7 +31,7 @@ export class AdminReportsController {
   }
 
   @Get(':id')
-  detail(@Param() p: IdParamDto): Promise<AdminReportView> {
+  detail(@Param() p: IdParamDto): Promise<AdminReportDetailView> {
     return this.reports.detail(p.id);
   }
 
@@ -41,7 +41,7 @@ export class AdminReportsController {
     @Param() p: IdParamDto,
     @Body() dto: ReportReviewDto,
     @CurrentAdmin() admin: AdminPrincipal,
-  ): Promise<AdminReportView> {
+  ): Promise<AdminReportDetailView> {
     return this.reports.review(p.id, dto, admin);
   }
 
@@ -51,7 +51,7 @@ export class AdminReportsController {
     @Param() p: IdParamDto,
     @Body() dto: ReportResolveDto,
     @CurrentAdmin() admin: AdminPrincipal,
-  ): Promise<AdminReportView> {
+  ): Promise<AdminReportDetailView> {
     return this.reports.resolve(p.id, dto, admin);
   }
 }

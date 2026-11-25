@@ -37,7 +37,26 @@ describe('admin members & accounts (e2e)', () => {
         phone: '01098765432',
       });
       await t.prisma.identity.create({
-        data: { userId: member.id, provider: AuthProvider.KAKAO, providerUserId: 'k-1' },
+        data: {
+          userId: member.id,
+          provider: AuthProvider.KAKAO,
+          providerUserId: 'k-1',
+          email: 'love.kakao@example.com',
+          emailVerified: true,
+        },
+      });
+      const terms = await t.prisma.termsDocument.create({
+        data: {
+          type: 'SERVICE',
+          version: '1.0',
+          title: '서비스 이용약관',
+          content: '본문',
+          isRequired: true,
+          effectiveAt: new Date(),
+        },
+      });
+      await t.prisma.userConsent.create({
+        data: { userId: member.id, termsDocumentId: terms.id, agreed: true },
       });
       const { agency } = await createAgency(t.prisma, { ownerUserId: member.id });
       await loginUser(t.app, member);
@@ -50,6 +69,9 @@ describe('admin members & accounts (e2e)', () => {
           email: 'lo***@example.com',
           phone: '010-****-5432',
           providers: [AuthProvider.KAKAO],
+          agency: { id: agency.id, name: agency.name },
+          suspendedAt: null,
+          withdrawnAt: null,
         }),
       ]);
       const byPhone = await as(t, session, 'get', '/admin/users?q=9876-5432').expect(200);
@@ -62,7 +84,24 @@ describe('admin members & accounts (e2e)', () => {
       expect(detail.body).toMatchObject({
         phone: '01098765432',
         email: 'love@example.com',
-        identities: [expect.objectContaining({ provider: AuthProvider.KAKAO })],
+        identities: [
+          expect.objectContaining({
+            provider: AuthProvider.KAKAO,
+            email: 'love.kakao@example.com',
+            emailVerified: true,
+          }),
+        ],
+        consents: [
+          expect.objectContaining({
+            termsType: 'SERVICE',
+            termsTitle: '서비스 이용약관',
+            version: '1.0',
+            isRequired: true,
+            agreed: true,
+          }),
+        ],
+        sanctions: [],
+        piiScrubAfter: null,
         memberships: [expect.objectContaining({ agencyId: agency.id, role: 'OWNER' })],
         activeSessions: 1,
       });
@@ -103,6 +142,15 @@ describe('admin members & accounts (e2e)', () => {
         activeSessions: 0,
         email: 'ho***@example.com',
         phone: '010-****-2222',
+        sanctions: [
+          {
+            id: expect.any(String),
+            action: 'SUSPENDED',
+            reason: '허위매물 반복 등록',
+            adminName: expect.any(String),
+            createdAt: expect.any(String),
+          },
+        ],
       });
       await withSession(t.http().get(api('/auth/me')), memberSession).expect(401);
       const audits = await t.prisma.auditLog.findMany({ where: { resourceId: member.id } });
@@ -130,6 +178,7 @@ describe('admin members & accounts (e2e)', () => {
       );
       const back = await as(t, session, 'post', `/admin/users/${member.id}/unsuspend`).expect(200);
       expect(back.body).toMatchObject({ status: UserStatus.ACTIVE, suspendedAt: null });
+      expect(pluck(back.body.sanctions, 'action')).toEqual(['UNSUSPENDED', 'SUSPENDED']);
       expect((await auditRows(t, 'member.unsuspend'))[0]?.after).toMatchObject({
         status: UserStatus.ACTIVE,
       });

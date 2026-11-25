@@ -10,7 +10,17 @@ import type {
   SiteSettingKey,
 } from '../enums/admin';
 import type { AgencyMemberRole, AgencyMemberStatus, AgencyStatus } from '../enums/agency';
-import type { AssetType, DealType, FloorClass, ListingStatus } from '../enums/listing';
+import type {
+  AssetType,
+  DealType,
+  Direction,
+  FloorClass,
+  ListingAgencyStatus,
+  ListingOption,
+  ListingStatus,
+  MoveInType,
+  VerificationMethod,
+} from '../enums/listing';
 import type {
   AdminRole,
   AdminStatus,
@@ -57,22 +67,38 @@ export interface MemberListItem {
   role: UserRole;
   status: UserStatus;
   providers: AuthProvider[];
+  /** The member's current agency (latest ACTIVE membership), null for a plain member. */
+  agency: { id: string; name: string } | null;
   createdAt: string;
   lastLoginAt: string | null;
+  suspendedAt: string | null;
+  withdrawnAt: string | null;
 }
 
 /**
  * GET /admin/users/:id returns email/phone unmasked (and logs a `member.pii-view` audit row);
  * the suspend/unsuspend responses return them masked like the list.
  */
-export interface MemberDetail extends Omit<MemberListItem, 'providers'> {
+export interface MemberDetail extends Omit<MemberListItem, 'providers' | 'agency'> {
   marketingOptIn: boolean;
-  suspendedAt: string | null;
   suspendedReason: string | null;
-  withdrawnAt: string | null;
   withdrawalReason: string | null;
+  /** When the withdrawal PII scrub runs (null until withdrawal). */
+  piiScrubAfter: string | null;
   piiScrubbedAt: string | null;
-  identities: { provider: AuthProvider; createdAt: string; lastUsedAt: string | null }[];
+  /** `email` is what the provider gave (masked in the suspend/unsuspend responses). */
+  identities: {
+    id: string;
+    provider: AuthProvider;
+    email: string | null;
+    emailVerified: boolean;
+    createdAt: string;
+    lastUsedAt: string | null;
+  }[];
+  /** Terms agreements, newest first (most recent 100). */
+  consents: MemberConsentView[];
+  /** Suspensions / lifts from the audit log, newest first. */
+  sanctions: MemberSanctionView[];
   memberships: {
     agencyId: string;
     agencyName: string;
@@ -85,7 +111,31 @@ export interface MemberDetail extends Omit<MemberListItem, 'providers'> {
   activeSessions: number;
 }
 
+export interface MemberConsentView {
+  id: string;
+  termsType: TermsType;
+  termsTitle: string;
+  version: string;
+  isRequired: boolean;
+  agreed: boolean;
+  createdAt: string;
+}
+
+export interface MemberSanctionView {
+  id: string;
+  action: 'SUSPENDED' | 'UNSUSPENDED';
+  reason: string | null;
+  adminName: string | null;
+  createdAt: string;
+}
+
 // ---------- listings ----------
+
+/**
+ * Why a listing is in the admin 검수 필요 queue: open reports, or advertised (ACTIVE / RESERVED)
+ * without a 실매물 확인.
+ */
+export type AdminListingReviewFlag = 'REPORTED' | 'UNVERIFIED';
 
 export interface AdminListingListItem {
   id: string;
@@ -95,14 +145,34 @@ export interface AdminListingListItem {
   title: string | null;
   roadAddress: string;
   complexId: string | null;
+  complexName: string | null;
+  buildingName: string | null;
+  dong: string | null;
+  /** 법정동 name of the listing (null when unknown). */
+  emdName: string | null;
+  supplyArea: number | null;
+  exclusiveArea: number | null;
+  floorClass: FloorClass | null;
+  floor: number | null;
+  totalFloors: number | null;
   primaryAgency: { id: string; name: string };
+  /** ACTIVE offices on the listing (primary included). */
+  agencyCount: number;
   salePrice: number | null;
   deposit: number | null;
   monthlyRent: number | null;
+  presalePrice: number | null;
+  premium: number | null;
+  photoCount: number;
+  coverUrl: string | null;
+  verifiedAt: string | null;
   hiddenReason: string | null;
   openReportCount: number;
   viewCount: number;
+  favoriteCount: number;
+  reviewFlags: AdminListingReviewFlag[];
   publishedAt: string | null;
+  expiresAt: string | null;
   closedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -110,13 +180,46 @@ export interface AdminListingListItem {
 
 export interface AdminListingDetail extends AdminListingListItem {
   description: string | null;
-  verifiedAt: string | null;
-  photoCount: number;
-  agencies: { id: string; name: string; isPrimary: boolean }[];
+  jibunAddress: string | null;
+  rooms: number | null;
+  baths: number | null;
+  direction: Direction | null;
+  approvalDate: string | null;
+  parkingSpaces: number | null;
+  maintenanceFeeWon: number | null;
+  moveInType: MoveInType | null;
+  moveInDate: string | null;
+  options: ListingOption[];
+  photos: { id: string; url: string; isCover: boolean }[];
+  agencies: {
+    id: string;
+    name: string;
+    isPrimary: boolean;
+    status: ListingAgencyStatus;
+    contactName: string | null;
+    phone: string | null;
+    joinedAt: string;
+  }[];
+  verifications: {
+    id: string;
+    method: VerificationMethod;
+    verifiedAt: string;
+    byName: string | null;
+    note: string | null;
+  }[];
   recentReports: {
     id: string;
     reason: ReportReason;
     status: ReportStatus;
+    createdAt: string;
+  }[];
+  /** Newest first: lifecycle timestamps, co-brokers, verifications, reports and admin actions. */
+  history: {
+    id: string;
+    action: string;
+    actorType: AuditActorType | null;
+    actorName: string | null;
+    note: string | null;
     createdAt: string;
   }[];
 }
@@ -162,7 +265,20 @@ export interface AdminReportView {
     photoCount: number;
   } | null;
   agency: { id: string; name: string; status: AgencyStatus; warningCount: number } | null;
-  reporter: { id: string; nickname: string | null } | null;
+  /**
+   * The reporting member (null for an anonymous report). A withdrawn member reads
+   * `status: WITHDRAWN` with no nickname; a live member may have no nickname.
+   */
+  reporter: {
+    id: string;
+    nickname: string | null;
+    status: UserStatus;
+    /** Reports this member has filed / how many were upheld (RESOLVED with an action). */
+    reportCount: number;
+    upheldCount: number;
+  } | null;
+  /** Reports (any status) against the same listing / agency, this one included. */
+  sameTargetCount: number;
   /**
    * Callback number typed by the reporter. Masked (010-****-5678) everywhere except
    * GET /admin/reports/:id, which returns it in full and records a `report.pii-view` audit row.
@@ -177,6 +293,26 @@ export interface AdminReportView {
   handledAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** GET /admin/reports/:id and the PATCH / resolve responses. */
+export interface AdminReportDetailView extends AdminReportView {
+  /** Other reports against the same target, newest first (up to 10). */
+  relatedReports: {
+    id: string;
+    reason: ReportReason;
+    status: ReportStatus;
+    action: ReportAction | null;
+    createdAt: string;
+  }[];
+  /** 접수, status changes and note edits, newest first. */
+  timeline: {
+    id: string;
+    status: ReportStatus | null;
+    note: string | null;
+    adminName: string | null;
+    createdAt: string;
+  }[];
 }
 
 // ---------- content ----------
@@ -195,6 +331,8 @@ export interface NoticeView extends NoticeListItem {
 
 export interface AdminNoticeView extends NoticeView {
   isPublished: boolean;
+  /** Author's name (null once the admin account is deleted). */
+  createdByAdminName: string | null;
   createdAt: string;
   updatedAt: string;
 }

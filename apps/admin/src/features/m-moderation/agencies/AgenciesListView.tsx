@@ -82,7 +82,8 @@ function DocumentsCell({ agency }: { agency: AdminAgencyListItem }) {
 }
 
 function RegistryCell({ agency }: { agency: AdminAgencyListItem }) {
-  if (!agency.registryStatus) return <span className={s.mutedText}>조회 전</span>;
+  // The list has no registry result (it is looked up on the detail page and cached there).
+  if (!agency.registryStatus) return <span className={s.mutedText}>상세에서 조회</span>;
   const meta = REGISTRY_STATUS_META[agency.registryStatus];
   return <Badge tone={meta.tone}>{meta.label}</Badge>;
 }

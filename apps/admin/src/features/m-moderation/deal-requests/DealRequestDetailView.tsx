@@ -47,6 +47,7 @@ import {
   dealRequestTitle,
   historyLabel,
   isModerationAction,
+  memberLabel,
   shortId,
 } from '../lib/labels';
 import { DEAL_REQUEST_CLOSE_PRESETS, DEAL_REQUEST_SPAM_PRESETS } from '../lib/reasons';
@@ -201,7 +202,7 @@ export function DealRequestDetailView({ id }: { id: string }) {
   };
   const dialogTarget = {
     title,
-    sub: `${requester?.nickname ?? '탈퇴한 회원'} · ${formatRelativeTime(req.createdAt)} 등록`,
+    sub: `${memberLabel(requester)} · ${formatRelativeTime(req.createdAt)} 등록`,
   };
 
   return (
@@ -296,8 +297,7 @@ export function DealRequestDetailView({ id }: { id: string }) {
             >
               <InfoList
                 items={[
-                  { label: '닉네임', value: requester?.nickname },
-                  { label: '회원 이름', value: requester?.name },
+                  { label: '닉네임', value: memberLabel(requester) },
                   { label: '연락처 이름', value: req.contactName },
                   {
                     label: '연락처',

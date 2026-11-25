@@ -25,6 +25,7 @@ import {
   createListing,
   createMedia,
   createTestApp,
+  withConfig,
   createUser,
   loginAdmin,
   loginUser,
@@ -100,9 +101,12 @@ describe('admin dashboard queues, search, notifications, stats, social login (e2
   let userSession: TestSession;
 
   beforeAll(async () => {
-    process.env.KAKAO_CLIENT_ID = '7f3c1234567890abcdefa91e';
-    process.env.KAKAO_CLIENT_SECRET = 'kakao-secret-must-never-leak';
-    t = await createTestApp();
+    t = await createTestApp({
+      override: withConfig({
+        KAKAO_CLIENT_ID: '7f3c1234567890abcdefa91e',
+        KAKAO_CLIENT_SECRET: 'kakao-secret-must-never-leak',
+      }),
+    });
   });
   beforeEach(async () => {
     await resetAll(t);
@@ -110,8 +114,6 @@ describe('admin dashboard queues, search, notifications, stats, social login (e2
     userSession = await loginUser(t.app, await createUser(t.prisma));
   });
   afterAll(async () => {
-    delete process.env.KAKAO_CLIENT_ID;
-    delete process.env.KAKAO_CLIENT_SECRET;
     await t?.close();
   });
 

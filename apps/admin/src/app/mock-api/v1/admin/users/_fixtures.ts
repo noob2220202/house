@@ -78,7 +78,8 @@ interface Base {
   n: number;
   id: string;
   name: string;
-  nickname: string;
+  /** Null: a live social sign-up that never set a nickname (Google). */
+  nickname: string | null;
   role: UserRole;
   status?: UserStatus;
   providers: AuthProvider[];
@@ -227,11 +228,13 @@ function seed(): AdminUserDetail[] {
               suspendedReason: '사실과 다른 허위매물 신고를 반복 접수했습니다(기각 5건).',
               reports: 7,
             }
-          : i === 12
-            ? { status: 'WITHDRAWN', withdrawalReason: '이사를 마쳐서 더 이용하지 않아요.' }
-            : i === 25
-              ? { status: 'WITHDRAWN', scrubbed: true }
-              : {};
+          : i === 4
+            ? { nickname: null, providers: ['GOOGLE'] }
+            : i === 12
+              ? { status: 'WITHDRAWN', withdrawalReason: '이사를 마쳐서 더 이용하지 않아요.' }
+              : i === 25
+                ? { status: 'WITHDRAWN', scrubbed: true }
+                : {};
     rows.push(
       build({
         n: 100 + i,

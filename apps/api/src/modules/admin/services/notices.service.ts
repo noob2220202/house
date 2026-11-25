@@ -10,7 +10,7 @@ import {
   type PaginationQuery,
 } from '@house/shared';
 import { Injectable } from '@nestjs/common';
-import type { Notice, Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { CacheService } from '../../../common/cache/cache.service';
 import type { AdminPrincipal } from '../../../common/auth/principal';
 import { RequestContext } from '../../../common/context/request-context';
@@ -28,6 +28,9 @@ const PUBLIC_ORDER: Prisma.NoticeOrderByWithRelationInput[] = [
 ];
 
 /** 공지사항: public list/detail (published only) and back-office CRUD (soft delete). */
+const WITH_AUTHOR = { createdByAdmin: { select: { name: true } } } satisfies Prisma.NoticeInclude;
+type NoticeWithAuthor = Prisma.NoticeGetPayload<{ include: typeof WITH_AUTHOR }>;
+
 @Injectable()
 export class NoticesService {
   constructor(
@@ -76,6 +79,7 @@ export class NoticesService {
         this.prisma.notice.findMany({
           where,
           orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
+          include: WITH_AUTHOR,
           ...args,
         }),
       () => this.prisma.notice.count({ where }),
@@ -94,6 +98,7 @@ export class NoticesService {
         publishedAt: dto.isPublished ? new Date() : null,
         createdByAdminId: admin.adminId,
       },
+      include: WITH_AUTHOR,
     });
     await this.cache.bump(ADMIN_CACHE.CONTENT);
     return toAdminNoticeView(row);
@@ -109,6 +114,7 @@ export class NoticesService {
         // First publication stamps publishedAt; re-publishing keeps the original date.
         ...(dto.isPublished && !before.publishedAt ? { publishedAt: new Date() } : {}),
       },
+      include: WITH_AUTHOR,
     });
     await this.cache.bump(ADMIN_CACHE.CONTENT);
     return toAdminNoticeView(row);
@@ -121,8 +127,11 @@ export class NoticesService {
     await this.cache.bump(ADMIN_CACHE.CONTENT);
   }
 
-  private async load(id: string): Promise<Notice> {
-    const row = await this.prisma.notice.findFirst({ where: { id, deletedAt: null } });
+  private async load(id: string): Promise<NoticeWithAuthor> {
+    const row = await this.prisma.notice.findFirst({
+      where: { id, deletedAt: null },
+      include: WITH_AUTHOR,
+    });
     if (!row) throw AppException.notFound(ErrorCode.NOTICE_NOT_FOUND);
     return row;
   }

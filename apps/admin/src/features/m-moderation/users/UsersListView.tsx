@@ -24,6 +24,7 @@ import {
   maskEmail,
   maskName,
   maskPhoneOnce,
+  isScrubbedMember,
   userDisplayName,
 } from '../lib/labels';
 import { hasActiveFilters, type ParamSpec } from '../lib/list-params';
@@ -76,7 +77,7 @@ const PROVIDER_OPTIONS = [
 export const userHref = (id: string) => `/users/${id}`;
 
 /** A withdrawn member whose personal data was destroyed has no name / nickname left. */
-const isAnonymous = (user: AdminUserListItem) => !user.nickname && !user.name;
+const isAnonymous = (user: AdminUserListItem) => isScrubbedMember(user);
 
 function MemberCell({ user }: { user: AdminUserListItem }) {
   const anonymous = isAnonymous(user);

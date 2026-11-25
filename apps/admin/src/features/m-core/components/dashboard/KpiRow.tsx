@@ -131,7 +131,8 @@ export function KpiRow({ kpis }: { kpis: DashboardSummary['kpis'] }) {
           '대기 중인 신청이 없어요'
         ) : (
           <>
-            {pending.oldestWaitingDays !== null && pending.oldestWaitingDays > 0 ? (
+            {/* null = not reported by the API: say nothing rather than "모두 오늘 신청". */}
+            {pending.oldestWaitingDays === null ? null : pending.oldestWaitingDays > 0 ? (
               <span className={styles.warnNote}>
                 가장 오래된 신청 {formatCount(pending.oldestWaitingDays)}일째
               </span>

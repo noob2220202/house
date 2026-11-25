@@ -13,6 +13,7 @@ import {
   type ComplexPhotoView,
   type ComplexUpdateInput,
   type Paginated,
+  TradeDealType,
 } from '@house/shared';
 import { Prisma } from '@prisma/client';
 import { CacheService } from '../../../common/cache/cache.service';
@@ -146,18 +147,56 @@ export class ComplexAdminService {
       select: ADMIN_DETAIL_SELECT,
     });
     if (!row) throw AppException.notFound(ErrorCode.COMPLEX_NOT_FOUND);
-    const region = row.emdCode
-      ? await this.prisma.region.findUnique({
-          where: { code: row.emdCode },
-          select: { code: true, name: true, fullName: true },
-        })
-      : null;
+    const live = { complexId: id, cancelled: false };
+    const [region, perType, lastSales, unmatched, last] = await Promise.all([
+      row.emdCode
+        ? this.prisma.region.findUnique({
+            where: { code: row.emdCode },
+            select: { code: true, name: true, fullName: true },
+          })
+        : null,
+      this.prisma.tradeRecord.groupBy({
+        by: ['areaTypeId'],
+        where: { complexId: id, areaTypeId: { not: null } },
+        _count: { _all: true },
+      }),
+      this.prisma.tradeRecord.findMany({
+        where: {
+          ...live,
+          dealType: TradeDealType.SALE,
+          areaTypeId: { not: null },
+          price: { not: null },
+        },
+        distinct: ['areaTypeId'],
+        orderBy: [{ areaTypeId: 'asc' }, { dealDate: 'desc' }],
+        select: { areaTypeId: true, price: true },
+      }),
+      this.prisma.tradeRecord.count({ where: { ...live, areaTypeId: null } }),
+      this.prisma.tradeRecord.findFirst({
+        where: live,
+        orderBy: { dealDate: 'desc' },
+        select: { dealDate: true },
+      }),
+    ]);
+    const countOf = new Map(perType.map((g) => [g.areaTypeId, g._count._all]));
+    const lastSaleOf = new Map(lastSales.map((t) => [t.areaTypeId, t.price]));
+    const base = this.query.base(row);
     return {
-      ...this.query.base(row),
+      ...base,
+      areaTypes: base.areaTypes.map((a) => ({
+        ...a,
+        tradeCount: countOf.get(a.id) ?? 0,
+        lastSalePrice: lastSaleOf.get(a.id) ?? null,
+      })),
       region,
       jibun: row.jibun,
       externalCode: row.externalCode,
       tradeCount: row._count.trades,
+      trades: {
+        total: row._count.trades,
+        unmatched,
+        lastDealDate: last ? last.dealDate.toISOString().slice(0, 10) : null,
+      },
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       deletedAt: row.deletedAt?.toISOString() ?? null,

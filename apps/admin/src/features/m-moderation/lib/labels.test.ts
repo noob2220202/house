@@ -19,6 +19,8 @@ import {
   reportSlaLabel,
   reportTargetTitle,
   shortId,
+  isScrubbedMember,
+  memberLabel,
   userDisplayName,
   waitingDays,
   waitingLabel,
@@ -261,5 +263,16 @@ describe('privacy helpers', () => {
     expect(userDisplayName({ nickname: '신대사는곰', name: '김하준' })).toBe('신대사는곰');
     expect(userDisplayName({ nickname: null, name: '김하준' })).toBe('김하준');
     expect(userDisplayName({})).toBe('이름 없음');
+  });
+  it('calls a member withdrawn only by status, never by a missing nickname', () => {
+    expect(memberLabel({ nickname: '신대사는곰', status: 'ACTIVE' })).toBe('신대사는곰');
+    // A live Google sign-up without a nickname.
+    expect(memberLabel({ nickname: null, status: 'ACTIVE' })).toBe('닉네임 없음 회원');
+    expect(memberLabel({ nickname: null })).toBe('닉네임 없음 회원');
+    expect(memberLabel({ nickname: '떠난회원', status: 'WITHDRAWN' })).toBe('탈퇴한 회원');
+    expect(memberLabel(null)).toBe('탈퇴한 회원');
+    expect(isScrubbedMember({ status: 'ACTIVE', nickname: null, name: null })).toBe(false);
+    expect(isScrubbedMember({ status: 'WITHDRAWN', nickname: null, name: null })).toBe(true);
+    expect(isScrubbedMember({ status: 'WITHDRAWN', nickname: '곰', name: null })).toBe(false);
   });
 });

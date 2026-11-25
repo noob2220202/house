@@ -171,9 +171,11 @@ export class AgencyReviewService {
             roadAddress: true,
             status: true,
             warningCount: true,
+            activeListingCount: true,
             createdAt: true,
             approvedAt: true,
             owner: { select: { id: true, name: true, email: true } },
+            documents: { select: { type: true }, distinct: ['type'] },
             _count: {
               select: {
                 documents: true,
@@ -196,6 +198,8 @@ export class AgencyReviewService {
         status: a.status,
         owner: { id: a.owner.id, name: maskName(a.owner.name), email: maskEmail(a.owner.email) },
         documentCount: a._count.documents,
+        documentTypes: a.documents.map((d) => d.type),
+        activeListingCount: a.activeListingCount,
         memberCount: a._count.members,
         warningCount: a.warningCount,
         createdAt: a.createdAt.toISOString(),
@@ -226,8 +230,18 @@ export class AgencyReviewService {
       select: {
         ...myAgencySelect,
         warningCount: true,
+        viewCount: true,
         owner: {
-          select: { id: true, name: true, nickname: true, email: true, phone: true, status: true },
+          select: {
+            id: true,
+            name: true,
+            nickname: true,
+            email: true,
+            phone: true,
+            status: true,
+            createdAt: true,
+            identities: { select: { provider: true }, orderBy: { createdAt: 'asc' } },
+          },
         },
         members: {
           ...(includeRemoved ? {} : { where: { status: { not: AgencyMemberStatus.REMOVED } } }),
@@ -245,7 +259,17 @@ export class AgencyReviewService {
     if (!row) throw AppException.notFound(ErrorCode.AGENCY_NOT_FOUND);
     return {
       ...this.mapper.mine(row),
-      owner: row.owner,
+      owner: {
+        id: row.owner.id,
+        name: row.owner.name,
+        nickname: row.owner.nickname,
+        email: row.owner.email,
+        phone: row.owner.phone,
+        status: row.owner.status,
+        createdAt: row.owner.createdAt.toISOString(),
+        providers: row.owner.identities.map((i) => i.provider),
+      },
+      viewCount: row.viewCount,
       members: row.members.map((m) => {
         const view = toMemberView(m);
         return m.status === AgencyMemberStatus.REMOVED

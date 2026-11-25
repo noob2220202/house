@@ -1,8 +1,10 @@
 import {
   AdminRole,
   DealRequestStatus,
+  DealRequestType,
   DealRequestVisibility,
   NotificationType,
+  UserStatus,
 } from '@house/shared';
 import {
   NOTIFICATION_DISPATCHER,
@@ -10,8 +12,16 @@ import {
   type NotificationDispatcher,
 } from '../../../src/modules/deal-requests/notifications/notification-dispatcher';
 import { DealRequestMaintenanceService } from '../../../src/modules/deal-requests/services/deal-request-maintenance.service';
-import { createAdmin, loginAdmin, resetAll, withSession, type TestApp } from '../../utils';
 import {
+  createAdmin,
+  createUser,
+  loginAdmin,
+  resetAll,
+  withSession,
+  type TestApp,
+} from '../../utils';
+import {
+  EMD,
   broker,
   createDealRequestsApp,
   dealRequest,
@@ -174,6 +184,166 @@ describe('deal-requests: notifications + admin moderation (e2e)', () => {
       ).expect(200);
       expect(detail.body).not.toHaveProperty('contactPhone');
       expect(detail.body).not.toHaveProperty('addressDetail');
+    });
+
+    it('GET list/detail: requester summary (live member without nickname ≠ withdrawn), region names', async () => {
+      await t.prisma.region.createMany({
+        data: [
+          { code: '12150', name: '순천시', fullName: '전남광주통합특별시 순천시', level: 'SGG' },
+          { code: EMD, name: '향동', fullName: '순천시 향동', level: 'EMD', parentCode: '12150' },
+        ],
+      });
+      // A live Google sign-up: no nickname.
+      const live = await createUser(t.prisma, { nickname: null });
+      const withdrawn = await createUser(t.prisma, {
+        nickname: '떠난회원',
+        status: UserStatus.WITHDRAWN,
+        withdrawnAt: new Date(),
+      });
+      const scrubbed = await createUser(t.prisma, { nickname: null, piiScrubbedAt: new Date() });
+      const b = await broker(t, { name: '순천중앙공인중개사사무소' });
+      const liveReq = await dealRequest(t.prisma, live.id, {
+        emdCode: EMD,
+        createdAt: new Date(Date.now() - 3000),
+      });
+      await dealRequest(t.prisma, live.id, {
+        status: DealRequestStatus.CLOSED,
+        createdAt: new Date(Date.now() - 4000),
+      });
+      const goneReq = await dealRequest(t.prisma, withdrawn.id, {
+        type: DealRequestType.WANTED,
+        roadAddress: null,
+        regionCodes: [EMD, '12150999'],
+        createdAt: new Date(Date.now() - 2000),
+      });
+      const scrubbedReq = await dealRequest(t.prisma, scrubbed.id, {
+        createdAt: new Date(Date.now() - 1000),
+      });
+      await t.prisma.dealRequestTarget.create({
+        data: { dealRequestId: liveReq.id, agencyId: b.agency.id },
+      });
+      await proposal(t.prisma, liveReq.id, b.agency.id, { message: '추천 매물 있어요' });
+      await t.prisma.dealRequestContactGrant.create({
+        data: { dealRequestId: liveReq.id, agencyId: b.agency.id },
+      });
+      const s = await adminSession();
+
+      const list = await withSession(t.http().get('/api/v1/admin/deal-requests'), s).expect(200);
+      const byId = new Map(
+        (list.body.items as { id: string; requester: unknown }[]).map((i) => [i.id, i]),
+      );
+      expect(byId.get(liveReq.id)).toMatchObject({
+        userId: live.id,
+        emdName: '향동',
+        regionNames: [],
+        requester: {
+          id: live.id,
+          nickname: null,
+          status: 'ACTIVE',
+          createdAt: live.createdAt.toISOString(),
+          dealRequestCount: 2,
+        },
+      });
+      expect(byId.get(goneReq.id)).toMatchObject({
+        emdName: null,
+        regionNames: ['향동'],
+        requester: { id: withdrawn.id, nickname: null, status: 'WITHDRAWN', dealRequestCount: 1 },
+      });
+      expect(byId.get(scrubbedReq.id)).toMatchObject({
+        requester: { id: scrubbed.id, nickname: null, status: 'WITHDRAWN' },
+      });
+      expect(JSON.stringify(list.body)).not.toContain('떠난회원');
+      // Search: address / content / a live requester's nickname — never a withdrawn one's.
+      await t.prisma.user.update({ where: { id: live.id }, data: { nickname: '순천곰' } });
+      const byNick = await withSession(
+        t.http().get(`/api/v1/admin/deal-requests?q=${encodeURIComponent('순천곰')}`),
+        s,
+      ).expect(200);
+      expect(byNick.body.total).toBe(2);
+      expect(itemIds(byNick.body)).toContain(liveReq.id);
+      const gone = await withSession(
+        t.http().get(`/api/v1/admin/deal-requests?q=${encodeURIComponent('떠난회원')}`),
+        s,
+      ).expect(200);
+      expect(gone.body.total).toBe(0);
+      await t.prisma.user.update({ where: { id: live.id }, data: { nickname: null } });
+
+      const detail = await withSession(
+        t.http().get(`/api/v1/admin/deal-requests/${liveReq.id}`),
+        s,
+      ).expect(200);
+      expect(detail.body).toMatchObject({
+        requester: { id: live.id, nickname: null, status: 'ACTIVE', dealRequestCount: 2 },
+        emdName: '향동',
+        targets: [{ agencyId: b.agency.id, name: '순천중앙공인중개사사무소' }],
+        proposals: [
+          {
+            agencyId: b.agency.id,
+            agencyName: '순천중앙공인중개사사무소',
+            status: 'SENT',
+            message: '추천 매물 있어요',
+            listingCount: 0,
+          },
+        ],
+        contactGrants: [{ agencyId: b.agency.id, agencyName: '순천중앙공인중개사사무소' }],
+      });
+      expect((detail.body.history as { action: string }[]).map((h) => h.action).sort()).toEqual([
+        'CONTACT_GRANTED',
+        'DEAL_REQUEST_CREATED',
+        'PROPOSAL_SENT',
+      ]);
+
+      const goneDetail = await withSession(
+        t.http().get(`/api/v1/admin/deal-requests/${goneReq.id}`),
+        s,
+      ).expect(200);
+      expect(goneDetail.body.requester).toMatchObject({ nickname: null, status: 'WITHDRAWN' });
+      expect(goneDetail.body.regionNames).toEqual(['향동']);
+
+      // Moderation actions show up in the history with the admin's name.
+      await withSession(t.http().post(`/api/v1/admin/deal-requests/${liveReq.id}/spam-flag`), s)
+        .send({ flagged: true, reason: '광고성 요청 반복' })
+        .expect(200);
+      const closed = await withSession(
+        t.http().post(`/api/v1/admin/deal-requests/${liveReq.id}/close`),
+        s,
+      )
+        .send({ reason: '허위 요청 신고 확인' })
+        .expect(200);
+      expect(closed.body.contactGrants).toEqual([]);
+      expect((closed.body.history as unknown[]).slice(0, 2)).toMatchObject([
+        { action: 'DEAL_REQUEST_CLOSED', note: '허위 요청 신고 확인' },
+        { action: 'DEAL_REQUEST_SPAM_FLAGGED', note: '광고성 요청 반복' },
+      ]);
+      const after = await withSession(
+        t.http().get(`/api/v1/admin/deal-requests/${liveReq.id}`),
+        s,
+      ).expect(200);
+      const actions = (after.body.history as { action: string }[]).map((h) => h.action);
+      expect(actions.filter((a) => a === 'DEAL_REQUEST_CLOSED')).toHaveLength(1);
+      expect(actions).not.toContain('DEAL_REQUEST_COMPLETED');
+      expect(after.body.history[0]).toMatchObject({
+        action: 'DEAL_REQUEST_CLOSED',
+        actorName: expect.any(String),
+      });
+    });
+
+    it('requester summary never reaches the public or agency views', async () => {
+      const { user } = await requester(t);
+      const b = await broker(t);
+      const req = await dealRequest(t.prisma, user.id, {
+        visibility: DealRequestVisibility.SELECTED_AGENCIES,
+      });
+      await t.prisma.dealRequestTarget.create({
+        data: { dealRequestId: req.id, agencyId: b.agency.id },
+      });
+      const res = await withSession(
+        t.http().get(`/api/v1/agency/deal-requests/${req.id}`),
+        b.s,
+      ).expect(200);
+      expect(res.body).not.toHaveProperty('requester');
+      expect(res.body).not.toHaveProperty('userId');
+      expect(JSON.stringify(res.body)).not.toContain(user.id);
     });
 
     it('GET 401 for user sessions and admins without TOTP; 404 unknown; 400 bad input', async () => {

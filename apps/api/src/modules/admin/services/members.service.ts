@@ -1,10 +1,12 @@
 import {
+  AgencyMemberStatus,
   ErrorCode,
   maskEmail,
   maskPhone,
   type MemberDetail,
   type MemberListItem,
   type MemberListQuery,
+  type MemberSanctionView,
   type MemberSuspendInput,
   normalizePhone,
   type Paginated,
@@ -28,7 +30,15 @@ const listSelect = {
   status: true,
   createdAt: true,
   lastLoginAt: true,
+  suspendedAt: true,
+  withdrawnAt: true,
   identities: { select: { provider: true } },
+  agencyMemberships: {
+    where: { status: AgencyMemberStatus.ACTIVE },
+    select: { agencyId: true, agency: { select: { name: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: 1,
+  },
 } satisfies Prisma.UserSelect;
 
 const detailSelect = {
@@ -46,10 +56,28 @@ const detailSelect = {
   suspendedReason: true,
   withdrawnAt: true,
   withdrawalReason: true,
+  piiScrubAfter: true,
   piiScrubbedAt: true,
   identities: {
-    select: { provider: true, createdAt: true, lastUsedAt: true },
+    select: {
+      id: true,
+      provider: true,
+      email: true,
+      emailVerified: true,
+      createdAt: true,
+      lastUsedAt: true,
+    },
     orderBy: { createdAt: 'asc' },
+  },
+  consents: {
+    select: {
+      id: true,
+      agreed: true,
+      createdAt: true,
+      termsDocument: { select: { type: true, title: true, version: true, isRequired: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 100,
   },
   agencyMemberships: {
     select: {
@@ -122,8 +150,13 @@ export class MembersService {
         role: u.role,
         status: u.status,
         providers: u.identities.map((i) => i.provider),
+        agency: u.agencyMemberships[0]
+          ? { id: u.agencyMemberships[0].agencyId, name: u.agencyMemberships[0].agency.name }
+          : null,
         createdAt: u.createdAt.toISOString(),
         lastLoginAt: iso(u.lastLoginAt),
+        suspendedAt: iso(u.suspendedAt),
+        withdrawnAt: iso(u.withdrawnAt),
       })),
     };
   }
@@ -139,7 +172,7 @@ export class MembersService {
       action: 'member.pii-view',
       resourceType: 'User',
       resourceId: id,
-      after: { fields: ['name', 'email', 'phone'] },
+      after: { fields: ['name', 'email', 'phone', 'identities.email'] },
     });
     return detail;
   }
@@ -147,7 +180,10 @@ export class MembersService {
   private async build(id: string): Promise<MemberDetail> {
     const u = await this.prisma.user.findUnique({ where: { id }, select: detailSelect });
     if (!u) throw AppException.notFound(ErrorCode.MEMBER_NOT_FOUND);
-    const sessions = await this.sessions.listForSubject('USER', id);
+    const [sessions, sanctions] = await Promise.all([
+      this.sessions.listForSubject('USER', id),
+      this.sanctionsOf(id),
+    ]);
     return {
       id: u.id,
       nickname: u.nickname,
@@ -163,12 +199,26 @@ export class MembersService {
       suspendedReason: u.suspendedReason,
       withdrawnAt: iso(u.withdrawnAt),
       withdrawalReason: u.withdrawalReason,
+      piiScrubAfter: iso(u.piiScrubAfter),
       piiScrubbedAt: iso(u.piiScrubbedAt),
       identities: u.identities.map((i) => ({
+        id: i.id,
         provider: i.provider,
+        email: i.email,
+        emailVerified: i.emailVerified,
         createdAt: i.createdAt.toISOString(),
         lastUsedAt: iso(i.lastUsedAt),
       })),
+      consents: u.consents.map((c) => ({
+        id: c.id,
+        termsType: c.termsDocument.type,
+        termsTitle: c.termsDocument.title,
+        version: c.termsDocument.version,
+        isRequired: c.termsDocument.isRequired,
+        agreed: c.agreed,
+        createdAt: c.createdAt.toISOString(),
+      })),
+      sanctions,
       memberships: u.agencyMemberships.map((m) => ({
         agencyId: m.agencyId,
         agencyName: m.agency.name,
@@ -208,7 +258,44 @@ export class MembersService {
   /** Mutation responses mask contacts like the list does (the full record is GET /:id). */
   private async maskedDetail(id: string): Promise<MemberDetail> {
     const d = await this.build(id);
-    return { ...d, email: maskEmail(d.email), phone: d.phone ? maskPhone(d.phone) : null };
+    return {
+      ...d,
+      email: maskEmail(d.email),
+      phone: d.phone ? maskPhone(d.phone) : null,
+      identities: d.identities.map((i) => ({ ...i, email: maskEmail(i.email) })),
+    };
+  }
+
+  /** Suspensions and lifts, newest first, from the member's audit rows (reason from `after`). */
+  private async sanctionsOf(id: string): Promise<MemberSanctionView[]> {
+    const rows = await this.prisma.auditLog.findMany({
+      where: {
+        resourceType: 'User',
+        resourceId: id,
+        action: { in: ['member.suspend', 'member.unsuspend'] },
+      },
+      select: {
+        id: true,
+        action: true,
+        after: true,
+        createdAt: true,
+        adminUser: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    return rows.map((r) => {
+      const suspend = r.action === 'member.suspend';
+      const after = r.after as { suspendedReason?: unknown } | null;
+      return {
+        id: r.id,
+        action: suspend ? 'SUSPENDED' : 'UNSUSPENDED',
+        reason:
+          suspend && typeof after?.suspendedReason === 'string' ? after.suspendedReason : null,
+        adminName: r.adminUser?.name ?? null,
+        createdAt: r.createdAt.toISOString(),
+      };
+    });
   }
 
   /**
