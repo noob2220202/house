@@ -26,7 +26,7 @@ export const INTEREST_REGION_GROUPS: readonly InterestRegionGroup[] = [
     key: 'newtown',
     label: '신도시·택지',
     regions: [
-      { key: 'sindae', name: '신대지구', keywords: ['신대', '해룡', '레이크파크'] },
+      { key: 'sindae', name: '신대지구', keywords: ['신대', '해룡'] },
       { key: 'seonwol', name: '선월지구', keywords: ['선월', '해룡'] },
       { key: 'ocheon', name: '오천지구', keywords: ['오천동', '국가정원'] },
       { key: 'geumdang', name: '금당지구', keywords: ['금당', '연향'] },

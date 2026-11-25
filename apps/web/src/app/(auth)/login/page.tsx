@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { BRAND } from '@/config/brand';
 import { env } from '@/config/env';
 import { CallbackError } from '@/features/w-auth/components/callback/CallbackError';
-import { BrandPanel } from '@/features/w-auth/components/login/BrandPanel';
+import { BrandFloatCards, BrandPanel } from '@/features/w-auth/components/login/BrandPanel';
 import { LoginPanel, type LoginNotice } from '@/features/w-auth/components/login/LoginPanel';
 import styles from '@/features/w-auth/components/login/login.module.css';
 import { AuthTopBar } from '@/features/w-auth/components/shell/AuthShell';
@@ -13,15 +14,22 @@ import {
   safeNext,
 } from '@/features/w-auth/lib/flow';
 import { oauthErrorInfo } from '@/features/w-auth/lib/oauth-errors';
+import { getBrandPanelFacts } from '@/features/w-auth/server/brand-facts';
 import { AUTH_ROUTES } from '@/features/w-auth/routes';
 import { getServerSession } from '@/lib/auth/server';
 import { buildMetadata } from '@/lib/seo';
 
 export const metadata = buildMetadata({
   title: '로그인',
-  description: `카카오·네이버·Google 계정으로 3초 만에 ${BRAND.name} 서비스를 시작하세요. 관심 단지 새 매물 알림, 내놓기·구하기 요청을 한곳에서.`,
+  description: `카카오·네이버·Google 계정으로 간편하게 ${BRAND.name} 서비스를 시작하세요. 관심 단지 새 매물 알림, 내놓기·구하기 요청을 한곳에서.`,
   path: '/login',
 });
+
+/** Real facts of the brand panel's floating cards, streamed in after the login form. */
+async function BrandCards() {
+  const facts = await getBrandPanelFacts();
+  return <BrandFloatCards facts={facts} />;
+}
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -69,7 +77,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
 
   return (
     <section className={styles.auth} aria-label="로그인">
-      <BrandPanel />
+      <BrandPanel
+        cards={
+          <Suspense fallback={null}>
+            <BrandCards />
+          </Suspense>
+        }
+      />
       <LoginPanel
         returnTo={returnTo || undefined}
         initialIntent={intent}

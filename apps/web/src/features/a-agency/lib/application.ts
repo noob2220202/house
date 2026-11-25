@@ -152,7 +152,7 @@ export interface StatusView {
 /** Progress steps of an application: 신청 접수 → 서류 심사 → 승인. */
 export const APPLICATION_STEPS = [
   { label: '신청 접수', description: '신청서와 서류 제출' },
-  { label: '서류 심사', description: '영업일 기준 1~2일' },
+  { label: '서류 심사', description: '운영팀이 등록번호·서류 확인' },
   { label: '승인 완료', description: '매물 등록 시작' },
 ] as const;
 
@@ -173,7 +173,7 @@ export function statusView(status: AgencyStatus, missingDocs = 0): StatusView {
             step: 1,
             title: '신청이 접수되어 심사하고 있어요',
             description:
-              '등록번호를 국가공간정보 중개업 조회와 대조하고 서류를 확인해요. 영업일 기준 1~2일 걸려요.',
+              '등록번호를 국가공간정보 중개업 조회와 대조하고 서류를 확인해요. 심사가 끝나면 알림으로 알려 드려요.',
           };
     case AgencyStatus.APPROVED:
       return {

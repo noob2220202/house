@@ -26,6 +26,11 @@ import { MyProposalCard } from './requests/MyProposalCard';
 import { RequestRow, deadlineOf } from './requests/RequestRow';
 import { RequestSummary } from './requests/RequestSummary';
 
+// The fixtures below are the mock API's, with its provisional region codes — named in mock mode only.
+vi.mock('@/config/env', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/config/env')>();
+  return { ...actual, env: { ...actual.env, apiMock: true } };
+});
 vi.mock('@house/ui', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@house/ui')>()),
   useToast: () => ({ toast: vi.fn(), dismiss: vi.fn() }),

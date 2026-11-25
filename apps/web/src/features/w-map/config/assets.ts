@@ -118,7 +118,7 @@ export const ASSETS: Record<MapAssetSlug, AssetConfig> = {
     sorts: [SORT.verified, SORT.latest, SORT.price, SORT.area],
     defaultSort: ListingSort.VERIFIED,
     defaultUnit: 'sqm',
-    searchPlaceholder: '지역 또는 단지명 (예: 신대지구, 오천 그린빌)',
+    searchPlaceholder: '지역 또는 단지명 (예: 신대지구, 연향동)',
     searchLabel: '지역 또는 단지명 검색',
     placeholder: 'tower',
     seo: {

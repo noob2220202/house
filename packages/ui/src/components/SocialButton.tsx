@@ -6,7 +6,7 @@ import { GoogleMark, KakaoMark, NaverMark } from '../icons/BrandMarks';
 export type SocialProvider = 'kakao' | 'naver' | 'google';
 
 const LABEL: Record<SocialProvider, string> = {
-  kakao: '카카오로 3초 만에 시작하기',
+  kakao: '카카오로 시작하기',
   naver: '네이버로 시작하기',
   google: 'Google로 시작하기',
 };

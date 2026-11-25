@@ -43,7 +43,7 @@ const sell = parse({
 const wanted = parse({
   type: 'WANTED',
   dealTypes: ['JEONSE', 'MONTHLY'],
-  regionCodes: ['1215012000', '1215012100', '1215033028'],
+  regionCodes: ['12150133', '12150114', '1215031022'],
   depositMax: 20000,
   rentMin: 40,
   rentMax: 60,
@@ -100,14 +100,26 @@ describe('request display helpers', () => {
 });
 
 describe('regions', () => {
-  it('has unique 10-digit codes inside 순천시 and resolves names', () => {
+  it('has unique real 법정동 codes inside 순천시 and resolves names', () => {
     const codes = SUNCHEON_REGIONS.map((r) => r.code);
     expect(new Set(codes).size).toBe(codes.length);
-    expect(codes.every((c) => /^12150\d{5}$/.test(c))).toBe(true);
-    expect(regionName('1215012100')).toBe('연향동');
+    // 읍면동 (8 digits) or 리 (10 digits) of 시군구 12150.
+    expect(codes.every((c) => /^12150\d{3}(\d{2})?$/.test(c))).toBe(true);
+    expect(regionName('12150114')).toBe('연향동');
     expect(regionName('9999999999')).toBe('9999999999');
     expect(regionSummary([])).toBe('');
-    expect(regionSummary(['1215033028', '1215033029'])).toBe('신대지구 · 선월지구');
+    // 해룡면 신대리 / 선월리 (행정안전부 법정동코드 4615031022 / 4615031028 → 12150…).
+    expect(regionSummary(['1215031022', '1215031028'])).toBe('신대지구 · 선월지구');
+  });
+
+  it('never offers the provisional mock codes', () => {
+    const codes = SUNCHEON_REGIONS.map((r) => r.code);
+    for (const mock of ['1215033028', '1215033029', '1215012100', '1215012000']) {
+      expect(codes).not.toContain(mock);
+    }
+    // Hints are no market claims ("분양권") and no wrong landmarks ("순천역 인근" for 장천동).
+    expect(SUNCHEON_REGIONS.map((r) => r.hint).filter(Boolean)).not.toContain('분양권');
+    expect(SUNCHEON_REGIONS.find((r) => r.name === '장천동')?.hint).toBeUndefined();
   });
 
   it('builds picker options from the backend regions with the preset presentation', () => {
@@ -126,7 +138,7 @@ describe('regions', () => {
     expect(options[2]?.hint).toBe('해룡면');
     const nameOf = regionNamer(options);
     expect(nameOf('1215013200')).toBe('왕지동');
-    expect(nameOf('1215012100')).toBe('연향동');
+    expect(nameOf('12150114')).toBe('연향동');
     expect(regionSummary(['1215013200', '1215099900'], 2, nameOf)).toBe('왕지동 · 새동네');
   });
 });

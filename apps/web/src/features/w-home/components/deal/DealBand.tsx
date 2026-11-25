@@ -4,21 +4,31 @@ import { ROUTES } from '@/config/nav';
 import styles from './DealBand.module.css';
 
 const SELL_STEPS = [
-  { title: '매물 정보 남기기', text: '주소 · 희망 가격 · 입주 가능일, 3분이면 끝나요' },
+  { title: '매물 정보 남기기', text: '주소 · 희망 가격 · 입주 가능일만 남기면 돼요' },
   { title: '동네 중개사 제안 받기', text: '그 단지를 잘 아는 중개사무소가 먼저 연락드려요' },
   { title: '내가 고른 곳과 거래', text: '연락처는 선택한 중개사무소에만 공개돼요' },
 ];
 
-/** Illustrative 구하기 request (mockdata.md §7) — static product explanation, not user data. */
+/**
+ * Illustrative 구하기 request — the inputs of a request (marked "요청 예시"), not user data and not
+ * a market figure: no 단지 and no price.
+ */
 const REQUEST_EXAMPLE = [
   { field: '지역', value: '신대지구' },
   { field: '거래', value: '매매' },
   { field: '면적', value: '34평' },
-  { field: '금액', value: '4억 5,000 이하' },
+  { field: '금액', value: '원하는 예산 이하' },
 ];
 
+export interface DealBandProps {
+  /** Approved offices of the site (GET /home/summary agencyCount); null hides the reach line. */
+  agencyCount?: number | null;
+}
+
 /** 내놓기 / 구하기 band (desktop & tablet; the mobile home uses <DealQuick /> instead). */
-export function DealBand() {
+export function DealBand({ agencyCount = null }: DealBandProps) {
+  const reach = typeof agencyCount === 'number' && agencyCount > 0 ? agencyCount : null;
+  const reachText = reach === null ? null : `순천 중개사무소 ${reach.toLocaleString('ko-KR')}곳`;
   return (
     <section className={`only-lg ${styles.section}`} aria-label="내놓기와 구하기">
       <div className={`container ${styles.band}`}>
@@ -67,11 +77,13 @@ export function DealBand() {
           <div
             className={styles.req}
             role="img"
-            aria-label="구하기 요청 예시: 신대지구, 매매, 34평, 4억 5,000 이하 조건으로 요청하면 신대·선월 중개사무소 12곳에 전달되고 제안 3건이 도착합니다"
+            aria-label={`구하기 요청 예시: 신대지구, 매매, 34평, 원하는 예산 이하 조건으로 요청하면 ${
+              reachText ? `${reachText}에 한 번에 전달되고 ` : ''
+            }조건에 맞는 매물을 중개사가 제안합니다`}
           >
             <div className={styles.reqHead} aria-hidden="true">
-              <b>내 구하기 요청</b>
-              <StatusPill tone="live">제안 3건 도착</StatusPill>
+              <b>요청 예시</b>
+              <StatusPill tone="scheduled">제안을 받아요</StatusPill>
             </div>
             <div className={styles.reqChips} aria-hidden="true">
               {REQUEST_EXAMPLE.map((c) => (
@@ -81,17 +93,18 @@ export function DealBand() {
                 </span>
               ))}
             </div>
-            <div className={styles.reqTo} aria-hidden="true">
-              <span className={styles.avatars}>
-                <i>신</i>
-                <i>선</i>
-                <i>호</i>
-                <i className={styles.more}>+9</i>
-              </span>
-              <span>
-                <b>신대·선월 중개사무소 12곳</b>에 전달됐어요
-              </span>
-            </div>
+            {reachText && (
+              <div className={styles.reqTo} aria-hidden="true">
+                <span className={styles.avatars}>
+                  <i>
+                    <Icon name="building" size={16} />
+                  </i>
+                </span>
+                <span>
+                  <b>{reachText}</b>에 한 번에 전달돼요
+                </span>
+              </div>
+            )}
           </div>
           <Button
             href={ROUTES.dealFind}

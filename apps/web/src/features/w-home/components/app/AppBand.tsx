@@ -20,30 +20,31 @@ const PlayGlyph = () => (
   </svg>
 );
 
+/**
+ * The phone mock illustrates the kinds of notices the app sends — feature copy only, never a
+ * listing, an office, a price or a time that could be read as a real event.
+ */
 const NOTICES = [
   {
     tone: 'brand',
     icon: 'bell',
     kind: '관심 단지',
-    when: '방금',
-    title: '신대 레이크파크 1단지 새 매물',
-    text: '매매 4억 4,500 · 34평 · 고/25층',
+    title: '관심 단지 새 매물 알림',
+    text: '찜한 단지에 매물이 오르면 바로 알려요',
   },
   {
     tone: 'ink',
     icon: 'chat',
     kind: '구하기 제안',
-    when: '12분 전',
-    title: '신대중앙 공인중개사사무소',
-    text: '조건에 맞는 매물 2건을 제안했어요',
+    title: '구하기 제안 도착',
+    text: '조건에 맞는 매물을 중개사무소가 제안해요',
   },
   {
     tone: 'green',
     icon: 'check-circle',
     kind: '실매물 확인',
-    when: '1시간 전',
-    title: '선월 하이츠 2차 205동',
-    text: '분양권 4억 1,900 · P +2,700',
+    title: '실매물 확인 완료 알림',
+    text: '관심 매물이 다시 확인되면 알려요',
   },
 ] as const;
 
@@ -113,10 +114,7 @@ export function AppBand({ iosUrl, androidUrl }: AppBandProps) {
                     <Icon name={n.icon} size={16} />
                   </span>
                   <span className={styles.noticeBody}>
-                    <span className={styles.noticeKind}>
-                      {n.kind}
-                      <span>{n.when}</span>
-                    </span>
+                    <span className={styles.noticeKind}>{n.kind}</span>
                     <b>{n.title}</b>
                     <span>{n.text}</span>
                   </span>

@@ -9,7 +9,7 @@ import { serverGetOr } from '@/lib/api/server';
 import { formatCount } from '@/lib/format';
 import { buildMapHref } from '@/lib/map/url-state';
 import {
-  DISTRICT_ALIASES,
+  districtAlias,
   JsonLd,
   LANDING_ASSETS,
   LANDING_ASSET_SLUGS,
@@ -141,7 +141,7 @@ export default async function RegionLandingPage({ params }: Props) {
           placeJsonLd({
             path,
             name: region.emdName,
-            alternateName: DISTRICT_ALIASES[region.code] ?? null,
+            alternateName: districtAlias(region.emdName) ?? null,
             description: `${placeFull(region)} ${cfg.topic}`,
             geo:
               region.lat !== null && region.lng !== null

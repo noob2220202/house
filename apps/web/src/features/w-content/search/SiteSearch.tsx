@@ -47,7 +47,7 @@ const KEYWORD_PREFIX = 'kw:';
 export function SiteSearch({
   variant = 'hero',
   initialQuery = '',
-  placeholder = '지역 또는 단지명 (예: 신대지구, 오천 그린빌)',
+  placeholder = '지역 또는 단지명 (예: 신대지구, 연향동)',
   autoFocus,
   showPopular = true,
   className,

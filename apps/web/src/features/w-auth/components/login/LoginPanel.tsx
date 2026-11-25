@@ -99,7 +99,7 @@ export function LoginPanel({ returnTo, initialIntent, notice, mock }: LoginPanel
 
           <div className={styles.head}>
             <h1 className="t-h1">{agent ? '중개사 회원 로그인' : '로그인'}</h1>
-            <p className="t-sm">자주 쓰는 계정으로 3초 만에 시작하세요</p>
+            <p className="t-sm">자주 쓰는 계정으로 간편하게 시작하세요</p>
           </div>
 
           {notice && (

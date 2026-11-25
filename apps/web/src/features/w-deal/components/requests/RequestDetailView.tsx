@@ -466,11 +466,7 @@ export function RequestDetailView({ initial, now }: RequestDetailViewProps) {
           className={styles.state}
           icon="bell"
           title={active ? '아직 도착한 제안이 없어요' : '받은 제안이 없어요'}
-          description={
-            active
-              ? '보통 하루 안에 첫 제안이 도착해요. 제안이 오면 알림으로 알려드릴게요.'
-              : undefined
-          }
+          description={active ? '제안이 오면 알림으로 알려드릴게요.' : undefined}
         />
       ) : (
         <ul className={styles.proposals}>

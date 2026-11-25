@@ -180,6 +180,10 @@
 .fcVerified {
   font-size: 12px;
 }
+.fcSource {
+  font-size: 12px;
+  color: var(--text-muted);
+}
 .fcSent {
   right: 48px;
   top: 248px;

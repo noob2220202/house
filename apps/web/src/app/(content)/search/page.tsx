@@ -1,6 +1,6 @@
 import { Button, Chip, EmptyState, Icon, Tabs, type IconName } from '@house/ui';
 import Link from 'next/link';
-import { getSearchResults } from '@/features/w-content/api/server';
+import { getPopularSearches, getSearchResults } from '@/features/w-content/api/server';
 import { LoadError } from '@/features/w-content/components/LoadError';
 import { PageHead } from '@/features/w-content/components/PageHead';
 import layout from '@/features/w-content/components/layout.module.css';
@@ -13,7 +13,6 @@ import {
   ResultSection,
 } from '@/features/w-content/search/SearchResults';
 import { SiteSearch } from '@/features/w-content/search/SiteSearch';
-import { POPULAR_SEARCHES } from '@/features/w-content/search/popular';
 import styles from '@/features/w-content/search/search.module.css';
 import {
   normalizeSearchQuery,
@@ -50,11 +49,13 @@ const SHORTCUTS: { href: string; icon: IconName; title: string; desc: string }[]
   { href: ROUTES.deal, icon: 'swap', title: '내놓기 · 구하기', desc: '조건을 남기고 제안 받기' },
 ];
 
-function PopularChips({ label }: { label: string }) {
+/** Real popular keywords only; nothing to show → no row. */
+function PopularChips({ label, keywords }: { label: string; keywords: readonly string[] }) {
+  if (keywords.length === 0) return null;
   return (
     <div className={styles.popular}>
       <span className={styles.popularLabel}>{label}</span>
-      {POPULAR_SEARCHES.map((keyword) => (
+      {keywords.map((keyword) => (
         <Chip key={keyword} variant="quick" href={ROUTES.search(keyword)} linkAs={Link}>
           {keyword}
         </Chip>
@@ -87,6 +88,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
   const tab = parseSearchTab(sp.type);
 
   if (q === '') {
+    const popular = await getPopularSearches();
     return (
       <div className={`container ${layout.page}`}>
         <PageHead
@@ -97,7 +99,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
         <div className={styles.hero}>
           {/* The chips below already offer the popular keywords: the list opens only on typing. */}
           <SiteSearch autoFocus showPopular={false} />
-          <PopularChips label="많이 찾는" />
+          <PopularChips label="많이 찾는" keywords={popular} />
         </div>
         <h2 className={`t-h3 ${styles.sectionTitle}`}>바로 가기</h2>
         <Shortcuts />
@@ -106,10 +108,13 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
   }
 
   const dev = devSwitches(sp);
-  const result = await load(() => {
-    dev.failIfRequested();
-    return getSearchResults(q, tab === 'all' ? undefined : tab);
-  });
+  const [result, popular] = await Promise.all([
+    load(() => {
+      dev.failIfRequested();
+      return getSearchResults(q, tab === 'all' ? undefined : tab);
+    }),
+    getPopularSearches(),
+  ]);
   const data = result.ok ? result.data : null;
   const sections = data ? [data.regions, data.complexes, data.agencies] : [];
   const allFailed = !data || sections.every((s) => s.failed);
@@ -175,7 +180,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
               }
             />
           </div>
-          <PopularChips label="이런 검색어는 어때요?" />
+          <PopularChips label="이런 검색어는 어때요?" keywords={popular} />
         </>
       ) : (
         <>

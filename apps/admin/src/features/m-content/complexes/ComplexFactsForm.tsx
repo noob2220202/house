@@ -192,7 +192,7 @@ export function ComplexFactsForm({
                 label="단지명"
                 required
                 maxLength={100}
-                placeholder="예: 신대 레이크파크 1단지"
+                placeholder="예: 건축물대장상 단지명 그대로"
                 error={errors.name?.message}
                 {...register('name')}
               />

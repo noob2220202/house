@@ -84,7 +84,7 @@ export async function HomePage() {
           </>
         );
       case HomeSectionKey.DEAL_REQUEST_CTA:
-        return <DealBand />;
+        return <DealBand agencyCount={summary?.agencyCount} />;
       case HomeSectionKey.LOCAL_VIDEOS:
         return data.videos.length > 0 ? (
           <>

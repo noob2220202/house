@@ -358,7 +358,7 @@ export function StepProperty() {
                 <FormRow label="건물명" htmlFor="f-buildingName" help="있으면 적어 주세요.">
                   <Input
                     id="f-buildingName"
-                    placeholder="예: 석현동 해오름빌"
+                    placeholder="예: ○○빌라, ○○하우스 (건축물대장 기준)"
                     maxLength={100}
                     error={errors.buildingName?.message}
                     {...register('buildingName')}

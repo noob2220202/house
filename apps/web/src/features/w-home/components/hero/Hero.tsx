@@ -5,7 +5,7 @@ import { HeroMap } from './HeroMap';
 import { HeroSearch } from './HeroSearch';
 import styles from './Hero.module.css';
 
-const PROMISES = ['실매물 확인을 마친 매물만', '공동중개 매물은 1건으로', '허위매물 신고 포상'];
+const PROMISES = ['실매물 확인을 마친 매물만', '공동중개 매물은 1건으로', '허위매물 신고 접수'];
 
 export interface HeroProps {
   summary: HomeSummary | undefined;

@@ -27,6 +27,7 @@ export {
 } from './jsonld';
 export {
   DISTRICT_ALIASES,
+  districtAlias,
   LANDING_ASSETS,
   LANDING_ASSET_SLUGS,
   SEO_ROUTES,

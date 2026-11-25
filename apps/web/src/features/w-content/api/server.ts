@@ -12,6 +12,7 @@ import {
   policyDocumentSchema,
   searchAgencyPageSchema,
   searchComplexPageSchema,
+  searchSuggestSchema,
   termsDocumentSchema,
   termsVersionListSchema,
   videoPageSchema,
@@ -115,6 +116,27 @@ const getRegions = () =>
     revalidate: 3600,
     tags: ['regions'],
   });
+
+/**
+ * The real "많이 찾는" keywords (`GET /search/suggest?q=` → `popular`: the most-viewed 지역 and
+ * 단지). Never throws: an empty list (no data, or the API failed) hides the chip row.
+ */
+export async function getPopularSearches(limit = 6): Promise<string[]> {
+  try {
+    const data = await serverGet('/search/suggest', {
+      query: { q: '' },
+      schema: searchSuggestSchema,
+      revalidate: 300,
+      tags: ['search'],
+      timeoutMs: 3000,
+    });
+    const keywords = (data.popular ?? []).map((k) => k.trim()).filter(Boolean);
+    return [...new Set(keywords)].slice(0, limit);
+  } catch (error) {
+    if (error instanceof ApiError) return [];
+    throw error;
+  }
+}
 
 /**
  * Unified search = fan-out over the public list endpoints the backend READMEs define:

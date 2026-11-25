@@ -140,7 +140,7 @@ function ComplexPicker({
     <div className={styles.picker}>
       <Input
         aria-label="단지 검색"
-        placeholder="단지 이름 (예: 레이크파크)"
+        placeholder="단지 이름으로 검색"
         className={styles.inMd}
         value={q}
         onChange={(e) => setQ(e.target.value)}

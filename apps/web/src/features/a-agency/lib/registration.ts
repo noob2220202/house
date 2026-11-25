@@ -8,7 +8,8 @@ import { AGENCY_INVITE_CODE_ALPHABET, AGENCY_INVITE_CODE_LENGTH } from '@house/s
  * "전남-순천-2015-0012". So the frontend only normalizes spacing and auto-hyphenates the purely
  * numeric modern form — the admin (and the registry lookup) is the authority.
  */
-export const REGISTRATION_NUMBER_EXAMPLE = '46150-2020-00012';
+/** Format hint only — masked so it can never be a real office's number. */
+export const REGISTRATION_NUMBER_EXAMPLE = '46150-0000-00000';
 
 /** Characters a 등록번호 may contain: digits, Hangul, Latin letters, hyphen. */
 const REGISTRATION_ALLOWED = /^[0-9A-Za-z가-힣-]+$/;

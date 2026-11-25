@@ -43,7 +43,7 @@ export function ComplexSearch({ onSelect, error, id, label = '단지 검색' }: 
     <Combobox
       id={id}
       aria-label={label}
-      placeholder="단지명 또는 주소로 검색 (예: 레이크파크, 연향 센트럴)"
+      placeholder="단지 이름 또는 도로명 주소로 검색"
       inputValue={text}
       onInputChange={setText}
       options={options}

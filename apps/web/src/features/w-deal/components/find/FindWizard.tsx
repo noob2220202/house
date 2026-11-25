@@ -100,7 +100,7 @@ interface StepProps {
 }
 
 const REGION_GROUPS: readonly { key: 'popular' | 'more'; title: string }[] = [
-  { key: 'popular', title: '많이 찾는 지역' },
+  { key: 'popular', title: '주요 지역' },
   { key: 'more', title: '그 밖의 지역' },
 ];
 

@@ -127,13 +127,13 @@ export function DealHero({ crumb }: { crumb?: ReactNode }) {
                 <span className={styles.reqV}>
                   신대지구 · 매매 · 34평
                   <br />
-                  4억 5,000 이하
+                  원하는 예산 이하
                 </span>
               </div>
               <div className={styles.note}>
                 <Icon name="bell" size={16} />
                 <span>
-                  <b>새 제안 3건</b> 도착
+                  <b>새 제안</b>이 오면 알려 드려요
                 </span>
               </div>
             </div>
@@ -167,8 +167,8 @@ const HOW: readonly { n: string; icon: ReactNode; title: string; body: string; c
     n: '01',
     icon: <Icon name="edit" size={22} />,
     title: '등록',
-    body: '매물 또는 원하는 조건을 3분 안에 입력해요. 주소로 단지 정보가 채워져요.',
-    chip: '평균 작성 3분',
+    body: '매물 또는 원하는 조건을 입력해요. 주소로 단지 정보가 채워져요.',
+    chip: '주소만 넣으면 자동 입력',
   },
   {
     n: '02',

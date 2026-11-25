@@ -19,7 +19,7 @@ import { HERO_DEALS, QUICK_SEARCHES, type HeroDeal, type QuickSearch } from '../
 import { mapHref, searchHref } from '../../lib/links';
 import styles from './Hero.module.css';
 
-const PLACEHOLDER = '지역 또는 단지명 (예: 신대지구, 오천 그린빌)';
+const PLACEHOLDER = '지역 또는 단지명 (예: 신대지구, 연향동)';
 const PLACEHOLDER_SHORT = '지역 또는 단지명';
 const SUGGEST_TYPES = new Set(['REGION', 'COMPLEX']);
 
@@ -42,7 +42,7 @@ export interface HeroSearchProps {
 }
 
 /**
- * Hero search: deal pills → search field with 지역/단지명 autocomplete → "많이 찾는" quick chips.
+ * Hero search: deal pills → search field with 지역/단지명 autocomplete → "바로 가기" quick chips (hand-picked, not a popularity ranking).
  * A suggestion opens the map on the district / the complex page; a free-text submit goes to the
  * unified search results.
  */
@@ -138,7 +138,7 @@ export function HeroSearch({ regions }: HeroSearchProps) {
       />
       <div className={styles.quick}>
         <span className={styles.quickLabel} id="hero-quick-l">
-          많이 찾는
+          바로 가기
         </span>
         <ul className={styles.quickList} aria-labelledby="hero-quick-l">
           {QUICK_SEARCHES.map((c, i) => (

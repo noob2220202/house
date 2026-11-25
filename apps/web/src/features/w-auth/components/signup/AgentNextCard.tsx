@@ -21,7 +21,7 @@ export function AgentNextCard({ ready }: { ready: boolean }) {
         </h2>
         <p className="t-body">
           허위매물을 막기 위해 시·군·구청에 등록된 중개사무소만 매물을 올릴 수 있어요. 운영팀이
-          확인한 뒤 보통 1영업일 안에 승인 알림을 드려요.
+          확인하면 승인 알림을 드려요.
         </p>
         <ol className={styles.agentSteps}>
           <li>

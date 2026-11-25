@@ -30,8 +30,8 @@ import {
 } from './request-text';
 import { canPropose, canWithdraw, inboxStage, proposalTimeline, stagePill } from './stage';
 
-const SINDAE = '1215033028';
-const SEONWOL = '1215033029';
+const SINDAE = '1215031022';
+const SEONWOL = '1215031028';
 
 /** Minimal request through the response schema (so defaults match what the API client yields). */
 function request(over: Record<string, unknown>): AgencyDealRequest {

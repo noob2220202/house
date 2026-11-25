@@ -2,7 +2,7 @@ import { DEAL_TYPE_LABEL, DealType } from '@house/shared';
 import { BRAND, josa } from '@/config/brand';
 import type { MapAssetSlug } from '@/config/nav';
 import { formatCount, formatDateKorean, formatPriceRange, formatSqm } from '@/lib/format';
-import { DISTRICT_ALIASES, LANDING_ASSETS } from '@/lib/seo/regions';
+import { LANDING_ASSETS, districtAlias } from '@/lib/seo/regions';
 import type {
   SeoDealSummary,
   SeoRegion,
@@ -18,7 +18,7 @@ import { dateOnlyLabel, manwonText, percentChange, ymDot, ymLabel } from '@/lib/
 
 /** "순천시 해룡면 신대리(신대지구)" */
 export function placeFull(region: Pick<SeoRegion, 'code' | 'emdName'>): string {
-  const alias = DISTRICT_ALIASES[region.code];
+  const alias = districtAlias(region.emdName);
   return `${BRAND.region} ${region.emdName}${alias ? `(${alias})` : ''}`;
 }
 

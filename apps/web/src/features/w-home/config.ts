@@ -65,8 +65,8 @@ export const HERO_DEALS = [
 export type HeroDeal = (typeof HERO_DEALS)[number]['value'];
 
 /**
- * "많이 찾는" quick chips. Regions are matched by name against `GET /home/summary` (so the link
- * opens the map on that district); `fallback` is used when the district is not in the response.
+ * "바로 가기" quick chips (editorial shortcuts — never labelled as popularity). Regions are
+ * matched by name against `GET /home/summary` (so the link opens the map on that district); `fallback` is used when the district is not in the response.
  * Editorial for now — a candidate for the admin "메인 화면 편집".
  */
 export interface QuickSearch {

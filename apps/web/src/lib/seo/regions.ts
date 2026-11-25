@@ -85,14 +85,31 @@ export function isLandingAsset(value: string): value is MapAssetSlug {
 
 /**
  * Well-known 택지지구 names people search for instead of the 법정 리 ("신대지구 아파트"), keyed
- * by region key. Only add a name when the 지구 lies within that one 리.
+ * by the 법정동 label. Keyed by name, not code, so the alias can never land on another 리 whatever
+ * code table the API runs with (행정안전부 법정동코드: 해룡면 신대리 1215031022, 선월리 1215031028 —
+ * NOT 1215037021/22, which are 외서면 신덕리/쌍율리). Only add a name when the 지구 lies within that
+ * one 리; both 리 names are unique within 순천시.
  */
 export const DISTRICT_ALIASES: Readonly<Record<string, string>> = {
   /** 해룡면 신대리 — 신대지구 (광양만권 신대배후단지). */
-  '1215037021': '신대지구',
+  '해룡면 신대리': '신대지구',
   /** 해룡면 선월리 — 선월지구. */
-  '1215037022': '선월지구',
+  '해룡면 선월리': '선월지구',
 };
+
+const ALIAS_BY_RI = new Map(
+  Object.entries(DISTRICT_ALIASES).map(([label, alias]) => [
+    label.split(' ').pop() ?? label,
+    alias,
+  ]),
+);
+
+/** 지구 alias of a 법정동 label ("해룡면 신대리" or "신대리" → "신대지구"); undefined otherwise. */
+export function districtAlias(emdName: string | null | undefined): string | undefined {
+  if (!emdName) return undefined;
+  const label = emdName.trim().replace(/\s+/g, ' ');
+  return DISTRICT_ALIASES[label] ?? ALIAS_BY_RI.get(label.split(' ').pop() ?? label);
+}
 
 /** "해룡면 신대리" → "해룡면-신대리"; "연향동" → "연향동". */
 export function regionSlug(region: Pick<SeoRegion, 'emdName'>): string {
@@ -118,7 +135,7 @@ export function findRegionBySlug<R extends Pick<SeoRegion, 'emdName'>>(
 
 /** Name used in titles: the 지구 alias, else the 법정동 label ("해룡면 신대리" / "연향동"). */
 export function placeLabel(region: Pick<SeoRegion, 'code' | 'emdName'>): string {
-  return DISTRICT_ALIASES[region.code] ?? region.emdName;
+  return districtAlias(region.emdName) ?? region.emdName;
 }
 
 /** "순천 신대지구 아파트 매매·전세 시세" */

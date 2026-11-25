@@ -8,7 +8,9 @@ import {
   LANDING_ASSET_SLUGS,
   SEO_ROUTES,
   assetSlugOf,
+  districtAlias,
   findRegionBySlug,
+  placeLabel,
   indexableLandings,
   landingDecision,
   landingTitle,
@@ -238,5 +240,20 @@ describe('llms.txt', () => {
     expect(txt).toContain('고객센터: 061-000-0000');
     expect(txt).not.toContain(`/suncheon/${encodeURIComponent('해룡면')}/apt`);
     expect(txt).toContain(`/suncheon/${encodeURIComponent('해룡면-신대리')}/apt`);
+  });
+});
+
+describe('districtAlias', () => {
+  it('names the 택지지구 by its 법정 리, whatever code the region carries', () => {
+    expect(districtAlias('해룡면 신대리')).toBe('신대지구');
+    expect(districtAlias('신대리')).toBe('신대지구');
+    expect(districtAlias(' 해룡면  선월리 ')).toBe('선월지구');
+    expect(placeLabel({ code: '1215031022', emdName: '해룡면 신대리' })).toBe('신대지구');
+  });
+
+  it('never aliases another 리 (외서면 신덕리 once carried the 신대리 code)', () => {
+    expect(districtAlias('외서면 신덕리')).toBeUndefined();
+    expect(placeLabel({ code: '1215037021', emdName: '외서면 신덕리' })).toBe('외서면 신덕리');
+    expect(districtAlias(null)).toBeUndefined();
   });
 });

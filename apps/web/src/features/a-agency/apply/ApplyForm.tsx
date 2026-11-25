@@ -240,7 +240,7 @@ export function ApplyForm({ agency, onCancel, onSubmitted }: ApplyFormProps) {
             <Input
               label="상호"
               required
-              placeholder="예: 신대중앙 공인중개사사무소"
+              placeholder="예: ○○공인중개사사무소 (등록증 상호 그대로)"
               autoComplete="organization"
               error={errors.name?.message}
               {...register('name')}
@@ -411,7 +411,7 @@ export function ApplyForm({ agency, onCancel, onSubmitted }: ApplyFormProps) {
               label="사무소 소개"
               rows={4}
               maxLength={3000}
-              placeholder="예: 신대지구 입주 때부터 레이크파크 단지만 중개하고 있어요."
+              placeholder="예: 신대지구 입주 때부터 이 지역 아파트를 주로 중개하고 있어요."
               help={`${intro.length.toLocaleString('ko-KR')} / 3,000자`}
               error={errors.intro?.message}
               {...register('intro')}

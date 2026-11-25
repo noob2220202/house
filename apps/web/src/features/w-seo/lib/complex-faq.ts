@@ -12,7 +12,7 @@ import {
   formatPyeong,
   formatSqm,
 } from '@/lib/format';
-import { DISTRICT_ALIASES } from '@/lib/seo/regions';
+import { districtAlias } from '@/lib/seo/regions';
 import { dateOnlyLabel, manwonText } from '@/lib/seo/text';
 
 export interface FaqItem {
@@ -56,7 +56,7 @@ export interface ComplexFaqInput {
 export function complexFaq({ complex: c, listings, latest, asOf }: ComplexFaqInput): FaqItem[] {
   const name = c.name;
   const items: FaqItem[] = [];
-  const alias = c.emdCode ? DISTRICT_ALIASES[c.emdCode] : undefined;
+  const alias = districtAlias(c.emdName);
   const place = [BRAND.region, c.emdName].filter(Boolean).join(' ') + (alias ? `(${alias})` : '');
 
   // 준공

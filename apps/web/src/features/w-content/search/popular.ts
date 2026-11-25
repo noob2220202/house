@@ -1,9 +1,9 @@
 /**
- * Keywords offered before the visitor types (mockdata.md §7 "많이 찾는", limited to what unified
- * search can answer: 지역 · 단지 · 중개사무소 names). The autocomplete endpoint returns its own
- * `popular` list; this is the server-rendered fallback for the search page.
+ * A few real 순천 지역 names: the `popular` list of the mock autocomplete, and the q values whose
+ * search results are data-cached. NOT shown as "많이 찾는" — the search page renders the real
+ * `popular` list of `GET /search/suggest` (most-viewed 지역 · 단지) instead (`getPopularSearches`).
  */
-export const POPULAR_SEARCHES = ['신대지구', '오천지구', '연향동', '조례동', '레이크파크'] as const;
+export const POPULAR_SEARCHES = ['신대지구', '오천지구', '연향동', '조례동', '왕지동'] as const;
 
 const POPULAR = new Set<string>(POPULAR_SEARCHES);
 

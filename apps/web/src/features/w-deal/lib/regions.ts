@@ -1,15 +1,19 @@
+import { env } from '@/config/env';
+
 /**
  * 순천시 생활권 offered in the 구하기 region picker.
  *
- * The picker loads the regions from `GET /regions` (assumed endpoint shared with w-map) so the
- * codes are the backend's — whatever 시군구 code it is configured with (12150, D1). This
- * static list only supplies the presentation (which names are "많이 찾는 지역", chip hints) and
- * is the fallback while loading, when the endpoint fails, and for server-rendered names. Its codes
- * mirror the w-map mock (src/app/mock-api/v1/map/_fixtures.ts → REGIONS) so every mock agrees.
+ * The picker loads the regions from `GET /regions` so the codes are the backend's (D1). This static
+ * list supplies the presentation (which names lead the picker as "주요 지역", chip hints) and is the
+ * fallback while loading, when the endpoint fails, and for server-rendered names. Its codes are the
+ * REAL 법정동 codes of 순천시 (행정안전부 법정동코드, 46150 → 12150 since 2026-07-01 — the same list
+ * the API seeds its region table from, apps/api/src/modules/complexes/regions/suncheon-regions.data.ts),
+ * so a request sent from the fallback still targets real regions. Hints only state facts of the
+ * code itself or well-known landmarks inside that 법정동.
  * See docs/frontend-integration/w-deal.md.
  */
 export interface RegionOption {
-  /** 법정동 code (10 digits) sent in `regionCodes`. */
+  /** 법정동 code (8 digits 읍면동, 10 digits 리) sent in `regionCodes`. */
   code: string;
   name: string;
   /** Caption inside the chip. */
@@ -18,27 +22,48 @@ export interface RegionOption {
 }
 
 export const SUNCHEON_REGIONS: readonly RegionOption[] = [
-  { code: '1215033028', name: '신대지구', hint: '해룡면 신대리', group: 'popular' },
-  { code: '1215033029', name: '선월지구', hint: '분양권', group: 'popular' },
-  { code: '1215012100', name: '연향동', hint: '금당지구 포함', group: 'popular' },
-  { code: '1215012000', name: '조례동', hint: '호수공원', group: 'popular' },
-  { code: '1215011900', name: '오천동', hint: '오천지구', group: 'popular' },
-  { code: '1215012200', name: '왕지동', group: 'popular' },
-  { code: '1215011800', name: '풍덕동', group: 'more' },
-  { code: '1215011500', name: '덕연동', group: 'more' },
-  { code: '1215011000', name: '석현동', hint: '순천대 인근', group: 'more' },
-  { code: '1215010900', name: '매곡동', group: 'more' },
-  { code: '1215010400', name: '장천동', hint: '순천역 인근', group: 'more' },
-  { code: '1215011700', name: '덕월동', hint: '청암대 인근', group: 'more' },
-  { code: '1215031000', name: '서면', group: 'more' },
+  { code: '1215031022', name: '신대지구', hint: '해룡면 신대리', group: 'popular' },
+  { code: '1215031028', name: '선월지구', hint: '해룡면 선월리', group: 'popular' },
+  { code: '12150114', name: '연향동', group: 'popular' },
+  { code: '12150133', name: '조례동', hint: '호수공원', group: 'popular' },
+  { code: '12150126', name: '오천동', hint: '오천지구', group: 'popular' },
+  { code: '12150132', name: '왕지동', group: 'popular' },
+  { code: '12150115', name: '풍덕동', group: 'more' },
+  { code: '12150111', name: '조곡동', group: 'more' },
+  { code: '12150108', name: '석현동', hint: '순천대 인근', group: 'more' },
+  { code: '12150107', name: '매곡동', group: 'more' },
+  { code: '12150119', name: '장천동', group: 'more' },
+  { code: '12150127', name: '덕월동', group: 'more' },
+  { code: '12150320', name: '서면', group: 'more' },
 ];
+
+/**
+ * Display names of the provisional region codes the mock fixtures (src/app/mock-api) still use, so
+ * mock-mode screens keep their names. Consulted ONLY in API mock mode: never offered in a picker,
+ * never sent, never used against the real API.
+ */
+const MOCK_REGION_NAMES: Readonly<Record<string, string>> = {
+  '1215033028': '신대지구',
+  '1215033029': '선월지구',
+  '1215012100': '연향동',
+  '1215012000': '조례동',
+  '1215011900': '오천동',
+  '1215012200': '왕지동',
+  '1215011800': '풍덕동',
+  '1215011500': '덕연동',
+  '1215011000': '석현동',
+  '1215010900': '매곡동',
+  '1215010400': '장천동',
+  '1215011700': '덕월동',
+  '1215031000': '서면',
+};
 
 const BY_CODE = new Map(SUNCHEON_REGIONS.map((r) => [r.code, r]));
 const PRESET_BY_NAME = new Map(SUNCHEON_REGIONS.map((r) => [r.name, r]));
 
 /** Region display name for a code ("1215012100" → "연향동"); unknown codes are shown as-is. */
 export function regionName(code: string): string {
-  return BY_CODE.get(code)?.name ?? code;
+  return BY_CODE.get(code)?.name ?? (env.apiMock ? MOCK_REGION_NAMES[code] : undefined) ?? code;
 }
 
 /** Region as returned by `GET /regions`. */
@@ -49,7 +74,7 @@ export interface RegionSource {
 }
 
 /**
- * Picker options from the backend regions: the preset's hint / group by name ("많이 찾는 지역"
+ * Picker options from the backend regions: the preset's hint / group by name ("주요 지역"
  * first, in preset order), other regions after them in API order. Falls back to the static list.
  */
 export function toRegionOptions(items: readonly RegionSource[] | undefined): RegionOption[] {
