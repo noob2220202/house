@@ -9,13 +9,18 @@ import { SESSION_COOKIE, isProtectedPath, loginUrl } from '@/lib/auth/paths';
 export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   if (isProtectedPath(pathname) && !req.cookies.has(SESSION_COOKIE)) {
-    const url = req.nextUrl.clone();
-    const [path, query = ''] = loginUrl(`${pathname}${search}`).split('?');
-    url.pathname = path ?? '/login';
-    url.search = query ? `?${query}` : '';
-    return NextResponse.redirect(url);
+    return redirectRelative(loginUrl(`${pathname}${search}`));
   }
   return NextResponse.next();
+}
+
+/**
+ * 307 with a RELATIVE Location. Behind nginx, `req.nextUrl` carries the Next server's own address
+ * (https://localhost:3000), so an absolute redirect built from it sends visitors to localhost.
+ * A relative Location keeps the browser on whatever host it used, without trusting any header.
+ */
+export function redirectRelative(location: string): NextResponse {
+  return new NextResponse(null, { status: 307, headers: { Location: location } });
 }
 
 export const config = {

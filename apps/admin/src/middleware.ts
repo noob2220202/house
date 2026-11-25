@@ -27,13 +27,12 @@ export function middleware(req: NextRequest) {
     res.headers.set('Content-Security-Policy', csp);
     return res;
   }
-  const url = req.nextUrl.clone();
-  const [path, query = ''] = loginUrl(`${pathname}${search}`).split('?');
-  url.pathname = path ?? '/login';
-  url.search = query ? `?${query}` : '';
-  const res = NextResponse.redirect(url);
-  res.headers.set('Content-Security-Policy', csp);
-  return res;
+  // Relative Location: behind nginx `req.nextUrl` is the Next server's own address
+  // (https://localhost:3001), so an absolute redirect built from it would leave the site.
+  return new NextResponse(null, {
+    status: 307,
+    headers: { Location: loginUrl(`${pathname}${search}`), 'Content-Security-Policy': csp },
+  });
 }
 
 export const config = {
