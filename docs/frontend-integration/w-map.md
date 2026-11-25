@@ -178,6 +178,13 @@ each of its fields) are parsed leniently: an unknown value (`'TWOROOM'`, a Korea
 - Complex assets (APT / OFFICETEL) come back as `COMPLEX` markers, everything else as `LISTING`
   markers grouped by coordinates. The popover of a complex is drawn from the marker payload alone
   (no extra request per click), hence the embedded card fields. All of them are optional.
+- **APT / OFFICETEL listings without a 단지** (`complex_id IS NULL`, e.g. registered with the wizard's
+  "직접 입력") come back as `LISTING` markers even on /map/apt. There a price pill opens the same
+  listing preview as in listing mode (`resolvePickedPill`, `lib/selection.ts`; desktop popover,
+  mobile "선택한 위치의 매물" block, `sel` = listing id, an open complex panel closes), and the
+  complex panel adds a "단지 정보 없는 매물 N건" section (`StandaloneListings`): N = sum of the pills'
+  counts, rows = `GET /listings?bbox=<box around the pills>` minus rows that carry a complex (the
+  list endpoint has no "without complex" filter). It replaces the "표시할 단지가 없어요" empty state.
 - `summary` is optional as a whole and per field; the dark pill hides what is missing.
   `listingCount` = listings of the asset type in the bbox **before** the other filters ("매물 318 ·
   조건 일치 160").

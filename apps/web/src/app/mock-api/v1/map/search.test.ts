@@ -68,7 +68,11 @@ describe('map search mock', () => {
 
     const markers = searchMap(LISTINGS, CITY, MAP_ZOOM.GRID_MAX + 1, f);
     expect(markers.kind).toBe(MapResultKind.MARKERS);
-    expect(markers.markers.every((m) => m.type === 'COMPLEX')).toBe(true);
+    // Listings of a 단지 are complex markers; only listings without one are price pills.
+    const pills = markers.markers.filter((m) => m.type === 'LISTING');
+    const solo = new Set(APT_LISTINGS.filter((l) => !l.complexId).map((l) => l.id));
+    expect(pills.length).toBeGreaterThan(0);
+    expect(pills.every((m) => solo.has(m.id))).toBe(true);
     expect(markers.markers.reduce((n, m) => n + m.count, 0)).toBe(markers.total);
   });
 

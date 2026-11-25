@@ -68,12 +68,18 @@ export interface MapPageState {
   setView: (view: MapViewState) => void;
   /**
    * Select a marker / card → new history entry so Back closes it. `view` moves the map in the same
-   * entry; `complex` also opens that complex's panel (w-complex `?complex=`). Deselecting always
+   * entry; `complex` also opens that complex's panel (w-complex `?complex=`), `closeComplex`
+   * closes an open one (a price pill picked while a complex panel is open). Deselecting always
    * closes the complex panel.
    */
   select: (
     id: string | null,
-    options?: { view?: MapViewState; listOpen?: boolean; complex?: boolean },
+    options?: {
+      view?: MapViewState;
+      listOpen?: boolean;
+      complex?: boolean;
+      closeComplex?: boolean;
+    },
   ) => void;
   /** Patch filters → new history entry (`replace` while dragging). */
   setFilters: (patch: Partial<MapFilters>, options?: { replace?: boolean }) => void;
@@ -138,10 +144,10 @@ export function useMapPageState(asset: AssetConfig, fallbackView: MapViewState):
         if (options?.view) serializeMapView(options.view, sp);
         if (options?.listOpen) sp.set('list', '1');
         else sp.delete('list');
-        if (!id || options?.complex) {
+        if (!id || options?.complex || options?.closeComplex) {
           // Switching complexes starts from a clean panel (its `c-…` filters belong to the old one).
           for (const key of Object.keys(PANEL_FILTERS)) sp.delete(key);
-          if (id) sp.set(COMPLEX_PARAM, id);
+          if (id && options?.complex) sp.set(COMPLEX_PARAM, id);
           else sp.delete(COMPLEX_PARAM);
         }
       }, 'push'),
