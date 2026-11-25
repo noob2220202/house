@@ -44,6 +44,18 @@ export class TradeApiError extends Error {
   }
 }
 
+/**
+ * The service key's daily quota is used up: "LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR"
+ * (code 22, `definitive`) or an HTTP 429 from the gateway (may also be a short burst limit).
+ */
+export function tradeApiQuotaError(err: unknown): { definitive: boolean } | null {
+  if (!(err instanceof TradeApiError)) return null;
+  if (/^(gateway|api) error 22\b|LIMITED_NUMBER_OF_SERVICE_REQUESTS/.test(err.message)) {
+    return { definitive: true };
+  }
+  return /\bHTTP 429$/.test(err.message) ? { definitive: false } : null;
+}
+
 @Injectable()
 export class DataGoKrTradeApiClient implements TradeApiClient {
   private readonly serviceKey: string | undefined;

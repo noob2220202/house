@@ -22,6 +22,7 @@ import {
   type MockAuditLog,
   type MockSetting,
 } from './fixtures-system';
+import type { MockBootstrapJob } from './bootstrap';
 import type { MockCtx } from './http';
 import { newId, nowIso } from './ids';
 
@@ -38,6 +39,8 @@ export interface MContentDb {
   settings: Record<string, MockSetting>;
   complexes: MockComplex[];
   syncRuns: MockTradeSyncRun[];
+  /** 실거래가로 단지 만들기 runs (newest first). */
+  bootstrapJobs: MockBootstrapJob[];
   admins: MockAdminAccount[];
   audit: MockAuditLog[];
 }
@@ -57,6 +60,7 @@ export function db(): MContentDb {
     settings: clone(SETTINGS),
     complexes: clone(COMPLEXES),
     syncRuns: clone(TRADE_SYNC_RUNS),
+    bootstrapJobs: [],
     admins: clone(ADMIN_ACCOUNTS),
     audit: clone(AUDIT_LOGS),
   };

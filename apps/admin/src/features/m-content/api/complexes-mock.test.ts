@@ -4,6 +4,9 @@ import { NextRequest } from 'next/server';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
+  bootstrapAcceptedSchema,
+  bootstrapJobSchema,
+  bootstrapLatestSchema,
   complexDetailSchema,
   complexPageSchema,
   complexPhotoSchema,
@@ -16,6 +19,8 @@ import {
  * PUT /admin/complexes/:id/photos.
  */
 type R = {
+  bootstrap: typeof import('@/app/mock-api/v1/admin/complexes/bootstrap/route');
+  bootstrapJob: typeof import('@/app/mock-api/v1/admin/complexes/bootstrap/[jobId]/route');
   list: typeof import('@/app/mock-api/v1/admin/complexes/route');
   detail: typeof import('@/app/mock-api/v1/admin/complexes/[id]/route');
   photos: typeof import('@/app/mock-api/v1/admin/complexes/[id]/photos/route');
@@ -26,6 +31,8 @@ beforeAll(async () => {
   vi.stubEnv('NEXT_PUBLIC_API_MOCK', '1');
   vi.resetModules();
   r = {
+    bootstrap: await import('@/app/mock-api/v1/admin/complexes/bootstrap/route'),
+    bootstrapJob: await import('@/app/mock-api/v1/admin/complexes/bootstrap/[jobId]/route'),
     list: await import('@/app/mock-api/v1/admin/complexes/route'),
     detail: await import('@/app/mock-api/v1/admin/complexes/[id]/route'),
     photos: await import('@/app/mock-api/v1/admin/complexes/[id]/photos/route'),
@@ -104,5 +111,69 @@ describe('complex mocks (real contract)', () => {
       { params },
     );
     expect(dup.status).toBe(400);
+  });
+
+  it('runs 실거래가로 단지 만들기: preview, then a real run adds TRADE_BOOTSTRAP 단지 once', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const listAuto = async () =>
+        complexPageSchema.parse(
+          await (
+            await r.list.GET(req('/admin/complexes?source=TRADE_BOOTSTRAP&pageSize=100'))
+          ).json(),
+        );
+      expect((await listAuto()).total).toBe(0);
+      const latest0 = bootstrapLatestSchema.parse(
+        await (await r.bootstrap.GET(req('/admin/complexes/bootstrap'))).json(),
+      );
+      expect(latest0.item).toBeNull();
+
+      const run = async (dryRun: boolean) => {
+        const res = await r.bootstrap.POST(
+          req('/admin/complexes/bootstrap', { method: 'POST', body: { months: 60, dryRun } }),
+        );
+        expect(res.status).toBe(202);
+        const accepted = bootstrapAcceptedSchema.parse(await res.json());
+        const get = async () =>
+          bootstrapJobSchema.parse(
+            await (
+              await r.bootstrapJob.GET(req(`/admin/complexes/bootstrap/${accepted.jobId}`), {
+                params: Promise.resolve({ jobId: accepted.jobId }),
+              })
+            ).json(),
+          );
+        return { accepted, get };
+      };
+
+      const preview = await run(true);
+      // one run at a time
+      const busy = await r.bootstrap.POST(
+        req('/admin/complexes/bootstrap', { method: 'POST', body: { months: 60 } }),
+      );
+      expect(busy.status).toBe(409);
+      expect((await preview.get()).status).toMatch(/waiting|active/);
+      vi.setSystemTime(Date.now() + 10_000);
+      const done = await preview.get();
+      expect(done).toMatchObject({ status: 'completed', dryRun: true, result: null });
+      expect(done.preview?.toCreate).toBeGreaterThan(0);
+      expect(done.preview?.needsLocation).toBeGreaterThan(0);
+      expect((await listAuto()).total).toBe(0);
+
+      vi.setSystemTime(Date.now() + 1000);
+      const real = await run(false);
+      vi.setSystemTime(Date.now() + 10_000);
+      const applied = await real.get();
+      expect(applied.result?.created).toBe(done.preview?.toCreate);
+      expect((await listAuto()).total).toBe(done.preview?.toCreate);
+      expect((await listAuto()).items.every((c) => c.source === 'TRADE_BOOTSTRAP')).toBe(true);
+
+      vi.setSystemTime(Date.now() + 1000);
+      const again = await run(false);
+      vi.setSystemTime(Date.now() + 10_000);
+      expect((await again.get()).result?.created).toBe(0);
+      expect((await listAuto()).total).toBe(done.preview?.toCreate);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

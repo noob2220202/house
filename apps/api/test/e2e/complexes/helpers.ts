@@ -51,6 +51,10 @@ export class FakeTradeApi implements TradeApiClient {
     return this;
   }
 
+  clearFailures(): void {
+    this.failures.clear();
+  }
+
   reset(): void {
     this.configured = true;
     this.maxRowsPerPage = null;

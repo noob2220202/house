@@ -4,6 +4,8 @@ import {
   complexAreaTypeParamSchema,
   complexAreaTypeUpdateSchema,
   complexAutocompleteQuerySchema,
+  complexBootstrapJobParamSchema,
+  complexBootstrapRequestSchema,
   complexCreateSchema,
   complexPhotosInputSchema,
   complexSearchQuerySchema,
@@ -47,6 +49,8 @@ export class TradeSyncRunsQueryDto extends createZodDto(tradeSyncRunsQuerySchema
 export class TradeRematchRequestDto extends createZodDto(tradeRematchRequestSchema) {}
 export class TradeSyncJobParamDto extends createZodDto(tradeSyncJobParamSchema) {}
 export class RegionUpsertDto extends createZodDto(regionUpsertSchema) {}
+export class ComplexBootstrapRequestDto extends createZodDto(complexBootstrapRequestSchema) {}
+export class ComplexBootstrapJobParamDto extends createZodDto(complexBootstrapJobParamSchema) {}
 
 /** Integer query param clamped into [min, max]; missing / not a number → `fallback` (like the web mock). */
 export const clampedInt = (min: number, max: number, fallback: number) =>

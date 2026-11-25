@@ -4,6 +4,7 @@ import {
   AssetType,
   AuditActorType,
   AuthProvider,
+  ComplexDataSource,
   DealType,
   FaqCategory,
   HomeSectionKey,
@@ -227,6 +228,8 @@ export const complexSummarySchema = z.object({
   viewCount: count.default(0),
   /** 국토교통부 단지 코드 (exact 실거래 matching); null = still to fill in. */
   externalCode: z.string().nullable().default(null),
+  /** ADMIN (직접 등록) or TRADE_BOOTSTRAP (실거래가로 자동 생성). */
+  source: z.enum(ComplexDataSource).default(ComplexDataSource.ADMIN),
   /** Latest matched 실거래 date (YYYY-MM-DD) — not in the shared list item. */
   lastTradeDate: z.string().nullable().default(null),
   /** Only on the detail (`AdminComplexView`). */
@@ -323,7 +326,86 @@ export const tradeSyncRunSchema = z.object({
 });
 export type TradeSyncRun = z.infer<typeof tradeSyncRunSchema>;
 export const tradeSyncRunPageSchema = pageSchema(tradeSyncRunSchema);
-export const tradeSyncTriggerSchema = z.object({ runs: z.array(tradeSyncRunSchema) });
+/** 202 of POST /admin/complexes/trade-sync: the queued job (shared TradeSyncJobAccepted). */
+export const tradeSyncTriggerSchema = z.object({
+  jobId: z.string(),
+  kind: z.enum(['MONTH', 'REMATCH']),
+  state: z.enum(['waiting', 'delayed', 'active', 'completed', 'failed']),
+});
+
+// ---------- 단지 자동 생성 (shared ComplexBootstrap* views) ----------
+
+const jobState = z.enum(['waiting', 'delayed', 'active', 'completed', 'failed']);
+export const bootstrapItemSchema = z.object({
+  action: z.enum(['CREATE', 'UPDATE', 'UNCHANGED', 'NEEDS_LOCATION', 'SKIP']),
+  reason: z.string().nullable().default(null),
+  name: z.string(),
+  emdName: z.string().nullable().default(null),
+  emdCode: z.string().nullable().default(null),
+  jibunAddress: z.string().nullable().default(null),
+  roadAddress: z.string().nullable().default(null),
+  builtYear: z.number().int().nullable().default(null),
+  areaTypeCount: count.default(0),
+  exclusiveAreas: z.array(z.number()).default([]),
+  hasLocation: z.boolean(),
+  externalCode: z.string().nullable().default(null),
+  saleCount: count.default(0),
+  rentCount: count.default(0),
+  complexId: z.string().nullable().default(null),
+});
+export type BootstrapItem = z.infer<typeof bootstrapItemSchema>;
+export const bootstrapPreviewSchema = z.object({
+  fromYm: z.number().int(),
+  toYm: z.number().int(),
+  rows: count,
+  candidates: count,
+  toCreate: count,
+  toUpdate: count,
+  unchanged: count,
+  needsLocation: count,
+  skipped: count,
+  sample: z.array(bootstrapItemSchema),
+  needsLocationItems: z.array(bootstrapItemSchema).default([]),
+  skippedItems: z.array(bootstrapItemSchema).default([]),
+});
+export type BootstrapPreview = z.infer<typeof bootstrapPreviewSchema>;
+export const bootstrapResultSchema = z.object({
+  created: count,
+  updated: count,
+  unchanged: count,
+  needsLocation: count,
+  skipped: count,
+  areaTypesCreated: count,
+  tradeSyncJobs: count,
+});
+export type BootstrapResult = z.infer<typeof bootstrapResultSchema>;
+export const bootstrapJobSchema = z.object({
+  jobId: z.string(),
+  status: jobState,
+  dryRun: z.boolean(),
+  months: z.number().int(),
+  fromYm: z.number().int(),
+  toYm: z.number().int(),
+  progress: z.object({
+    phase: z.enum(['queued', 'fetch', 'geocode', 'write', 'done']),
+    done: count,
+    total: count,
+    percent: z.number().min(0).max(100),
+  }),
+  preview: bootstrapPreviewSchema.nullable().default(null),
+  result: bootstrapResultSchema.nullable().default(null),
+  failedReason: z.string().nullable().default(null),
+  createdAt: iso,
+  finishedAt: nullableIso,
+});
+export type BootstrapJob = z.infer<typeof bootstrapJobSchema>;
+export const bootstrapAcceptedSchema = z.object({
+  jobId: z.string(),
+  state: jobState,
+  dryRun: z.boolean(),
+  months: z.number().int(),
+});
+export const bootstrapLatestSchema = z.object({ item: bootstrapJobSchema.nullable() });
 
 /** MediaDto (packages/shared/src/schemas/media.ts) — only what the photo uploader reads. */
 const variant = z.object({ url: z.string(), width: z.number(), height: z.number() });

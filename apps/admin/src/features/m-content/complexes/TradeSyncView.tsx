@@ -36,6 +36,7 @@ import {
 } from '../lib/labels';
 import { durationLabel, nextScheduledRun, previousYearMonth } from '../lib/trade-sync';
 import { useUrlState } from '../lib/use-url-state';
+import { ComplexBootstrapCard } from './ComplexBootstrapCard';
 import { ComplexesTabs } from './ComplexesTabs';
 import styles from './complexes.module.css';
 
@@ -221,6 +222,8 @@ export function TradeSyncView() {
           동기화를 다시 실행해 주세요. <Badge tone="warn">실패 {failed.length}건</Badge>
         </Callout>
       )}
+
+      <ComplexBootstrapCard canRun={canTrigger} />
 
       <Panel
         title="수동 동기화"

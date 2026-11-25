@@ -54,6 +54,8 @@ export interface MockComplex {
   heatingType: string | null;
   builder: string | null;
   externalCode: string | null;
+  /** Default ADMIN; TRADE_BOOTSTRAP for 단지 made by the mock bootstrap. */
+  source?: 'ADMIN' | 'TRADE_BOOTSTRAP';
   viewCount: number;
   favoriteCount: number;
   activeListingCount: number;

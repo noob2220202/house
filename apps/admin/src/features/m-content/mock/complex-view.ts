@@ -22,6 +22,7 @@ export function complexSummary(c: MockComplex) {
     favoriteCount: c.favoriteCount,
     viewCount: c.viewCount,
     externalCode: c.externalCode,
+    source: c.source ?? 'ADMIN',
     deletedAt: null,
   };
 }
@@ -45,6 +46,7 @@ export function complexDetail(c: MockComplex) {
   const { tradeTotal, tradeUnmatched, ...rest } = c;
   return {
     ...rest,
+    source: c.source ?? 'ADMIN',
     areaTypeCount: c.areaTypes.length,
     photoCount: c.photos.length,
     photos: complexPhotoViews(c),

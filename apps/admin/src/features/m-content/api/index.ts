@@ -34,6 +34,9 @@ import {
   termsSchema,
   tradeSyncRunPageSchema,
   tradeSyncTriggerSchema,
+  bootstrapAcceptedSchema,
+  bootstrapJobSchema,
+  bootstrapLatestSchema,
   trafficStatsSchema,
   videoPageSchema,
   videoSchema,
@@ -187,6 +190,15 @@ export const complexes = {
     api.get('/admin/complexes/trade-sync/runs', { query, schema: tradeSyncRunPageSchema, ...o }),
   triggerSync: (yearMonth: number) =>
     api.post('/admin/complexes/trade-sync', { yearMonth }, { schema: tradeSyncTriggerSchema }),
+  /** POST /admin/complexes/bootstrap { months, dryRun } → 202 { jobId } (실거래가로 단지 만들기). */
+  startBootstrap: (body: { months: number; dryRun: boolean }) =>
+    api.post('/admin/complexes/bootstrap', body, { schema: bootstrapAcceptedSchema }),
+  /** GET /admin/complexes/bootstrap/:jobId — progress, preview, result. */
+  bootstrapJob: (jobId: string, o?: Opts) =>
+    api.get(`/admin/complexes/bootstrap/${seg(jobId)}`, { schema: bootstrapJobSchema, ...o }),
+  /** GET /admin/complexes/bootstrap → the latest run ({ item: null } before the first one). */
+  latestBootstrap: (o?: Opts) =>
+    api.get('/admin/complexes/bootstrap', { schema: bootstrapLatestSchema, ...o }),
 };
 
 // ---------- 관리자 계정 ----------

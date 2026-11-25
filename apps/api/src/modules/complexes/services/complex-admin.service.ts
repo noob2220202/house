@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
+  ComplexDataSource,
   ErrorCode,
   parseJibunAddress,
   type AdminComplexListItem,
@@ -40,6 +41,7 @@ const ADMIN_DETAIL_SELECT = {
   ...COMPLEX_DETAIL_SELECT,
   jibun: true,
   externalCode: true,
+  source: true,
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
@@ -112,6 +114,7 @@ export class ComplexAdminService {
       ...(q.includeDeleted ? {} : { deletedAt: null }),
       ...(q.emdCode ? { emdCode: q.emdCode } : {}),
       ...(q.missingExternalCode ? { externalCode: null } : {}),
+      ...(q.source ? { source: q.source } : {}),
       ...(q.q
         ? {
             OR: [
@@ -129,12 +132,18 @@ export class ComplexAdminService {
           await this.prisma.complex.findMany({
             where,
             orderBy: [{ name: 'asc' }, { id: 'asc' }],
-            select: { ...COMPLEX_SUMMARY_SELECT, externalCode: true, deletedAt: true },
+            select: {
+              ...COMPLEX_SUMMARY_SELECT,
+              externalCode: true,
+              source: true,
+              deletedAt: true,
+            },
             ...args,
           })
         ).map((r) => ({
           ...toComplexSummary(r),
           externalCode: r.externalCode,
+          source: r.source,
           deletedAt: r.deletedAt?.toISOString() ?? null,
         })),
       () => this.prisma.complex.count({ where }),
@@ -191,6 +200,7 @@ export class ComplexAdminService {
       region,
       jibun: row.jibun,
       externalCode: row.externalCode,
+      source: row.source,
       tradeCount: row._count.trades,
       trades: {
         total: row._count.trades,
@@ -324,7 +334,8 @@ export class ComplexAdminService {
         await TradeStatsService.lock(tx, [id]);
         const updated = await tx.complexAreaType.update({
           where: { id: areaTypeId },
-          data: areaTypeData(input),
+          // An admin-edited 평형 is theirs: the 실거래가 bootstrap stops adding 평형 to this 단지.
+          data: { ...areaTypeData(input), source: ComplexDataSource.ADMIN },
           select: AREA_TYPE_SELECT,
         });
         if (input.exclusiveArea !== undefined) await this.reassignAreaTypes(tx, id);
@@ -349,6 +360,11 @@ export class ComplexAdminService {
       // trade_records / properties keep their rows (area_type_id → NULL, then trades move to the
       // nearest remaining 평형 within tolerance).
       await tx.complexAreaType.delete({ where: { id: areaTypeId } });
+      // The admin curated the 평형 list: the 실거래가 bootstrap must not add the deleted one back.
+      await tx.complexAreaType.updateMany({
+        where: { complexId: id, source: { not: ComplexDataSource.ADMIN } },
+        data: { source: ComplexDataSource.ADMIN },
+      });
       await this.reassignAreaTypes(tx, id);
     }, STATS_TX_OPTIONS);
     await this.invalidate();

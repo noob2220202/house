@@ -14,6 +14,9 @@ export const ComplexesErrorCode = {
   TRADE_SYNC_NOT_CONFIGURED: 'TRADE_SYNC_NOT_CONFIGURED',
   TRADE_SYNC_INVALID_MONTH: 'TRADE_SYNC_INVALID_MONTH',
   TRADE_SYNC_JOB_NOT_FOUND: 'TRADE_SYNC_JOB_NOT_FOUND',
+  COMPLEX_BOOTSTRAP_IN_PROGRESS: 'COMPLEX_BOOTSTRAP_IN_PROGRESS',
+  COMPLEX_BOOTSTRAP_NOT_CONFIGURED: 'COMPLEX_BOOTSTRAP_NOT_CONFIGURED',
+  COMPLEX_BOOTSTRAP_JOB_NOT_FOUND: 'COMPLEX_BOOTSTRAP_JOB_NOT_FOUND',
 } as const;
 
 export const COMPLEXES_ERROR_MESSAGES: Record<keyof typeof ComplexesErrorCode, string> = {
@@ -31,4 +34,8 @@ export const COMPLEXES_ERROR_MESSAGES: Record<keyof typeof ComplexesErrorCode, s
   TRADE_SYNC_NOT_CONFIGURED: '실거래가 API 키가 설정되지 않았습니다.',
   TRADE_SYNC_INVALID_MONTH: '동기화할 수 없는 연월입니다.',
   TRADE_SYNC_JOB_NOT_FOUND: '동기화 작업을 찾을 수 없습니다.',
+  COMPLEX_BOOTSTRAP_IN_PROGRESS: '단지 자동 생성 작업이 이미 진행 중입니다.',
+  COMPLEX_BOOTSTRAP_NOT_CONFIGURED:
+    '실거래가 API 키 또는 카카오 REST API 키가 설정되지 않아 단지를 자동으로 만들 수 없습니다.',
+  COMPLEX_BOOTSTRAP_JOB_NOT_FOUND: '단지 자동 생성 작업을 찾을 수 없습니다.',
 };

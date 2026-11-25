@@ -15,6 +15,19 @@ export const COMPLEXES_REDIS_KEYS = {
   tradeSyncLock: (kind: string, sggCode: string, yearMonth: number): string =>
     `complexes:trade-sync:lock:${kind}:${sggCode}:${yearMonth}`,
   rematchLock: (sggCode: string): string => `complexes:trade-sync:lock:rematch:${sggCode}`,
+  /** JSON MonthAggregate of one API month (단지 bootstrap; makes runs resumable / preview → apply cheap). */
+  bootstrapMonth: (kind: string, sggCode: string, yearMonth: number): string =>
+    `complexes:bootstrap:month:${kind}:${sggCode}:${yearMonth}`,
+  /** JSON geocoder hits of one bootstrap address query (hash of the query). */
+  bootstrapGeocode: (hash: string): string => `complexes:bootstrap:geo:${hash}`,
+  /** Job id of the latest bootstrap run of the 시군구. */
+  bootstrapCurrent: (sggCode: string): string => `complexes:bootstrap:current:${sggCode}`,
+  /** Short mutex around enqueueing a bootstrap run. */
+  bootstrapEnqueue: (sggCode: string): string => `complexes:bootstrap:enqueue:${sggCode}`,
+  /** Held while a bootstrap job runs (one at a time). */
+  bootstrapLock: (sggCode: string): string => `complexes:bootstrap:lock:${sggCode}`,
+  /** JSON ComplexBootstrapPreview of a job, readable while a real run is still writing. */
+  bootstrapPreview: (jobId: string): string => `complexes:bootstrap:preview:${jobId}`,
 } as const;
 
 /** Cache namespaces bumped by admin writes (CacheService.version / bump). */
@@ -62,6 +75,8 @@ export const TRADE_SYNC_JOBS = {
   REMATCH: 'trade-sync:rematch',
   /** Repeatable: Redis view totals → complexes.view_count. */
   FLUSH_VIEWS: 'complexes:flush-views',
+  /** 단지 bootstrap from 실거래가 ({ months, dryRun, fromYm, toYm }), enqueued by the admin. */
+  BOOTSTRAP: 'complexes:bootstrap',
 } as const;
 
 /** 실거래 신고 기한 is 30 days and 해제 can be filed later, so re-sync recent months. */
@@ -96,3 +111,30 @@ export const TRADE_API = {
 export const AREA_TYPE_MATCH_TOLERANCE_SQM = 0.5;
 /** Upsert batch size for trade rows. */
 export const TRADE_UPSERT_BATCH = 200;
+
+/** 단지 bootstrap (ComplexBootstrapService). */
+export const COMPLEX_BOOTSTRAP = {
+  /** Pause between data.go.kr month requests (politeness; the service key has a daily quota). */
+  API_DELAY_MS: 300,
+  /** Pause between Kakao Local requests. */
+  GEOCODE_DELAY_MS: 120,
+  /** Retries of a month whose request failed with a retryable error, and the base wait. */
+  API_RETRIES: 2,
+  API_RETRY_WAIT_MS: 5_000,
+  /** Consecutive geocoder failures that abort the run (the job retries / resumes later). */
+  GEOCODE_MAX_CONSECUTIVE_FAILURES: 3,
+  /**
+   * Month aggregates are reused this long (dry run → real run, a run resumed after the daily
+   * quota ran out). Only the 단지 list is derived from them, so a week-old month is fine.
+   */
+  MONTH_CACHE_TTL_SECONDS: 7 * 24 * 60 * 60,
+  GEOCODE_CACHE_TTL_SECONDS: 7 * 24 * 60 * 60,
+  /** Negative geocoder answers are retried sooner. */
+  GEOCODE_MISS_TTL_SECONDS: 24 * 60 * 60,
+  PREVIEW_TTL_SECONDS: 7 * 24 * 60 * 60,
+  CURRENT_TTL_SECONDS: 30 * 24 * 60 * 60,
+  LOCK_TTL_SECONDS: 5 * 60,
+  LOCK_HEARTBEAT_MS: 60_000,
+  SAMPLE_SIZE: 50,
+  LIST_LIMIT: 500,
+} as const;

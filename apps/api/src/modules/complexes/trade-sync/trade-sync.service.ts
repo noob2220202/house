@@ -305,9 +305,9 @@ export class TradeSyncService {
    * reorganisation the API serves every month (also earlier ones) under the new code (12150) and
    * nothing under the old one (46150); should a month come back empty anyway, it is asked once
    * more under the legacy code so a partial upstream migration cannot silently empty a month.
-   * Rows are normalized to the configured code either way.
+   * Rows are normalized to the configured code either way. Also used by the 단지 bootstrap.
    */
-  private async fetchMonth(
+  async fetchMonth(
     kind: TradeSyncKind,
     sggCode: string,
     yearMonth: number,

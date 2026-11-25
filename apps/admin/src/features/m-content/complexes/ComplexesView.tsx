@@ -1,5 +1,5 @@
 'use client';
-import { ASSET_TYPE_LABEL, AssetType } from '@house/shared';
+import { ASSET_TYPE_LABEL, AssetType, ComplexDataSource } from '@house/shared';
 import {
   Badge,
   Button,
@@ -85,6 +85,7 @@ export function ComplexesView() {
     q: '',
     emdCode: '',
     missing: '',
+    source: '',
     page: '1',
   });
 
@@ -94,6 +95,7 @@ export function ComplexesView() {
     q: url.q,
     emdCode: url.emdCode,
     missingExternalCode: url.missing === 'externalCode' ? true : undefined,
+    source: url.source === ComplexDataSource.TRADE_BOOTSTRAP ? url.source : undefined,
     page: Number(url.page) || 1,
     pageSize: PAGE_SIZE,
     ...dev,
@@ -104,7 +106,7 @@ export function ComplexesView() {
     placeholderData: keepPreviousData,
   });
   const data = list.data;
-  const filtered = url.q !== '' || url.emdCode !== '' || url.missing !== '';
+  const filtered = url.q !== '' || url.emdCode !== '' || url.missing !== '' || url.source !== '';
   const href = (c: ComplexSummary) => `${ADMIN_ROUTES.complexes}/${c.id}`;
 
   const nameCell = (c: ComplexSummary) => (
@@ -114,6 +116,7 @@ export function ComplexesView() {
           {c.name}
         </Link>
         {c.assetType !== AssetType.APT && <Badge>{ASSET_TYPE_LABEL[c.assetType]}</Badge>}
+        {c.source === ComplexDataSource.TRADE_BOOTSTRAP && <Badge tone="brand">자동 생성</Badge>}
       </span>
       <span className={`${s.cellSub} ${s.clamp1}`}>
         {c.roadAddress ?? c.jibunAddress ?? c.emdName ?? '주소 미입력'}
@@ -215,6 +218,17 @@ export function ComplexesView() {
                 ]}
               />
             </div>
+            <div className={s.selectSm}>
+              <Select
+                aria-label="등록 방식"
+                value={url.source}
+                onChange={(e) => setUrl({ source: e.target.value })}
+                options={[
+                  { value: '', label: '등록 방식 전체' },
+                  { value: ComplexDataSource.TRADE_BOOTSTRAP, label: '실거래가 자동 생성' },
+                ]}
+              />
+            </div>
           </div>
         }
         footer={
@@ -253,11 +267,21 @@ export function ComplexesView() {
                   compact
                   icon="layers"
                   title="등록된 단지가 없어요"
-                  description="단지를 등록하면 매물과 실거래가가 단지에 묶여 보여요."
+                  description="실거래가 자료로 순천 아파트 단지를 한 번에 만들거나, 직접 등록할 수 있어요."
                   action={
-                    <Button size="sm" href={`${ADMIN_ROUTES.complexes}/new`} linkAs={Link}>
-                      단지 등록
-                    </Button>
+                    <div className={s.filters}>
+                      <Button size="sm" href={TRADE_SYNC_ROUTE} linkAs={Link}>
+                        실거래가로 단지 만들기
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        href={`${ADMIN_ROUTES.complexes}/new`}
+                        linkAs={Link}
+                      >
+                        단지 등록
+                      </Button>
+                    </div>
                   }
                 />
               )

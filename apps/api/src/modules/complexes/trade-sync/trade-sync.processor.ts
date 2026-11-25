@@ -19,6 +19,7 @@ import {
   TRADE_SYNC_LOOKBACK_MONTHS,
   TRADE_SYNC_TZ,
 } from '../constants';
+import { ComplexBootstrapService } from '../bootstrap/complex-bootstrap.service';
 import { ComplexPopularityService } from '../services/complex-popularity.service';
 import { TradeSyncService } from './trade-sync.service';
 
@@ -33,7 +34,7 @@ export interface TradeRematchJobData {
 
 /**
  * Worker for the trade-sync queue (owned by complexes): the repeatable 실거래가 sync, admin-started
- * month syncs and rematches, and the complex view-count flush. Runs only when JOBS_ENABLED (e2e
+ * month syncs, rematches and 단지 bootstraps, and the complex view-count flush. Runs only when JOBS_ENABLED (e2e
  * processes jobs by calling process()).
  */
 @Processor(QUEUES.TRADE_SYNC, { autorun: false, concurrency: 2 })
@@ -43,6 +44,7 @@ export class TradeSyncProcessor extends WorkerHost implements OnApplicationBoots
   constructor(
     private readonly sync: TradeSyncService,
     private readonly popularity: ComplexPopularityService,
+    private readonly bootstrap: ComplexBootstrapService,
     private readonly config: AppConfig,
     @InjectQueue(QUEUES.TRADE_SYNC) private readonly queue: Queue,
   ) {
@@ -79,6 +81,8 @@ export class TradeSyncProcessor extends WorkerHost implements OnApplicationBoots
       }
       case TRADE_SYNC_JOBS.REMATCH:
         return this.sync.rematch(parseRematchJob(job.data).fromYm);
+      case TRADE_SYNC_JOBS.BOOTSTRAP:
+        return this.bootstrap.process(job);
       default:
         throw new Error(`trade-sync worker cannot handle job "${job.name}"`);
     }

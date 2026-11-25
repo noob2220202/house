@@ -3,6 +3,10 @@ import { Module } from '@nestjs/common';
 import { QUEUES } from '../../queue/queue.constants';
 import { ListingsModule } from '../listings/listings.module';
 import { MediaModule } from '../media/media.module';
+import { GEOCODER, KakaoGeocoder } from '../home/clients/kakao-geocode.client';
+import { ComplexBootstrapJobs } from './bootstrap/complex-bootstrap.jobs';
+import { ComplexBootstrapService } from './bootstrap/complex-bootstrap.service';
+import { AdminComplexBootstrapController } from './controllers/admin-complex-bootstrap.controller';
 import { AdminComplexesController } from './controllers/admin-complexes.controller';
 import { AdminTradeSyncController } from './controllers/admin-trade-sync.controller';
 import { FavoriteComplexesController } from './controllers/favorite-complexes.controller';
@@ -25,7 +29,8 @@ import { TradeSyncProcessor } from './trade-sync/trade-sync.processor';
 import { TradeSyncService } from './trade-sync/trade-sync.service';
 
 /**
- * 단지 (complexes), 평형, 법정동 regions, 실거래가 sync + stats, popularity, 관심 단지.
+ * 단지 (complexes), 평형, 법정동 regions, 실거래가 sync + stats, 단지 bootstrap from 실거래가,
+ * popularity, 관심 단지.
  * ListingsModule is imported only for RecentViewsService (최근 본 단지); MediaModule for photos.
  */
 @Module({
@@ -33,6 +38,7 @@ import { TradeSyncService } from './trade-sync/trade-sync.service';
   controllers: [
     // trade-sync before the generic admin complexes routes (`admin/complexes/:id`).
     AdminTradeSyncController,
+    AdminComplexBootstrapController,
     AdminComplexesController,
     PublicComplexesController,
     FavoriteComplexesController,
@@ -42,6 +48,8 @@ import { TradeSyncService } from './trade-sync/trade-sync.service';
   providers: [
     { provide: TRADE_API_CLIENT, useClass: DataGoKrTradeApiClient },
     { provide: COMPLEX_MEDIA, useClass: MediaServiceComplexMedia },
+    // Kakao Local address search for the 단지 bootstrap (HomeModule binds its own for /geo).
+    { provide: GEOCODER, useClass: KakaoGeocoder },
     RegionsService,
     ComplexListingsService,
     ComplexTradesService,
@@ -55,6 +63,8 @@ import { TradeSyncService } from './trade-sync/trade-sync.service';
     TradeSyncService,
     TradeSyncJobs,
     TradeSyncProcessor,
+    ComplexBootstrapService,
+    ComplexBootstrapJobs,
   ],
   exports: [
     RegionsService,

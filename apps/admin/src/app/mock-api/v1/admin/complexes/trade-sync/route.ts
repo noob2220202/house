@@ -1,13 +1,14 @@
 import type { NextRequest } from 'next/server';
 import { tradeSyncInputSchema } from '@/features/m-content/api/inputs';
-import { publicRun, settleRuns } from '@/features/m-content/mock/complex-view';
+import { settleRuns } from '@/features/m-content/mock/complex-view';
 import type { MockTradeSyncRun } from '@/features/m-content/mock/fixtures-complexes';
 import { isResponse, mockAdmin, mockBody, mockConflict } from '@/features/m-content/mock/http';
 import { newId, nowIso } from '@/features/m-content/mock/ids';
 import { audit, db } from '@/features/m-content/mock/store';
 import { mockJson } from '@/lib/mock';
 
-// POST /api/v1/admin/complexes/trade-sync { yearMonth } → 202 { runs } (one run per kind).
+// POST /api/v1/admin/complexes/trade-sync { yearMonth } → 202 { jobId, kind, state } like the API
+// (the mock also records one RUNNING run per kind so the runs list shows progress).
 // The body/response shapes are ASSUMED; the path is in the complexes README.
 export async function POST(req: NextRequest) {
   const ctx = await mockAdmin(req, { min: 'ADMIN', mutate: true });
@@ -45,5 +46,8 @@ export async function POST(req: NextRequest) {
     resourceLabel: `${Math.floor(input.yearMonth / 100)}년 ${input.yearMonth % 100}월 실거래가`,
     after: { yearMonth: input.yearMonth, kinds: runs.map((r) => r.kind) },
   });
-  return mockJson({ runs: runs.map(publicRun) }, { status: 202 });
+  return mockJson(
+    { jobId: `mock-sync-${runs[0]?.id ?? 'job'}`, kind: 'MONTH', state: 'waiting' },
+    { status: 202 },
+  );
 }

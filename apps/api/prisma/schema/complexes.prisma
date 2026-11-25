@@ -15,6 +15,14 @@ enum TradeSyncKind {
   @@map("trade_sync_kind")
 }
 
+/// Who created a 단지 / 평형 row: an admin by hand, or the 실거래가 bootstrap (ComplexBootstrapService).
+enum ComplexDataSource {
+  ADMIN
+  TRADE_BOOTSTRAP
+
+  @@map("complex_data_source")
+}
+
 enum TradeSyncStatus {
   RUNNING
   SUCCEEDED
@@ -55,6 +63,8 @@ model Complex {
   builder               String?                                @db.VarChar(100)
   /// 국토교통부 단지 일련번호 (aptSeq) or K-apt code when known.
   externalCode          String?                                @unique @map("external_code") @db.VarChar(40)
+  /// ADMIN (hand-made) or TRADE_BOOTSTRAP (created from 실거래가 data; admins may edit it freely).
+  source                ComplexDataSource                      @default(ADMIN)
   /// Popularity counters for "자주 찾는 단지".
   viewCount             Int                                    @default(0) @map("view_count")
   favoriteCount         Int                                    @default(0) @map("favorite_count")
@@ -84,20 +94,22 @@ model Complex {
 
 /// 평형 (area type) within a complex.
 model ComplexAreaType {
-  id            String   @id @default(uuid(7)) @db.Uuid
-  complexId     String   @map("complex_id") @db.Uuid
+  id            String            @id @default(uuid(7)) @db.Uuid
+  complexId     String            @map("complex_id") @db.Uuid
   /// 전용면적 ㎡
-  exclusiveArea Decimal  @map("exclusive_area") @db.Decimal(10, 2)
+  exclusiveArea Decimal           @map("exclusive_area") @db.Decimal(10, 2)
   /// 공급면적 ㎡
-  supplyArea    Decimal? @map("supply_area") @db.Decimal(10, 2)
+  supplyArea    Decimal?          @map("supply_area") @db.Decimal(10, 2)
   /// e.g. "84A", "32평"
-  typeName      String   @default("") @map("type_name") @db.VarChar(20)
-  pyeongLabel   String?  @map("pyeong_label") @db.VarChar(20)
+  typeName      String            @default("") @map("type_name") @db.VarChar(20)
+  pyeongLabel   String?           @map("pyeong_label") @db.VarChar(20)
   households    Int?
   rooms         Int?
   baths         Int?
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  /// TRADE_BOOTSTRAP: derived from the 전용면적 of 실거래 rows (no 공급면적 / 세대수 yet).
+  source        ComplexDataSource @default(ADMIN)
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   complex    Complex       @relation(fields: [complexId], references: [id], onDelete: Cascade)
   trades     TradeRecord[]

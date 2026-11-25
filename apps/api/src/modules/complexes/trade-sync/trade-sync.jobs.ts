@@ -19,7 +19,7 @@ const KIND_BY_NAME: Record<string, TradeSyncJobKind> = {
   [TRADE_SYNC_JOBS.REMATCH]: 'REMATCH',
 };
 
-function toState(raw: string): TradeSyncJobState {
+export function toJobState(raw: string): TradeSyncJobState {
   switch (raw) {
     case 'active':
     case 'delayed':
@@ -76,7 +76,7 @@ export class TradeSyncJobs {
     const job = await this.queue.getJob(jobId);
     const kind = job ? KIND_BY_NAME[job.name] : undefined;
     if (!job || !kind) return null;
-    const state = toState(await job.getState());
+    const state = toJobState(await job.getState());
     return {
       jobId,
       kind,
@@ -103,12 +103,12 @@ export class TradeSyncJobs {
     if (existing) {
       const state = await existing.getState();
       if (state !== 'completed' && state !== 'failed') {
-        return { jobId, kind, state: toState(state) };
+        return { jobId, kind, state: toJobState(state) };
       }
       // Finished: replace it (removal of a job that just got picked up fails; add() then dedupes).
       await existing.remove().catch(() => undefined);
     }
     const job = await this.queue.add(name, data, { jobId });
-    return { jobId: job.id ?? jobId, kind, state: toState(await job.getState()) };
+    return { jobId: job.id ?? jobId, kind, state: toJobState(await job.getState()) };
   }
 }

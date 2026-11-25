@@ -12,7 +12,7 @@ import { newId, nowIso } from '@/features/m-content/mock/ids';
 import { audit, db } from '@/features/m-content/mock/store';
 import { mockJson, mockPaginate } from '@/lib/mock';
 
-// GET /api/v1/admin/complexes?q&emdCode&missingExternalCode&includeDeleted&page&pageSize →
+// GET /api/v1/admin/complexes?q&emdCode&missingExternalCode&source&includeDeleted&page&pageSize →
 // Paginated<AdminComplexListItem> (shared), ordered by name like the API.
 export async function GET(req: NextRequest) {
   const ctx = await mockAdmin(req);
@@ -20,10 +20,12 @@ export async function GET(req: NextRequest) {
   const { sp } = ctx;
   const emdCode = sp.get('emdCode');
   const missingCode = ['1', 'true'].includes(sp.get('missingExternalCode') ?? '');
+  const source = sp.get('source');
   const rows = db()
     .complexes.filter((c) => matchesText(sp.get('q'), c.name, c.roadAddress, c.jibunAddress))
     .filter((c) => !emdCode || c.emdCode === emdCode)
     .filter((c) => !missingCode || !c.externalCode)
+    .filter((c) => !source || (c.source ?? 'ADMIN') === source)
     .sort((a, b) => a.name.localeCompare(b.name, 'ko') || a.id.localeCompare(b.id))
     .map(complexSummary);
   return mockJson(mockPaginate(sp.get('_empty') === '1' ? [] : rows, req, { pageSize: 10 }));

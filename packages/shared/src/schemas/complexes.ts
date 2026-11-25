@@ -1,7 +1,7 @@
 // Owned by the complexes module team.
 import { z } from 'zod';
 import { RegionLevel } from '../enums/region';
-import { TradeDealType, TradeSyncKind, TradeSyncStatus } from '../enums/complex';
+import { ComplexDataSource, TradeDealType, TradeSyncKind, TradeSyncStatus } from '../enums/complex';
 import { AssetType } from '../enums/listing';
 import { normalizeRegionCode, REGION_CODE_LENGTH } from '../constants/region';
 import { canonicalAptSeq } from '../complexes/normalize';
@@ -192,6 +192,8 @@ export const adminComplexListQuerySchema = paginationQuerySchema.extend({
   includeDeleted: queryBoolean.default(false),
   /** Only complexes without a 국토교통부 code (to fill in for exact matching). */
   missingExternalCode: queryBoolean.default(false),
+  /** Only 단지 created by an admin (ADMIN) or by the 실거래가 bootstrap (TRADE_BOOTSTRAP). */
+  source: z.enum(ComplexDataSource).optional(),
 });
 export type AdminComplexListQuery = z.infer<typeof adminComplexListQuerySchema>;
 
@@ -227,6 +229,35 @@ export const tradeSyncJobParamSchema = z.object({
     .string()
     .max(100)
     .regex(/^(month|rematch)\.[0-9A-Za-z_.+]+$/, '작업 ID 형식이 올바르지 않습니다.'),
+});
+
+/** Months of 실거래가 the bootstrap reads (계약월, ending last month). */
+export const COMPLEX_BOOTSTRAP_MONTHS = { MIN: 12, MAX: 240, DEFAULT: 60 } as const;
+
+/** POST /admin/complexes/bootstrap — dryRun (default) only computes the preview. */
+export const complexBootstrapRequestSchema = z.object({
+  months: z.coerce
+    .number()
+    .int()
+    .min(
+      COMPLEX_BOOTSTRAP_MONTHS.MIN,
+      `기간은 ${COMPLEX_BOOTSTRAP_MONTHS.MIN}개월 이상이어야 합니다.`,
+    )
+    .max(
+      COMPLEX_BOOTSTRAP_MONTHS.MAX,
+      `기간은 ${COMPLEX_BOOTSTRAP_MONTHS.MAX}개월 이하여야 합니다.`,
+    )
+    .default(COMPLEX_BOOTSTRAP_MONTHS.DEFAULT),
+  dryRun: z.boolean().default(true),
+});
+export type ComplexBootstrapRequest = z.infer<typeof complexBootstrapRequestSchema>;
+
+/** Bootstrap job ids: "bootstrap.<epoch ms>". */
+export const complexBootstrapJobParamSchema = z.object({
+  jobId: z
+    .string()
+    .max(40)
+    .regex(/^bootstrap\.\d{1,16}$/, '작업 ID 형식이 올바르지 않습니다.'),
 });
 
 export const regionUpsertSchema = z.object({

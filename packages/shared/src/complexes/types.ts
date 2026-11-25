@@ -1,6 +1,11 @@
 import type { DealType, AssetType } from '../enums/listing';
 import type { RegionLevel } from '../enums/region';
-import type { TradeDealType, TradeSyncKind, TradeSyncStatus } from '../enums/complex';
+import type {
+  ComplexDataSource,
+  TradeDealType,
+  TradeSyncKind,
+  TradeSyncStatus,
+} from '../enums/complex';
 
 /** Response shapes of the complexes API (/api/v1/complexes, /regions, admin). */
 
@@ -196,6 +201,8 @@ export interface AdminComplexView
   extends Omit<ComplexDetail, 'latestTrades' | 'listingSummary' | 'isFavorite' | 'areaTypes'> {
   jibun: string | null;
   externalCode: string | null;
+  /** ADMIN (hand-made) or TRADE_BOOTSTRAP (created from 실거래가). */
+  source: ComplexDataSource;
   areaTypes: AdminComplexAreaTypeView[];
   tradeCount: number;
   trades: {
@@ -213,6 +220,7 @@ export interface AdminComplexView
 
 export interface AdminComplexListItem extends ComplexSummary {
   externalCode: string | null;
+  source: ComplexDataSource;
   deletedAt: string | null;
 }
 
@@ -261,6 +269,114 @@ export interface TradeSyncJobView extends TradeSyncJobAccepted {
   attemptsMade: number;
   /** Result once completed: TradeSyncResult (MONTH) or TradeRematchResult (REMATCH). */
   result: TradeSyncResult | TradeRematchResult | null;
+  failedReason: string | null;
+  createdAt: string;
+  finishedAt: string | null;
+}
+
+// ---------- 단지 자동 생성 (실거래가 bootstrap) ----------
+
+/** What the bootstrap does (dry run) or did with one candidate 단지. */
+export type ComplexBootstrapAction =
+  /** New 단지 (has coordinates). */
+  | 'CREATE'
+  /** Existing 단지: empty fields / 평형 filled in. */
+  | 'UPDATE'
+  /** Existing 단지, nothing to fill in. */
+  | 'UNCHANGED'
+  /** Not created: the address could not be geocoded inside the service region. */
+  | 'NEEDS_LOCATION'
+  /** Not created / updated (unknown 법정동, ambiguous name match, deleted by an admin, …). */
+  | 'SKIP';
+
+export interface ComplexBootstrapItem {
+  action: ComplexBootstrapAction;
+  /** Korean reason for SKIP / NEEDS_LOCATION, null otherwise. */
+  reason: string | null;
+  name: string;
+  /** "연향동" / "해룡면 신대리" */
+  emdName: string | null;
+  /** 8-digit 읍면동 code. */
+  emdCode: string | null;
+  jibunAddress: string | null;
+  roadAddress: string | null;
+  builtYear: number | null;
+  /** 평형 derived from distinct 전용면적. */
+  areaTypeCount: number;
+  /** 전용면적 ㎡ of those 평형, ascending. */
+  exclusiveAreas: number[];
+  hasLocation: boolean;
+  /** Canonical aptSeq, null for rows without one (some 전월세 rows). */
+  externalCode: string | null;
+  /** 매매 / 전월세 rows of the period. */
+  saleCount: number;
+  rentCount: number;
+  /** Matched (UPDATE / UNCHANGED) or created 단지. */
+  complexId: string | null;
+}
+
+export interface ComplexBootstrapPreview {
+  fromYm: number;
+  toYm: number;
+  /** Valid 실거래 rows read (매매 + 전월세). */
+  rows: number;
+  candidates: number;
+  toCreate: number;
+  toUpdate: number;
+  unchanged: number;
+  needsLocation: number;
+  skipped: number;
+  /** Up to 50 items, CREATE first. */
+  sample: ComplexBootstrapItem[];
+  /** Every NEEDS_LOCATION item (up to 500) so an admin can register them by hand. */
+  needsLocationItems: ComplexBootstrapItem[];
+  /** Every SKIP item (up to 500). */
+  skippedItems: ComplexBootstrapItem[];
+}
+
+export interface ComplexBootstrapResult {
+  created: number;
+  updated: number;
+  unchanged: number;
+  needsLocation: number;
+  skipped: number;
+  areaTypesCreated: number;
+  /** 실거래가 sync jobs enqueued for the same months (so trades link right away). */
+  tradeSyncJobs: number;
+}
+
+export type ComplexBootstrapPhase = 'queued' | 'fetch' | 'geocode' | 'write' | 'done';
+
+export interface ComplexBootstrapProgress {
+  phase: ComplexBootstrapPhase;
+  /** Steps done / total of the current phase (months × 2 APIs, addresses, 단지). */
+  done: number;
+  total: number;
+  /** Overall 0–100. */
+  percent: number;
+}
+
+/** 202 answer of POST /admin/complexes/bootstrap. */
+export interface ComplexBootstrapAccepted {
+  jobId: string;
+  state: TradeSyncJobState;
+  dryRun: boolean;
+  months: number;
+}
+
+/** GET /admin/complexes/bootstrap/:jobId (and the latest job: GET /admin/complexes/bootstrap). */
+export interface ComplexBootstrapJobView {
+  jobId: string;
+  status: TradeSyncJobState;
+  dryRun: boolean;
+  months: number;
+  fromYm: number;
+  toYm: number;
+  progress: ComplexBootstrapProgress;
+  /** Set once the plan is computed (before any write of a real run). */
+  preview: ComplexBootstrapPreview | null;
+  /** Real runs only, once completed. */
+  result: ComplexBootstrapResult | null;
   failedReason: string | null;
   createdAt: string;
   finishedAt: string | null;
