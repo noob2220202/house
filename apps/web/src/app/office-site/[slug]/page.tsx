@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { AGENCY_LISTINGS_PAGE_SIZE, agencyListingsQuery } from '@/features/w-agencies/api/queries';
 import { getAgencyListings } from '@/features/w-agencies/api/server';
 import { agencyTagline, displayPhone, fullAddress } from '@/features/w-agencies/lib/agency';
@@ -25,7 +25,9 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
   const site = await loadOfficeSite(slug);
-  if (!site) notFound();
+  // No live site: the [slug] layout answers with the office-site 404 ("홈페이지를 찾을 수 없어요").
+  // Calling notFound() here too would hand it to [slug]/not-found (the in-site "매물" 404).
+  if (!site) return { robots: { index: false, follow: false } };
   const a = site.agency;
   // The count the page shows: listings the office registered first (not the co-brokered ones).
   const { total } = await loadOfficeListingFacts(site);
@@ -61,7 +63,8 @@ export default async function OfficeSiteHomePage({
 }) {
   const [{ slug }, raw] = await Promise.all([params, searchParams]);
   const site = await loadOfficeSite(slug);
-  if (!site) notFound();
+  // The layout renders the office-site 404 for a missing site (see generateMetadata).
+  if (!site) return null;
   const a = site.agency;
 
   const sp = new URLSearchParams();

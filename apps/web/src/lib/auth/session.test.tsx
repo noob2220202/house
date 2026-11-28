@@ -56,10 +56,28 @@ afterEach(() => {
 });
 
 describe('fetchSessionUser', () => {
-  it('answers "signed out" without a request when there is no session cookie pair', async () => {
+  it('without house_csrf: one GET /auth/csrf per tab, then "signed out" locally (no /auth/me)', async () => {
     setCsrfCookie(null);
+    fetchMock.mockResolvedValue(json({ csrfToken: 'throwaway' }));
     await expect(fetchSessionUser()).resolves.toBeNull();
-    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(fetchSessionUser()).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(requestUrl(fetchMock.mock.calls[0]![0])).toContain('/auth/csrf');
+  });
+  it('self-heals a live session whose house_csrf was lost (browser restart)', async () => {
+    setCsrfCookie(null);
+    fetchMock.mockImplementation(async (input) => {
+      if (requestUrl(input).includes('/auth/csrf')) {
+        setCsrfCookie('session-token'); // the API re-issues the cookie for a live session
+        return json({ csrfToken: 'session-token' });
+      }
+      return json(me());
+    });
+    await expect(fetchSessionUser()).resolves.toMatchObject({ id: 'u1' });
+    expect(fetchMock.mock.calls.map((c) => requestUrl(c[0]))).toEqual([
+      expect.stringContaining('/auth/csrf'),
+      expect.stringContaining('/auth/me'),
+    ]);
   });
   it('treats a 401 as signed out, quietly', async () => {
     setCsrfCookie('t');

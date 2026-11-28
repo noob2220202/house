@@ -5,6 +5,13 @@ export interface ResolvedSession {
   principal: Principal;
   /** Synchronizer CSRF token bound to the session (also exposed in the house_csrf cookie). */
   csrfToken: string;
+  /**
+   * Epoch ms when the session ends at the latest (absolute lifetime). A re-issued house_csrf cookie
+   * must carry the same lifetime as the session cookie: as a browser-session cookie it vanished on
+   * browser restart while the session cookie lived on, and the web client (which treats a missing
+   * house_csrf as "signed out") showed 로그인 to a signed-in user whom /login then sent back.
+   */
+  expiresAt?: number;
 }
 
 /**

@@ -43,13 +43,37 @@ const SessionContext = createContext<SessionState | null>(null);
  * "signed out" too, never an error.
  */
 export async function fetchSessionUser(): Promise<SessionUser | null> {
-  if (typeof document !== 'undefined' && !readCookie(COOKIE_NAMES.CSRF)) return null;
+  if (typeof document !== 'undefined' && !readCookie(COOKIE_NAMES.CSRF)) {
+    // Self-heal once per tab: older API builds re-issued house_csrf as a browser-session cookie,
+    // so after a browser restart a live session could be left without it (signed in on the
+    // server, "로그인" in the header, /login bouncing back). GET /auth/csrf re-issues the cookie
+    // only when a session exists; anonymous visitors get no cookie and stay answered locally.
+    if (!(await probeCsrfCookie())) return null;
+  }
   try {
     return await api.get('/auth/me', { schema: sessionUserSchema });
   } catch (error) {
     if (error instanceof ApiError && (error.isUnauthenticated || error.isNotFound)) return null;
     throw error;
   }
+}
+
+const CSRF_PROBED_KEY = 'house:auth:csrf-probed';
+
+/** One GET /auth/csrf per tab when house_csrf is missing; true when the cookie exists afterwards. */
+async function probeCsrfCookie(): Promise<boolean> {
+  try {
+    if (window.sessionStorage.getItem(CSRF_PROBED_KEY)) return false;
+    window.sessionStorage.setItem(CSRF_PROBED_KEY, '1');
+  } catch {
+    // Storage blocked: probe anyway (still at most once per page load through react-query).
+  }
+  try {
+    await api.get('/auth/csrf');
+  } catch {
+    return false;
+  }
+  return readCookie(COOKIE_NAMES.CSRF) !== null;
 }
 
 /** Pages where the re-consent prompt never opens by itself (auth flow, reading terms, withdrawal). */

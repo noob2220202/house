@@ -15,10 +15,7 @@ export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   const slug = officeSlugFromHost(publicHostOf(req.headers));
   if (slug) return officeSite(req, slug);
-  if (isOfficeSitePath(pathname)) {
-    // Not a page of the main site: render the regular 404 (no route answers this path).
-    return NextResponse.rewrite(new URL(NOT_FOUND_PATH, req.url));
-  }
+  // Main host `/office-site/*` → 404: a config rewrite (next.config.mjs `officeSiteRewrites`).
   if (isProtectedPath(pathname) && !req.cookies.has(SESSION_COOKIE)) {
     return publicRedirect(req, loginUrl(`${pathname}${search}`));
   }
@@ -27,12 +24,6 @@ export function middleware(req: NextRequest) {
 
 /** Internal prefix of the office-site routes (app/office-site/[slug]/**). */
 export const OFFICE_SITE_PREFIX = '/office-site';
-/** A path no route matches → Next renders app/not-found.tsx with a 404 status. */
-const NOT_FOUND_PATH = '/_not-found-office-site';
-
-function isOfficeSitePath(pathname: string): boolean {
-  return pathname === OFFICE_SITE_PREFIX || pathname.startsWith(`${OFFICE_SITE_PREFIX}/`);
-}
 
 /**
  * Served unchanged on an office host: build assets, the same-origin API / media proxies, the mock
@@ -69,19 +60,17 @@ function officeSite(req: NextRequest, slug: string): NextResponse {
   ) {
     return NextResponse.next();
   }
+  // The office pages themselves: next.config.mjs rewrites them to /office-site/<slug>/… (config
+  // rewrites, because a middleware rewrite becomes a failing "external" proxy behind nginx).
+  if (
+    pathname === '/' ||
+    pathname === '/robots.txt' ||
+    pathname === '/sitemap.xml' ||
+    LISTING_PATH.test(pathname)
+  ) {
+    return NextResponse.next();
+  }
   const base = `${OFFICE_SITE_PREFIX}/${slug}`;
-  let target: string | null = null;
-  if (pathname === '/') target = base;
-  else if (pathname === '/robots.txt' || pathname === '/sitemap.xml') target = `${base}${pathname}`;
-  else {
-    const listing = LISTING_PATH.exec(pathname);
-    if (listing) target = `${base}/listing/${listing[1]}`;
-  }
-  if (target) {
-    const url = new URL(target, req.url);
-    url.search = search;
-    return NextResponse.rewrite(url);
-  }
   const main = new URL(`${pathname}${search}`, `${env.siteUrl}/`);
   if (main.origin === req.nextUrl.origin) {
     // Dev only (main site = this server's own origin, e.g. http://localhost:3000): Next turns a

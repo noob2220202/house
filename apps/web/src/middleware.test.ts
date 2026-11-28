@@ -64,14 +64,14 @@ describe('web middleware', () => {
     expect(passedThrough(middleware(req('/agency/abc')))).toBe(true);
   });
 
-  it('hides the internal office-site routes on the main host (404 page)', () => {
+  it('leaves the main-host /office-site 404 to the config rewrite (no middleware rewrite)', () => {
+    // Middleware rewrites become a failing external proxy behind nginx (127.0.0.1 vs localhost):
+    // next.config.mjs officeSiteRewrites maps these paths to the 404 page instead.
     for (const path of ['/office-site', '/office-site/sindae', '/office-site/sindae/listing/1']) {
       const res = middleware(req(path));
-      expect(rewrittenTo(res)).toBe('/_not-found-office-site');
+      expect(rewrittenTo(res)).toBeNull();
       expect(res.headers.get('location')).toBeNull();
     }
-    // Only the exact prefix: an unrelated path starting with the same letters is a normal page.
-    expect(passedThrough(middleware(req('/office-sites')))).toBe(true);
   });
 
   describe('office host <slug>.suncheonmap.kr', () => {
@@ -81,16 +81,18 @@ describe('web middleware', () => {
       });
     const at = (path: string) => office(path, { 'x-forwarded-host': 'sindae.suncheonmap.kr' });
 
-    it('rewrites the office pages to the internal routes (query kept)', () => {
-      expect(rewrittenTo(middleware(at('/')))).toBe('/office-site/sindae');
-      expect(rewrittenTo(middleware(at('/?type=APT&page=2')))).toBe(
-        '/office-site/sindae?type=APT&page=2',
-      );
-      expect(rewrittenTo(middleware(at('/listing/0b6f2c1e-0000-4000-8000-0000000000b1')))).toBe(
-        '/office-site/sindae/listing/0b6f2c1e-0000-4000-8000-0000000000b1',
-      );
-      expect(rewrittenTo(middleware(at('/robots.txt')))).toBe('/office-site/sindae/robots.txt');
-      expect(rewrittenTo(middleware(at('/sitemap.xml')))).toBe('/office-site/sindae/sitemap.xml');
+    it('lets the office pages through to the config rewrites (no middleware rewrite)', () => {
+      for (const path of [
+        '/',
+        '/?type=APT&page=2',
+        '/listing/0b6f2c1e-0000-4000-8000-0000000000b1',
+        '/robots.txt',
+        '/sitemap.xml',
+      ]) {
+        const res = middleware(at(path));
+        expect(passedThrough(res)).toBe(true);
+        expect(rewrittenTo(res)).toBeNull();
+      }
     });
 
     it('reads the Host header when there is no X-Forwarded-Host (dev: <slug>.localhost)', () => {
@@ -99,13 +101,19 @@ describe('web middleware', () => {
           headers: { host: 'sindae.suncheonmap.kr' },
         }),
       );
-      expect(rewrittenTo(res)).toBe('/office-site/sindae');
+      expect(passedThrough(res)).toBe(true);
+      // …and a non-office path on that host goes to the main site.
+      const other = middleware(
+        new NextRequest('http://sindae.suncheonmap.kr/map/apt', {
+          headers: { host: 'sindae.suncheonmap.kr' },
+        }),
+      );
+      expect(other.headers.get('location')).toBe('https://suncheonmap.kr/map/apt');
     });
 
     it('lowercases the host label', () => {
-      expect(rewrittenTo(middleware(office('/', { host: 'SinDae.SuncheonMap.kr' })))).toBe(
-        '/office-site/sindae',
-      );
+      const res = middleware(office('/agency/x', { host: 'SinDae.SuncheonMap.kr' }));
+      expect(res.headers.get('location')).toBe('https://suncheonmap.kr/agency/x');
     });
 
     it('passes assets, the API / media proxies, the mock API and icons through', () => {

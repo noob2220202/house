@@ -68,8 +68,9 @@ export class AuthController {
   @Public()
   @Get('csrf')
   csrf(@Req() req: Request, @Res({ passthrough: true }) res: Response): CsrfTokenResponse {
-    const sessionToken = req.authSession?.csrfToken;
-    if (sessionToken) this.sessions.setCsrfCookie(res, sessionToken);
+    const session = req.authSession;
+    const sessionToken = session?.csrfToken;
+    if (session) this.sessions.reissueCsrfCookie(res, session);
     res.setHeader('Cache-Control', 'no-store');
     return { csrfToken: sessionToken ?? randomToken() };
   }

@@ -191,12 +191,14 @@ describe('<OfficeNotFound>', () => {
     );
   });
 
-  it('keeps visitors of a missing listing on the office site', () => {
-    render(<OfficeNotFound kind="page" />);
-    expect(screen.getByRole('link', { name: '매물 보러 가기' })).toHaveAttribute(
-      'href',
-      '/#listings',
-    );
-    expect(screen.getByRole('link', { name: '사무소 홈' })).toHaveAttribute('href', '/');
+  it('the [slug] boundary (missing page or no live site) never links back into the office host', () => {
+    render(<OfficeNotFound kind="missing" />);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('페이지를 찾을 수 없어요');
+    // A dead site would loop on an office-home link: both actions go to the main site.
+    for (const name of [/매물 찾기/, /중개사무소 찾기/]) {
+      expect(screen.getByRole('link', { name }).getAttribute('href')).toMatch(
+        /^https?:\/\/[^/]+\//,
+      );
+    }
   });
 });

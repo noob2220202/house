@@ -48,6 +48,8 @@ const loadOfficeListing = cache(
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, id } = await params;
+  // No live site: the [slug] layout renders the office-site 404 (not the in-site "매물" one).
+  if (!(await loadOfficeSite(slug))) return { robots: { index: false, follow: false } };
   const hit = await loadOfficeListing(slug, id);
   if (!hit) notFound();
   const { site, listing } = hit;
@@ -67,6 +69,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 /** `https://<slug>.<root>/listing/<id>` — the listing page in its office-site variant. */
 export default async function OfficeSiteListingPage({ params }: Props) {
   const { slug, id } = await params;
+  if (!(await loadOfficeSite(slug))) return null; // the layout answers 404 (see generateMetadata)
   const hit = await loadOfficeListing(slug, id);
   if (!hit) notFound();
   const { site, listing } = hit;

@@ -68,6 +68,54 @@ export function mediaRemotePatterns(csv, { production = false } = {}) {
     }));
 }
 
+/**
+ * Domain of the 사무소 홈페이지 hosts (`<slug>.<root>`): same rule as src/config/env.ts
+ * `siteRootDomain` (NEXT_PUBLIC_SITE_ROOT_DOMAIN, else the hostname of NEXT_PUBLIC_SITE_URL).
+ */
+export function siteRootDomainOf(environment = process.env) {
+  const explicit = environment.NEXT_PUBLIC_SITE_ROOT_DOMAIN;
+  let root = explicit;
+  if (!root) {
+    try {
+      root = new URL(environment.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').hostname;
+    } catch {
+      root = 'localhost';
+    }
+  }
+  return root.trim().toLowerCase().replace(/\.$/, '');
+}
+
+/**
+ * Office-site routing as config rewrites (`has` / `missing` host), not middleware rewrites.
+ * Behind nginx Next runs with `--hostname 127.0.0.1` and X-Forwarded-Proto https: a middleware
+ * rewrite URL is normalized to https://localhost:<port> while the router's own URL is
+ * https://127.0.0.1:<port>, so Next took every middleware rewrite for an external proxy and
+ * answered 500. Config rewrites are matched inside the router and never compare origins.
+ * The label pattern only shapes the host; the slug rules (reserved words, `--`) are enforced by
+ * GET /sites/:slug (400/404 → the office 404 page), and nginx forwards only issued office hosts.
+ * The middleware still sends every other path of an office host to the main site.
+ */
+export function officeSiteRewrites(rootDomain) {
+  const root = rootDomain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const label = '[a-z0-9](?:[a-z0-9-]{0,28}[a-z0-9])?';
+  const officeHost = [{ type: 'host', value: `(?<slug>${label})\\.${root}` }];
+  const anyOfficeHost = [{ type: 'host', value: `${label}\\.${root}` }];
+  return [
+    // Main host: the internal routes are not pages of the main site (Next's regular 404).
+    { source: '/office-site', missing: anyOfficeHost, destination: '/_not-found-office-site' },
+    {
+      source: '/office-site/:path*',
+      missing: anyOfficeHost,
+      destination: '/_not-found-office-site',
+    },
+    // Office host: the few office pages.
+    { source: '/', has: officeHost, destination: '/office-site/:slug' },
+    { source: '/listing/:id', has: officeHost, destination: '/office-site/:slug/listing/:id' },
+    { source: '/robots.txt', has: officeHost, destination: '/office-site/:slug/robots.txt' },
+    { source: '/sitemap.xml', has: officeHost, destination: '/office-site/:slug/sitemap.xml' },
+  ];
+}
+
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
@@ -115,10 +163,13 @@ const nextConfig = {
   async rewrites() {
     // In production nginx proxies /api/v1 and serves /media before a browser request reaches Next;
     // these rewrites cover dev / e2e (no nginx) and the image optimizer's own fetch of /media/*.
-    return [
-      { source: '/api/v1/:path*', destination: `${API_ORIGIN}/api/v1/:path*` },
-      { source: '/media/:path*', destination: `${MEDIA_ORIGIN}/media/:path*` },
-    ];
+    return {
+      beforeFiles: officeSiteRewrites(siteRootDomainOf()),
+      afterFiles: [
+        { source: '/api/v1/:path*', destination: `${API_ORIGIN}/api/v1/:path*` },
+        { source: '/media/:path*', destination: `${MEDIA_ORIGIN}/media/:path*` },
+      ],
+    };
   },
   async headers() {
     return [

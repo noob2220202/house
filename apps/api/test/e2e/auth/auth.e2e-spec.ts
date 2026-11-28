@@ -42,6 +42,13 @@ describe('auth: sessions, csrf, /auth/me (e2e)', () => {
       expect(res.body.csrfToken).toBe(s.csrfToken);
       expect(setCookies(res)[COOKIE_NAMES.CSRF]).toBe(s.csrfToken);
       expect(res.headers['cache-control']).toBe('no-store');
+      // Same lifetime as the session cookie: a browser-session csrf cookie vanished on browser
+      // restart while the session lived on (header showed 로그인, /login bounced back).
+      const raw = ([] as string[])
+        .concat(res.headers['set-cookie'] ?? [])
+        .find((c) => c.startsWith(`${COOKIE_NAMES.CSRF}=`));
+      const maxAge = Number(/Max-Age=(\d+)/i.exec(raw ?? '')?.[1]);
+      expect(maxAge).toBeGreaterThan(80 * 86_400); // ~90-day absolute session lifetime
     });
 
     it('issues a throwaway token anonymously, in the body only (no cookie)', async () => {

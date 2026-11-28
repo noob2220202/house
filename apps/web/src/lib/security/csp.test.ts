@@ -88,8 +88,10 @@ describe('next.config.mjs', () => {
       const host = p instanceof URL ? p.hostname : p.hostname;
       expect(['localhost', '127.0.0.1', '::1', '[::1]']).not.toContain(host);
     }
-    const rewrites = (await config.rewrites?.()) as { source: string; destination: string }[];
-    const media = rewrites.find((r) => r.source === '/media/:path*');
+    const rewrites = (await config.rewrites?.()) as {
+      afterFiles: { source: string; destination: string }[];
+    };
+    const media = rewrites.afterFiles.find((r) => r.source === '/media/:path*');
     expect(media?.destination).toMatch(/\/media\/:path\*$/);
   });
 });

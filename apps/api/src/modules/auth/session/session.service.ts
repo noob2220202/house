@@ -105,7 +105,11 @@ export class SessionService implements SessionResolver {
     if (!record || record.kind !== kind) return null;
     // A stolen admin cookie is useless outside the account's allowed networks.
     if (record.kind === 'ADMIN' && !ipAllowed(record.ipAllowlist, req.ip)) return null;
-    return { principal: toPrincipal(record), csrfToken: record.csrfToken };
+    return {
+      principal: toPrincipal(record),
+      csrfToken: record.csrfToken,
+      expiresAt: record.absoluteExpiresAt,
+    };
   }
 
   /** Updates mutable fields of the session behind a raw token. */
@@ -192,7 +196,17 @@ export class SessionService implements SessionResolver {
     });
   }
 
-  /** Re-issues only the CSRF cookie (GET /auth/csrf). */
+  /**
+   * Re-issues the CSRF cookie of a live session (GET /auth/csrf) with the session cookie's
+   * lifetime, never as a browser-session cookie (see ResolvedSession.expiresAt).
+   */
+  reissueCsrfCookie(res: Response, session: ResolvedSession): void {
+    const maxAge =
+      session.expiresAt === undefined ? undefined : Math.max(0, session.expiresAt - Date.now());
+    this.setCsrfCookie(res, session.csrfToken, maxAge);
+  }
+
+  /** Writes only the CSRF cookie. */
   setCsrfCookie(res: Response, csrfToken: string, maxAgeMs?: number): void {
     res.cookie(COOKIE_NAMES.CSRF, csrfToken, {
       ...this.baseCookie(),

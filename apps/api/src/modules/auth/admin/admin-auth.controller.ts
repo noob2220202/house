@@ -55,7 +55,7 @@ export class AdminAuthController {
   csrf(@Req() req: Request, @Res({ passthrough: true }) res: Response): CsrfTokenResponse {
     const session = req.authSession;
     if (!session || session.principal.kind !== 'ADMIN') throw AppException.unauthenticated();
-    this.sessions.setCsrfCookie(res, session.csrfToken);
+    this.sessions.reissueCsrfCookie(res, session);
     res.setHeader('Cache-Control', 'no-store');
     return { csrfToken: session.csrfToken };
   }
