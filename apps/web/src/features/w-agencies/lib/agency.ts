@@ -29,26 +29,6 @@ export function shortAgencyName(name: string): string {
   return short || name.trim();
 }
 
-/** Avatar initials: first `length` characters of the short name without spaces. */
-export function agencyInitials(name: string, length = 1): string {
-  return Array.from(shortAgencyName(name).replace(/\s+/g, '')).slice(0, length).join('');
-}
-
-/** `art` = the office illustration; the others are tinted initials. */
-export type AvatarTone = 'art' | 'brand' | 'accent' | 'grey';
-const TONES: readonly AvatarTone[] = ['art', 'brand', 'accent', 'grey'];
-
-/** Stable avatar style per office (so the list does not reshuffle between renders). */
-export function avatarTone(id: string): AvatarTone {
-  // FNV-1a with a final mix: ids that differ by one character still spread over the tones.
-  let h = 2166136261;
-  for (const ch of id) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
-  h ^= h >>> 15;
-  h = Math.imul(h, 2246822519) >>> 0;
-  h ^= h >>> 13;
-  return TONES[(h >>> 0) % TONES.length] ?? 'brand';
-}
-
 /** "아파트 전문", "아파트·상가 전문" — from the registered specialties (max two). */
 export function specialtyLabel(specialties: readonly AssetType[]): string | null {
   if (specialties.length === 0) return null;

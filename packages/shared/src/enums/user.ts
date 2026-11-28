@@ -102,6 +102,11 @@ export const TermsType = {
   DEAL_REQUEST_PRIVACY: 'DEAL_REQUEST_PRIVACY',
   /** 내놓기·구하기 — 개인정보 제3자(중개사무소) 제공 동의 (POST /deal-requests). */
   DEAL_REQUEST_PROVIDE: 'DEAL_REQUEST_PROVIDE',
+  /**
+   * 문의 남기기 — 개인정보 수집·이용 및 (문의를 받는) 중개사무소 제공 동의 (POST /inquiries).
+   * Members get a consent row; a guest's verified document ids are stored on the inquiry row.
+   */
+  INQUIRY_PRIVACY: 'INQUIRY_PRIVACY',
 } as const;
 export type TermsType = EnumValue<typeof TermsType>;
 
@@ -114,6 +119,7 @@ export const TERMS_TYPE_LABEL: Record<TermsType, string> = {
   PRIVACY_AGENCY_JOIN: '소속 중개사 합류 개인정보 수집·이용 동의',
   DEAL_REQUEST_PRIVACY: '내놓기·구하기 개인정보 수집·이용 동의',
   DEAL_REQUEST_PROVIDE: '내놓기·구하기 개인정보 제3자 제공 동의',
+  INQUIRY_PRIVACY: '문의 개인정보 수집·이용 및 제공 동의',
 };
 
 /**
@@ -139,6 +145,8 @@ export const ACTION_CONSENT_TERMS = {
   AGENCY_JOIN: [TermsType.PRIVACY_AGENCY_JOIN],
   /** POST /deal-requests */
   DEAL_REQUEST: [TermsType.DEAL_REQUEST_PRIVACY, TermsType.DEAL_REQUEST_PROVIDE],
+  /** POST /inquiries (members and guests) */
+  INQUIRY: [TermsType.INQUIRY_PRIVACY],
 } as const satisfies Record<string, readonly TermsType[]>;
 export type ConsentAction = keyof typeof ACTION_CONSENT_TERMS;
 
@@ -158,6 +166,40 @@ export const NotificationType = {
   REPORT_RESOLVED: 'REPORT_RESOLVED',
   LISTING_EXPIRED: 'LISTING_EXPIRED',
   CO_BROKER_REQUESTED: 'CO_BROKER_REQUESTED',
+  /**
+   * To every ACTIVE member of the office: a new written inquiry or a customer follow-up
+   * (data `{ agencyId, inquiryId, followUp? }`). Agency feed.
+   */
+  INQUIRY_RECEIVED: 'INQUIRY_RECEIVED',
+  /**
+   * To the member who asked: the office answered (data `{ inquiryId, agencyName }` — never
+   * `agencyId`, which would route it to the agency feed). Member feed.
+   */
+  INQUIRY_REPLIED: 'INQUIRY_REPLIED',
+  /** To the owner: the 사무소 홈페이지 was approved (data `{ agencyId, siteId, slug }`). Agency feed. */
+  AGENCY_SITE_APPROVED: 'AGENCY_SITE_APPROVED',
+  /** To the owner: the 사무소 홈페이지 request was rejected (data `{ agencyId, siteId }`). Agency feed. */
+  AGENCY_SITE_REJECTED: 'AGENCY_SITE_REJECTED',
   SYSTEM: 'SYSTEM',
 } as const;
 export type NotificationType = EnumValue<typeof NotificationType>;
+
+/** Korean name of each notification type (fallback captions; the web keeps its own icon/tone meta). */
+export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
+  DEAL_REQUEST_RECEIVED: '새 요청 도착',
+  PROPOSAL_RECEIVED: '제안 도착',
+  PROPOSAL_ACCEPTED: '제안 수락',
+  CONTACT_GRANTED: '연락처 공개',
+  AGENCY_APPROVED: '중개사무소 승인',
+  AGENCY_REJECTED: '중개사무소 반려',
+  AGENCY_WARNED: '운영 안내',
+  LISTING_HIDDEN: '매물 안내',
+  REPORT_RESOLVED: '신고 처리',
+  LISTING_EXPIRED: '광고기간 만료',
+  CO_BROKER_REQUESTED: '공동중개 요청',
+  INQUIRY_RECEIVED: '새 문의',
+  INQUIRY_REPLIED: '문의 답변',
+  AGENCY_SITE_APPROVED: '홈페이지 승인',
+  AGENCY_SITE_REJECTED: '홈페이지 반려',
+  SYSTEM: '알림',
+};

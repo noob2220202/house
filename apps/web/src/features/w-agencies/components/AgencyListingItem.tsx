@@ -17,6 +17,8 @@ import styles from './AgencyListingItem.module.css';
 export interface AgencyListingItemProps {
   listing: AgencyListing;
   headingLevel?: 3 | 4;
+  /** "중개사 N곳" when co-brokered (default). Off on the office's own site, which names only it. */
+  showBrokerCount?: boolean;
 }
 
 /**
@@ -26,8 +28,13 @@ export interface AgencyListingItemProps {
  * The switch is pure CSS on the same markup, so there is no hydration shift and no second list.
  * The whole item is one link (stretched from the title).
  */
-export function AgencyListingItem({ listing, headingLevel = 3 }: AgencyListingItemProps) {
+export function AgencyListingItem({
+  listing,
+  headingLevel = 3,
+  showBrokerCount = true,
+}: AgencyListingItemProps) {
   const card = toListingCard(listing);
+  const brokerCount = showBrokerCount ? card.brokerCount : undefined;
   const Heading: 'h3' | 'h4' = `h${headingLevel}`;
   return (
     <article className={styles.item}>
@@ -42,8 +49,8 @@ export function AgencyListingItem({ listing, headingLevel = 3 }: AgencyListingIt
         ) : (
           <PhotoPlaceholder kind={card.placeholder} className={styles.art} />
         )}
-        {card.brokerCount !== undefined && (
-          <BrokersBadge count={card.brokerCount} className={styles.brokersOnPhoto} />
+        {brokerCount !== undefined && (
+          <BrokersBadge count={brokerCount} className={styles.brokersOnPhoto} />
         )}
       </span>
       <div className={styles.body}>
@@ -52,8 +59,8 @@ export function AgencyListingItem({ listing, headingLevel = 3 }: AgencyListingIt
           <DealBadge deal={card.deal} className={styles.dealTag} />
           <p className={`price ${styles.price}`}>{card.price}</p>
           {card.premium !== undefined && <PremiumBadge amount={card.premium} />}
-          {card.brokerCount !== undefined && (
-            <BrokersBadge count={card.brokerCount} light className={styles.brokersInline} />
+          {brokerCount !== undefined && (
+            <BrokersBadge count={brokerCount} light className={styles.brokersInline} />
           )}
         </div>
         <Heading className={styles.name}>

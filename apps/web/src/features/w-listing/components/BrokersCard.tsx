@@ -23,28 +23,38 @@ export interface BrokersCardProps {
  * (명칭 · 소재지 · 연락처 · 등록번호 · 대표 성명) and has call / 문의 actions.
  */
 export function BrokersCard({ agencies, idPrefix, className }: BrokersCardProps) {
-  const { openContact } = useListingInteractions();
+  const { openContact, logContact, office } = useListingInteractions();
   const count = agencies.length;
   const headingId = `${idPrefix}-brokers`;
 
-  // Desktop has no dialer: the 전화 link opens the contact dialog (number + copy) instead.
+  // Desktop has no dialer: the 전화 link opens the dialog on 바로 연락 (number + copy) instead.
+  // On phones the link dials straight away and the press is logged for the office's 문의함.
   const onCall = (e: MouseEvent<HTMLAnchorElement>, agencyId: string) => {
     if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
       e.preventDefault();
-      openContact(agencyId);
+      openContact(agencyId, 'contact');
+      return;
     }
+    logContact('CALL', agencyId);
   };
 
   return (
     <section className={cx(styles.scard, styles.brokers, className)} aria-labelledby={headingId}>
       <div className={styles.scardHd}>
-        <h2 className={styles.scardT} id={headingId}>
-          <span className={styles.brokersTLg}>이 매물을 중개하는 사무소</span>
-          <span className={styles.brokersTSm}>공동중개 사무소</span>{' '}
-          <span className={cx(styles.brand, 'num')}>{count}곳</span>
-        </h2>
+        {office ? (
+          // The office's own site lists only this office: no count, no 공동중개 wording.
+          <h2 className={styles.scardT} id={headingId}>
+            이 매물을 중개하는 사무소
+          </h2>
+        ) : (
+          <h2 className={styles.scardT} id={headingId}>
+            <span className={styles.brokersTLg}>이 매물을 중개하는 사무소</span>
+            <span className={styles.brokersTSm}>공동중개 사무소</span>{' '}
+            <span className={cx(styles.brand, 'num')}>{count}곳</span>
+          </h2>
+        )}
         <p className={styles.scardDesc}>
-          {count > 1
+          {!office && count > 1
             ? '같은 매물을 여러 사무소가 함께 중개해요. 어디에 문의해도 같은 집이에요.'
             : '이 매물을 등록한 중개사무소예요.'}
         </p>
@@ -74,18 +84,25 @@ export function BrokersCard({ agencies, idPrefix, className }: BrokersCardProps)
                     </span>
                   )}
                   <h3 className={styles.cbName}>
-                    <Link href={ROUTES.agency(a.agencyId)}>{a.name}</Link>
+                    {/* On the office's own 홈페이지 the name leads to its home. */}
+                    <Link href={office ? office.homeHref : ROUTES.agency(a.agencyId)}>
+                      {a.name}
+                    </Link>
                   </h3>
                   <p className={styles.cbMeta}>
                     <span className={styles.cbRep}>
                       대표<span className={styles.cbRepLg}> 공인중개사</span> {a.representativeName}
                     </span>
-                    {a.activeListingCount !== null && a.activeListingCount !== undefined && (
-                      <span>
-                        <span className={styles.cbStatLg}>보유 </span>매물{' '}
-                        <b className="num">{a.activeListingCount}</b>
-                      </span>
-                    )}
+                    {/* Office-wide (co-brokered included): not on the office's own site, whose
+                        count is its own listings only. */}
+                    {!office &&
+                      a.activeListingCount !== null &&
+                      a.activeListingCount !== undefined && (
+                        <span>
+                          <span className={styles.cbStatLg}>보유 </span>매물{' '}
+                          <b className="num">{a.activeListingCount}</b>
+                        </span>
+                      )}
                     {a.avgResponseMinutes !== null && a.avgResponseMinutes !== undefined && (
                       <span>
                         평균 응답 <b className="num">{a.avgResponseMinutes}분</b>
@@ -121,7 +138,8 @@ export function BrokersCard({ agencies, idPrefix, className }: BrokersCardProps)
                     type="button"
                     className={cx(styles.cbBtn, i === 0 ? styles.cbAskPrimary : styles.cbAsk)}
                     aria-label={`${a.name}에 문의하기`}
-                    onClick={() => openContact(a.agencyId)}
+                    aria-haspopup="dialog"
+                    onClick={() => openContact(a.agencyId, 'message')}
                   >
                     <Glyph name="message" size={18} />
                     <span>문의하기</span>

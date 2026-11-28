@@ -25,6 +25,7 @@
  │ /_next/static/      → 빌드 파일(JS·CSS)을 nginx가 current 릴리스에서 직접 │
  │ admin.example.com   → 관리자 사이트 (Next.js, 3001) + /api/              │
  │ www.example.com     → example.com 으로 이동                             │
+ │ <주소>.example.com  → 사무소 홈페이지 (같은 사이트, 사무소별 인증서)    │
  └─────────────────────────────────────────────────────────────────────────┘
           │                         │
    PostgreSQL 16 + PostGIS      Redis (세션·캐시·작업 큐)
@@ -44,6 +45,7 @@
 | `/srv/house/shared/.env`         | **설정·비밀값 파일** (외부 서비스 키를 여기에 넣음)      |
 | `/srv/house/shared/deploy.conf`  | 도메인, 저장소 주소, 포트 등 배포 설정                   |
 | `/srv/house/bin/`                | 배포 스크립트 설치본 (root 소유, 18단계 참고)            |
+| `/etc/nginx/house/sites/`        | 사무소 홈페이지별 HTTPS 설정 (`sites.sh`가 관리, 6-3)    |
 | `/var/lib/house/uploads/public`  | 매물 사진 등 공개 이미지                                 |
 | `/var/lib/house/uploads/private` | 중개사무소 등록증 등 비공개 서류 (웹에서 직접 접근 불가) |
 | `/var/backups/house/`            | 자동 백업 (DB·업로드 파일 매일, 14일 보관)               |
@@ -73,14 +75,19 @@ VPS를 만들 때 **고정(공인) IP**가 붙어 있는지 확인하고, 그 IP
 
 ## 3. DNS 설정 (도메인 → 서버 IP 연결)
 
-도메인 등록업체의 **DNS 관리** 화면에서 **A 레코드 3개**를 만듭니다.
+도메인 등록업체의 **DNS 관리** 화면에서 **A 레코드 4개**를 만듭니다.
 
-| 호스트(이름) | 타입 | 값(IP)  | 의미                          |
-| ------------ | ---- | ------- | ----------------------------- |
-| `@`          | A    | 서버 IP | `example.com` (사용자 사이트) |
-| `www`        | A    | 서버 IP | `www.example.com`             |
-| `admin`      | A    | 서버 IP | `admin.example.com` (관리자)  |
+| 호스트(이름) | 타입 | 값(IP)  | 의미                                                       |
+| ------------ | ---- | ------- | ---------------------------------------------------------- |
+| `@`          | A    | 서버 IP | `example.com` (사용자 사이트)                              |
+| `www`        | A    | 서버 IP | `www.example.com`                                          |
+| `admin`      | A    | 서버 IP | `admin.example.com` (관리자)                               |
+| `*`          | A    | 서버 IP | `<주소>.example.com` — 중개사무소 홈페이지 전부 (6-3 참고) |
 
+- **가비아**(순천부동산지도): My가비아 → 도메인 → 해당 도메인 **관리** → **DNS 정보 → DNS 관리** → 설정 → **레코드 추가**에서
+  타입 `A`, 호스트에 위 이름(`@`, `www`, `admin`, `*`), 값/위치에 서버 IP를 넣고 저장합니다. `*` 하나로 모든 사무소 주소
+  (`hanbit.suncheonmap.kr` 등)가 서버를 가리키므로, 사무소가 늘어도 DNS는 다시 고칠 필요가 없습니다.
+  이름이 정확히 적힌 레코드(`www`, `admin`)는 `*`보다 우선합니다.
 - TTL은 기본값(또는 300초)이면 됩니다.
 - **Cloudflare**를 쓰는 경우 처음에는 구름 아이콘을 **회색(DNS only)** 으로 두세요. 주황색(프록시)이면 인증서 발급과 접속자 IP 기록이 달라집니다.
 - 서버에 IPv6가 있고 그 주소도 쓰려면 같은 이름으로 AAAA 레코드를 추가합니다. 모르면 만들지 마세요.
@@ -91,9 +98,10 @@ VPS를 만들 때 **고정(공인) IP**가 붙어 있는지 확인하고, 그 IP
 nslookup example.com
 nslookup www.example.com
 nslookup admin.example.com
+nslookup test-office.example.com     # * 레코드 확인 (아무 이름이나)
 ```
 
-세 개 모두 서버 IP가 나오면 됩니다. 보통 몇 분, 길게는 몇 시간 걸립니다. **DNS가 반영되기 전에는 HTTPS 인증서가 발급되지 않습니다.**
+네 개 모두 서버 IP가 나오면 됩니다. 보통 몇 분, 길게는 몇 시간 걸립니다. **DNS가 반영되기 전에는 HTTPS 인증서가 발급되지 않습니다.**
 
 ## 4. 서버 접속 (SSH)
 
@@ -171,6 +179,7 @@ cd /root/house-setup
     허용할 주소를 스스로 계산하므로, 다른 주소(예: 별도 앱 도메인)를 추가로 허용할 때만 쉼표로 적습니다.
     관리자 주소를 `CORS_ORIGINS`에 넣어도 사용자 API에서는 허용되지 않습니다(사이트별로 분리).
 - 매일 새벽 3시 30분 **자동 백업** 등록
+- **사무소 홈페이지 타이머** `house-sites.timer` (5분마다): 승인된 중개사무소 홈페이지마다 인증서를 받고 nginx에 연결 (6-3)
 
 끝나면 한국어 요약이 나옵니다. 스크립트는 **여러 번 실행해도 안전**합니다. 중간에 실패했으면 원인을 고치고 같은 명령을 다시 실행하세요.
 
@@ -188,6 +197,41 @@ cd /root/house-setup
 
 대부분 DNS가 아직 반영되지 않은 경우입니다. 3단계의 `nslookup`으로 확인한 뒤 **6단계 명령을 그대로 다시 실행**하면 됩니다.
 (그동안 사이트는 HTTP로만 열립니다. 로그인은 HTTPS에서만 동작합니다.)
+
+### 6-3. 사무소 홈페이지 (`<주소>.example.com`) — 인증서가 붙는 과정
+
+중개사무소는 각자 `https://<주소>.suncheonmap.kr` 홈페이지를 가질 수 있습니다(중개사 콘솔 **내 홈페이지**에서 신청 → 관리자 승인).
+가비아 DNS에는 자동 변경 API가 없어 `*.suncheonmap.kr` 와일드카드 인증서를 받을 수 없으므로, **사무소마다 인증서를 따로** 받습니다.
+운영자가 할 일은 3단계의 `*` 레코드 하나뿐이고, 나머지는 자동입니다.
+
+1. 관리자가 관리자 사이트 **중개사무소 → 사무소 홈페이지**에서 신청을 승인하면 주소(`agency_sites.slug`)가 확정됩니다.
+2. 5분 안에 `house-sites.timer`가 `/srv/house/bin/sites.sh`를 root로 실행합니다.
+   - DB에서 **배정된 주소**를 읽습니다: 홈페이지 상태가 운영 중 또는 정지이고 사무소가 삭제되지 않은 주소. 그중 **운영 중인 주소**
+     (홈페이지 운영 중 · 사무소 승인 상태 · (관리자 사이트 설정의 "사무소 홈페이지 유료 적용"이 켜져 있으면) 오늘 유효한 홈페이지 구독)를
+     먼저 처리합니다.
+   - 주소 규칙(영문 소문자·숫자·하이픈 3~30자, `--` 금지, 예약어 제외 — 앱과 같은 규칙)을 **다시 검사**합니다. 앱이 쓴 값을
+     root가 그대로 믿지 않기 위해서입니다.
+   - 운영 중인데 인증서가 없는 주소는 Let's Encrypt에서 받습니다: `certbot --cert-name house-site-<주소>`, 80번 포트로 소유 확인(HTTP-01).
+   - 인증서가 있는 배정된 주소마다 `/etc/nginx/house/sites/<주소>.conf`를 만들고 `nginx -t`로 검사한 뒤(실패하면 그 파일만
+     이전 내용으로 되돌림 — 이전 설정으로 계속 열림) nginx를 한 번 다시 읽습니다.
+   - 마지막으로 DB의 `agency_sites.https_ready_at`을 기록합니다. **이 값이 생겨야** 메인 사이트와 중개사 콘솔이 홈페이지 링크를
+     보여 줍니다(그 전에는 콘솔에 "주소 준비 중 — 보통 10분 안에 열려요"). 승인부터 링크까지 보통 5~10분입니다.
+     한꺼번에 많이 승인했을 때(아래 발급 한도), DNS 문제, 발급 실패(1시간 뒤 재시도) 때는 더 걸립니다.
+3. **정지**, 사무소 정지, 유료 적용 중 구독 만료처럼 잠시 운영하지 않는 주소도 nginx 설정과 인증서를 **그대로 둡니다**(그동안
+   앱이 404로 답함). 그래서 한 번 열렸던 주소는 재개·사무소 재승인·구독 입력 즉시 다시 열리고, 링크가 인증서 없는 주소를
+   가리키는 일이 없습니다(새 인증서는 운영 중인 주소만 받으므로, 한 번도 열린 적 없는 주소는 운영 중이 된 뒤 보통 10분).
+   주소를 바꿔 승인하거나 신청을 반려하거나 사무소를 삭제해 **더 이상 어떤 홈페이지에도 배정되지 않은 주소**만 nginx 설정을 지웁니다
+   (인증서는 남겨 둠, OPERATIONS.md 13 "정리").
+4. 사무소 인증서도 메인 인증서처럼 `certbot.timer`가 자동 갱신하고, 갱신 뒤 nginx가 새 인증서를 읽습니다. 갱신이 실행 중일 때
+   `sites.sh`가 돌면 새 발급은 다음 실행(5분 뒤)으로 미룹니다(실패로 치지 않음).
+
+- **왜 기다려야 하나**: 메인 사이트가 HSTS(`includeSubDomains`)를 보내므로, 한 번이라도 메인 사이트에 들어온 브라우저는 인증서가 없는
+  하위 주소를 경고 화면에서 넘어가지도 못하게 막습니다. 그래서 인증서가 실제로 붙은 뒤에만 링크를 보여 줍니다.
+- **발급 한도**: Let's Encrypt는 도메인당 **일주일에 새 인증서 50개**까지입니다(갱신은 제외). `sites.sh`는 한 번에 최대 10개,
+  일주일에 40개까지만 새로 받고 나머지는 다음 실행으로 미룹니다. 발급에 실패한 주소는 1시간 뒤 다시 시도합니다.
+- **인증서가 없는 주소**(오타, 승인 전)로 들어오면 80번은 https로 이동하고, 443번은 연결을 끊습니다.
+- **HTTP 모드**(`--no-tls`, 또는 메인 인증서 발급 전)에서는 `*.example.com`이 HTTP로 바로 열리고 `sites.sh`는 아무것도 하지 않습니다.
+- 확인·문제 해결: [OPERATIONS.md](OPERATIONS.md) "13. 사무소 홈페이지".
 
 ## 7. 외부 서비스 키 넣기 (.env)
 
@@ -238,9 +282,16 @@ https://example.com/api/v1/auth/oauth/google/callback
 1. [Kakao Developers](https://developers.kakao.com) 로그인 → **내 애플리케이션 → 애플리케이션 추가하기** (앱 이름, 사업자명)
 2. **앱 키**의 **REST API 키** → `KAKAO_CLIENT_ID` (로그인 + 서버의 주소 검색 `GET /geo/geocode`가 함께 씁니다.
    주소 검색에 다른 REST 키를 쓰려면 `KAKAO_REST_API_KEY`에 넣습니다 — 비우면 `KAKAO_CLIENT_ID`)
-3. **플랫폼 → Web**: 사이트 도메인 `https://example.com`, `https://www.example.com` 등록
-   (예: `https://suncheonmap.kr`, `https://www.suncheonmap.kr`, `https://admin.suncheonmap.kr`). 지도 JavaScript SDK는
-   이 목록에 있는 도메인에서만 열립니다.
+3. **내 애플리케이션 → (이 앱) → 앱 설정 → 플랫폼 → Web → 사이트 도메인**에 `https://example.com`, `https://www.example.com` 등록
+   (예: `https://suncheonmap.kr`, `https://www.suncheonmap.kr`, `https://admin.suncheonmap.kr`, 한 줄에 하나, `https://`부터 끝의 `/` 없이).
+   지도 JavaScript SDK는 이 목록에 있는 도메인에서만 열립니다.
+   - **사무소 홈페이지**(`https://<주소>.suncheonmap.kr`, 6-3)는 **기본적으로 간이 지도**로 보이고, 등록은 **선택**입니다.
+     "오시는 길"의 지도는 같은 규칙이라, 등록하지 않은 사무소 주소에서는 카카오 SDK가 거절(401)되고 화면이 **간이 지도**(순천 일러스트 +
+     사무소 위치 표시)로 자동으로 바뀝니다. 주소와 **길찾기** 링크(카카오맵 새 창)는 그대로 있으므로 화면이 깨지거나 기능이 빠지지 않습니다.
+   - 어떤 사무소에 움직이는 카카오 지도를 보여 주고 싶을 때만, 그 홈페이지가 열린 뒤 같은 화면(**앱 설정 → 플랫폼 → Web → 사이트 도메인 → 수정**)에
+     `https://<주소>.suncheonmap.kr`을 한 줄 추가하고 저장합니다. 다시 배포할 필요는 없고, 저장 뒤 그 홈페이지를 새로 고치면 됩니다.
+   - 사이트 도메인은 카카오 콘솔이 정한 개수까지만 등록됩니다(더 추가되지 않으면 그 수가 한도). 그래서 모든 사무소를 등록하는 것을
+     전제로 하지 않습니다 — 등록하지 않아도 위처럼 간이 지도로 정상 동작합니다. 메뉴 이름은 카카오 사정으로 조금 바뀔 수 있습니다.
 4. **카카오 로그인**: 활성화 **ON**, **Redirect URI**에 위 kakao 주소 등록
 5. **카카오 로그인 → 동의항목**: 닉네임, 프로필 사진, 카카오계정(이메일)을 필요에 맞게 설정
    (전화번호 등 일부 항목은 비즈 앱 전환·검수가 필요합니다. 없어도 로그인은 됩니다.)
@@ -399,7 +450,7 @@ https://example.com/api/v1/auth/oauth/google/callback
    다른 확인 방법 → **HTML 태그**의 `content` 값만 복사합니다.
 3. 서버 `.env`(`sudo nano /srv/house/shared/.env`)의 빈 줄에 붙여 넣습니다(install.sh가 자리를 만들어 둡니다). 비워 두면 태그가 나가지 않습니다.
    **`NEXT_PUBLIC_SITE_URL`도 함께 확인하세요.** install.sh가 `https://<도메인>`으로 넣어 두며, 실제 대표 주소(https, 끝에 `/` 없음)와 같아야 합니다.
-   예전 install.sh로 만든 서버라 이 줄이 없다면 `sudo /srv/house/bin/install.sh --domain <도메인> --email <메일>`을 다시 실행하면 추가됩니다
+   예전 install.sh로 만든 서버라 이 줄이 없다면 `sudo /srv/house/bin/install.sh --domain <도메인> --email <메일> --skip-upgrade`을 다시 실행하면 추가됩니다
    (그 전에도 `deploy.sh`는 경고와 함께 `https://<도메인>`으로 빌드합니다).
    ```
    NEXT_PUBLIC_SITE_URL=https://suncheonmap.kr
@@ -471,6 +522,12 @@ https://example.com/api/v1/auth/oauth/google/callback
 
 데이터를 배포 직전으로 되돌려야 한다면 `/var/backups/house/pre-migrate/`의 백업으로 복원합니다 (OPERATIONS.md의 복원 절차).
 
+- **사무소 홈페이지가 없던 버전으로 `--force` 롤백하면**: 그 버전의 웹 앱은 `<주소>.example.com`을 몰라 사무소 주소마다 메인 사이트를
+  통째로 보여 주게 됩니다. 그래서 `sites.sh`는 현재 버전에 사무소 홈페이지(`apps/web/src/app/office-site`)가 없으면 **사무소 nginx 설정을
+  모두 내리고 모든 `https_ready_at`을 지웁니다**(링크 숨김, 인증서는 유지). `rollback.sh`는 롤백 직후 이 작업을 바로 한 번 실행합니다
+  (`롤백 완료` 아래에 `이 버전에는 사무소 홈페이지가 없습니다` 안내). 사무소 홈페이지가 있는 버전을 다시 배포하면 다음 실행(5분 안)에
+  남겨 둔 인증서로 설정과 링크가 돌아옵니다. 바로 확인하려면 `sudo /srv/house/sites.sh`.
+
 ## 13. 백업
 
 - **자동**: 매일 03:30 DB 전체 백업과 업로드 파일 스냅샷(바뀌지 않은 파일은 하드링크라 용량을 거의 쓰지 않음), **14일 보관** (`/var/backups/house`)
@@ -521,6 +578,7 @@ tail -f /var/log/house/deploy.log          # 배포 기록
 | 증상                                                                   | 확인할 것                                                                                                                                                                 |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 인증서 발급 실패                                                       | `nslookup`으로 DNS 확인 → 6단계 명령 다시 실행. Cloudflare 주황 구름이면 회색으로.                                                                                        |
+| 사무소 홈페이지가 승인 후 10분이 지나도 "주소 준비 중"                 | `journalctl -u house-sites -n 50`, `nslookup <주소>.example.com`(3단계 `*` 레코드). 지금 바로 다시: `sudo /srv/house/sites.sh` (OPERATIONS.md 13장)                       |
 | `502 Bad Gateway`                                                      | 앱이 꺼짐: `/srv/house/status.sh`, `sudo -u house pm2 logs --err --lines 100`                                                                                             |
 | 소셜 로그인 후 오류                                                    | 콘솔의 Redirect URI가 7단계 주소와 **글자 하나까지** 같은지(https, 도메인). `.env`의 CLIENT_ID/SECRET 확인 후 `deploy.sh`                                                 |
 | 로그인이 유지되지 않음                                                 | HTTPS로 접속했는지 (HTTP에서는 로그인 쿠키가 동작하지 않음)                                                                                                               |
@@ -537,13 +595,21 @@ tail -f /var/log/house/deploy.log          # 배포 기록
 
 ## 16. 서버 설정 바꾸기
 
-- **도메인/관리자 주소 변경**: 3단계 DNS를 먼저 바꾸고, 6단계 명령을 새 `--domain`(필요하면 `--admin-subdomain`)으로 다시 실행합니다.
+처음 설치한 뒤 install.sh를 다시 실행할 때는 **설치본** `/srv/house/bin/install.sh`를 씁니다(처음 받은 `/root/house-setup`은 오래된
+배포 스크립트라, 새 install.sh는 그 체크아웃을 거부합니다 — 18단계). 운영 중인 서버에서는 `--skip-upgrade`도 붙입니다
+(붙이지 않으면 `apt upgrade`로 업그레이드된 PostgreSQL·Redis·nginx가 묻지 않고 재시작됩니다. 보안 업데이트는 자동 보안 업데이트가 합니다).
+
+```bash
+sudo /srv/house/bin/install.sh --domain example.com --email 내메일@example.com --skip-upgrade [바꿀 옵션]
+```
+
+- **도메인/관리자 주소 변경**: 3단계 DNS를 먼저 바꾸고, 위 명령을 새 `--domain`(필요하면 `--admin-subdomain`)으로 다시 실행합니다.
   install.sh가 기존 인증서에 새 이름이 없음을 알아채고 **새 이름으로 인증서를 다시 발급**합니다.
   `.env`는 덮어쓰지 않으므로, 요약의 경고에 나온 키(`PUBLIC_BASE_URL`, `ADMIN_BASE_URL`, `API_BASE_URL`,
   `NEXT_PUBLIC_SITE_URL`, `KAKAO_REDIRECT_URI`, `NAVER_REDIRECT_URI`, `GOOGLE_REDIRECT_URI`)를 `sudo nano /srv/house/shared/.env`로 고치고
   (`CORS_ORIGINS`·`ADMIN_CORS_ORIGINS`에 옛 주소가 남아 있으면 지워서 비워 두세요),
   각 로그인 콘솔의 Redirect URI도 새 주소로 바꾼 뒤 `/srv/house/deploy.sh` (`NEXT_PUBLIC_SITE_URL`이 바뀌었으므로 자동으로 다시 빌드합니다).
-- **저장소/브랜치 변경**: 6단계 명령을 새 `--repo`/`--branch`로 다시 실행
+- **저장소/브랜치 변경**: 위 명령에 새 `--repo`/`--branch`를 붙여 다시 실행
 - **프로세스 수** (`API_INSTANCES`, `WEB_INSTANCES`, `ADMIN_INSTANCES`): `sudo nano /srv/house/shared/deploy.conf`에서 고친 뒤 **중단 없이**
   ```bash
   sudo -u house pm2 scale house-api 3 && sudo -u house pm2 scale house-web 3 && sudo -u house pm2 save
@@ -583,6 +649,11 @@ root가 실행하거나 읽는 파일은 모두 root 소유입니다.
   sudo /srv/house/bin/install.sh --kit-only --kit-ref <안내된 커밋>     # 커밋 생략 시 deploy.conf의 BRANCH 최신
   ```
   root가 서버의 배포 키로 저장소에서 `deploy/` 폴더만 받아(호스트 키는 `/srv/house/shared/ssh_known_hosts`로 확인) root 소유로 설치합니다.
+- **install.sh를 다시 실행할 때는 설치본으로**: `sudo /srv/house/bin/install.sh --domain <도메인> --email <메일> --skip-upgrade`.
+  처음 설치할 때 받은 `/root/house-setup`은 그때의 배포 스크립트라, 그것으로 실행하면 `--kit-only`로 받은 새 스크립트를 옛것으로
+  덮어쓰고(새 파일은 삭제) 옛 nginx 설정을 다시 만듭니다. 지금의 install.sh는 이런 체크아웃을 알아채고 아무것도 바꾸지 않고 멈추지만
+  (`설치본에만 있는 파일: …`), 그 전의 install.sh에는 이 검사가 없으므로 **옛 체크아웃은 지워 두는 것이 안전합니다**(`rm -rf /root/house-setup`).
+  체크아웃으로 실행해야 할 때는 5단계처럼 새로 받습니다.
 - **이 구조 이전에 설치한 서버** (`/srv/house`가 house 소유였던 서버)는 신뢰할 수 있는 새 체크아웃으로 install.sh를 한 번 다시 실행합니다.
   ```bash
   rm -rf /root/house-setup && git clone https://github.com/OWNER/REPO.git /root/house-setup    # 5단계와 같은 방법
@@ -591,9 +662,44 @@ root가 실행하거나 읽는 파일은 모두 root 소유입니다.
   소유권 정리, `current` 링크 구조 변경, 잠금 파일 생성, fail2ban의 nginx 차단 규칙 제거가 자동으로 됩니다. 그다음 `/srv/house/deploy.sh --force`로
   한 번 배포하세요(관리자 사이트가 무중단 모드로 다시 등록되며 이때만 수 초 끊깁니다).
 - **2026-11 배포 키트 갱신 후** (빌드 파일 nginx 직접 제공, 페이지 요청 제한, 이미지 원본 내부 주소, `.env` 웹 빌드 설정):
-  `install.sh --kit-only` 로 키트를 갱신한 뒤 6단계 install.sh를 한 번 다시 실행하면 nginx 설정이 새로 만들어지고 `.env`에
+  `sudo /srv/house/bin/install.sh --kit-only` 로 키트를 갱신한 뒤 설치본으로 한 번 다시 실행하면
+  (`sudo /srv/house/bin/install.sh --domain <도메인> --email <메일> --skip-upgrade`) nginx 설정이 새로 만들어지고 `.env`에
   `NEXT_PUBLIC_SITE_URL`·`MEDIA_ORIGIN` 등 빠진 키가 추가됩니다(기존 값 유지). 예전에 만든 `.env`의
   `CORS_ORIGINS=https://<도메인>,https://admin.<도메인>`은 그대로 둬도 동작하지만, 비워 두는 것이 새 기준입니다. 이어서 `/srv/house/deploy.sh` — 빌드 설정이 바뀌었으므로 자동으로 다시 빌드합니다.
+- **2026-11-28 배포 키트 갱신 후** (사무소 홈페이지 `<주소>.<도메인>`) — **지금 운영 중인 서버(suncheonmap.kr)의 업그레이드 순서**.
+  한가한 시간에 순서대로 하세요. 1~4단계 동안 사이트는 계속 열려 있습니다(nginx 다시 읽기·무중단 배포뿐).
+  먼저 개발 PC에서 이 기능이 든 커밋을 GitHub `main`에 push하고, 그 커밋의 **전체 해시(40자)**를 적어 둡니다(`git rev-parse HEAD`).
+  1. **DNS `*` 레코드** (3단계): 가비아 DNS에 호스트 `*`, 타입 A, 값 서버 IP를 추가하고 `nslookup test-office.suncheonmap.kr`이 서버 IP를
+     돌려주는지 확인합니다. 먼저 해 두는 이유: 반영에 시간이 걸리고, 반영 전에는 사무소 인증서가 발급되지 않습니다(미리 있어도 아무 영향 없음).
+  2. **새 배포 스크립트 받기** (서버에서, root):
+     ```bash
+     sudo /srv/house/bin/install.sh --kit-only --kit-ref <적어 둔 커밋 해시>
+     ls /srv/house/bin/sites.sh /srv/house/bin/nginx/house-site.conf.template   # 둘 다 있어야 함
+     ```
+     지금 설치된(옛) install.sh가 저장소에서 새 `deploy/`를 받아 설치합니다. 옛 스크립트는 `sites.sh`를 `/srv/house`에 연결하지 않으므로
+     `/srv/house/sites.sh`는 다음 단계에서 생깁니다. `/root/house-setup`의 `./deploy/install.sh`는 **쓰지 마세요**(옛 체크아웃: 위 설명).
+  3. **설치본으로 install.sh 전체를 한 번** (업그레이드 없이):
+     ```bash
+     sudo /srv/house/bin/install.sh --domain suncheonmap.kr --email 내메일@example.com --skip-upgrade
+     ```
+     `.env`·DB·인증서·배포 설정은 그대로 두고, nginx 설정(`*.suncheonmap.kr`, `house-tls-params.conf`, `/etc/nginx/house/sites/`),
+     `/srv/house/sites.sh` 연결, `house-sites.timer`(5분마다)를 만듭니다. `--nginx-only`만으로는 타이머가 생기지 않습니다.
+     `--skip-upgrade`를 빼면 `apt upgrade`가 돌아 업그레이드된 PostgreSQL·Redis·nginx가 묻지 않고 재시작됩니다.
+     요약 끝에 `▶ 확인할 경고`가 나오면 그 내용을 먼저 처리하세요. 이 시점의 타이머는 아직 할 일이 없습니다(`agency_sites 테이블이 아직 없습니다` — 다음 단계의 배포가 만듭니다).
+  4. **앱 배포**: `/srv/house/deploy.sh` (마이그레이션이 홈페이지·구독·문의 표를 만들고, 웹·관리자를 새로 빌드합니다).
+     배포 끝에 배포 스크립트 갱신 안내가 나오지 않아야 합니다(2단계와 같은 커밋이므로).
+  5. **확인**:
+     ```bash
+     systemctl list-timers house-sites.timer      # 다음 실행 시각
+     sudo /srv/house/sites.sh                     # 마지막 줄: 사무소 홈페이지: 운영 0곳 … (아직 승인된 곳 없음)
+     /srv/house/status.sh                         # "사무소 홈페이지" 항목: 타이머 active, 마지막 결과 success
+     ```
+  6. **첫 사무소**: 중개사 콘솔 **내 홈페이지**에서 신청 → 관리자 사이트 **중개사무소 → 사무소 홈페이지**에서 승인 →
+     5분 안에 `journalctl -u house-sites -n 30 --no-pager`에 `인증서 발급: <주소>.suncheonmap.kr`, `HTTPS 준비 완료로 표시`가 나오고
+     콘솔의 "주소 준비 중"이 "홈페이지 열기"로 바뀝니다(공개 화면 캐시 때문에 1분쯤 더 걸릴 수 있음). `curl -sI https://<주소>.suncheonmap.kr`이 `200`이면 끝.
+     안 되면 OPERATIONS.md 13의 표를 보세요(대부분 1단계 DNS).
+  7. (선택) 그 사무소 홈페이지에 움직이는 카카오 지도를 띄우려면 7단계 카카오 3번처럼 주소를 등록합니다. 하지 않으면 간이 지도로 보입니다.
+  8. `rm -rf /root/house-setup` — 옛 체크아웃을 지워 실수로 실행하는 일을 막습니다.
 
 ## 부록: 컨테이너 종단 검증 기록 (2026-11-23)
 

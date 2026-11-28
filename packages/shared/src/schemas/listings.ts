@@ -81,6 +81,10 @@ export const listingFilterSchema = z.object({
   landCategories: csvArray(z.enum(LandCategory)),
   complexId: idSchema.optional(),
   agencyId: idSchema.optional(),
+  /** Only listings whose PRIMARY agency is this office (office site; co-brokered ones excluded). */
+  primaryAgencyId: idSchema.optional(),
+  /** true = only listings without a 단지 (complex_id IS NULL). */
+  withoutComplex: queryBoolean,
   /** 법정동 code prefix (5 = 시군구, 8 = 읍면동, 10 = full). */
   emdCode: regionCodeSchema.optional(),
 });

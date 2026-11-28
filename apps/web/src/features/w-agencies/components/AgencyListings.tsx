@@ -58,6 +58,13 @@ export interface AgencyListingsProps {
   /** Server-rendered page for `initialKey` (JSON of the listings query). */
   initialPage: AgencyListingPage | null;
   initialKey: string;
+  /**
+   * The office's own 홈페이지: only listings it registered first (`primaryAgencyId`); the cards
+   * then show no co-brokerage count (the site's listing page names this office only).
+   */
+  primaryOnly?: boolean;
+  /** Numbers on the tabs (default: on). Off when `total` / `countsByAsset` may be inexact. */
+  showCounts?: boolean;
 }
 
 /**
@@ -71,6 +78,8 @@ export function AgencyListings({
   countsByAsset,
   initialPage,
   initialKey,
+  primaryOnly = false,
+  showCounts = true,
 }: AgencyListingsProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -89,22 +98,23 @@ export function AgencyListings({
     if (scroll) topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  const scope = { primaryOnly };
   const listings = useQuery({
-    queryKey: agencyKeys.listings(agencyListingsQuery(agencyId, params)),
-    queryFn: ({ signal }) => fetchAgencyListings(agencyId, params, signal),
+    queryKey: agencyKeys.listings(agencyListingsQuery(agencyId, params, scope)),
+    queryFn: ({ signal }) => fetchAgencyListings(agencyId, params, signal, scope),
     initialData:
-      initialPage && JSON.stringify(agencyListingsQuery(agencyId, params)) === initialKey
+      initialPage && JSON.stringify(agencyListingsQuery(agencyId, params, scope)) === initialKey
         ? initialPage
         : undefined,
     placeholderData: keepPreviousData,
   });
 
   const tabs = [
-    { value: ALL, label: '전체', count: total },
+    { value: ALL, label: '전체', count: showCounts ? total : undefined },
     ...ASSET_ORDER.filter((a) => (countsByAsset[a] ?? 0) > 0).map((a) => ({
       value: a,
       label: SPECIALTY_LABEL[a],
-      count: countsByAsset[a],
+      count: showCounts ? countsByAsset[a] : undefined,
     })),
   ];
   const tab = params.assetType ?? ALL;
@@ -201,7 +211,7 @@ export function AgencyListings({
             >
               {page.items.map((l) => (
                 <li key={l.id}>
-                  <AgencyListingItem listing={l} />
+                  <AgencyListingItem listing={l} showBrokerCount={!primaryOnly} />
                 </li>
               ))}
             </ul>

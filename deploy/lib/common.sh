@@ -29,6 +29,9 @@ BIN_DIR="$HOUSE_ROOT/bin"
 ENV_FILE="$SHARED_DIR/.env"
 DEPLOY_CONF="$SHARED_DIR/deploy.conf"
 KNOWN_HOSTS_FILE="$SHARED_DIR/ssh_known_hosts"
+# Present in every release whose web app serves the office sites <slug>.DOMAIN (sites.sh,
+# rollback.sh; test_sites.sh checks the repository still has it).
+SITES_WEB_ROUTE=apps/web/src/app/office-site
 
 # Defaults; deploy.conf overrides them (only the keys in CONF_KEYS).
 REPO_URL=""
@@ -691,6 +694,25 @@ pm2_apply() {
 }
 
 # ─── TLS / backups / kit helpers ────────────────────────────────────────────────────────────
+# write_if_changed <path> <mode> [owner] < content: root-run writes of config files (nginx,
+# systemd, cron). Returns 0 when the file changed, 1 when it already had this content (owner and
+# mode are re-applied either way). A symlink at <path> is replaced, never followed.
+write_if_changed() {
+  local dest="$1" mode="$2" owner="${3:-root:root}" tmp
+  tmp="$(mktemp)"
+  cat >"$tmp"
+  [[ -L "$dest" ]] && rm -f "$dest"
+  if [[ -f "$dest" ]] && cmp -s "$tmp" "$dest"; then
+    rm -f "$tmp"
+    chown "$owner" "$dest"
+    chmod "$mode" "$dest"
+    return 1
+  fi
+  install -m "$mode" -o "${owner%%:*}" -g "${owner##*:}" "$tmp" "$dest"
+  rm -f "$tmp"
+  return 0
+}
+
 # cert_covers <pem> <name...>: the certificate's subjectAltName lists every name exactly.
 cert_covers() {
   local pem="$1" sans n
@@ -723,7 +745,7 @@ prune_keep_newest() {
 kit_validate() {
   local dir="$1" f odd
   for f in deploy.sh install.sh rollback.sh status.sh backup.sh restore.sh create-admin.sh \
-    db-shell.sh set-keys.sh lib/common.sh lib/preflight.cjs; do
+    db-shell.sh set-keys.sh sites.sh lib/common.sh lib/preflight.cjs nginx/house-site.conf.template; do
     [[ -f "$dir/$f" ]] || { warn "배포 스크립트 파일이 없습니다: $f"; return 1; }
   done
   odd="$(find "$dir" ! -type f ! -type d -printf '%P\n' | head -5)"
@@ -732,6 +754,20 @@ kit_validate() {
     bash -n "$f" || { warn "문법 오류: ${f#"$dir"/}"; return 1; }
   done < <(find "$dir" -type f -name '*.sh' -print0)
   if have node; then node --check "$dir/lib/preflight.cjs" || return 1; fi
+}
+
+# kit_missing_from <srcdir> <bindir>: prints the files the installed kit has and <srcdir> lacks
+# (space-separated) and succeeds when there are any. kit_install mirrors with --delete, so such a
+# source is most likely an older checkout (e.g. the /root/house-setup of the first install): it
+# would delete those files and revert every kit fix made since.
+kit_missing_from() {
+  local src="$1" dest="$2" f out=""
+  [[ -d "$dest" ]] || return 1
+  while IFS= read -r -d '' f; do
+    [[ -e "$src/$f" ]] || out+="$f "
+  done < <(find "$dest" -type f -printf '%P\0' | sort -z)
+  [[ -n "$out" ]] || return 1
+  printf '%s' "${out% }"
 }
 
 # kit_install <srcdir> <bindir>: copy a validated kit as root:root (dirs/scripts 0755, files 0644).

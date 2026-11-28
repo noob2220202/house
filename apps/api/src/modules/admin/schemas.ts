@@ -27,6 +27,7 @@ import { z } from 'zod';
 
 export const ADMIN_NOTIFICATION_KINDS = [
   'AGENCY_APPLIED',
+  'AGENCY_SITE_REQUEST',
   'LISTING_REVIEW',
   'REPORT_RECEIVED',
   'DEAL_REQUEST_UNASSIGNED',
@@ -190,8 +191,17 @@ export interface DashboardExpiringAd {
   imageUrl: string | null;
 }
 
+/** A 사무소 홈페이지 request waiting for approval (oldest first). */
+export interface DashboardPendingAgencySite {
+  agencyId: string;
+  agencyName: string;
+  requestedSlug: string;
+  requestedAt: string;
+}
+
 export interface DashboardQueues {
   pendingAgencies: AdminSearchGroup<DashboardPendingAgency>;
+  pendingAgencySites: AdminSearchGroup<DashboardPendingAgencySite>;
   dealRequests: AdminSearchGroup<DashboardDealRequest>;
   reports: AdminSearchGroup<DashboardReport> & {
     handledThisWeek: number;

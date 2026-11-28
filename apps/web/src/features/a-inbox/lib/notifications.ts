@@ -17,21 +17,25 @@ export function isAgencyNotification(n: Pick<Notification, 'data'>): boolean {
  * Where a notification leads inside the broker console.
  *
  * Agents are ordinary users too, so the same feed (`GET /me/notifications`) mixes agency events
- * (a request arrived, our proposal was accepted, a contact was opened to us) with personal ones
+ * (a request arrived, our proposal was accepted, a contact was opened to us, a customer wrote to
+ * the office) with personal ones
  * (their own 내놓기·구하기). Agency events carry `data.agencyId` and open console pages; everything
  * else falls back to the my-page deep links.
  */
 export function agentNotificationHref(n: Pick<Notification, 'type' | 'data'>): string | null {
   if (isAgencyNotification(n)) {
     const dealRequestId = str(n.data, 'dealRequestId');
+    const inquiryId = str(n.data, 'inquiryId');
     switch (n.type) {
       case NotificationType.DEAL_REQUEST_RECEIVED:
       case NotificationType.PROPOSAL_ACCEPTED:
       case NotificationType.CONTACT_GRANTED:
       case NotificationType.PROPOSAL_RECEIVED:
         return dealRequestId ? INBOX_ROUTES.request(dealRequestId) : INBOX_ROUTES.requests;
+      case NotificationType.INQUIRY_RECEIVED:
+        return inquiryId ? INBOX_ROUTES.inquiry(inquiryId) : INBOX_ROUTES.inquiries;
       default:
-        // No inquiry inbox for launch (D5): a payload `inquiryId` leads nowhere of its own.
+        if (inquiryId) return INBOX_ROUTES.inquiry(inquiryId);
         if (dealRequestId) return INBOX_ROUTES.request(dealRequestId);
     }
   }

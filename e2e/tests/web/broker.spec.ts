@@ -22,8 +22,18 @@ test.describe('broker console', () => {
     expect(res?.status()).toBe(200);
     await expect(page).toHaveURL(/\/agent\/?$/);
     await expect(page.getByText('신대호수공인중개사사무소').first()).toBeVisible();
-    // D5: no inquiry backend for launch — the console hides 문의 entirely.
-    await expect(page.getByRole('link', { name: /문의 관리|받은 문의/ })).toHaveCount(0);
+    // The 문의함 is back (SPEC §4.4): a sidebar entry next to the requests, and its page renders.
+    const inbox = page.getByRole('link', { name: /^문의함/ }).first();
+    await expect(inbox).toBeVisible();
+    await expect(inbox).toHaveAttribute('href', '/agent/inquiries');
+    await expect(page.getByRole('link', { name: /^내 홈페이지/ }).first()).toHaveAttribute(
+      'href',
+      '/agent/site',
+    );
+    const inquiries = await page.goto('/agent/inquiries');
+    expect(inquiries?.status()).toBe(200);
+    await expect(page).toHaveURL(/\/agent\/inquiries$/);
+    await expect(page.getByRole('heading', { level: 1, name: '문의함' })).toBeVisible();
   });
 
   test('wizard publishes an apartment listing → public list + detail', async ({

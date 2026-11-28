@@ -41,11 +41,29 @@ describe('agent console nav', () => {
     expect(labels(false)).not.toContain('직원 관리');
     expect(labels(false)).toContain('사무소 프로필');
   });
-  it('hides the 문의함 for launch (D5) — no menu entry, no badge', () => {
-    const items = [...AGENT_NAV.flatMap((g) => g.items), ...AGENT_TAB_BAR];
-    expect(items.some((i) => i.href === AGENT_ROUTES.inquiries)).toBe(false);
-    expect(findAgentNav('/agent/inquiries')).toBeUndefined();
-    expect(AGENT_TAB_BAR.map((i) => i.label)).toEqual(['홈', '매물', '요청', '사무소']);
+  it('lists the 문의함 with its unread badge, in the sidebar and the tab bar', () => {
+    expect(findAgentNav('/agent/inquiries')).toMatchObject({
+      group: '고객',
+      item: { label: '문의함', badgeKey: 'unreadInquiries' },
+    });
+    expect(AGENT_ROUTES.inquiry('inq 01')).toBe('/agent/inquiries?id=inq%2001');
+    expect(AGENT_TAB_BAR.map((i) => i.label)).toEqual(['홈', '매물', '요청', '문의', '사무소']);
+    expect(activeNavItem('/agent/inquiries', AGENT_TAB_BAR)).toMatchObject({
+      label: '문의',
+      badgeKey: 'unreadInquiries',
+    });
+  });
+  it('has 내 홈페이지 for the whole office under 사무소', () => {
+    expect(AGENT_ROUTES.site).toBe('/agent/site');
+    expect(findAgentNav('/agent/site')).toMatchObject({
+      group: '사무소',
+      item: { label: '내 홈페이지' },
+    });
+    // Staff can open it (read-only there), so it is not owner-only.
+    const labels = (owner: boolean) =>
+      visibleAgentNav(owner).flatMap((g) => g.items.map((i) => i.label));
+    expect(labels(false)).toContain('내 홈페이지');
+    expect(activeNavItem('/agent/site', AGENT_TAB_BAR)?.label).toBe('사무소');
   });
   it('maps office pages to the 사무소 tab on mobile', () => {
     expect(activeNavItem('/agent/staff', AGENT_TAB_BAR)?.label).toBe('사무소');

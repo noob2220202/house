@@ -189,8 +189,44 @@ describe('public listing search (e2e)', () => {
       expect((await ids(`bbox=${BBOX}`)).length).toBe(3);
     });
 
+    it('primaryAgencyId keeps only the office’s own listings; withoutComplex drops 단지 listings', async () => {
+      const a = await agencyWithOwner(t);
+      const b = await agencyWithOwner(t);
+      const own = await createPublished(t, a.ownerSession);
+      const coBrokered = await createPublished(t, b.ownerSession);
+      await addCoBroker(t, coBrokered, b, a);
+      const complex = await createComplex(t.prisma);
+      const inComplex = await seedListing(t, a.agency.id, {
+        property: { complexId: complex.id },
+        listing: { complexId: complex.id },
+      });
+      const ids = async (qs: string): Promise<string[]> =>
+        ((await t.http().get(`/api/v1/listings?${qs}`).expect(200)).body.items as { id: string }[])
+          .map((i) => i.id)
+          .sort();
+      const sorted = (...v: string[]) => [...v].sort();
+
+      // agencyId = primary or co-broker; primaryAgencyId = primary only.
+      expect(await ids(`agencyId=${a.agency.id}`)).toEqual(
+        sorted(own, coBrokered, inComplex.listing.id),
+      );
+      expect(await ids(`primaryAgencyId=${a.agency.id}`)).toEqual(
+        sorted(own, inComplex.listing.id),
+      );
+      expect(await ids(`primaryAgencyId=${b.agency.id}`)).toEqual([coBrokered]);
+      const total = await t
+        .http()
+        .get(`/api/v1/listings?primaryAgencyId=${a.agency.id}&withoutComplex=true`)
+        .expect(200);
+      expect(total.body).toMatchObject({ total: 1, items: [{ id: own }] });
+      expect(await ids('withoutComplex=true')).toEqual(sorted(own, coBrokered));
+      expect(await ids('withoutComplex=false')).toHaveLength(3);
+    });
+
     it('400 for invalid query values', async () => {
       for (const qs of [
+        'primaryAgencyId=not-a-uuid',
+        'withoutComplex=maybe',
         'sort=CHEAPEST',
         'priceMin=100&priceMax=10',
         'dealTypes=RENT',
@@ -374,6 +410,19 @@ describe('public listing search (e2e)', () => {
         .get(`/api/v1/map/search?bbox=${BBOX}&zoom=14&assetTypes=ONEROOM`)
         .expect(200);
       expect(oneroom.body.total).toBe(1);
+    });
+
+    it('withoutComplex / primaryAgencyId apply to the map (and get their own cached tiles)', async () => {
+      const { agency } = await fixtures();
+      const other = await agencyWithOwner(t);
+      const total = async (qs: string): Promise<number> =>
+        (await t.http().get(`/api/v1/map/search?bbox=${BBOX}&zoom=11${qs}`).expect(200)).body
+          .total as number;
+      expect(await total('')).toBe(4);
+      expect(await total('&withoutComplex=true')).toBe(2);
+      expect(await total(`&primaryAgencyId=${agency.id}`)).toBe(4);
+      expect(await total(`&primaryAgencyId=${other.agency.id}`)).toBe(0);
+      await t.http().get(`/api/v1/map/search?bbox=${BBOX}&zoom=11&primaryAgencyId=x`).expect(400);
     });
 
     it('high zoom → complex markers + individual listing markers', async () => {

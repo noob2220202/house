@@ -4,6 +4,7 @@ import {
   DEAL_TYPE_LABEL,
   DIRECTION_LABEL,
   DealType,
+  InquirySource,
   LISTING_OPTION_LABEL,
   LISTING_STATUS_LABEL,
   ListingStatus,
@@ -20,6 +21,7 @@ import {
   photoKindForAsset,
 } from '@house/ui';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { ROUTES } from '@/config/nav';
 import { BannerPicture, bannerClickHref } from '@/lib/ads';
 import {
@@ -32,6 +34,7 @@ import {
 } from '@/lib/format';
 import type { ListingDetail, ServedBanner, SimilarListings } from '../api/schemas';
 import { calcPreviews } from '../lib/calcPreview';
+import type { ListingOfficeVariant } from '../lib/office';
 import {
   addressLine,
   areaLabel,
@@ -78,6 +81,13 @@ export interface ListingPageProps {
   ad: ServedBanner | null;
   /** Render time (ms) of the server page, shared with the client islands that print dates. */
   renderedAt: number;
+  /**
+   * Rendered on an office's own 홈페이지: pass `listing.agencies` narrowed to that office, no ad and
+   * no similar listings (`officeMore` takes their place).
+   */
+  office?: ListingOfficeVariant | null;
+  /** Office variant: "이 사무소의 다른 매물" below the page body. */
+  officeMore?: ReactNode;
 }
 
 interface CtxItem {
@@ -138,14 +148,28 @@ function priceContext(l: ListingDetail): CtxItem[] {
 }
 
 /** Listing detail page body (server component). Interactive islands receive only what they need. */
-export function ListingPage({ listing, similar, ad, renderedAt }: ListingPageProps) {
+export function ListingPage({
+  listing,
+  similar,
+  ad,
+  renderedAt,
+  office = null,
+  officeMore,
+}: ListingPageProps) {
   const l = listing;
   const name = listingName(l);
   const subtitle = listingSubtitle(l);
   const price = headlinePrice(l);
   const ctx = priceContext(l);
-  const crumbs = buildBreadcrumb(l);
-  const bigMap = mapHref(l);
+  const crumbs = office
+    ? [
+        { label: office.name, href: office.homeHref },
+        { label: '매물', href: office.listingsHref },
+        { label: [name, DEAL_TYPE_LABEL[l.dealType]].join(' ') },
+      ]
+    : buildBreadcrumb(l);
+  // The map lives on the main site only.
+  const bigMap = office ? `${office.mainSiteUrl}${mapHref(l)}` : mapHref(l);
   const primary = l.agencies.find((a) => a.isPrimary) ?? l.agencies[0];
   const siteVisit = l.verifications.find((v) => v.method === VerificationMethod.SITE_VISIT);
   const notice = statusNotice(l);
@@ -160,19 +184,36 @@ export function ListingPage({ listing, similar, ad, renderedAt }: ListingPagePro
   const titleForAlt = [name, l.property.dong].filter(Boolean).join(' ');
 
   return (
-    <ListingInteractions listing={l}>
+    <ListingInteractions
+      listing={l}
+      office={office}
+      inquirySource={office ? InquirySource.SITE : InquirySource.MAIN}
+    >
       <div className={cx('container', styles.lst)}>
         <div className={styles.top}>
-          <Button
-            href={bigMap}
-            linkAs={BackToMapLink}
-            variant="ghost"
-            size="sm"
-            className={styles.back}
-            iconLeft={<Icon name="chevron-left" size={18} />}
-          >
-            지도로 돌아가기
-          </Button>
+          {office ? (
+            <Button
+              href={office.listingsHref}
+              linkAs={Link}
+              variant="ghost"
+              size="sm"
+              className={styles.back}
+              iconLeft={<Icon name="chevron-left" size={18} />}
+            >
+              매물 목록
+            </Button>
+          ) : (
+            <Button
+              href={bigMap}
+              linkAs={BackToMapLink}
+              variant="ghost"
+              size="sm"
+              className={styles.back}
+              iconLeft={<Icon name="chevron-left" size={18} />}
+            >
+              지도로 돌아가기
+            </Button>
+          )}
           <Breadcrumb items={crumbs} linkAs={Link} className={styles.bc} />
           <p className={styles.id}>
             매물번호 <b className="num">{listingNo(l)}</b>
@@ -191,7 +232,7 @@ export function ListingPage({ listing, similar, ad, renderedAt }: ListingPagePro
           title={titleForAlt}
           shotLabel={siteVisit ? `현장 촬영 ${formatDateShort(siteVisit.verifiedAt)}` : null}
           placeholder={photoKindForAsset(l.assetType)}
-          backHref={bigMap}
+          backHref={office ? office.homeHref : bigMap}
         />
 
         <div className={styles.body}>
@@ -230,11 +271,8 @@ export function ListingPage({ listing, similar, ad, renderedAt }: ListingPagePro
                 </h1>
                 {mobileSub.length > 0 && (
                   <p className={cx(styles.mSub, 'only-sm')}>
-                    {mobileSub.map((s, i) => (
-                      <span key={s}>
-                        {i > 0 && <i aria-hidden="true" />}
-                        {s}
-                      </span>
+                    {mobileSub.map((s) => (
+                      <span key={s}>{s}</span>
                     ))}
                   </p>
                 )}
@@ -370,7 +408,7 @@ export function ListingPage({ listing, similar, ad, renderedAt }: ListingPagePro
               <BrokersCard agencies={l.agencies} idPrefix="side" className={styles.asideOnly} />
               <ActionsBar />
               <CalcCard rows={calcPreviews(l)} />
-              {ad?.imageUrl && (
+              {!office && ad?.imageUrl && (
                 <div className={side.ad}>
                   <AdFrame
                     slot="side"
@@ -392,7 +430,7 @@ export function ListingPage({ listing, similar, ad, renderedAt }: ListingPagePro
           </aside>
         </div>
 
-        <SimilarSection similar={similar} mapHref={bigMap} />
+        {office ? officeMore : <SimilarSection similar={similar} mapHref={bigMap} />}
         <MobileFoot listingNo={listingNo(l)} viewCount={l.viewCount} />
       </div>
       <MobileCta />

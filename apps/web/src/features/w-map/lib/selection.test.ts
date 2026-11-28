@@ -7,8 +7,8 @@ import {
   markerSelectOptions,
   resolvePickedPill,
   selectedPill,
-  standaloneBbox,
   standaloneCount,
+  standaloneTotal,
 } from './selection';
 
 const pill = (id: string, lat: number, lng: number, count = 1): MapListingMarker => ({
@@ -62,24 +62,14 @@ describe('단지 정보 없는 매물 section helpers', () => {
     expect(standaloneCount([])).toBe(0);
   });
 
-  it('builds a bbox around the pills that keeps a single building (6 decimals)', () => {
-    expect(standaloneBbox([])).toBeNull();
-    const one = standaloneBbox(groupListingMarkers([solo], null))!;
-    const [swLng, swLat, neLng, neLat] = one.split(',').map(Number) as [
-      number,
-      number,
-      number,
-      number,
-    ];
-    expect(swLng).toBeLessThan(solo.lng);
-    expect(neLng).toBeGreaterThan(solo.lng);
-    expect(swLat).toBeLessThan(solo.lat);
-    expect(neLat).toBeGreaterThan(solo.lat);
-    expect(standaloneBbox(groups)).toBe('127.524160,34.943930,127.530020,34.950020');
-  });
-
-  it('gives up on pills spread wider than the API accepts', () => {
-    expect(standaloneBbox(groupListingMarkers([solo, pill('x', 37.5, 129.9)], null))).toBeNull();
+  it('takes the API total of the visible map, the pills only while it loads', () => {
+    // City zoom: clusters, no pills, so the section waits for `GET /listings?withoutComplex`.
+    expect(standaloneTotal(undefined, [])).toBe(0);
+    expect(standaloneTotal(4, [])).toBe(4);
+    // Marker zoom: the pills stand in until the query answers, then the API wins.
+    expect(standaloneTotal(undefined, groups)).toBe(3);
+    expect(standaloneTotal(3, groups)).toBe(3);
+    expect(standaloneTotal(0, groups)).toBe(0);
   });
 
   it('keeps only listings without a 단지', () => {

@@ -4,6 +4,7 @@ import { mockSummary } from './_fixtures';
 import {
   remoteDealRequests,
   remotePendingAgencies,
+  remotePendingSites,
   remoteReports,
   remoteVisitors,
 } from './_remote';
@@ -19,12 +20,13 @@ export async function GET(req: NextRequest) {
   const auth = mockRequireAdmin(req);
   if (!('role' in auth)) return auth;
   if (req.nextUrl.searchParams.get('_reset') === '1') resetMockCoreState();
-  const [pending, visitors, dealRequests, reports] = await Promise.all([
+  const [pending, visitors, dealRequests, reports, pendingSites] = await Promise.all([
     remotePendingAgencies(req),
     remoteVisitors(req),
     remoteDealRequests(req),
     remoteReports(req),
+    remotePendingSites(req),
     mockDelay(req, 80),
   ]);
-  return mockJson(mockSummary({ pending, visitors, dealRequests, reports }));
+  return mockJson(mockSummary({ pending, visitors, dealRequests, reports, pendingSites }));
 }

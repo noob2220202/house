@@ -2,6 +2,7 @@ import type {
   RemoteDealRequests,
   RemoteExpiringAd,
   RemotePendingAgency,
+  RemotePendingSite,
   RemoteReports,
 } from './_remote';
 import { TIME, ago, mockCoreId, mockCoreState } from './_store';
@@ -22,6 +23,8 @@ export interface MockDashboardInput {
   dealRequests?: RemoteDealRequests | null;
   /** Report queue + handling stats from the reports mock (falls back to the draft's three). */
   reports?: RemoteReports | null;
+  /** 사무소 홈페이지 requests from the agency-sites mock (falls back to two local requests). */
+  pendingSites?: { total: number; items: RemotePendingSite[] } | null;
   now?: number;
 }
 
@@ -45,6 +48,25 @@ function localPending(now: number): PendingQueue {
   return { total: items.length, items };
 }
 
+/** Local fallback for the 사무소 홈페이지 queue (same offices as the agency-sites mock). */
+function localPendingSites(now: number): { total: number; items: RemotePendingSite[] } {
+  const items: RemotePendingSite[] = [
+    {
+      agencyId: 'a9000000-0000-4000-8000-000000000002',
+      agencyName: '호수공원 공인중개사사무소',
+      requestedSlug: 'hosupark',
+      requestedAt: ago(3 * TIME.DAY, now),
+    },
+    {
+      agencyId: 'a9000000-0000-4000-8000-000000000003',
+      agencyName: '연향센트럴 공인중개사사무소',
+      requestedSlug: 'yeonhyang-central',
+      requestedAt: ago(2 * TIME.HOUR, now),
+    },
+  ];
+  return { total: items.length, items };
+}
+
 const DAY_MS = TIME.DAY;
 function waitingDays(appliedAt: string, now: number): number {
   const day = (t: number) => Math.floor((t + 9 * TIME.HOUR) / DAY_MS);
@@ -55,6 +77,7 @@ export function mockSummary(input: MockDashboardInput = {}) {
   const now = input.now ?? Date.now();
   const state = mockCoreState();
   const pending = input.pending ?? localPending(now);
+  const pendingSites = input.pendingSites ?? localPendingSites(now);
   return {
     generatedAt: new Date(now).toISOString(),
     badges: {
@@ -62,6 +85,7 @@ export function mockSummary(input: MockDashboardInput = {}) {
       agenciesPending: pending.total,
       dealRequestsOpen: input.dealRequests?.total ?? 5,
       reportsOpen: input.reports?.open ?? 3,
+      agencySitesPending: pendingSites.total,
     },
     notificationsUnread: state.notifications.filter((n) => !n.read).length,
     kpis: {
@@ -88,6 +112,7 @@ export function mockSummary(input: MockDashboardInput = {}) {
 export function mockQueues(input: MockDashboardInput = {}) {
   const now = input.now ?? Date.now();
   const pending = input.pending ?? localPending(now);
+  const pendingSites = input.pendingSites ?? localPendingSites(now);
   const dealRequests = [
     {
       id: mockCoreId('d1', 1),
@@ -212,6 +237,7 @@ export function mockQueues(input: MockDashboardInput = {}) {
   ];
   return {
     pendingAgencies: { total: pending.total, items: pending.items.slice(0, 5) },
+    pendingAgencySites: { total: pendingSites.total, items: pendingSites.items.slice(0, 5) },
     dealRequests: input.dealRequests
       ? { total: input.dealRequests.total, items: input.dealRequests.items }
       : { total: dealRequests.length, items: dealRequests },

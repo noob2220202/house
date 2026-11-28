@@ -78,6 +78,10 @@ export function filterConditions(f: ListingFilter, bbox?: Bbox): Prisma.Sql[] {
     c.push(Prisma.sql`EXISTS (SELECT 1 FROM listing_agencies la
       WHERE la.listing_id = l.id AND la.agency_id = ${f.agencyId}::uuid
         AND la.status = ${ListingAgencyStatus.ACTIVE}::listing_agency_status)`);
+  // Office site: the office's own listings only (co-brokered ones stay on the main site).
+  if (f.primaryAgencyId) c.push(Prisma.sql`l.primary_agency_id = ${f.primaryAgencyId}::uuid`);
+  // 단지 없는 매물 (the map counts them separately at low zoom).
+  if (f.withoutComplex) c.push(Prisma.sql`l.complex_id IS NULL`);
   if (f.emdCode) {
     const code = f.emdCode;
     if (code.length === 10) c.push(Prisma.sql`l.emd_code = ${code}`);

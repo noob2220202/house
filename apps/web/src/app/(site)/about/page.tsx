@@ -86,7 +86,8 @@ export default async function AboutPage() {
           ]),
         ]}
       />
-      <AboutView nap={nap} coverage={coverage} />
+      {/* `{}` = the settings could not be read (getPublicSiteSettings never throws). */}
+      <AboutView nap={nap} coverage={coverage} settingsLoaded={Object.keys(settings).length > 0} />
     </>
   );
 }

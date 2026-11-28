@@ -99,6 +99,12 @@ listingNo, status, dealType, assetType, name, dong, prices…, floor (null when 
   `land_category` = `landCategoryOf(properties.land_category)` (대·전·답·과수원·임야·잡종지, other
   지목 → ETC). Filters `roomTypes`, `landZones`, `landCategories` (csv) on `/map/search` and
   `/listings`; `ListingSummary.roomType/landZone/landCategory` carry the groups.
+- Agency filters on `/map/search` and `/listings`: `agencyId` = any listing the office takes part
+  in (primary or ACTIVE co-broker — the main-site `/agency/[id]` page); `primaryAgencyId` = only
+  listings whose primary agency is the office (`l.primary_agency_id`, the office 홈페이지 at
+  `<slug>.suncheonmap.kr`, index `(primary_agency_id, status)`). `withoutComplex=true` keeps
+  listings without a 단지 (`complex_id IS NULL`; the map's complex-less count at low zoom);
+  `false`/absent applies no filter. Both are part of the filter fingerprint (tile / total caches).
 - Exported for the home module: `ListingRegionStatsService` (public listing counts / 평당가 per 지역,
   city totals), `ListingRegionNamesService`, `ListingSummariesService`.
 

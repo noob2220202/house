@@ -32,6 +32,16 @@ describe('listing search SQL', () => {
     expect(join(filterConditions({ emdCode: '12150101' })).sql).toContain('l.emd_code LIKE ?');
   });
 
+  it('filters by primary agency and by complex-less listings', () => {
+    const id = '01890000-0000-7000-8000-000000000002';
+    const sql = join(filterConditions({ primaryAgencyId: id, withoutComplex: true }));
+    expect(sql.sql).toContain('l.primary_agency_id = ?::uuid');
+    expect(sql.sql).toContain('l.complex_id IS NULL');
+    expect(sql.values).toContain(id);
+    // withoutComplex=false is "no filter", not "only listings in a complex".
+    expect(join(filterConditions({ withoutComplex: false })).sql).not.toContain('complex_id');
+  });
+
   it('builds one branch per public status and null segment for nullable sorts', () => {
     const nullable = repo.listSql({}, undefined, ListingSort.VERIFIED, 40, 20);
     expect(nullable.sql.match(/UNION ALL/g)).toHaveLength(3);

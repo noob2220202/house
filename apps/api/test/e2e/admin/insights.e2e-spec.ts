@@ -283,6 +283,7 @@ describe('admin dashboard queues, search, notifications, stats, social login (e2
       const res = await as(t, session, 'get', '/admin/dashboard/queues').expect(200);
       expect(res.body).toEqual({
         pendingAgencies: { total: 0, items: [] },
+        pendingAgencySites: { total: 0, items: [] },
         dealRequests: { total: 0, items: [] },
         reports: { total: 0, items: [], handledThisWeek: 0, avgHandleHours: null },
         expiringAds: { total: 0, items: [] },

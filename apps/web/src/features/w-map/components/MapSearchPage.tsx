@@ -47,6 +47,7 @@ import {
   centerForTarget,
   cropBottom,
   distanceM,
+  mobileLandingView,
   nearestRegion,
   placePopover,
   projectToViewport,
@@ -61,8 +62,7 @@ import {
   markerSelectOptions,
   samePoint,
   selectedPill,
-  standaloneBbox,
-  standaloneCount,
+  standaloneTotal,
   type PickedPill,
 } from '../lib/selection';
 import { useMapPageState } from '../lib/state';
@@ -130,6 +130,12 @@ const CARD_GRID_MIN_PANEL_W = 480;
 const MOBILE_TOP_PX = 170;
 /** Mobile pages shorter than this open with the sheet lowered (the half stop would hide the map). */
 const SHORT_PAGE_PX = 620;
+/**
+ * Mobile city view (no `c` / `z` in the URL): the band left above the sheet is about 200px tall on
+ * a phone, which at the default zoom 13 is ~6 km × 3 km and drops the 읍면동 bubbles off 시청.
+ * One level out (still the 읍면동 aggregation) shows ~12 km × 6 km.
+ */
+const MOBILE_LANDING_ZOOM = 12;
 
 type SheetOpenStop = Exclude<SheetStop, 'full'>;
 
@@ -241,11 +247,10 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
   // view the mobile map reports (one URL write, see onViewChange). A URL that carries a centre is
   // honoured as is: re-centring it would drift the map on every reload. Read on the first render,
   // before the map's first report writes `c`.
-  const [cameWithCenter] = useState(
-    () =>
-      typeof window !== 'undefined' &&
-      new URLSearchParams(window.location.search).has(MAP_PARAM.center),
-  );
+  const [landing] = useState(() => {
+    const sp = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search);
+    return { center: sp.has(MAP_PARAM.center), zoom: sp.has(MAP_PARAM.zoom) };
+  });
   const landed = useRef(false);
 
   // ---- data ------------------------------------------------------------------------------------
@@ -318,14 +323,15 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
 
   // ---- 단지 정보 없는 매물 (complex mode) ---------------------------------------------------------
   // In complex mode the price pills are exactly the listings without a 단지 (the API draws every
-  // other listing as its complex marker). The panel lists them under the complex rows.
-  const soloCount = complexMode ? standaloneCount(groups) : 0;
-  const soloBbox = complexMode ? standaloneBbox(groups) : null;
+  // other listing as its complex marker). The panel lists them under the complex rows. They are
+  // asked for the whole visible map, so the section also shows at the city zooms (clusters, no
+  // pills); its count is the API total, the pills on screen only stand in while it loads.
   const soloQuery = useListingList(
-    { filters: apiFilters, sort: ui.sort, bbox: soloBbox },
-    complexMode && soloBbox !== null,
+    { filters: apiFilters, sort: ui.sort, bbox, withoutComplex: true },
+    complexMode && bbox !== null,
   );
   const soloItems = useMemo(() => flattenPages(soloQuery.data), [soloQuery.data]);
+  const soloCount = complexMode ? standaloneTotal(soloQuery.data?.pages[0]?.total, groups) : 0;
 
   // ---- selection: listing (a pill = one building, or a few merged neighbours) --------------------
   // Both modes: in complex mode a pill is a listing without a 단지 and opens the same preview.
@@ -406,20 +412,29 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
   const onViewChange = useCallback(
     (change: MapViewChange) => {
       setKakaoView({ bounds: change.bounds, zoom: change.zoom });
-      let center = change.center;
+      let next = { center: change.center, zoom: change.zoom };
       if (isMobile && !landed.current) {
         landed.current = true;
-        const px = cameWithCenter ? null : pxPerDegree(change.bounds, mapSize);
+        const px = landing.center ? null : pxPerDegree(change.bounds, mapSize);
         if (px) {
           // Same rule as the sheet effect (its state update may not be applied yet).
           const stop = mapSize.height < SHORT_PAGE_PX && !selected ? 'peek' : openStop;
           const bottom = sheetHeightPx(stop, mapSize.height);
-          center = centerForTarget(center, { top: MOBILE_TOP_PX, right: 0, bottom, left: 0 }, px);
+          // The real map opens one level out unless the URL asked for a zoom. The static map only
+          // reports user moves, so its first report is a pan or zoom that must stay as it is.
+          const zoom =
+            isStatic || landing.zoom ? change.zoom : Math.min(change.zoom, MOBILE_LANDING_ZOOM);
+          next = mobileLandingView(
+            next,
+            { top: MOBILE_TOP_PX, right: 0, bottom, left: 0 },
+            px,
+            zoom,
+          );
         }
       }
-      setView({ center, zoom: change.zoom });
+      setView(next);
     },
-    [setView, isMobile, mapSize, selected, openStop, cameWithCenter],
+    [setView, isMobile, mapSize, selected, openStop, landing, isStatic],
   );
 
   // A map SDK may report a click on a marker to the map as well. The empty-map deselect waits a
@@ -775,7 +790,8 @@ export function MapSearchPage({ slug }: { slug: MapAssetSlug }) {
       )}
       {!isMobile && (
         <div className={s.bottomLeft}>
-          <ScaleBar bounds={bounds} width={mapSize.width} />
+          {/* The Kakao map draws its own scale bar; only the static fallback map gets ours. */}
+          {isStatic && <ScaleBar bounds={bounds} width={mapSize.width} />}
           {!complexMode && asset.slug !== 'land' && (
             <DealLegend
               deals={

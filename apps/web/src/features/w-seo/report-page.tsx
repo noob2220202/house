@@ -3,7 +3,7 @@ import { BRAND } from '@/config/brand';
 import { ROUTES } from '@/config/nav';
 import { EmptyState } from '@house/ui';
 import { ReportView } from './components/ReportView';
-import { seoStyles } from './components/parts';
+import { SeoHead, seoStyles } from './components/parts';
 import { reportLead } from './lib/facts';
 import {
   JsonLd,
@@ -91,15 +91,26 @@ export function ReportPageBody({
   );
 }
 
-/** No trade data synced yet (fresh install): a noindex placeholder instead of a 404. */
+const REPORT_TITLE = '아파트 실거래 리포트';
+
+/**
+ * No trade data synced yet (fresh install): a noindex placeholder instead of a 404. It keeps the
+ * report's breadcrumb and h1, so the page still has a heading (the empty state's title is a <p>).
+ */
 export function ReportEmpty() {
   return (
-    <div className={`container ${seoStyles.empty}`}>
-      <EmptyState
-        icon="chart"
-        title="아직 집계된 실거래 자료가 없어요"
-        description="국토교통부 실거래가 자료를 받아 오면 월간 리포트가 열려요."
+    <div className={`container ${seoStyles.page}`}>
+      <SeoHead
+        crumbs={[{ label: '순천 지역별 시세', href: SEO_ROUTES.regions }, { label: REPORT_TITLE }]}
+        title={`${BRAND.seo.regionShort} ${REPORT_TITLE}`}
       />
+      <div className={seoStyles.empty}>
+        <EmptyState
+          icon="chart"
+          title="아직 집계된 실거래 자료가 없어요"
+          description="국토교통부 실거래가 자료를 받아 오면 월간 리포트가 열려요."
+        />
+      </div>
     </div>
   );
 }

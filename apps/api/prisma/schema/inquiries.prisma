@@ -1,0 +1,113 @@
+// Owned by the inquiries module team: 문의 (customer inquiries to an office, "고객센터" style) and
+// contact events (전화 / 문자 / 번호 복사). docs/agency-sites/SPEC.md §2, §3.5.
+
+/// How the customer reached the office (shared twin: InquiryChannel).
+enum InquiryChannel {
+  MESSAGE
+  CALL
+  SMS
+  COPY
+
+  @@map("inquiry_channel")
+}
+
+/// Handling state in the console inbox (shared twin: InquiryStatus).
+enum InquiryStatus {
+  NEW
+  IN_PROGRESS
+  DONE
+
+  @@map("inquiry_status")
+}
+
+/// Where it was sent from: the main site or the office's own 홈페이지 (shared twin: InquirySource).
+enum InquirySource {
+  MAIN
+  SITE
+
+  @@map("inquiry_source")
+}
+
+/// Author of a thread message (shared twin: InquiryAuthor).
+enum InquiryAuthor {
+  CUSTOMER
+  AGENCY
+
+  @@map("inquiry_author")
+}
+
+/// One inquiry to one office. MESSAGE rows carry the customer's text and contact; CALL / SMS / COPY
+/// rows are contact events without PII (customerName = masked member name or null).
+/// PII (customerName, customerPhone, message, message bodies) is scrubbed → piiScrubbedAt by the
+/// inquiries retention job 365 days after lastMessageAt, and at once when the member withdraws;
+/// scrubbed rows stay countable.
+model Inquiry {
+  id                      String         @id @default(uuid(7)) @db.Uuid
+  agencyId                String         @map("agency_id") @db.Uuid
+  /// The listing asked about; null = the office page / office site home.
+  listingId               String?        @map("listing_id") @db.Uuid
+  /// The member who asked; null = guest (then customerPhone is required at creation).
+  userId                  String?        @map("user_id") @db.Uuid
+  channel                 InquiryChannel
+  status                  InquiryStatus  @default(NEW)
+  source                  InquirySource
+  customerName            String?        @map("customer_name") @db.VarChar(30)
+  /// Digits only (01012345678), never verified.
+  customerPhone           String?        @map("customer_phone") @db.VarChar(20)
+  /// Opening text (MESSAGE only); follow-ups and replies are InquiryMessage rows.
+  message                 String?        @db.Text
+  /// Internal note of the office, never shown to the customer.
+  memo                    String?        @db.VarChar(1000)
+  /// Member who last changed the status.
+  handledByUserId         String?        @map("handled_by_user_id") @db.Uuid
+  /// Read by the office (null = unread; a customer follow-up resets it).
+  readAt                  DateTime?      @map("read_at") @db.Timestamptz(3)
+  /// The member last opened the thread (MY > 문의 내역 unread-reply badge).
+  customerReadAt          DateTime?      @map("customer_read_at") @db.Timestamptz(3)
+  lastMessageAt           DateTime       @map("last_message_at") @db.Timestamptz(3)
+  /// Guest consent: the INQUIRY_PRIVACY terms documents verified at submission (members get a
+  /// user_consents row instead). No FK (array).
+  consentTermsDocumentIds String[]       @default([]) @map("consent_terms_document_ids") @db.Uuid
+  /// Keyed hash of the guest IP (daily cap / contact-event dedupe); never the raw IP.
+  visitorHash             String?        @map("visitor_hash") @db.VarChar(64)
+  piiScrubbedAt           DateTime?      @map("pii_scrubbed_at") @db.Timestamptz(3)
+  /// Soft delete by the office (스팸 처리 / 정리); hidden from the inbox and from MY.
+  deletedAt               DateTime?      @map("deleted_at") @db.Timestamptz(3)
+  deleteReason            String?        @map("delete_reason") @db.VarChar(200)
+  createdAt               DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  agency    Agency           @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  listing   Listing?         @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  user      User?            @relation("InquiryCustomer", fields: [userId], references: [id], onDelete: SetNull)
+  handledBy User?            @relation("InquiryHandledBy", fields: [handledByUserId], references: [id], onDelete: SetNull)
+  messages  InquiryMessage[]
+
+  @@index([agencyId, deletedAt, lastMessageAt(sort: Desc)])
+  @@index([agencyId, readAt])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([lastMessageAt])
+  @@index([listingId])
+  @@index([handledByUserId])
+  @@map("inquiries")
+}
+
+/// A follow-up (CUSTOMER) or an answer (AGENCY) in an inquiry thread, oldest first.
+model InquiryMessage {
+  id           String        @id @default(uuid(7)) @db.Uuid
+  inquiryId    String        @map("inquiry_id") @db.Uuid
+  author       InquiryAuthor
+  body         String        @db.Text
+  /// The member who wrote it (customer or office member); null after the account is gone.
+  authorUserId String?       @map("author_user_id") @db.Uuid
+  /// AGENCY: the member's display name at the time; CUSTOMER: the customer name.
+  authorName   String?       @map("author_name") @db.VarChar(50)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  inquiry    Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  authorUser User?   @relation("InquiryMessageAuthor", fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([inquiryId, createdAt])
+  @@index([authorUserId])
+  @@map("inquiry_messages")
+}

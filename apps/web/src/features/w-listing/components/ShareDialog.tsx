@@ -1,5 +1,5 @@
 'use client';
-import { Button, Icon, KakaoMark, Modal, useToast } from '@house/ui';
+import { Button, Icon, Modal, useToast } from '@house/ui';
 import { useEffect, useState } from 'react';
 import { BRAND } from '@/config/brand';
 import { absoluteUrl } from '@/lib/seo';
@@ -33,7 +33,11 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
-/** 공유: copy link, native share sheet when available, Kakao share (placeholder until the SDK key exists). */
+/**
+ * 공유: copy link, and the native share sheet when the browser has one (KakaoTalk is one of its
+ * targets on phones). A dedicated "카카오톡으로 보내기" button comes back with the Kakao share SDK;
+ * until then it is left out rather than shown as a button that only says "준비 중".
+ */
 export function ShareDialog({
   listing,
   open,
@@ -89,21 +93,8 @@ export function ShareDialog({
           복사
         </Button>
       </div>
-      <div className={styles.shareActions}>
-        <button
-          type="button"
-          className={styles.shareKakao}
-          onClick={() =>
-            toast({
-              message: '카카오톡 공유는 준비 중이에요. 링크를 복사해 보내 주세요.',
-              tone: 'info',
-            })
-          }
-        >
-          <KakaoMark size={20} />
-          카카오톡으로 보내기
-        </button>
-        {canNativeShare && (
+      {canNativeShare && (
+        <div className={styles.shareActions}>
           <Button
             variant="secondary"
             block
@@ -112,8 +103,8 @@ export function ShareDialog({
           >
             다른 앱으로 공유
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </Modal>
   );
 }

@@ -2,8 +2,11 @@ import type { SVGProps } from 'react';
 
 /**
  * Storefront illustration shown as the profile cover when an office has no cover photo.
- * Ported 1:1 from design/drafts/project/Agents.dc.html (.od-cover). Decorative.
+ * Ported 1:1 from design/drafts/project/Agents.dc.html (.od-cover). Decorative. The two accent
+ * blocks (sign, door) use `--brand`, so on an office's own site (and in the console preview) they
+ * follow the office colour; the main site's brand is the same blue as the drawing.
  */
+const BRAND_FILL = { fill: 'var(--brand, #1D4FF2)' } as const;
 export function OfficeCoverArt(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -38,13 +41,13 @@ export function OfficeCoverArt(props: SVGProps<SVGSVGElement>) {
       <rect x="176" y="56" width="152" height="14" fill="#0F1B3A" />
       <rect x="186" y="61" width="58" height="4.5" rx="2" fill="#E9D7A8" />
       <rect x="250" y="61" width="18" height="4.5" rx="2" fill="#E9D7A8" opacity=".55" />
-      <rect x="306" y="59" width="14" height="8" rx="2" fill="#1D4FF2" />
+      <rect x="306" y="59" width="14" height="8" rx="2" style={BRAND_FILL} />
       <path d="M176 70h152l-5 6H181z" fill="#C9D6EF" />
       <rect x="182" y="76" width="104" height="16" fill="#D9E6F8" />
       <path d="M216 76v16M251 76v16" stroke="#FFFFFF" strokeWidth="2" />
       <rect x="188" y="81" width="16" height="8" rx="1" fill="#FFFFFF" opacity=".7" />
       <rect x="258" y="82" width="20" height="7" rx="1" fill="#FFFFFF" opacity=".7" />
-      <rect x="294" y="75" width="28" height="17" fill="#1D4FF2" />
+      <rect x="294" y="75" width="28" height="17" style={BRAND_FILL} />
       <path d="M308 75v17" stroke="#0F1B3A" strokeWidth="1.2" opacity=".35" />
       <rect x="0" y="92" width="400" height="16" fill="#DCE2EA" />
       <path d="M0 96h400" stroke="#E7EBF1" strokeWidth="2" />

@@ -28,11 +28,14 @@ import { ADMIN_ROUTES } from '@/config/nav';
 import { errorMessage } from '@/lib/api';
 import { formatCount, formatDate, formatDateTime, formatPhone } from '@/lib/format';
 import a from './agencies.module.css';
+import { AgencySitePanel } from './AgencySitePanel';
+import { AgencySubscriptionsPanel } from './AgencySubscriptionsPanel';
 import { DocumentViewer } from './DocumentViewer';
 import {
   decideAgency,
   fetchAgency,
   fetchAgencyRegistry,
+  fetchAgencySite,
   modKeys,
   recheckAgencyRegistry,
 } from '../api/queries';
@@ -362,6 +365,16 @@ export function AgencyDetailView({ id }: { id: string }) {
     staleTime: 5 * 60_000,
   });
   const agency = useMemo(() => withRegistry(detail, registry.data), [detail, registry.data]);
+  // 사무소 홈페이지 exist for offices that went through approval (also while suspended). Same key
+  // as AgencySitePanel, so the hero link and the panel share one request.
+  const hasOfficeTools =
+    detail?.status === AgencyStatus.APPROVED || detail?.status === AgencyStatus.SUSPENDED;
+  const site = useQuery({
+    queryKey: modKeys.agencySite(id),
+    queryFn: ({ signal }) => fetchAgencySite(id, signal),
+    enabled: hasOfficeTools,
+  });
+  const liveSiteUrl = site.data?.site?.live ? site.data.site.url : null;
 
   const decision = useMutation({
     mutationFn: (v: { status: 'APPROVED' | 'REJECTED' | 'SUSPENDED'; reason?: string }) =>
@@ -369,6 +382,8 @@ export function AgencyDetailView({ id }: { id: string }) {
     onSuccess: (next, v) => {
       queryClient.setQueryData(modKeys.agency(id), next);
       void queryClient.invalidateQueries({ queryKey: ['admin-agencies'] });
+      // The sidebar badge and the dashboard queue count pending applications too.
+      void queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
       toast(
         v.status === 'APPROVED'
           ? dialog === 'restore'
@@ -462,16 +477,30 @@ export function AgencyDetailView({ id }: { id: string }) {
         }
         aside={
           agency.status === AgencyStatus.APPROVED ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              href={`${env.siteUrl}/agency/${agency.id}`}
-              target="_blank"
-              rel="noopener"
-              iconRight={<Icon name="external-link" size={16} />}
-            >
-              사이트에서 보기
-            </Button>
+            <>
+              {liveSiteUrl && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  href={liveSiteUrl}
+                  target="_blank"
+                  rel="noopener"
+                  iconRight={<Icon name="external-link" size={16} />}
+                >
+                  사무소 홈페이지
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="secondary"
+                href={`${env.siteUrl}/agency/${agency.id}`}
+                target="_blank"
+                rel="noopener"
+                iconRight={<Icon name="external-link" size={16} />}
+              >
+                사이트에서 보기
+              </Button>
+            </>
           ) : undefined
         }
       />
@@ -601,6 +630,8 @@ export function AgencyDetailView({ id }: { id: string }) {
                 </ul>
               </Panel>
             )}
+
+            {hasOfficeTools && <AgencySubscriptionsPanel agency={agency} />}
           </>
         }
         side={
@@ -666,6 +697,8 @@ export function AgencyDetailView({ id }: { id: string }) {
                 </div>
               )}
             </Panel>
+
+            {hasOfficeTools && <AgencySitePanel agency={agency} />}
 
             {!pending && (
               <Panel title="활동">

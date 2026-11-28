@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { AgenciesModule } from '../agencies/agencies.module';
+import { InquiriesModule } from '../inquiries/inquiries.module';
 import { MediaModule } from '../media/media.module';
 import { DEAL_REQUESTS_QUEUE } from './constants';
 import { AdminDealRequestsController } from './controllers/admin-deal-requests.controller';
@@ -44,7 +45,13 @@ import { ProposalsService } from './services/proposals.service';
  * can write in-app notifications through one place.
  */
 @Module({
-  imports: [AgenciesModule, MediaModule, BullModule.registerQueue({ name: DEAL_REQUESTS_QUEUE })],
+  imports: [
+    AgenciesModule,
+    MediaModule,
+    // Console home: the inquiry block (inquiries never imports deal-requests).
+    InquiriesModule,
+    BullModule.registerQueue({ name: DEAL_REQUESTS_QUEUE }),
+  ],
   controllers: [
     DealRequestsController,
     MyDealRequestsController,

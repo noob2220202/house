@@ -1,5 +1,6 @@
 import {
   ADS_ENDING_SOON_DAYS,
+  AgencySiteStatus,
   AgencyStatus,
   DealRequestStatus,
   DealRequestType,
@@ -19,6 +20,7 @@ import type {
   DashboardDealRequest,
   DashboardExpiringAd,
   DashboardPendingAgency,
+  DashboardPendingAgencySite,
   DashboardQueues,
   DashboardReport,
 } from '../schemas';
@@ -99,7 +101,7 @@ type DealRequestRow = Prisma.DealRequestGetPayload<{ select: typeof dealRequestS
 
 /**
  * GET /admin/dashboard/queues — the work queues previewed on the dashboard: pending agency
- * applications (oldest first), open deal requests (newest first), open reports grouped by target
+ * applications and 사무소 홈페이지 requests (oldest first), open deal requests (newest first), open reports grouped by target
  * (newest first, with this week's handling stats) and ads ending within ADS_ENDING_SOON_DAYS.
  * Same data for every admin, so it is cached briefly like the dashboard counters.
  */
@@ -118,13 +120,49 @@ export class DashboardQueuesService {
   }
 
   async compute(now: Date = new Date()): Promise<DashboardQueues> {
-    const [pendingAgencies, dealRequests, reports, expiringAds] = await Promise.all([
-      this.pendingAgencies(),
-      this.dealRequests(),
-      this.reports(now),
-      this.expiringAds(now),
+    const [pendingAgencies, pendingAgencySites, dealRequests, reports, expiringAds] =
+      await Promise.all([
+        this.pendingAgencies(),
+        this.pendingAgencySites(),
+        this.dealRequests(),
+        this.reports(now),
+        this.expiringAds(now),
+      ]);
+    return { pendingAgencies, pendingAgencySites, dealRequests, reports, expiringAds };
+  }
+
+  private async pendingAgencySites(): Promise<DashboardQueues['pendingAgencySites']> {
+    const where: Prisma.AgencySiteWhereInput = {
+      status: AgencySiteStatus.REQUESTED,
+      agency: { deletedAt: null },
+    };
+    const [rows, total] = await Promise.all([
+      this.prisma.agencySite.findMany({
+        where,
+        orderBy: [{ requestedAt: 'asc' }, { id: 'asc' }],
+        take: QUEUE_PREVIEW,
+        select: {
+          agencyId: true,
+          requestedSlug: true,
+          requestedAt: true,
+          agency: { select: { name: true } },
+        },
+      }),
+      this.prisma.agencySite.count({ where }),
     ]);
-    return { pendingAgencies, dealRequests, reports, expiringAds };
+    const items = rows.flatMap((r): DashboardPendingAgencySite[] =>
+      r.requestedSlug
+        ? [
+            {
+              agencyId: r.agencyId,
+              agencyName: r.agency.name,
+              requestedSlug: r.requestedSlug,
+              requestedAt: r.requestedAt.toISOString(),
+            },
+          ]
+        : [],
+    );
+    return { total, items };
   }
 
   private async pendingAgencies(): Promise<DashboardQueues['pendingAgencies']> {

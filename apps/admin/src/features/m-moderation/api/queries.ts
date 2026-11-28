@@ -1,5 +1,8 @@
 import {
   ReportStatus,
+  type AdminAgencySiteDecisionInput,
+  type AdminSubscriptionCreateInput,
+  type AdminSubscriptionUpdateInput,
   type AgencyStatus,
   type DealRequestStatus,
   type ListingStatus,
@@ -10,6 +13,11 @@ import { api, apiUrl, qk, type QueryParams } from '@/lib/api';
 import {
   adminAgencyDetailSchema,
   adminAgencyPageSchema,
+  adminAgencySitePageSchema,
+  adminAgencySiteResponseSchema,
+  agencySiteDecisionResultSchema,
+  agencySubscriptionViewSchema,
+  agencySubscriptionsResponseSchema,
   adminDealRequestDetailSchema,
   adminDealRequestPageSchema,
   adminListingDetailSchema,
@@ -39,6 +47,10 @@ export const modKeys = {
   agencyCounts: qk('admin-agencies', 'counts'),
   agency: (id: string) => qk('admin-agencies', 'detail', id),
   agencyRegistry: (id: string) => qk('admin-agencies', 'registry', id),
+  agencySite: (id: string) => qk('admin-agencies', 'site', id),
+  agencySubscriptions: (id: string) => qk('admin-agencies', 'subscriptions', id),
+  agencySites: (params: QueryParams) => qk('admin-agencies', 'sites', params),
+  agencySiteCounts: qk('admin-agencies', 'site-counts'),
   listings: (params: QueryParams) => qk('admin-listings', 'list', params),
   listingCounts: qk('admin-listings', 'counts'),
   listing: (id: string) => qk('admin-listings', 'detail', id),
@@ -122,6 +134,48 @@ export function recheckAgencyRegistry(id: string) {
 /** URL of the authorized private-file stream `GET /admin/agencies/:id/documents/:docId/file`. */
 export function agencyDocumentUrl(agencyId: string, docId: string): string {
   return apiUrl(`/admin/agencies/${seg(agencyId)}/documents/${seg(docId)}/file`);
+}
+
+// ---------- 사무소 홈페이지 · 구독 -------------------------------------------------------------
+
+/** GET /admin/agency-sites?status&q&page&pageSize — REQUESTED is ordered oldest request first. */
+export function fetchAgencySites(query: QueryParams, signal?: AbortSignal) {
+  return api.get('/admin/agency-sites', { query, schema: adminAgencySitePageSchema, signal });
+}
+/** GET /admin/agencies/:id/site → `{ site }` (null when the office never asked for one). */
+export function fetchAgencySite(id: string, signal?: AbortSignal) {
+  return api.get(`/admin/agencies/${seg(id)}/site`, {
+    schema: adminAgencySiteResponseSchema,
+    signal,
+  });
+}
+/**
+ * POST /admin/agencies/:id/site/decision — body = `adminAgencySiteDecisionSchema` (@house/shared):
+ * APPROVE (optional `slug` overrides the requested one) · REJECT / SUSPEND (reason) · RESUME.
+ */
+export function decideAgencySite(id: string, body: AdminAgencySiteDecisionInput) {
+  return api.post(`/admin/agencies/${seg(id)}/site/decision`, body, {
+    schema: agencySiteDecisionResultSchema,
+  });
+}
+/** GET /admin/agencies/:id/subscriptions → periods (newest first) + what is active today. */
+export function fetchAgencySubscriptions(id: string, signal?: AbortSignal) {
+  return api.get(`/admin/agencies/${seg(id)}/subscriptions`, {
+    schema: agencySubscriptionsResponseSchema,
+    signal,
+  });
+}
+/** POST /admin/agencies/:id/subscriptions (ADMIN+) — body = `adminSubscriptionCreateSchema`. */
+export function createAgencySubscription(id: string, body: AdminSubscriptionCreateInput) {
+  return api.post(`/admin/agencies/${seg(id)}/subscriptions`, body, {
+    schema: agencySubscriptionViewSchema,
+  });
+}
+/** PATCH /admin/subscriptions/:id (ADMIN+) — end (`endsOn`), memo or `{ cancel: true }`. */
+export function updateAgencySubscription(id: string, body: AdminSubscriptionUpdateInput) {
+  return api.patch(`/admin/subscriptions/${seg(id)}`, body, {
+    schema: agencySubscriptionViewSchema,
+  });
 }
 
 // ---------- listings -------------------------------------------------------------------------

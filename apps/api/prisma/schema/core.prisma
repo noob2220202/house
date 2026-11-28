@@ -48,6 +48,13 @@ enum NotificationType {
   LISTING_EXPIRED
   CO_BROKER_REQUESTED
   SYSTEM
+  /// Inquiries (문의): a new inquiry / follow-up to the office's members (agency feed), and the
+  /// office's answer to the member who asked (member feed; data never carries agencyId).
+  INQUIRY_RECEIVED
+  INQUIRY_REPLIED
+  /// 사무소 홈페이지 decisions, to the owner (agency feed).
+  AGENCY_SITE_APPROVED
+  AGENCY_SITE_REJECTED
 
   @@map("notification_type")
 }

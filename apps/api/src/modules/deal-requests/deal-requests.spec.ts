@@ -5,6 +5,7 @@ import {
   DealRequestType,
   DealRequestVisibility,
   DealType,
+  NotificationType,
   ProposalStatus,
 } from '@house/shared';
 import { Prisma } from '@prisma/client';
@@ -23,6 +24,10 @@ import type {
   DealRequestContactRow,
   ProposalOwnerRow,
 } from './deal-request.selects';
+import {
+  AGENCY_ONLY_NOTIFICATION_TYPES,
+  notificationScopeWhere,
+} from './notifications/notification-scope';
 import { parseCursor } from './notifications/notifications.service';
 import type { DealRequestMediaPort } from './ports/media.port';
 import { agencyInboxWhere, agencyVisibleWhere } from './services/deal-request-access';
@@ -424,5 +429,20 @@ describe('parseCursor', () => {
     expect(parseCursor(`not-a-date|${id}`)).toBeNull();
     expect(parseCursor(`${NOW.toISOString()}|1 OR 1=1`)).toBeNull();
     expect(parseCursor(null)).toBeNull();
+  });
+});
+
+describe('notification scope', () => {
+  it('routes inquiry and office-site notices to the agency feed, replies to the personal one', () => {
+    for (const type of [
+      NotificationType.INQUIRY_RECEIVED,
+      NotificationType.AGENCY_SITE_APPROVED,
+      NotificationType.AGENCY_SITE_REJECTED,
+    ]) {
+      expect(AGENCY_ONLY_NOTIFICATION_TYPES).toContain(type);
+    }
+    expect(AGENCY_ONLY_NOTIFICATION_TYPES).not.toContain(NotificationType.INQUIRY_REPLIED);
+    const personal = notificationScopeWhere('personal');
+    expect(personal.type).toEqual({ notIn: [...AGENCY_ONLY_NOTIFICATION_TYPES] });
   });
 });

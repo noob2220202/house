@@ -486,17 +486,31 @@ describe('console notifications', () => {
     );
   });
 
-  it('gives inquiry notifications no destination (D5: no 문의함 for launch)', () => {
-    expect(
-      agentNotificationHref({ type: 'SYSTEM', data: { agencyId: 'a1', inquiryId: 'inq 1' } }),
-    ).toBeNull();
-    // Anything else the payload carries still leads somewhere.
+  it('opens inquiry notifications in the 문의함 drawer', () => {
     expect(
       agentNotificationHref({
-        type: 'SYSTEM',
-        data: { agencyId: 'a1', inquiryId: 'inq 1', dealRequestId: 'req-01' },
+        type: 'INQUIRY_RECEIVED',
+        data: { agencyId: 'a1', inquiryId: 'inq 1' },
       }),
-    ).toBe('/agent/requests/req-01');
+    ).toBe('/agent/inquiries?id=inq%201');
+    // A follow-up of the customer carries the same payload (+ followUp).
+    expect(
+      agentNotificationHref({
+        type: 'INQUIRY_RECEIVED',
+        data: { agencyId: 'a1', inquiryId: 'i2', followUp: true },
+      }),
+    ).toBe('/agent/inquiries?id=i2');
+    expect(agentNotificationHref({ type: 'INQUIRY_RECEIVED', data: { agencyId: 'a1' } })).toBe(
+      '/agent/inquiries',
+    );
+    // Any other agency row with an inquiry id opens it too.
+    expect(
+      agentNotificationHref({ type: 'SYSTEM', data: { agencyId: 'a1', inquiryId: 'inq 1' } }),
+    ).toBe('/agent/inquiries?id=inq%201');
+    // 내 홈페이지 신청 결과 → the site page of the console.
+    expect(agentNotificationHref({ type: 'AGENCY_SITE_APPROVED', data: { agencyId: 'a1' } })).toBe(
+      '/agent/site',
+    );
   });
 
   it('keeps personal notifications on the my-page links and ignores unsafe urls', () => {

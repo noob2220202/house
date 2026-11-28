@@ -23,6 +23,7 @@ import {
   telHref,
 } from '../lib/agency';
 import { summarizeHours } from '../lib/hours';
+import { AgencyInquiryButton } from './AgencyInquiryButton';
 import { DealCountBar } from './DealCountBar';
 import { MiniListing } from './MiniListing';
 import { OfficeCoverArt } from './OfficeCoverArt';
@@ -276,14 +277,7 @@ function ProfileCta({ agency }: { agency: AgencySummary }) {
   const tel = telHref(agency.phone);
   return (
     <div className={styles.cta}>
-      <Button
-        variant="secondary"
-        href={`${ROUTES.deal}?agencyId=${encodeURIComponent(agency.id)}`}
-        linkAs={Link}
-        iconLeft={<Icon name="chat" size={18} />}
-      >
-        문의하기
-      </Button>
+      <AgencyInquiryButton agency={agency} linkToAgency />
       {tel ? (
         <Button
           href={tel}

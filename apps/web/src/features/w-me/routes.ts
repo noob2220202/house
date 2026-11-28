@@ -1,5 +1,6 @@
 import type { IconName } from '@house/ui';
 import { ROUTES } from '@/config/nav';
+import { ME_INQUIRY_ROUTES } from '@/features/w-inquiry/routes';
 
 /**
  * Routes of the my-page group. Paths that already exist in the global `ROUTES` are reused; the rest
@@ -14,12 +15,14 @@ export const ME_ROUTES = {
   profile: '/me/profile',
   /** 내놓기·구하기 요청 관리 — built by the w-deal group. */
   requests: ROUTES.myRequests,
+  /** 문의 내역 — inquiries to offices and their answers (features/w-inquiry). */
+  inquiries: ME_INQUIRY_ROUTES.list,
   /** 회원 탈퇴 flow — built by the w-auth group; this group only links to it. */
   withdraw: '/me/withdraw',
 } as const;
 
 export interface MeNavItem {
-  key: 'overview' | 'favorites' | 'recent' | 'notifications' | 'requests' | 'profile';
+  key: 'overview' | 'favorites' | 'recent' | 'notifications' | 'requests' | 'inquiries' | 'profile';
   label: string;
   /** Longer caption used in the mobile menu list. */
   caption: string;
@@ -74,6 +77,14 @@ export const ME_NAV: readonly MeNavItem[] = [
     href: ME_ROUTES.requests,
     icon: 'home-up',
     match: '/me/requests',
+  },
+  {
+    key: 'inquiries',
+    label: '문의 내역',
+    caption: '중개사무소에 남긴 문의와 답변',
+    href: ME_ROUTES.inquiries,
+    icon: 'chat',
+    match: '/me/inquiries',
   },
   {
     key: 'profile',

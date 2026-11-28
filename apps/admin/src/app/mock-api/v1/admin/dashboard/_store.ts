@@ -147,10 +147,10 @@ function initialState(): MockCoreState {
       minutesAgo: 260,
     },
     {
-      kind: 'AGENCY_APPLIED',
-      title: '중개사무소 승인 요청',
-      body: '순천역앞 공인중개사사무소 · 대표 배수아 · 서류 3종 확인',
-      link: '/agencies',
+      kind: 'AGENCY_SITE_REQUEST',
+      title: '사무소 홈페이지 신청',
+      body: '호수공원 공인중개사사무소 · hosupark',
+      link: '/agencies/sites',
       minutesAgo: 60 * 22,
     },
     {

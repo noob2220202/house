@@ -1,8 +1,11 @@
 import 'server-only';
 import type { QueryParams } from '@/lib/api';
-import { ApiError } from '@/lib/api';
-import { serverGet, serverGetOr } from '@/lib/api/server';
-import { agencyListingsQuery, type AgencyListingsParams } from './queries';
+import { serverGetDetail, serverGetOr } from '@/lib/api/server';
+import {
+  agencyListingsQuery,
+  type AgencyListingsParams,
+  type AgencyListingsScope,
+} from './queries';
 import {
   agencyDetailSchema,
   agencyListingPageSchema,
@@ -14,28 +17,26 @@ import {
   type AgencyRegions,
 } from './schemas';
 
-/** Agency profile for the SEO page. Returns null on 404 (→ `notFound()`); other errors throw. */
-export async function getAgency(id: string): Promise<AgencyDetail | null> {
-  try {
-    return await serverGet(`/agencies/${encodeURIComponent(id)}`, {
-      schema: agencyDetailSchema,
-      revalidate: 120,
-      tags: ['agencies', `agency:${id}`],
-    });
-  } catch (error) {
-    // A malformed id is a 400 from the real API — treat it like a missing office.
-    if (error instanceof ApiError && (error.isNotFound || error.status === 400)) return null;
-    throw error;
-  }
+/**
+ * Agency profile for the SEO page. Null on 404 / 400 (malformed id) → `notFound()`; other errors
+ * throw. The outcome is cached, so an office that stops being public later 404s (D-E).
+ */
+export function getAgency(id: string): Promise<AgencyDetail | null> {
+  return serverGetDetail(`/agencies/${encodeURIComponent(id)}`, {
+    schema: agencyDetailSchema,
+    revalidate: 120,
+    tags: ['agencies', `agency:${id}`],
+  });
 }
 
 /** First page of the office's listings for the initial render; null when the API fails (the client retries). */
 export function getAgencyListings(
   id: string,
   params: AgencyListingsParams,
+  scope?: AgencyListingsScope,
 ): Promise<AgencyListingPage | null> {
   return serverGetOr<AgencyListingPage | null, typeof agencyListingPageSchema>('/listings', null, {
-    query: agencyListingsQuery(id, params),
+    query: agencyListingsQuery(id, params, scope),
     schema: agencyListingPageSchema,
     revalidate: 60,
     tags: ['listings', `agency:${id}`],

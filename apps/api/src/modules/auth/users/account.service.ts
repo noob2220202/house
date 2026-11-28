@@ -19,6 +19,7 @@ import type { UserPrincipal } from '../../../common/auth/principal';
 import { AppException } from '../../../common/errors/app.exception';
 import { PrismaService, type PrismaTx } from '../../../prisma/prisma.service';
 import { DealRequestMaintenanceService } from '../../deal-requests/services/deal-request-maintenance.service';
+import { InquiryRetentionService } from '../../inquiries/services/inquiry-retention.service';
 import { ListingsModerationService } from '../../listings/services/listings-moderation.service';
 import {
   AUTH_COOKIE_PATHS,
@@ -103,6 +104,7 @@ export class AccountService {
     private readonly dealRequests: DealRequestMaintenanceService,
     private readonly listings: ListingsModerationService,
     private readonly suspendedWithdraw: SuspendedWithdrawStore,
+    private readonly inquiries: InquiryRetentionService,
   ) {}
 
   /**
@@ -245,6 +247,8 @@ export class AccountService {
       });
       await tx.identity.deleteMany({ where: { userId } });
       const dealRequestNotices = await this.dealRequests.scrubUser(userId, now, tx);
+      // 문의 (inquiries): the member's name, phone and messages go at once, not at the daily job.
+      await this.inquiries.scrubUser(userId, now, tx);
       await tx.user.update({
         where: { id: userId },
         data: {

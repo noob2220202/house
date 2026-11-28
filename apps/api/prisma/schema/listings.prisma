@@ -350,6 +350,7 @@ model Listing {
   favorites     FavoriteListing[]
   reports       Report[]
   proposals     ProposalListing[]
+  inquiries     Inquiry[]
 
   @@index([status, dealType, assetType])
   @@index([status, publishedAt(sort: Desc)])

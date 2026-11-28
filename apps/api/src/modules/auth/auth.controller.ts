@@ -60,17 +60,18 @@ export class AuthController {
   }
 
   /**
-   * (Re-)issues the CSRF cookie and returns the token. With a session it is the session's token
-   * (what CsrfGuard checks); without one a fresh random token is returned (nothing to protect yet).
-   * Frontends should prefer the body value over reading the cookie.
+   * Returns the CSRF token. With a session it is the session's token (what CsrfGuard checks) and
+   * the house_csrf cookie is (re-)issued; without one a throwaway random token is returned in the
+   * body only — CsrfGuard checks no token on anonymous requests, so a cookie would only be noise
+   * set on every visitor (and on office-site hosts). Frontends use the body value.
    */
   @Public()
   @Get('csrf')
   csrf(@Req() req: Request, @Res({ passthrough: true }) res: Response): CsrfTokenResponse {
-    const csrfToken = req.authSession?.csrfToken ?? randomToken();
-    this.sessions.setCsrfCookie(res, csrfToken);
+    const sessionToken = req.authSession?.csrfToken;
+    if (sessionToken) this.sessions.setCsrfCookie(res, sessionToken);
     res.setHeader('Cache-Control', 'no-store');
-    return { csrfToken };
+    return { csrfToken: sessionToken ?? randomToken() };
   }
 
   @Get('me')

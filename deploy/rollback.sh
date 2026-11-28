@@ -165,6 +165,17 @@ if pm2_apply "$CURRENT_LINK" && health_check "$TARGET" 45 2; then
   trap - INT TERM HUP
   ok "롤백 완료: current → $(basename "$TARGET")"
   echo "  ※ DB 마이그레이션은 되돌리지 않았습니다. 데이터 복구가 필요하면 restore.sh 를 사용하세요."
+  # A release without office sites would render the main site under every <slug>.DOMAIN: sites.sh
+  # takes those servers down (and hides the links) on its next run. Start that run now.
+  if [[ ! -d "$TARGET/$SITES_WEB_ROUTE" && -d /etc/nginx/house/sites ]]; then
+    echo "  ※ 이 버전에는 사무소 홈페이지가 없습니다 — sites.sh 가 사무소 주소(nginx)를 내리고 링크를 숨깁니다."
+    echo "    사무소 홈페이지가 있는 버전을 다시 배포하면 5분 안에 돌아옵니다 (DEPLOY.md 12단계)."
+    if has_systemd && [[ -f /etc/systemd/system/house-sites.service ]]; then
+      systemctl start --no-block house-sites.service || warn "바로 실행하지 못했습니다: sudo /srv/house/sites.sh"
+    else
+      echo "    바로 적용: sudo /srv/house/sites.sh"
+    fi
+  fi
 else
   warn "롤백 후 헬스체크 실패: $(basename "$TARGET")"
   restore_previous

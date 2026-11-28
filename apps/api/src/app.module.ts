@@ -12,6 +12,7 @@ import { DealRequestsModule } from './modules/deal-requests/deal-requests.module
 import { E2eAuthModule } from './modules/e2e-auth/e2e-auth.module';
 import { e2eFakeAuthEnabled } from './modules/e2e-auth/e2e-auth.enabled';
 import { HomeModule } from './modules/home/home.module';
+import { InquiriesModule } from './modules/inquiries/inquiries.module';
 import { ListingsModule } from './modules/listings/listings.module';
 import { MediaModule } from './modules/media/media.module';
 import { SeoModule } from './modules/seo/seo.module';
@@ -39,6 +40,7 @@ import { RedisModule } from './redis/redis.module';
     AgenciesModule,
     ComplexesModule,
     ListingsModule,
+    InquiriesModule,
     DealRequestsModule,
     AdsModule,
     AdminModule,

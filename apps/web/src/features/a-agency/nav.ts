@@ -20,16 +20,17 @@ export const AGENT_ROUTES = {
   coBroker: '/agent/listings/co-broker',
   requests: '/agent/requests',
   request: (id: string) => `/agent/requests/${encodeURIComponent(id)}`,
-  /**
-   * 문의함 — hidden for launch (D5: no inquiry backend). The route redirects to the dashboard and
-   * is in no menu or notification link; it stays defined so old bookmarks land somewhere.
-   */
+  /** 문의함: written inquiries and logged 전화 / 문자 / 번호 복사 (a-inbox). */
   inquiries: '/agent/inquiries',
+  /** The 문의함 with one inquiry open (`?id=` opens the drawer). */
+  inquiry: (id: string) => `/agent/inquiries?id=${encodeURIComponent(id)}`,
   notifications: '/agent/notifications',
+  /** 내 홈페이지: the office's own site (`<slug>.suncheonmap.kr`) — request, status, colour, tagline. */
+  site: '/agent/site',
 } as const;
 
 /** Sidebar badge counters (from GET /agencies/mine/dashboard). */
-export type AgentBadgeKey = 'newRequests' | 'verificationDue';
+export type AgentBadgeKey = 'newRequests' | 'unreadInquiries' | 'verificationDue';
 export type AgentBadgeCounts = Partial<Record<AgentBadgeKey, number>>;
 
 export interface AgentNavItem {
@@ -79,28 +80,31 @@ export const AGENT_NAV: readonly AgentNavGroup[] = [
         icon: 'home-up',
         badgeKey: 'newRequests',
       },
+      { label: '문의함', href: AGENT_ROUTES.inquiries, icon: 'chat', badgeKey: 'unreadInquiries' },
     ],
   },
   {
     title: '사무소',
     items: [
       { label: '사무소 프로필', href: AGENT_ROUTES.profile, icon: 'store' },
+      { label: '내 홈페이지', href: AGENT_ROUTES.site, icon: 'home' },
       { label: '직원 관리', href: AGENT_ROUTES.staff, icon: 'users', ownerOnly: true },
       { label: '등록 정보', href: AGENT_ROUTES.apply, icon: 'shield' },
     ],
   },
 ];
 
-/** Mobile bottom bar of the console: 홈 · 매물 · 요청 · 사무소 (문의함 hidden for launch, D5). */
+/** Mobile bottom bar of the console: 홈 · 매물 · 요청 · 문의 · 사무소. */
 export const AGENT_TAB_BAR: readonly AgentNavItem[] = [
   { label: '홈', href: AGENT_ROUTES.dashboard, icon: 'grid', exact: true },
   { label: '매물', href: AGENT_ROUTES.listings, icon: 'building' },
   { label: '요청', href: AGENT_ROUTES.requests, icon: 'home-up', badgeKey: 'newRequests' },
+  { label: '문의', href: AGENT_ROUTES.inquiries, icon: 'chat', badgeKey: 'unreadInquiries' },
   {
     label: '사무소',
     href: AGENT_ROUTES.profile,
     icon: 'store',
-    match: [AGENT_ROUTES.profile, AGENT_ROUTES.staff, AGENT_ROUTES.apply],
+    match: [AGENT_ROUTES.profile, AGENT_ROUTES.staff, AGENT_ROUTES.apply, AGENT_ROUTES.site],
   },
 ];
 

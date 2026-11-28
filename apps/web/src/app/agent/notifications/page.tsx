@@ -26,8 +26,8 @@ async function orNull<T>(promise: Promise<T>): Promise<T | null> {
 }
 
 /**
- * Inbox counters for the tiles above the feed: 새 요청 from the console dashboard aggregate,
- * 응답 대기 = total of our SENT / VIEWED proposals (one-row page).
+ * Inbox counters for the tiles above the feed: 새 요청 and 안 읽은 문의 from the console dashboard
+ * aggregate, 응답 대기 = total of our SENT / VIEWED proposals (one-row page).
  */
 async function loadSummary(): Promise<InboxSummary> {
   const [dashboard, waiting] = await Promise.all([
@@ -42,6 +42,7 @@ async function loadSummary(): Promise<InboxSummary> {
   return {
     newRequests: dashboard?.dealRequests.newCount ?? null,
     waitingProposals: waiting?.total ?? null,
+    unreadInquiries: dashboard?.inquiries?.unreadCount ?? null,
   };
 }
 

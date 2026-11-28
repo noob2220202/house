@@ -1,4 +1,3 @@
-import { MAP_MAX_BBOX_SPAN_DEG } from '@house/shared';
 import type { LatLng, MapBounds, MapMarker } from '@/lib/map';
 import type { ListingSummary } from '../api/schemas';
 import { pointArea, type ListingGroup } from './markers';
@@ -76,7 +75,9 @@ export function markerSelectOptions(
 /**
  * In complex mode (아파트·분양권) `GET /map/search` sends COMPLEX markers for listings of a 단지
  * and price pills only for listings without one (`complex_id IS NULL`, e.g. registered with
- * "직접 입력"). These helpers drive the panel section that lists those listings.
+ * "직접 입력"). The panel section that lists them asks `GET /listings?withoutComplex=true&bbox=`
+ * for the visible map, so it also works at the city zooms, where the map draws clusters instead
+ * of pills. The client-side check stays as a guard for an API that ignores the filter.
  */
 export const hasNoComplex = (l: Pick<ListingSummary, 'complexId'>) => !l.complexId;
 
@@ -86,24 +87,12 @@ export function standaloneCount(groups: readonly ListingGroup[]): number {
 }
 
 /**
- * `bbox` query that covers every price pill on screen and little else, so `GET /listings?bbox`
- * mostly returns the pills' listings (the list endpoint has no "without complex" filter; the panel
- * drops listings of a 단지 client-side). Six decimals: a building box is ±2 m. `null` without pills,
- * or when the pills spread wider than the API accepts.
+ * "단지 정보 없는 매물 N건": the `total` of the viewport query once it answered; until then the
+ * pills on screen (none below the marker zoom, where the section waits for the API).
  */
-export function standaloneBbox(groups: readonly ListingGroup[]): string | null {
-  if (groups.length === 0) return null;
-  const b = groups.reduce<MapBounds>(
-    (acc, { area }) => ({
-      swLat: Math.min(acc.swLat, area.swLat),
-      swLng: Math.min(acc.swLng, area.swLng),
-      neLat: Math.max(acc.neLat, area.neLat),
-      neLng: Math.max(acc.neLng, area.neLng),
-    }),
-    groups[0]!.area,
-  );
-  if (b.neLng - b.swLng > MAP_MAX_BBOX_SPAN_DEG || b.neLat - b.swLat > MAP_MAX_BBOX_SPAN_DEG) {
-    return null;
-  }
-  return [b.swLng, b.swLat, b.neLng, b.neLat].map((n) => n.toFixed(6)).join(',');
+export function standaloneTotal(
+  apiTotal: number | null | undefined,
+  groups: readonly ListingGroup[],
+): number {
+  return apiTotal ?? standaloneCount(groups);
 }

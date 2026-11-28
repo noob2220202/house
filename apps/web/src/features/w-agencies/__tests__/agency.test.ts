@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { agencyListingSchema, type AgencyListing } from '../api/schemas';
 import {
-  agencyInitials,
   agencyTagline,
-  avatarTone,
   directionsUrl,
   displayPhone,
   formatResponseTime,
@@ -34,16 +32,6 @@ describe('office names', () => {
     expect(shortAgencyName('한솔 부동산중개')).toBe('한솔');
     expect(shortAgencyName('선월 분양권 공인중개사 사무소')).toBe('선월 분양권');
     expect(shortAgencyName('공인중개사사무소')).toBe('공인중개사사무소'); // nothing left → keep
-  });
-  it('builds initials without spaces', () => {
-    expect(agencyInitials('호수공원 공인중개사사무소', 2)).toBe('호수');
-    expect(agencyInitials('선월 분양권 공인중개사사무소')).toBe('선');
-    expect(agencyInitials('A B 부동산', 2)).toBe('AB');
-  });
-  it('picks a stable avatar style per id', () => {
-    expect(avatarTone('abc')).toBe(avatarTone('abc'));
-    const tones = new Set(Array.from({ length: 40 }, (_, i) => avatarTone(`agency-${i}`)));
-    expect(tones.size).toBeGreaterThan(2);
   });
 });
 
@@ -113,6 +101,10 @@ describe('listing helpers', () => {
         listing({ assetType: 'ONEROOM', exclusiveArea: 33.06, floor: 3, totalFloors: 4 }),
       ),
     ).toEqual(['전용 33㎡(10평)', '3/4층']);
+    // The API sends the class along with a published floor: the floor wins, as on every card.
+    expect(
+      listingMeta(listing({ supplyArea: 105.79, floor: 11, totalFloors: 13, floorClass: 'HIGH' })),
+    ).toEqual(['공급 106㎡(32평)', '11/13층']);
     expect(listingMeta(listing({ assetType: 'LAND', landArea: 502.48 }))).toEqual(['502㎡(152평)']);
   });
   it('maps a listing to ListingCard props', () => {

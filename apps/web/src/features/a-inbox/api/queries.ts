@@ -1,9 +1,18 @@
-import { api, qk } from '@/lib/api';
-import { requestFiltersToQuery, type RequestFilters } from '../lib/params';
+import type { AgencyInquiryUpdateInput, InquiryStatus } from '@house/shared';
+import { api, apiFetch, qk } from '@/lib/api';
+import {
+  inquiryFiltersToQuery,
+  requestFiltersToQuery,
+  type InquiryFilters,
+  type RequestFilters,
+} from '../lib/params';
 import {
   agencyDealRequestDetailSchema,
   agencyDealRequestPageSchema,
+  agencyInquiryPageSchema,
+  agencyInquirySchema,
   inboxNewCountSchema,
+  inquiryReadResultSchema,
   listingCandidatePageSchema,
   myProposalSchema,
   proposalTotalSchema,
@@ -18,7 +27,10 @@ export const inboxKeys = {
   requestSummary: qk('agency-deal-requests', 'summary'),
   request: (id: string) => qk('agency-deal-requests', 'detail', id),
   candidates: (id: string, q: string) => qk('agency-deal-requests', 'candidates', { id, q }),
-  /** a-agency's dashboard aggregate — feeds the sidebar badges (새 요청 / 실매물 확인). */
+  inquiries: qk('agency-inquiries'),
+  inquiryList: (filters: Omit<InquiryFilters, 'id'>) => qk('agency-inquiries', 'list', filters),
+  inquiry: (id: string) => qk('agency-inquiries', 'detail', id),
+  /** a-agency's dashboard aggregate — feeds the sidebar badges (새 요청 / 안 읽은 문의 / 실매물 확인). */
   dashboard: qk('agencies', 'mine-dashboard'),
 } as const;
 
@@ -37,6 +49,7 @@ export function fetchAgencyRequests(filters: RequestFilters, signal?: AbortSigna
 export interface InboxCounts {
   newRequests: number | null;
   waitingProposals: number | null;
+  unreadInquiries: number | null;
 }
 
 /**
@@ -55,6 +68,8 @@ export async function fetchInboxCounts(signal?: AbortSignal): Promise<InboxCount
   return {
     newRequests: dashboard.status === 'fulfilled' ? dashboard.value.dealRequests.newCount : null,
     waitingProposals: waiting.status === 'fulfilled' ? waiting.value.total : null,
+    unreadInquiries:
+      dashboard.status === 'fulfilled' ? (dashboard.value.inquiries?.unreadCount ?? null) : null,
   };
 }
 
@@ -91,5 +106,52 @@ export function fetchListingCandidates(id: string, q: string, signal?: AbortSign
     query: { q: q || undefined, page: 1, pageSize: CANDIDATE_PAGE_SIZE },
     schema: listingCandidatePageSchema,
     signal,
+  });
+}
+
+// ---------- 문의함 (inquiries) ----------
+
+/** GET /agency/inquiries — written inquiries and contact events of the caller's office. */
+export function fetchInquiries(filters: InquiryFilters, signal?: AbortSignal) {
+  return api.get('/agency/inquiries', {
+    query: inquiryFiltersToQuery(filters),
+    schema: agencyInquiryPageSchema,
+    signal,
+  });
+}
+
+/** GET /agency/inquiries/:id — with the thread (`messages`); other offices' rows answer 404. */
+export function fetchInquiry(id: string, signal?: AbortSignal) {
+  return api.get(`/agency/inquiries/${encodeURIComponent(id)}`, {
+    schema: agencyInquirySchema,
+    signal,
+  });
+}
+
+export type InquiryPatch = AgencyInquiryUpdateInput & { status?: InquiryStatus };
+
+/**
+ * PATCH /agency/inquiries/:id — 처리 상태, internal memo, read flag. The drawer re-reads the
+ * inquiry afterwards, so only the status code matters.
+ */
+export function updateInquiry(id: string, patch: InquiryPatch) {
+  return api.patch(`/agency/inquiries/${encodeURIComponent(id)}`, patch);
+}
+
+/** POST /agency/inquiries/:id/replies — only offered when `canReply` (else 409). */
+export function replyToInquiry(id: string, message: string) {
+  return api.post(`/agency/inquiries/${encodeURIComponent(id)}/replies`, { message });
+}
+
+/** POST /agency/inquiries/read `{ all: true }` → `{ updated, unreadCount }`. */
+export function markAllInquiriesRead() {
+  return api.post('/agency/inquiries/read', { all: true }, { schema: inquiryReadResultSchema });
+}
+
+/** DELETE /agency/inquiries/:id — removes it from the 문의함 (스팸 처리 / 정리); reason optional. */
+export function deleteInquiry(id: string, reason?: string) {
+  return apiFetch(`/agency/inquiries/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    body: reason ? { reason } : undefined,
   });
 }

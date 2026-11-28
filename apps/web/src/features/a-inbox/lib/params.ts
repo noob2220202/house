@@ -1,10 +1,19 @@
-import { AssetType, DealRequestType } from '@house/shared';
+import {
+  AssetType,
+  DealRequestType,
+  INQUIRY_LIMITS,
+  type InquiryChannel,
+  type InquirySource,
+  type InquiryStatus,
+} from '@house/shared';
 import type { InboxStage } from '../api/schemas';
 
 /**
  * URL state of the inbox lists. Filters live in the query string so a view can be bookmarked,
  * shared with a colleague and restored by the back button.
  */
+
+const INQUIRY_SEARCH_MAX = INQUIRY_LIMITS.SEARCH_MAX;
 
 type SearchInput = URLSearchParams | Record<string, string | string[] | undefined>;
 
@@ -127,5 +136,101 @@ export function requestFiltersToQuery(f: RequestFilters) {
 export function activeRequestFilterCount(f: RequestFilters): number {
   return (
     (f.type === 'all' ? 0 : 1) + (f.regions.length > 0 ? 1 : 0) + (f.assets.length > 0 ? 1 : 0)
+  );
+}
+
+// ---------- inquiries (문의함) ----------
+
+export const INQUIRY_STATUS_TABS = ['all', 'new', 'progress', 'done'] as const;
+export type InquiryStatusTab = (typeof INQUIRY_STATUS_TABS)[number];
+export const INQUIRY_CHANNEL_TABS = ['all', 'message', 'call', 'sms', 'copy'] as const;
+export type InquiryChannelTab = (typeof INQUIRY_CHANNEL_TABS)[number];
+export const INQUIRY_SOURCE_TABS = ['all', 'main', 'site'] as const;
+export type InquirySourceTab = (typeof INQUIRY_SOURCE_TABS)[number];
+
+export interface InquiryFilters {
+  status: InquiryStatusTab;
+  channel: InquiryChannelTab;
+  source: InquirySourceTab;
+  unread: boolean;
+  q: string;
+  page: number;
+  /** Inquiry open in the detail drawer (notification deep links: `?id=`). */
+  id: string | null;
+}
+
+export const DEFAULT_INQUIRY_FILTERS: InquiryFilters = {
+  status: 'all',
+  channel: 'all',
+  source: 'all',
+  unread: false,
+  q: '',
+  page: 1,
+  id: null,
+};
+
+export function parseInquiryFilters(input: SearchInput): InquiryFilters {
+  const get = reader(input);
+  return {
+    status: oneOf(get('status'), INQUIRY_STATUS_TABS, 'all'),
+    channel: oneOf(get('channel'), INQUIRY_CHANNEL_TABS, 'all'),
+    source: oneOf(get('source'), INQUIRY_SOURCE_TABS, 'all'),
+    unread: get('unread') === '1',
+    q: get('q').trim().slice(0, INQUIRY_SEARCH_MAX),
+    page: pageOf(get('page')),
+    id: get('id').slice(0, 64) || null,
+  };
+}
+
+export function inquiryFiltersToSearch(f: InquiryFilters): string {
+  return toSearch([
+    ['status', f.status === 'all' ? null : f.status],
+    ['channel', f.channel === 'all' ? null : f.channel],
+    ['source', f.source === 'all' ? null : f.source],
+    ['unread', f.unread ? '1' : null],
+    ['q', f.q],
+    ['page', f.page > 1 ? String(f.page) : null],
+    ['id', f.id],
+  ]);
+}
+
+const STATUS_PARAM: Record<Exclude<InquiryStatusTab, 'all'>, InquiryStatus> = {
+  new: 'NEW',
+  progress: 'IN_PROGRESS',
+  done: 'DONE',
+};
+const CHANNEL_PARAM: Record<Exclude<InquiryChannelTab, 'all'>, InquiryChannel> = {
+  message: 'MESSAGE',
+  call: 'CALL',
+  sms: 'SMS',
+  copy: 'COPY',
+};
+const SOURCE_PARAM: Record<Exclude<InquirySourceTab, 'all'>, InquirySource> = {
+  main: 'MAIN',
+  site: 'SITE',
+};
+
+export const INQUIRIES_PAGE_SIZE = INQUIRY_LIMITS.PAGE_SIZE_DEFAULT;
+
+/** Query of GET /agency/inquiries (`agencyInquiryListQuerySchema`). */
+export function inquiryFiltersToQuery(f: InquiryFilters) {
+  return {
+    status: f.status === 'all' ? undefined : STATUS_PARAM[f.status],
+    channel: f.channel === 'all' ? undefined : CHANNEL_PARAM[f.channel],
+    source: f.source === 'all' ? undefined : SOURCE_PARAM[f.source],
+    unread: f.unread ? true : undefined,
+    q: f.q || undefined,
+    page: f.page,
+    pageSize: INQUIRIES_PAGE_SIZE,
+  };
+}
+
+/** Filters other than the status tab (they change what the tab counts count). */
+export function activeInquiryFilterCount(f: InquiryFilters): number {
+  return (
+    (f.channel === 'all' ? 0 : 1) +
+    (f.source === 'all' ? 0 : 1) +
+    (f.unread ? 1 : 0) +
+    (f.q ? 1 : 0)
   );
 }

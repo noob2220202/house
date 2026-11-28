@@ -1,6 +1,7 @@
 'use client';
 import { Icon, cx } from '@house/ui';
 import { useEffect, useRef } from 'react';
+import { BRAND } from '@/config/brand';
 import { favoriteLabel } from '@/lib/favorites/useFavorite';
 import { formatCount } from '@/lib/format';
 import { useAdImpression } from '@/lib/ads/client';
@@ -12,9 +13,33 @@ import { Glyph } from './icons';
 import { useListingInteractions } from './ListingInteractions';
 import styles from './side.module.css';
 
-/** 관심 · 공유 · 허위매물 신고 (desktop aside). */
+/** 허위매물 신고 on an office's 홈페이지: reports need a session, which only the main site has. */
+function MainSiteReportLink({ href, className }: { href: string; className: string }) {
+  return (
+    <a className={className} href={href} aria-label={`${BRAND.name}에서 허위매물 신고하기`}>
+      <Icon name="siren" size={20} />
+      <span>{BRAND.name}에서 신고하기</span>
+    </a>
+  );
+}
+
+/** 관심 · 공유 · 허위매물 신고 (desktop aside); 공유 · 신고 link on an office's 홈페이지. */
 export function ActionsBar() {
-  const { listing, favorite, openShare, openReport } = useListingInteractions();
+  const { listing, office, favorite, openShare, openReport } = useListingInteractions();
+  if (office) {
+    return (
+      <div className={cx(styles.acts, styles.actsPair)}>
+        <button type="button" className={styles.act} onClick={openShare}>
+          <Icon name="share" size={20} />
+          <span>공유</span>
+        </button>
+        <MainSiteReportLink
+          href={office.mainListingUrl}
+          className={cx(styles.act, styles.actWarn)}
+        />
+      </div>
+    );
+  }
   return (
     <div className={styles.acts}>
       <button
@@ -72,24 +97,31 @@ export function CalcCard({ rows }: { rows: readonly CalcPreview[] }) {
 
 /** Mobile footer row: listing number + 허위매물 신고. */
 export function MobileFoot({ listingNo, viewCount }: { listingNo: string; viewCount: number }) {
-  const { openReport } = useListingInteractions();
+  const { office, openReport } = useListingInteractions();
   return (
     <div className={styles.mFoot}>
       <p className={styles.mId}>
         매물번호 <b className="num">{listingNo}</b>
         <span aria-hidden="true">·</span>조회 <span className="num">{formatCount(viewCount)}</span>
       </p>
-      <button type="button" className={styles.mReport} onClick={openReport}>
-        <Icon name="siren" size={18} />
-        허위매물 신고
-      </button>
+      {office ? (
+        <a className={styles.mReport} href={office.mainListingUrl}>
+          <Icon name="siren" size={18} />
+          {BRAND.name}에서 신고하기
+        </a>
+      ) : (
+        <button type="button" className={styles.mReport} onClick={openReport}>
+          <Icon name="siren" size={18} />
+          허위매물 신고
+        </button>
+      )}
     </div>
   );
 }
 
 /** Sticky inquiry bar on mobile (MobileListing .ml-cta). */
 export function MobileCta() {
-  const { listing, openContact } = useListingInteractions();
+  const { listing, openContact, logContact } = useListingInteractions();
   const primary = listing.agencies.find((a) => a.isPrimary) ?? listing.agencies[0];
   if (!primary) return null;
   const phone = primary.contactPhone ?? primary.phone;
@@ -112,6 +144,7 @@ export function MobileCta() {
           className={cx(styles.ctaBtn, styles.ctaCall)}
           href={telHref(phone)}
           aria-label={`전화 문의, ${displayPhone(phone)}`}
+          onClick={() => logContact('CALL', primary.agencyId)}
         >
           <Icon name="phone" size={20} />
           전화 문의

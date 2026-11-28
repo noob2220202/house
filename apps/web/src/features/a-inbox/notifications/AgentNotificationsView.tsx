@@ -120,6 +120,14 @@ function SummaryTiles({ initial }: { initial: InboxSummary }) {
       tone: 'neutral' as const,
       detail: '요청자가 검토하고 있어요',
     },
+    {
+      href: `${INBOX_ROUTES.inquiries}?unread=1`,
+      label: '안 읽은 문의',
+      value: counts?.unreadInquiries ?? initial.unreadInquiries,
+      icon: 'chat' as const,
+      tone: 'accent' as const,
+      detail: '빠르게 답할수록 계약률이 올라가요',
+    },
   ];
   return (
     <div className={styles.tiles}>
@@ -169,7 +177,7 @@ export function AgentNotificationsView({ summary }: AgentNotificationsViewProps)
       <ConsolePageHeader
         eyebrow="고객"
         title="알림"
-        description="새 요청, 제안 수락, 연락처 공개, 광고기간 만료와 공동중개 요청 소식을 모아서 보여 드려요."
+        description="새 요청, 제안 수락, 연락처 공개, 새 문의, 광고기간 만료와 공동중개 요청 소식을 모아서 보여 드려요."
         actions={
           <Button
             variant="secondary"

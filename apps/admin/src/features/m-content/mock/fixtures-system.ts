@@ -46,7 +46,14 @@ export const SETTINGS: Record<string, MockSetting> = {
     updatedByAdminName: '한지우',
   },
   FEATURES: {
-    value: { appBand: false, community: true, dealRequests: true, tradeHistory: true },
+    value: {
+      appBand: false,
+      community: true,
+      dealRequests: true,
+      tradeHistory: true,
+      siteSubscriptionRequired: false,
+      platformSubscriptionRequired: false,
+    },
     updatedAt: '2026-11-10T08:50:00+09:00',
     updatedByAdminName: '정다은',
   },

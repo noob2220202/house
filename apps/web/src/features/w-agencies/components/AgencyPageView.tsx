@@ -25,6 +25,7 @@ import {
   telHref,
 } from '../lib/agency';
 import { kstWeekdayKey, openStateAt, weeklyRows } from '../lib/hours';
+import { AgencyInquiryButton } from './AgencyInquiryButton';
 import { AgencyListingCard } from './AgencyListingCard';
 import { AgencyListings } from './AgencyListings';
 import { AgencyLocationMap } from './AgencyLocationMap';
@@ -42,6 +43,11 @@ export interface AgencyPageViewProps {
   initialListingsKey: string;
 }
 
+/** "https://sindae.suncheonmap.kr" → "sindae.suncheonmap.kr" (what the visitor types). */
+function siteHost(url: string): string {
+  return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+}
+
 /** Public page of one 중개사무소 (/agency/[id]). Server component; interactive parts are islands. */
 export function AgencyPageView({
   agency,
@@ -52,7 +58,17 @@ export function AgencyPageView({
   const tel = telHref(agency.phone);
   const phone = displayPhone(agency.phone);
   const address = fullAddress(agency);
-  const inquiryHref = `${ROUTES.deal}?agencyId=${encodeURIComponent(agency.id)}`;
+  // Only what the 문의 dialog needs crosses into the client island.
+  const inquiryAgency = {
+    id: agency.id,
+    name: agency.name,
+    phone: agency.phone,
+    logoUrl: agency.logoUrl,
+    representativeName: agency.representativeName,
+    registrationNumber: agency.registrationNumber,
+    roadAddress: agency.roadAddress,
+    addressDetail: agency.addressDetail,
+  };
   const total = agency.activeListingCount;
   const rows = weeklyRows(agency.businessHours);
   const now = new Date();
@@ -123,7 +139,11 @@ export function AgencyPageView({
             </p>
           </div>
           <div className={styles.heroActs}>
-            <ProfileActions agencyId={agency.id} agencyName={agency.name} />
+            <ProfileActions
+              agencyId={agency.id}
+              agencyName={agency.name}
+              siteUrl={agency.site?.url}
+            />
           </div>
           <dl className={styles.kpis}>
             <div className={styles.kpi}>
@@ -166,14 +186,7 @@ export function AgencyPageView({
               <p className={styles.phone}>{phone}</p>
             </div>
             <div className={styles.contactBtns}>
-              <Button
-                variant="secondary"
-                href={inquiryHref}
-                linkAs={Link}
-                iconLeft={<Icon name="chat" size={18} />}
-              >
-                문의하기
-              </Button>
+              <AgencyInquiryButton agency={inquiryAgency} />
               {tel && (
                 <Button href={tel} iconLeft={<Icon name="phone" size={18} />}>
                   전화하기
@@ -181,8 +194,8 @@ export function AgencyPageView({
               )}
             </div>
             <p className={styles.note}>
-              문의하기에서 내놓기·구하기 조건을 남기면 공개 범위에 맞는 중개사무소에 전달돼요. 이
-              사무소에만 보내려면 공개 범위를 &lsquo;선택한 중개사&rsquo;로 고르세요.
+              문의하기로 남긴 글은 이 사무소에만 전달돼요. 로그인하고 문의하면 답변을 MY &gt; 문의
+              내역에서 볼 수 있어요.
             </p>
           </section>
 
@@ -266,6 +279,25 @@ export function AgencyPageView({
                 </dt>
                 <dd>{agency.representativeName} (개업공인중개사)</dd>
               </div>
+              {agency.site && (
+                <div>
+                  <dt>
+                    <Icon name="home" size={16} />
+                    홈페이지
+                  </dt>
+                  <dd>
+                    <a
+                      className="link"
+                      href={agency.site.url}
+                      target="_blank"
+                      rel="noopener"
+                      aria-label={`${agency.name} 홈페이지 ${siteHost(agency.site.url)} (새 창)`}
+                    >
+                      {siteHost(agency.site.url)}
+                    </a>
+                  </dd>
+                </div>
+              )}
             </dl>
           </section>
         </aside>
@@ -417,14 +449,7 @@ export function AgencyPageView({
 
       <div className={styles.ctaWrap}>
         <CtaBar>
-          <Button
-            variant="secondary"
-            href={inquiryHref}
-            linkAs={Link}
-            iconLeft={<Icon name="chat" size={18} />}
-          >
-            문의하기
-          </Button>
+          <AgencyInquiryButton agency={inquiryAgency} />
           {tel && (
             <Button
               href={tel}

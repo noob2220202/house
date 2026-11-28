@@ -81,8 +81,16 @@ const dashboardSummaryModel = z.object({
       agenciesPending: count.default(0),
       dealRequestsOpen: count.default(0),
       reportsOpen: count.default(0),
+      /** 사무소 홈페이지 requests waiting for a decision (REQUESTED). */
+      agencySitesPending: count.default(0),
     })
-    .default({ listingsPending: 0, agenciesPending: 0, dealRequestsOpen: 0, reportsOpen: 0 }),
+    .default({
+      listingsPending: 0,
+      agenciesPending: 0,
+      dealRequestsOpen: 0,
+      reportsOpen: 0,
+      agencySitesPending: 0,
+    }),
   notificationsUnread: count.default(0),
   kpis: z.object({
     visitors: z.object({ today: count, yesterday: count }),
@@ -134,7 +142,9 @@ export function normalizeDashboard(raw: unknown): unknown {
     visitors?: { today?: number; yesterday?: number };
     listings?: { newToday?: number; active?: number };
     dealRequests?: { newToday?: number; open?: number };
-    agencies?: { pending?: number };
+    agencies?: { pending?: number; sitesPending?: number };
+    /** 사무소 홈페이지 requests (REQUESTED). `agencies.sitesPending` is read as well. */
+    agencySites?: { pending?: number };
     reports?: { open?: number };
     notificationsUnread?: number;
   };
@@ -145,6 +155,7 @@ export function normalizeDashboard(raw: unknown): unknown {
       agenciesPending: d.agencies?.pending ?? 0,
       dealRequestsOpen: d.dealRequests?.open ?? 0,
       reportsOpen: d.reports?.open ?? 0,
+      agencySitesPending: d.agencySites?.pending ?? d.agencies?.sitesPending ?? 0,
     },
     notificationsUnread: d.notificationsUnread ?? 0,
     kpis: {
@@ -277,12 +288,23 @@ export const expiringAdSchema = z.object({
 });
 export type ExpiringAd = z.infer<typeof expiringAdSchema>;
 
+/** A 사무소 홈페이지 request waiting for approval (oldest first). */
+export const pendingAgencySiteSchema = z.object({
+  agencyId: z.string(),
+  agencyName: z.string(),
+  requestedSlug: z.string().nullable().default(null),
+  requestedAt: z.string(),
+});
+export type PendingAgencySite = z.infer<typeof pendingAgencySiteSchema>;
+
 const queue = <T extends z.ZodType>(item: T) =>
   z.object({ total: count, items: z.array(item) }).default({ total: 0, items: [] });
 
 /** GET /admin/dashboard/queues — the work queues previewed on the dashboard. */
 export const dashboardQueuesSchema = z.object({
   pendingAgencies: queue(pendingAgencySchema),
+  /** Optional: an API without office sites leaves it out (an empty queue). */
+  pendingAgencySites: queue(pendingAgencySiteSchema),
   dealRequests: queue(dashboardDealRequestSchema),
   reports: z
     .object({
@@ -351,6 +373,7 @@ export type SearchUser = z.infer<typeof searchUserSchema>;
 
 export const ADMIN_NOTIFICATION_KINDS = [
   'AGENCY_APPLIED',
+  'AGENCY_SITE_REQUEST',
   'LISTING_REVIEW',
   'REPORT_RECEIVED',
   'DEAL_REQUEST_UNASSIGNED',

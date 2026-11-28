@@ -6,6 +6,7 @@ import {
   AgencyLogo,
   BackLink,
   BarChart,
+  Breadcrumb,
   Button,
   Callout,
   ChoiceChip,
@@ -35,6 +36,7 @@ import {
   SegmentedControl,
   Table,
   Tabs,
+  Textarea,
   ToastProvider,
   cx,
   dealKindOf,
@@ -114,6 +116,41 @@ describe('Input', () => {
     expect(input).toBeRequired();
     expect(screen.getByRole('alert')).toHaveTextContent('휴대폰 번호 11자리를 입력해 주세요');
     expect(input).toHaveAccessibleDescription('휴대폰 번호 11자리를 입력해 주세요');
+  });
+
+  it('merges a passed aria-describedby with its own help / error line', () => {
+    const { rerender } = render(
+      <>
+        <Input id="slug" label="주소" help="3~30자" aria-describedby="slug-status" />
+        <p id="slug-status">쓸 수 있는 주소예요.</p>
+      </>,
+    );
+    const input = screen.getByLabelText('주소');
+    expect(input).toHaveAttribute('aria-describedby', 'slug-help slug-status');
+    expect(input).toHaveAccessibleDescription('3~30자 쓸 수 있는 주소예요.');
+    rerender(
+      <>
+        <Input
+          id="slug"
+          label="주소"
+          error="3~30자로 입력해 주세요."
+          aria-describedby="slug-status"
+        />
+        <p id="slug-status" />
+      </>,
+    );
+    expect(input).toHaveAttribute('aria-describedby', 'slug-error slug-status');
+    expect(input).toHaveAccessibleDescription(/^3~30자로 입력해 주세요\.\s*$/);
+  });
+
+  it('Textarea keeps a counter id next to its error', () => {
+    render(
+      <>
+        <Textarea id="msg" label="내용" error="5자 이상" aria-describedby="msg-count" />
+        <span id="msg-count">3/1,000</span>
+      </>,
+    );
+    expect(screen.getByLabelText('내용')).toHaveAccessibleDescription('5자 이상 3/1,000');
   });
 });
 
@@ -334,6 +371,51 @@ describe('Modal', () => {
     render(<Modal open={false} onClose={() => {}} title="닫힘" />);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
+
+  it('keeps Tab inside, skipping controls Tab cannot reach (hidden panel, tabIndex -1)', async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <button type="button">뒤 페이지</button>
+        <Modal open onClose={() => {}} title="문의하기">
+          <input aria-label="이름" />
+          <button type="button">보내기</button>
+          <input aria-label="웹사이트" tabIndex={-1} />
+          <div hidden>
+            <button type="button">숨은 패널</button>
+          </div>
+          <div inert>
+            <a href="#x">비활성</a>
+          </div>
+        </Modal>
+      </>,
+    );
+    const dialog = screen.getByRole('dialog');
+    const send = screen.getByRole('button', { name: '보내기' });
+    send.focus();
+    await user.tab();
+    // 보내기 is the last control Tab can reach: wrap to the first one (the dialog's close button).
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '닫기' }));
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(send);
+  });
+
+  it('wraps from a focused non-tabbable heading too', async () => {
+    const user = userEvent.setup();
+    render(
+      <Modal open onClose={() => {}} title="완료">
+        <h3 tabIndex={-1}>보냈어요</h3>
+        <button type="button">확인</button>
+      </Modal>,
+    );
+    const heading = screen.getByRole('heading', { name: '보냈어요' });
+    heading.focus();
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '확인' }));
+    await user.tab();
+    expect(screen.getByRole('dialog')).toContainElement(document.activeElement as HTMLElement);
+  });
 });
 
 describe('FilterDropdown', () => {
@@ -416,6 +498,44 @@ describe('ListingCard', () => {
       screen.getByRole('button', { name: '신대 레이크파크 1단지 관심 매물에 추가' }),
     );
     expect(onFavoriteChange).toHaveBeenCalledWith(true);
+  });
+  it('renders every fact as its own item (the CSS hangs the separator on each)', () => {
+    const { container } = render(
+      <ListingCard
+        href="/listing/L01"
+        deal="sale"
+        price="4억 4,500"
+        title="신대 레이크파크 1단지"
+        meta={['전용 76㎡(23평)', '11/13층', '남서향']}
+      />,
+    );
+    const facts = container.querySelectorAll('.meta > span');
+    expect(Array.from(facts, (f) => f.textContent)).toEqual([
+      '전용 76㎡(23평)',
+      '11/13층',
+      '남서향',
+    ]);
+    // No separator characters in the text itself: a wrapped line can never start with one.
+    expect(container.querySelector('.meta')?.textContent).not.toContain('·');
+  });
+});
+
+describe('Breadcrumb', () => {
+  it('links every ancestor with a padded hit area and marks the current page', () => {
+    render(
+      <Breadcrumb
+        items={[
+          { label: '홈', href: '/' },
+          { label: '고객지원', href: '/support' },
+          { label: '고객센터', href: '/support' },
+        ]}
+      />,
+    );
+    const nav = screen.getByRole('navigation', { name: '현재 위치' });
+    const links = within(nav).getAllByRole('link');
+    expect(links.map((l) => l.textContent)).toEqual(['홈', '고객지원']);
+    links.forEach((l) => expect(l).toHaveClass('link'));
+    expect(within(nav).getByText('고객센터')).toHaveAttribute('aria-current', 'page');
   });
 });
 
@@ -725,9 +845,25 @@ describe('AgencyLogo', () => {
     const [small, large] = Array.from(container.querySelectorAll('[data-tone]'));
     expect(small).toHaveAttribute('data-tone', agencyLogoTone(seed));
     expect(large).toHaveAttribute('data-tone', agencyLogoTone(seed));
-    expect(small).toHaveTextContent(/^신$/);
+    // One initials rule at every size (the home cards are 64px, /agencies 56px).
+    expect(small).toHaveTextContent(/^신대$/);
     expect(large).toHaveTextContent(/^신대$/);
     expect(large).toHaveStyle({ width: '88px', borderRadius: '50%' });
+  });
+  it('limits the initials only when asked', () => {
+    const seed = Array.from({ length: 40 }, (_, i) => `office-${i}`).find(
+      (s) => agencyLogoTone(s) !== 'art',
+    )!;
+    const { container } = render(
+      <>
+        <AgencyLogo name="호수공원 공인중개사사무소" seed={seed} size={36} />
+        <AgencyLogo name="호수공원 공인중개사사무소" seed={seed} size={64} maxInitials={1} />
+      </>,
+    );
+    const [small, single] = Array.from(container.querySelectorAll('[data-tone]'));
+    expect(small).toHaveTextContent(/^호수$/);
+    expect(small).toHaveStyle({ fontSize: '12px' });
+    expect(single).toHaveTextContent(/^호$/);
   });
   it('draws the office illustration for art offices and when forced', () => {
     const artSeed = Array.from({ length: 40 }, (_, i) => `office-${i}`).find(

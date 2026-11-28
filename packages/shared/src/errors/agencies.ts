@@ -23,6 +23,16 @@ export const AgenciesErrorCode = {
   AGENCY_STATUS_CONFLICT: 'AGENCY_STATUS_CONFLICT',
   AGENCY_NOT_DELETABLE: 'AGENCY_NOT_DELETABLE',
   AGENCY_LICENSE_NUMBER_REQUIRED: 'AGENCY_LICENSE_NUMBER_REQUIRED',
+  // 사무소 홈페이지 + subscriptions. Statuses: *_NOT_FOUND 404, *_DUPLICATE 409 by convention;
+  // ALREADY_ACTIVE / INVALID_TRANSITION are thrown with 409 (AppException.conflict).
+  AGENCY_SITE_NOT_FOUND: 'AGENCY_SITE_NOT_FOUND',
+  AGENCY_SITE_SLUG_INVALID: 'AGENCY_SITE_SLUG_INVALID',
+  AGENCY_SITE_SLUG_RESERVED: 'AGENCY_SITE_SLUG_RESERVED',
+  AGENCY_SITE_SLUG_DUPLICATE: 'AGENCY_SITE_SLUG_DUPLICATE',
+  AGENCY_SITE_ALREADY_ACTIVE: 'AGENCY_SITE_ALREADY_ACTIVE',
+  AGENCY_SITE_INVALID_TRANSITION: 'AGENCY_SITE_INVALID_TRANSITION',
+  AGENCY_SUBSCRIPTION_NOT_FOUND: 'AGENCY_SUBSCRIPTION_NOT_FOUND',
+  AGENCY_SUBSCRIPTION_INVALID_PERIOD: 'AGENCY_SUBSCRIPTION_INVALID_PERIOD',
 } as const;
 
 export const AGENCIES_ERROR_MESSAGES: Record<keyof typeof AgenciesErrorCode, string> = {
@@ -49,4 +59,14 @@ export const AGENCIES_ERROR_MESSAGES: Record<keyof typeof AgenciesErrorCode, str
   AGENCY_STATUS_CONFLICT: '다른 관리자가 먼저 처리했습니다. 새로고침 후 다시 시도해 주세요.',
   AGENCY_NOT_DELETABLE: '승인 대기 또는 반려된 신청만 삭제할 수 있습니다.',
   AGENCY_LICENSE_NUMBER_REQUIRED: '소속공인중개사는 자격증 번호가 필요합니다.',
+  AGENCY_SITE_NOT_FOUND: '사무소 홈페이지를 찾을 수 없습니다.',
+  AGENCY_SITE_SLUG_INVALID:
+    '홈페이지 주소는 영문 소문자·숫자·하이픈(-) 3~30자로 입력해 주세요. 하이픈은 처음과 끝에 쓰거나 두 번 이어 쓸 수 없습니다.',
+  AGENCY_SITE_SLUG_RESERVED: '사용할 수 없는 홈페이지 주소입니다. 다른 주소를 입력해 주세요.',
+  AGENCY_SITE_SLUG_DUPLICATE: '이미 사용 중이거나 신청된 홈페이지 주소입니다.',
+  AGENCY_SITE_ALREADY_ACTIVE:
+    '이미 운영 중인 홈페이지가 있습니다. 주소 변경은 운영자에게 문의해 주세요.',
+  AGENCY_SITE_INVALID_TRANSITION: '현재 홈페이지 상태에서는 처리할 수 없습니다.',
+  AGENCY_SUBSCRIPTION_NOT_FOUND: '이용권 기록을 찾을 수 없습니다.',
+  AGENCY_SUBSCRIPTION_INVALID_PERIOD: '종료일은 시작일과 같거나 그 이후여야 합니다.',
 };

@@ -146,6 +146,13 @@ describe('floor', () => {
     expect(formatFloor({ floor: -1, totalFloors: 5 })).toBe('지하 1/5층');
     expect(formatFloor({ floorClass: FloorClass.LOW })).toBe('저층');
     expect(formatFloor({})).toBe('');
+    // A summary sends both the floor and its class: the known floor wins (11/13층, not 고/13층).
+    expect(formatFloor({ floor: 11, totalFloors: 13, floorClass: FloorClass.HIGH })).toBe(
+      '11/13층',
+    );
+    expect(formatFloor({ floor: null, totalFloors: 13, floorClass: FloorClass.HIGH })).toBe(
+      '고/13층',
+    );
   });
 });
 

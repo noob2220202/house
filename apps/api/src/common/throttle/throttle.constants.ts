@@ -12,6 +12,11 @@ export const THROTTLE = {
   REPORT: { default: { limit: 10, ttl: 60 * 60_000 } },
   /** 내놓기/구하기 creation (per-user daily caps are enforced separately, see DAILY_CAPS) */
   DEAL_REQUEST: { default: { limit: 5, ttl: 60 * 60_000 } },
+  /**
+   * 문의 (POST /inquiries, member follow-ups): per account, else per client IP. Guests have no
+   * account, so the per-IP daily cap (DAILY_CAPS.INQUIRY_CREATE) backs this up.
+   */
+  INQUIRY: { default: { limit: 5, ttl: 60_000 } },
   /** other public write endpoints (proposals, favorites, uploads) */
   WRITE: { default: { limit: 30, ttl: 60_000 } },
 } as const;
@@ -25,5 +30,9 @@ export const DAILY_CAPS = {
   PROPOSAL_CREATE: 50,
   REPORT_CREATE: 10,
   MEDIA_UPLOAD: 300,
+  /** Written inquiries per member, or per guest (keyed IP hash), and KST day. */
+  INQUIRY_CREATE: 10,
+  /** Follow-up messages of a member on their own inquiries per KST day. */
+  INQUIRY_FOLLOW_UP: 30,
 } as const;
 export type DailyCapKey = keyof typeof DAILY_CAPS;

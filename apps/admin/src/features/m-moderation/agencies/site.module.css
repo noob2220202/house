@@ -1,0 +1,185 @@
+/* 사무소 홈페이지 · 구독 panels on the agency detail + the /agencies/sites queue */
+.address {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.addressLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.host {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-num);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+a.host:hover {
+  color: var(--brand);
+}
+.visibility {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* decision buttons / hint below the info list */
+.decision {
+  margin-top: 16px;
+}
+.reason.reason {
+  margin: 16px 0 0;
+}
+
+/* mini preview of the office site header, painted with the site's own --brand* tokens */
+.preview {
+  margin: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface);
+}
+.previewBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--brand);
+  color: var(--brand-contrast);
+}
+.previewMark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--brand-contrast);
+  color: var(--brand);
+  font-size: 14px;
+  font-weight: 800;
+}
+.previewName {
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.previewBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--brand-soft);
+}
+.previewTagline {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.previewTagline.empty {
+  color: var(--text-muted);
+}
+.previewCta {
+  align-self: flex-start;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--brand-contrast);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.swatch::before {
+  content: '';
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+}
+
+/* subscriptions */
+.current {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 13px;
+  color: var(--text-3);
+}
+.current > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.subRow {
+  align-items: flex-start;
+}
+.subTitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.subActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+.emptyNote {
+  padding: 16px 20px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.quickRange {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 720px) {
+  .current {
+    padding: 12px 16px;
+  }
+  .subRow {
+    flex-direction: column;
+  }
+  .subActions {
+    justify-content: flex-start;
+  }
+  .emptyNote {
+    padding: 14px 16px;
+  }
+  .formGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

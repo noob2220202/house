@@ -70,6 +70,17 @@ describe('parseEnv', () => {
     );
   });
 
+  it('reads SITE_ROOT_DOMAIN as a bare, lower-cased host name (optional)', () => {
+    expect(parseEnv(base).SITE_ROOT_DOMAIN).toBeUndefined();
+    expect(parseEnv({ ...base, SITE_ROOT_DOMAIN: ' ' }).SITE_ROOT_DOMAIN).toBeUndefined();
+    expect(parseEnv({ ...base, SITE_ROOT_DOMAIN: 'SuncheonMap.kr.' }).SITE_ROOT_DOMAIN).toBe(
+      'suncheonmap.kr',
+    );
+    for (const bad of ['https://suncheonmap.kr', 'suncheonmap.kr:443', 'a..kr', '-x.kr', '*.kr']) {
+      expect(() => parseEnv({ ...base, SITE_ROOT_DOMAIN: bad })).toThrow(/SITE_ROOT_DOMAIN/);
+    }
+  });
+
   it('rejects missing required values', () => {
     expect(() => parseEnv({ ...base, DATABASE_URL: undefined })).toThrow(/DATABASE_URL/);
   });

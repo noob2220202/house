@@ -4,18 +4,23 @@ import {
   DealRequestType,
   DealRequestVisibility,
   DealType,
+  InquiryChannel,
+  InquirySource,
+  InquiryStatus,
   ProposalStatus,
+  type AgencyInquiryView,
 } from '@house/shared';
 import { z } from 'zod';
 import { mediaSchema, photoFromWire } from '@/features/w-deal/api/schemas';
+import { inquiryListingRefSchema, inquiryMessageSchema } from '@/features/w-inquiry/schemas';
 import { regionName } from '@/features/w-deal/lib/regions';
 
 /**
  * Response shapes of the broker inbox as the frontend expects them.
  *
- * Shapes of the `deal-requests` module of apps/api (see docs/frontend-integration/a-inbox.md).
- * There is no inquiry backend for launch (DECISIONS D5), so the inbox has no inquiry shapes. Each
- * response is parsed by exactly one schema below — fix the schema and its mock fixture together.
+ * Shapes of the `deal-requests` and `inquiries` modules of apps/api (see
+ * docs/frontend-integration/a-inbox.md). Each response is parsed by exactly one schema below — fix
+ * the schema and its mock fixture together.
  */
 
 const nullish = <T extends z.ZodType>(s: T) => s.nullable().optional();
@@ -191,8 +196,11 @@ export type AgencyDealRequestPage = z.infer<typeof agencyDealRequestPageSchema>;
 
 // ---------- inbox counters (/agent/notifications tiles) ----------
 
-/** GET /agencies/mine/dashboard — only the 새 요청 counter is read here. */
-export const inboxNewCountSchema = z.object({ dealRequests: z.object({ newCount: z.number() }) });
+/** GET /agencies/mine/dashboard — only the 새 요청 and 안 읽은 문의 counters are read here. */
+export const inboxNewCountSchema = z.object({
+  dealRequests: z.object({ newCount: z.number() }),
+  inquiries: z.object({ unreadCount: z.number() }).nullish(),
+});
 
 /** GET /agency/proposals — only the total is read (with `WAITING_PROPOSALS_QUERY`). */
 export const proposalTotalSchema = z.object({ total: z.number() });
@@ -202,3 +210,55 @@ export const WAITING_PROPOSALS_QUERY = { status: 'SENT,VIEWED', page: 1, pageSiz
 
 export const listingCandidatePageSchema = pageOf(inboxListingSchema);
 export type ListingCandidatePage = z.infer<typeof listingCandidatePageSchema>;
+
+// ---------- 문의함 (inquiries: written inquiries + logged contact events) ----------
+
+/**
+ * `AgencyInquiryView` — row (and, with `messages`, detail) of GET /agency/inquiries[/:id].
+ * MESSAGE = a text the customer left (name + phone as submitted); CALL / SMS / COPY = a logged
+ * 전화 / 문자 / 번호 복사 press (no text, no phone; a member shows as a masked name).
+ */
+export const agencyInquirySchema = z.object({
+  id: z.string(),
+  channel: z.enum(InquiryChannel).catch(InquiryChannel.MESSAGE),
+  status: z.enum(InquiryStatus).catch(InquiryStatus.NEW),
+  source: z.enum(InquirySource).catch(InquirySource.MAIN),
+  /** null = sent from the office page / the office's 홈페이지 home. */
+  listing: inquiryListingRefSchema.nullable().default(null),
+  customerName: z.string().nullable().default(null),
+  /** MESSAGE only. */
+  customerPhone: z.string().nullable().default(null),
+  isMember: z.boolean().default(false),
+  /** A written answer reaches the customer (MESSAGE of a member who has not withdrawn). */
+  canReply: z.boolean().default(false),
+  message: z.string().nullable().default(null),
+  /** Internal note of the office (never shown to the customer). */
+  memo: z.string().nullable().default(null),
+  handledByName: z.string().nullable().default(null),
+  readAt: z.string().nullable().default(null),
+  lastMessageAt: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string().nullish(),
+  /** Detail only: follow-ups and replies, oldest first. */
+  messages: z.array(inquiryMessageSchema).default([]),
+}) satisfies z.ZodType<Omit<AgencyInquiryView, 'updatedAt'>, unknown>;
+export type AgencyInquiry = z.infer<typeof agencyInquirySchema>;
+
+export const inquiryStatusCountsSchema = z.object({
+  NEW: z.number().default(0),
+  IN_PROGRESS: z.number().default(0),
+  DONE: z.number().default(0),
+});
+export type InquiryStatusCounts = z.infer<typeof inquiryStatusCountsSchema>;
+
+/** GET /agency/inquiries (`AgencyInquiryPage`). */
+export const agencyInquiryPageSchema = pageOf(agencyInquirySchema).extend({
+  unreadCount: z.number().default(0),
+  statusCounts: inquiryStatusCountsSchema.optional(),
+});
+export type AgencyInquiryPage = z.infer<typeof agencyInquiryPageSchema>;
+
+/** POST /agency/inquiries/read → `{ updated, unreadCount }` (read leniently: only a hint). */
+export const inquiryReadResultSchema = z
+  .object({ updated: z.number().optional(), unreadCount: z.number().optional() })
+  .nullish();

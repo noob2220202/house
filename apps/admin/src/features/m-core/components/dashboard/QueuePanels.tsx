@@ -2,7 +2,9 @@ import { BANNER_SLOT_SPECS, DealRequestType } from '@house/shared';
 import { Badge, EmptyState, Icon, StatusPill, cx } from '@house/ui';
 import Image from 'next/image';
 import Link from 'next/link';
+import { env } from '@/config/env';
 import { ADMIN_ROUTES } from '@/config/nav';
+import { siteHost, waitingDays, waitingLabel } from '@/features/m-moderation/lib/labels';
 import { formatCount, formatPercent, formatRelativeTime } from '@/lib/format';
 import type { DashboardDealRequest, DashboardQueues, ExpiringAd } from '../../api';
 import {
@@ -141,6 +143,67 @@ export function ExpiringAdsPanel({
                   <span className={styles.ext}>
                     연장 처리
                     <Icon name="chevron-right" size={14} />
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </DashPanel>
+  );
+}
+
+// ---------- 사무소 홈페이지 신청 ----------
+
+/** 사무소 홈페이지 requests, oldest first; each row opens the office's site panel to decide. */
+export function PendingSitesPanel({
+  queue,
+  now,
+}: {
+  queue: DashboardQueues['pendingAgencySites'];
+  now: Date;
+}) {
+  return (
+    <DashPanel
+      id="site-requests"
+      title="사무소 홈페이지 신청"
+      count={queue.total}
+      caption="주소가 상호와 맞는지 확인하고 승인해 주세요"
+      more={{ label: '홈페이지 관리', href: ADMIN_ROUTES.agencySites }}
+    >
+      {queue.items.length === 0 ? (
+        <PanelState>
+          <EmptyState
+            compact
+            icon="check-circle"
+            title="승인을 기다리는 홈페이지가 없어요"
+            description="중개사무소가 홈페이지 주소를 신청하면 이곳과 알림으로 알려 드립니다."
+          />
+        </PanelState>
+      ) : (
+        <ul className={styles.list}>
+          {queue.items.map((item) => {
+            const days = waitingDays(item.requestedAt, now);
+            return (
+              <li key={item.agencyId}>
+                <Link
+                  className={styles.li}
+                  href={`${ADMIN_ROUTES.agencies}/${encodeURIComponent(item.agencyId)}#site`}
+                >
+                  <span className={styles.liTop}>
+                    <span className={styles.liT}>{item.agencyName}</span>
+                  </span>
+                  <span className={styles.liM}>
+                    {item.requestedSlug && (
+                      <>
+                        <b>{siteHost(item.requestedSlug, env.siteRootDomain)}</b> ·{' '}
+                      </>
+                    )}
+                    {formatRelativeTime(item.requestedAt, now)}
+                  </span>
+                  <span className={styles.liR}>
+                    <Badge tone={days >= 3 ? 'warn' : 'neutral'}>{waitingLabel(days)}</Badge>
                   </span>
                 </Link>
               </li>

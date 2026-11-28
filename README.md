@@ -2,12 +2,15 @@
 
 순천시(전남광주통합특별시) 지역 부동산 공동중개 플랫폼의 모노레포입니다. 지도 기반 매물 탐색(아파트·분양권, 원룸·투룸,
 주택, 상업·업무, 토지), 여러 중개사무소의 공동중개, 내놓기/구하기, 중개사무소 찾기, 단지·실거래가 정보,
-그리고 배너·팝업·승인·신고·콘텐츠·설정·약관을 모두 다루는 관리자 백오피스를 제공합니다.
+중개사무소별 **사무소 홈페이지**(`https://<주소>.suncheonmap.kr`)와 **문의**(문의함), 그리고 배너·팝업·승인·신고·콘텐츠·설정·약관·
+홈페이지 승인·구독을 다루는 관리자 백오피스를 제공합니다.
 
 - 소셜 로그인: **카카오 · 네이버 · Google** (Apple 로그인 없음)
 - **SMS 발송·휴대폰 인증 없음** — 휴대폰 번호는 형식만 검증하는 연락처 필드입니다.
 - 서비스 이름: **순천부동산지도** (suncheonmap.kr · 관리자 admin.suncheonmap.kr). 지도: 카카오맵.
-- 현재 단계: 사용자 사이트 · 중개사 콘솔 · 관리자 · API · 배포 키트 모두 구현 완료, 출시 준비 단계([docs/STATUS.md](docs/STATUS.md)).
+- 현재 단계: **출시 준비**. 사용자 사이트 · 중개사 콘솔 · 관리자 화면은 모두 만들어져 **실제 API에 연결**되어 동작하고, API · 워커 ·
+  배포 키트도 구현되어 있습니다. 2026-11-28에 **사무소 홈페이지**, **구독**(지금은 무료 — 유료 적용 스위치는 꺼 둠), **문의**가
+  추가되었습니다([docs/agency-sites/SPEC.md](docs/agency-sites/SPEC.md)). 검증 결과는 [docs/STATUS.md](docs/STATUS.md).
 
 진행 현황: [docs/STATUS.md](docs/STATUS.md) · 설계 문서: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · 개발 규칙(영문): [docs/CONVENTIONS.md](docs/CONVENTIONS.md) ·
 배포: [docs/DEPLOY.md](docs/DEPLOY.md) · 운영: [docs/OPERATIONS.md](docs/OPERATIONS.md)
@@ -20,16 +23,17 @@ apps/
     prisma/schema/      Prisma 멀티 파일 스키마 + 마이그레이션 (모듈별 .prisma)
     prisma/seed.ts      멱등 시드 (기본 데이터 / SEED_DEMO=true 시 가상 데모 데이터, prisma/seed/)
     src/common/         가드·데코레이터·파이프·필터·감사로그·캐시·지오·페이지네이션
-    src/modules/        auth, listings, complexes, agencies, deal-requests, ads, media, admin
+    src/modules/        auth, listings, complexes, agencies, deal-requests, ads, media, admin, home, inquiries, seo
     test/               e2e 러너, 모듈별 env(test/env), 테스트 유틸·팩토리, e2e 스펙
-  web/        Next.js 15 사용자 사이트 + 중개사 콘솔(/agent) (포트 3000, /healthz)
+  web/        Next.js 15 사용자 사이트 + 중개사 콘솔(/agent) + 사무소 홈페이지(<주소>.도메인) (포트 3000, /healthz)
   admin/      Next.js 15 관리자 백오피스 (포트 3001, /healthz)
 packages/
   shared/     zod 스키마 · enum · 상수 · 에러 코드 · 유틸 (api와 프론트 공용)
   ui/         디자인 토큰 + 공용 React 컴포넌트 (web·admin 공용)
   config/     tsconfig / ESLint 프리셋
-deploy/       VPS 설치·배포·롤백·백업 스크립트 (install.sh, deploy.sh, rollback.sh …, PM2 + nginx)
-docs/         STATUS.md, ARCHITECTURE.md, CONVENTIONS.md, FRONTEND.md, DEPLOY.md, OPERATIONS.md, E2E.md, KEY_SETUP.md
+deploy/       VPS 설치·배포·롤백·백업 스크립트 (install.sh, deploy.sh, rollback.sh, sites.sh …, PM2 + nginx)
+docs/         STATUS.md, ARCHITECTURE.md, CONVENTIONS.md, FRONTEND.md, DEPLOY.md, OPERATIONS.md, E2E.md, KEY_SETUP.md,
+              agency-sites/ (사무소 홈페이지 · 구독 · 문의 SPEC.md, CONTRACT.md)
 e2e/          Playwright 실제 API 브라우저 테스트 (scripts/e2e-stack.sh, docs/E2E.md)
 ecosystem.config.cjs  PM2 프로세스 정의 (house-api, house-worker, house-web, house-admin)
 ```
@@ -102,6 +106,8 @@ Swagger 문서는 `SWAGGER_ENABLED=true`일 때 `http://localhost:4000/api/v1/do
 | media                  | house_test_media         | 7     |
 | admin                  | house_test_admin         | 8     |
 | core (공통 파이프라인) | house_test_core          | 9     |
+| inquiries              | house_test_inquiries     | 10    |
+| home                   | house_test_home          | 12    |
 
 개발 DB(`house_dev`)는 Redis 0번을 사용합니다.
 

@@ -248,6 +248,7 @@ export function seedDashboard(): AgencyDashboard {
     },
     // Filled from the a-inbox mock store by the route (same rows as /agent/requests).
     dealRequests: { newCount: 0, newSellCount: 0, newWantedCount: 0, items: [] },
+    inquiries: { unreadCount: 0, items: [] },
     expiringListings: [
       {
         id: 'L01',
@@ -332,6 +333,7 @@ export function emptyDashboard(): AgencyDashboard {
       favorites7d: 0,
     },
     dealRequests: { newCount: 0, newSellCount: 0, newWantedCount: 0, items: [] },
+    inquiries: { unreadCount: 0, items: [] },
     expiringListings: [],
     verificationDue: [],
   };

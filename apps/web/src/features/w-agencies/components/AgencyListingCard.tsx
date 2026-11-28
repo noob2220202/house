@@ -9,6 +9,8 @@ export interface AgencyListingCardProps {
   listing: AgencyListing;
   headingLevel?: 2 | 3 | 4;
   sizes?: string;
+  /** "중개사 N곳" when co-brokered (default). Off on the office's own site, which names only it. */
+  showBrokerCount?: boolean;
 }
 
 /** `ListingCard` for an office's listing (photo from the media URL, placeholder art otherwise). */
@@ -16,6 +18,7 @@ export function AgencyListingCard({
   listing,
   headingLevel = 3,
   sizes = '(max-width: 720px) 100vw, (max-width: 1080px) 50vw, 300px',
+  showBrokerCount = true,
 }: AgencyListingCardProps) {
   const card = toListingCard(listing);
   return (
@@ -29,7 +32,7 @@ export function AgencyListingCard({
       subtitle={card.subtitle}
       meta={card.meta}
       verifiedDate={card.verifiedDate}
-      brokerCount={card.brokerCount}
+      brokerCount={showBrokerCount ? card.brokerCount : undefined}
       placeholder={card.placeholder}
       headingLevel={headingLevel}
       media={

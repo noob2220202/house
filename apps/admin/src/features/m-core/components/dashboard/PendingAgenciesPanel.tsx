@@ -163,6 +163,8 @@ export function PendingAgenciesPanel({ total, items, now }: PendingAgenciesPanel
       );
       setIntent(null);
       void queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
+      // …and the /agencies queue, tab counts and an open detail of the same application.
+      void queryClient.invalidateQueries({ queryKey: ['admin-agencies'] });
     },
     onError: (error) => toast({ message: errorMessage(error), tone: 'error' }),
   });

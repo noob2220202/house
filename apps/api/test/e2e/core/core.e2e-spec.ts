@@ -289,6 +289,85 @@ describe('core pipeline (e2e)', () => {
     });
   });
 
+  describe('office-site origins (<slug>.<SITE_ROOT_DOMAIN>, user surface only)', () => {
+    const acao = 'access-control-allow-origin';
+    // PUBLIC_BASE_URL is http://localhost:3000 in tests → root domain "localhost".
+    const SITE = 'http://gangnam.localhost:3000';
+
+    it('CSRF: an anonymous user-surface write from an office host is accepted', async () => {
+      await t
+        .http()
+        .post('/api/v1/__probe/echo')
+        .set('Origin', SITE)
+        .send({ name: 'ab', count: 1 })
+        .expect(201);
+      await t
+        .http()
+        .post('/api/v1/__probe/echo')
+        .unset('Origin')
+        .set('Referer', `${SITE}/listing/1`)
+        .send({ name: 'ab', count: 1 })
+        .expect(201);
+    });
+
+    it('CORS: an office host never gets ACAO or credentials (its pages call the API same-origin)', async () => {
+      // A credentialed cross-origin read from an office host would carry the main-site session.
+      for (const path of ['/api/v1/__probe/public', '/api/v1/auth/me', '/api/v1/auth/csrf']) {
+        const res = await t.http().get(path).set('Origin', SITE);
+        expect(res.headers[acao]).toBeUndefined();
+        expect(res.headers['access-control-allow-credentials']).toBeUndefined();
+        expect(res.headers.vary).toMatch(/Origin/i);
+      }
+      const preflight = await t
+        .http()
+        .options('/api/v1/__probe/echo')
+        .set('Origin', SITE)
+        .set('Access-Control-Request-Method', 'POST')
+        .set('Access-Control-Request-Headers', 'content-type');
+      expect(preflight.headers[acao]).toBeUndefined();
+      expect(preflight.headers['access-control-allow-credentials']).toBeUndefined();
+    });
+
+    it('the admin surface refuses office hosts (CORS and CSRF)', async () => {
+      const admin = await createAdmin(t.prisma, { role: AdminRole.ADMIN });
+      const s = await loginAdmin(t.app, admin);
+      const read = await t
+        .http()
+        .get('/api/v1/admin/auth/csrf')
+        .set('Cookie', s.cookie)
+        .set('Origin', SITE);
+      expect(read.headers[acao]).toBeUndefined();
+      const res = await withSession(t.http().post('/api/v1/admin/__probe'), s)
+        .set('Origin', SITE)
+        .expect(403);
+      expect(res.body.code).toBe(ErrorCode.CSRF_FAILED);
+    });
+
+    it('refuses reserved labels, nested hosts, another port or protocol', async () => {
+      for (const origin of [
+        'http://admin.localhost:3000',
+        'http://www.localhost:3000',
+        'http://api.localhost:3000',
+        'http://a.b.localhost:3000',
+        'http://xn--hq1b.localhost:3000',
+        'http://gangnam.localhost:3001',
+        'http://gangnam.localhost',
+        'https://gangnam.localhost:3000',
+        'http://gangnam.localhost.evil.example:3000',
+      ]) {
+        const res = await t
+          .http()
+          .post('/api/v1/__probe/echo')
+          .set('Origin', origin)
+          .send({ name: 'ab', count: 1 })
+          .expect(403);
+        expect(res.body.code).toBe(ErrorCode.CSRF_FAILED);
+        const cors = await t.http().get('/api/v1/__probe/public').set('Origin', origin);
+        expect(cors.headers[acao]).toBeUndefined();
+      }
+    });
+  });
+
   describe('validation + errors', () => {
     it('zod DTO validates and returns parsed body', async () => {
       await t

@@ -42,6 +42,12 @@ describe('listingMeta', () => {
         }),
       ),
     ).toEqual(['전용 85㎡(26평)', '고/25층', '남향']);
+    // A published floor comes with its class: the exact floor is shown (same rule as /map).
+    expect(
+      listingMeta(
+        item({ exclusiveArea: 84.98, floor: 11, floorClass: FloorClass.HIGH, totalFloors: 13 }),
+      ),
+    ).toEqual(['전용 85㎡(26평)', '11/13층']);
   });
 
   it('oneroom: room type · exact floor · 준공 연도', () => {

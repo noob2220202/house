@@ -88,7 +88,7 @@ export const MOCK_TERMS: readonly MockTermsDocument[] = [
  * Purpose consents (D8) — given with one submission (등록 신청, 합류, 내놓기·구하기), never on the
  * signup screen, so they are not part of MOCK_TERMS (GET /terms, /me/consents). Served by
  * GET /terms/:type like the seeded sample documents of the real API: the same text as
- * apps/api/prisma/seed/base.ts (TERMS_V1, DEAL_REQUEST_*_BODY) — keep them in sync. The consent
+ * apps/api/prisma/seed/base.ts (TERMS_V1, DEAL_REQUEST_*_BODY, INQUIRY_PRIVACY_BODY) — keep them in sync. The consent
  * UI renders this text and submits its version.
  */
 export const MOCK_ACTION_CONSENT_TERMS: readonly MockTermsDocument[] = (
@@ -133,6 +133,17 @@ export const MOCK_ACTION_CONSENT_TERMS: readonly MockTermsDocument[] = (
         '- 연락처를 공개한 중개사무소에만 제공하는 항목: 이름·휴대폰 번호와 (내놓기) 도로명 주소·동·호수·정확한 위치·층·전용면적·사진·설명. 제안을 수락하면서 공개를 선택하거나 요청 상세에서 직접 공개한 중개사무소만 해당하며, 공개는 언제든 취소할 수 있습니다.',
         '- 보유·이용 기간: 요청이 끝난 날부터 30일까지. 거래 완료된 요청은 30일이 지나면, 공개를 취소하거나 요청이 취소·기간 만료·운영자 종료되면 그때부터 중개사무소에서도 연락처와 상세 정보를 볼 수 없습니다.',
         '- 동의를 거부할 권리와 불이익: 동의하지 않을 수 있으며, 동의하지 않으면 요청을 등록할 수 없습니다.',
+      ],
+    ],
+    [
+      'INQUIRY_PRIVACY',
+      '[필수] 문의 개인정보 수집·이용 및 제공 동의',
+      [
+        '- 수집 항목: 이름, 연락처(휴대폰 또는 전화번호), 문의 내용 (회원은 회원 정보와 연결되어 저장됩니다)',
+        '- 수집·이용 목적: 문의 응대 — 문의를 받은 중개사무소의 답변과 연락, 문의 내역 관리',
+        '- 제공받는 자: 문의를 받는 중개사무소 (제공 항목: 이름, 연락처, 문의 내용과 문의한 매물, 제공 목적: 문의 응대)',
+        '- 보유·이용 기간: 마지막 답변(또는 마지막 문의) 후 1년. 그 전에 회원 탈퇴 시 즉시 파기합니다.',
+        '- 동의를 거부할 권리와 불이익: 동의하지 않을 수 있으며, 동의하지 않으면 문의를 남길 수 없습니다. 전화·문자로 직접 연락하는 데에는 영향이 없습니다.',
       ],
     ],
   ] as const

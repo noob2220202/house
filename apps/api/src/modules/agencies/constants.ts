@@ -25,6 +25,10 @@ export const REGISTRY_CACHE_TTL_SECONDS = 60 * 60 * 24;
 export const REPRESENTATIVE_LISTINGS_LIMIT = 6;
 export const PROFILE_MEMBERS_LIMIT = 50;
 export const STATUS_HISTORY_LIMIT = 50;
+/** FEATURES flags read by the 사무소 홈페이지 subscription gate (bumped on FEATURES writes). */
+export const FEATURES_CACHE_TTL_SECONDS = 60;
+/** Public office site (GET /sites/:slug), same lifetime as the profile it embeds. */
+export const SITE_CACHE_TTL_SECONDS = 60;
 
 /** Console dashboard (GET /agencies/mine/dashboard). */
 export const DASHBOARD_LIST_LIMIT = 20;

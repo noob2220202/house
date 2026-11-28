@@ -109,4 +109,14 @@ elif [[ -e "$CERT" ]]; then
 else
   row "만료" "인증서 없음 (TLS_ENABLED=${TLS_ENABLED})"
 fi
+
+step "사무소 홈페이지"
+row "HTTPS 서버" "$(find /etc/nginx/house/sites -maxdepth 1 -name '*.conf' 2>/dev/null | wc -l)곳 (/etc/nginx/house/sites, sites.sh 가 관리)"
+if [[ "$TLS_ENABLED" != true ]]; then
+  row "타이머" "사용 안 함 (TLS_ENABLED=false)"
+elif has_systemd; then
+  row "타이머" "house-sites.timer $(systemctl is-active house-sites.timer 2>/dev/null) · 마지막 결과 $(systemctl show -p Result --value house-sites.service 2>/dev/null) (journalctl -u house-sites)"
+else
+  row "타이머" "cron 5분마다 (/var/log/house-sites.log)"
+fi
 echo

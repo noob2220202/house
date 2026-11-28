@@ -1,5 +1,5 @@
 'use client';
-import { AGENCY_STATUS_LABEL, AgencyStatus } from '@house/shared';
+import { AGENCY_STATUS_LABEL, AdminAgencySort, AgencyStatus } from '@house/shared';
 import {
   Badge,
   Button,
@@ -115,6 +115,8 @@ export function AgenciesListView() {
     () => ({
       status: tab === 'ALL' ? undefined : tab,
       q: values.q || undefined,
+      // The API defaults to OLDEST (the review queue); every other tab reads newest first.
+      sort: tab === 'PENDING' ? AdminAgencySort.OLDEST : AdminAgencySort.NEWEST,
       page: values.page,
       pageSize: MOD_PAGE_SIZE,
     }),
@@ -145,6 +147,8 @@ export function AgenciesListView() {
       setApproving(null);
       setRejecting(null);
       void queryClient.invalidateQueries({ queryKey: ['admin-agencies'] });
+      // The sidebar badge and the dashboard approval queue read the same applications.
+      void queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] });
     },
     onError: (error) => {
       // The reject dialog shows its error inline; approvals report through a toast.

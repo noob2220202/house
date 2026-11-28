@@ -9,6 +9,7 @@ export const NOTIFICATION_KIND_META: Record<
   { label: string; icon: IconName; tone: 'brand' | 'accent' | 'danger' | 'neutral' }
 > = {
   AGENCY_APPLIED: { label: '중개사 승인', icon: 'store', tone: 'accent' },
+  AGENCY_SITE_REQUEST: { label: '홈페이지 신청', icon: 'link', tone: 'accent' },
   LISTING_REVIEW: { label: '매물 검수', icon: 'building', tone: 'brand' },
   REPORT_RECEIVED: { label: '신고', icon: 'siren', tone: 'danger' },
   DEAL_REQUEST_UNASSIGNED: { label: '내놓기·구하기', icon: 'home-up', tone: 'brand' },

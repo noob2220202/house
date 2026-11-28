@@ -22,12 +22,28 @@ export interface AboutNap {
 
 export interface AboutViewProps {
   nap: AboutNap;
+  /**
+   * false when 사이트 설정 could not be read (API unreachable → empty settings). The operator
+   * section is then left out instead of claiming the operator has not filled it in. Default true.
+   */
+  settingsLoaded?: boolean;
   /** 지역 with data and public listings (null when the API is unreachable). */
   coverage: { regions: number; listings: number } | null;
 }
 
+/** Seeded / template values the operator has not replaced yet: "[상호]", "(상호 입력)". */
+const PLACEHOLDER = /^(\[.*\]|\(.*입력\))$/;
+
+/** The rows that hold a real value (blank and placeholder values are dropped). */
+export function filledFacts(rows: readonly [string, string | null][]): [string, string][] {
+  return rows.flatMap(([k, v]) => {
+    const t = v?.trim();
+    return t && !PLACEHOLDER.test(t) ? [[k, t] as [string, string]] : [];
+  });
+}
+
 /** /about — 서비스 소개: who runs it, what it covers, where the data comes from, how to reach us. */
-export function AboutView({ nap, coverage }: AboutViewProps) {
+export function AboutView({ nap, coverage, settingsLoaded = true }: AboutViewProps) {
   const operator: [string, string | null][] = [
     ['상호', nap.companyName],
     ['대표', nap.ceoName],
@@ -40,8 +56,8 @@ export function AboutView({ nap, coverage }: AboutViewProps) {
     ['이메일', nap.email],
     ['운영 시간', nap.hours],
   ];
-  const filled = (rows: [string, string | null][]) =>
-    rows.filter((r): r is [string, string] => r[1] !== null && r[1].trim() !== '');
+  const operatorFacts = filledFacts(operator);
+  const contactFacts = filledFacts(contact);
 
   return (
     <div className={`container ${styles.page}`}>
@@ -129,20 +145,23 @@ export function AboutView({ nap, coverage }: AboutViewProps) {
         </ul>
       </Section>
 
-      <Section id="operator" title="운영자 정보">
-        {filled(operator).length > 0 ? (
-          <dl className={styles.dl}>
-            {filled(operator).map(([k, v]) => (
-              <Fragment key={k}>
-                <dt>{k}</dt>
-                <dd>{v}</dd>
-              </Fragment>
-            ))}
-          </dl>
-        ) : (
-          <p className={styles.prose}>운영자 정보는 준비 중이에요.</p>
-        )}
-      </Section>
+      {(operatorFacts.length > 0 || settingsLoaded) && (
+        <Section id="operator" title="운영자 정보">
+          {operatorFacts.length > 0 ? (
+            <dl className={styles.dl}>
+              {operatorFacts.map(([k, v]) => (
+                <Fragment key={k}>
+                  <dt>{k}</dt>
+                  <dd>{v}</dd>
+                </Fragment>
+              ))}
+            </dl>
+          ) : (
+            // Settings were read and hold nothing real yet.
+            <p className={styles.prose}>운영자 정보는 준비 중이에요.</p>
+          )}
+        </Section>
+      )}
 
       <Section
         id="contact"
@@ -153,9 +172,9 @@ export function AboutView({ nap, coverage }: AboutViewProps) {
           </Button>
         }
       >
-        {filled(contact).length > 0 ? (
+        {contactFacts.length > 0 ? (
           <dl className={styles.dl}>
-            {filled(contact).map(([k, v]) => (
+            {contactFacts.map(([k, v]) => (
               <Fragment key={k}>
                 <dt>{k}</dt>
                 <dd>

@@ -79,16 +79,34 @@
 .link:focus-visible {
   box-shadow: none;
 }
+/*
+ * Facts with a '·' between them that never starts a line: every item carries its dot in its own
+ * leading padding, and the row is pulled left by that much and clipped there, so the dot of the
+ * first item on each line falls outside. Items stay whole and ellipsize when wider than the card.
+ */
 .meta {
+  --sep: 20px;
   display: flex;
   flex-wrap: wrap;
-  gap: 0 8px;
+  margin-left: calc(-1 * var(--sep));
+  clip-path: inset(0 0 0 var(--sep));
   font-size: 14px;
   color: var(--text-3);
 }
-.meta span + span::before {
+.meta > span {
+  position: relative;
+  max-width: 100%;
+  padding-left: var(--sep);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.meta > span::before {
   content: '·';
-  margin-right: 8px;
+  position: absolute;
+  left: 0;
+  width: var(--sep);
+  text-align: center;
   color: var(--grey-300);
 }
 .foot {

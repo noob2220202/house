@@ -255,6 +255,20 @@ describe('auth: /me account endpoints (e2e)', () => {
       await t.prisma.userConsent.create({
         data: { userId: user.id, termsDocumentId: terms.service.id, agreed: true, ip: '1.2.3.4' },
       });
+      const { agency } = await createAgency(t.prisma);
+      const inquiry = await t.prisma.inquiry.create({
+        data: {
+          agencyId: agency.id,
+          userId: user.id,
+          channel: 'MESSAGE',
+          status: 'NEW',
+          source: 'MAIN',
+          customerName: '홍길동',
+          customerPhone: '01012345678',
+          message: '주말에 집 볼 수 있을까요?',
+          lastMessageAt: new Date(),
+        },
+      });
       const other = await loginUser(t.app, user);
       await withSession(t.http().post('/api/v1/me/withdraw'), s)
         .send({ confirm: true, reason: '이사' })
@@ -267,6 +281,16 @@ describe('auth: /me account endpoints (e2e)', () => {
       expect(row.email).not.toBeNull(); // kept during the grace period
       expect(await t.prisma.identity.count({ where: { userId: user.id } })).toBe(0);
       await withSession(t.http().get('/api/v1/auth/me'), other).expect(401);
+      // 문의: erased in the withdrawal transaction itself, not after the grace period.
+      const scrubbedInquiry = await t.prisma.inquiry.findUniqueOrThrow({
+        where: { id: inquiry.id },
+      });
+      expect(scrubbedInquiry).toMatchObject({
+        customerName: null,
+        customerPhone: null,
+        message: null,
+      });
+      expect(scrubbedInquiry.piiScrubbedAt).not.toBeNull();
 
       const scrubber = t.app.get(PiiScrubService);
       expect(await scrubber.scrubDue(new Date())).toBe(0);

@@ -5,59 +5,78 @@ profile, and the 표시·광고 disclosure data listings need. Read `docs/CONVEN
 
 ## Layout
 
-| Path                                       | What                                                                                                                                                                                                                                            |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `controllers/my-agency.controller.ts`      | `/agencies` (register), `/agencies/mine/**`, `/agencies/join`, `/agencies/membership`                                                                                                                                                           |
-| `controllers/agencies.controller.ts`       | public `/agencies`, `/agencies/map`, `/agencies/:id` (registered after the one above)                                                                                                                                                           |
-| `controllers/admin-agencies.controller.ts` | `/admin/agencies/**` review endpoints                                                                                                                                                                                                           |
-| `services/agencies.service.ts`             | **exported** `AgenciesService` for other modules                                                                                                                                                                                                |
-| `services/agency-registration.service.ts`  | register, resubmit, own profile, private documents                                                                                                                                                                                              |
-| `services/agency-members.service.ts`       | staff list/update/remove, invites, join, leave                                                                                                                                                                                                  |
-| `services/agency-invite.store.ts`          | invite codes in Redis (sha256 only, single-use via GETDEL, TTL)                                                                                                                                                                                 |
-| `services/agency-public.service.ts`        | search, map clusters/markers (cached tiles), profile (cached)                                                                                                                                                                                   |
-| `services/agency-review.service.ts`        | admin queue/detail/decision (+history, notification, audit), document stream, registry                                                                                                                                                          |
-| `services/agency-dashboard.service.ts`     | **exported** console-home numbers (listings, daily views, expiring / 실매물 확인 due)                                                                                                                                                           |
-| `domain/dashboard.ts`                      | pure helpers: KST days, views from daily snapshots, dashboard listing rows                                                                                                                                                                      |
-| `jobs/agencies.processor.ts`               | queue `agencies`: hourly `agencies.daily-stats` snapshot, daily `agencies.purge-rejected` (only when `JOBS_ENABLED`)                                                                                                                            |
-| `services/agency-retention.service.ts`     | 개인정보 파기: rejected (not resubmitted) applications 1 year after the latest rejection — agency row hard-deleted (staff, documents, history cascade), document uploads soft-deleted + files removed, audited `agency.purge-rejected` (SYSTEM) |
-| `agency-search.repository.ts`              | raw PostGIS / pg_trgm SQL (bound parameters only)                                                                                                                                                                                               |
-| `clients/broker-registry.client.ts`        | registry lookup interface + data.go.kr implementation (`BROKER_REGISTRY` token)                                                                                                                                                                 |
-| `ports/agency-media.port.ts`               | media checks / URLs via MediaService (`AGENCY_MEDIA`, same-tx `assertUsable`)                                                                                                                                                                   |
-| `ports/agency-listings.reader.ts`          | listing counts + 대표 매물 until ListingsModule exposes a reader                                                                                                                                                                                |
-| `ports/agency-listings.sync.ts`            | listing side effects: counters on suspend/reinstate, contacts of departed staff                                                                                                                                                                 |
+| Path                                           | What                                                                                                                                                                                                                                            |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `controllers/my-agency.controller.ts`          | `/agencies` (register), `/agencies/mine/**`, `/agencies/join`, `/agencies/membership`                                                                                                                                                           |
+| `controllers/agencies.controller.ts`           | public `/agencies`, `/agencies/map`, `/agencies/:id` (registered after the one above)                                                                                                                                                           |
+| `controllers/admin-agencies.controller.ts`     | `/admin/agencies/**` review endpoints                                                                                                                                                                                                           |
+| `controllers/my-agency-site.controller.ts`     | `/agencies/mine/site/**` 사무소 홈페이지 of the caller's office (registered first)                                                                                                                                                              |
+| `controllers/sites.controller.ts`              | public `/sites/:slug` (office-site pages of the web)                                                                                                                                                                                            |
+| `controllers/admin-agency-sites.controller.ts` | `/admin/agency-sites`, `/admin/agencies/:id/site[/decision]`, `/admin/agencies/:id/subscriptions`, `/admin/subscriptions/:id`                                                                                                                   |
+| `services/agency-sites.service.ts`             | owner request / colour + 한 줄 소개, availability, public site read (cached)                                                                                                                                                                    |
+| `services/agency-site-review.service.ts`       | admin queue + decisions (approve with edited slug, reject, suspend, resume; notification, audit)                                                                                                                                                |
+| `services/agency-subscriptions.service.ts`     | admin 이용권 records (offline payment; create / end / cancel, audited)                                                                                                                                                                          |
+| `services/agency-site-gate.service.ts`         | **exported** office host URLs, https readiness, subscription gate (FEATURES + SITE periods, KST days)                                                                                                                                           |
+| `domain/sites.ts`                              | pure rules: decision transitions, servable / live, row → view mappers                                                                                                                                                                           |
+| `services/agencies.service.ts`                 | **exported** `AgenciesService` for other modules                                                                                                                                                                                                |
+| `services/agency-registration.service.ts`      | register, resubmit, own profile, private documents                                                                                                                                                                                              |
+| `services/agency-members.service.ts`           | staff list/update/remove, invites, join, leave                                                                                                                                                                                                  |
+| `services/agency-invite.store.ts`              | invite codes in Redis (sha256 only, single-use via GETDEL, TTL)                                                                                                                                                                                 |
+| `services/agency-public.service.ts`            | search, map clusters/markers (cached tiles), profile (cached)                                                                                                                                                                                   |
+| `services/agency-review.service.ts`            | admin queue/detail/decision (+history, notification, audit), document stream, registry                                                                                                                                                          |
+| `services/agency-dashboard.service.ts`         | **exported** console-home numbers (listings, daily views, expiring / 실매물 확인 due)                                                                                                                                                           |
+| `domain/dashboard.ts`                          | pure helpers: KST days, views from daily snapshots, dashboard listing rows                                                                                                                                                                      |
+| `jobs/agencies.processor.ts`                   | queue `agencies`: hourly `agencies.daily-stats` snapshot, daily `agencies.purge-rejected` (only when `JOBS_ENABLED`)                                                                                                                            |
+| `services/agency-retention.service.ts`         | 개인정보 파기: rejected (not resubmitted) applications 1 year after the latest rejection — agency row hard-deleted (staff, documents, history cascade), document uploads soft-deleted + files removed, audited `agency.purge-rejected` (SYSTEM) |
+| `agency-search.repository.ts`                  | raw PostGIS / pg_trgm SQL (bound parameters only)                                                                                                                                                                                               |
+| `clients/broker-registry.client.ts`            | registry lookup interface + data.go.kr implementation (`BROKER_REGISTRY` token)                                                                                                                                                                 |
+| `ports/agency-media.port.ts`                   | media checks / URLs via MediaService (`AGENCY_MEDIA`, same-tx `assertUsable`)                                                                                                                                                                   |
+| `ports/agency-listings.reader.ts`              | listing counts + 대표 매물 until ListingsModule exposes a reader                                                                                                                                                                                |
+| `ports/agency-listings.sync.ts`                | listing side effects: counters on suspend/reinstate, contacts of departed staff                                                                                                                                                                 |
 
 Shared schemas, types, rules (status transitions, 등록번호/사업자번호 normalization), business-hours
 and disclosure helpers live in `packages/shared/src/agencies/`.
 
 ## Endpoints (prefix `/api/v1`)
 
-| Method       | Path                                                                             | Auth                              | Notes                                                    |
-| ------------ | -------------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------- |
-| GET          | `/agencies?q&emdCode&bbox&specialties&openNow&handlesPresale&sort&page&pageSize` | Public                            | APPROVED only; trigram on name / 대표 / address ◇        |
-| GET          | `/agencies/map?bbox&zoom&q&specialties`                                          | Public                            | REGION_CLUSTERS / GRID_CLUSTERS / MARKERS by zoom        |
-| GET          | `/agencies/regions`                                                              | Public                            | 읍면동 facet `{ total, items[] }`, cached ‡              |
-| GET          | `/agencies/:id`                                                                  | Public                            | profile, staff, listing counts, 대표 매물, disclosure    |
-| POST         | `/agencies`                                                                      | User                              | 등록 신청 → PENDING (등록증 + D8 `consents` required)    |
-| GET          | `/agencies/mine`                                                                 | User (owner or staff)             | owner: full view; staff: reduced view (B2) §             |
-| GET          | `/agencies/mine/dashboard`                                                       | AGENT / AGENCY_OWNER              | console home; served by the deal-requests module ¶       |
-| PATCH        | `/agencies/mine`                                                                 | User (owner)                      | profile (PENDING/APPROVED); APPROVED: 소재지 → 400 \*    |
-| POST         | `/agencies/mine/resubmit`                                                        | User (owner)                      | REJECTED → PENDING; 409 if active elsewhere; `consents`? |
-| GET/POST     | `/agencies/mine/documents`                                                       | User (owner)                      | private document refs (media AGENCY_DOCUMENT, PRIVATE)   |
-| DELETE       | `/agencies/mine/documents/:docId`                                                | User (owner)                      | only before approval; keeps ≥ 1 등록증                   |
-| GET          | `/agencies/mine/members`                                                         | AGENCY_OWNER                      | paginated, `includeRemoved`                              |
-| PATCH/DELETE | `/agencies/mine/members/:memberId`                                               | AGENCY_OWNER                      | remove downgrades the agent to USER + updates sessions   |
-| GET/POST     | `/agencies/mine/invites`                                                         | AGENCY_OWNER                      | code returned once on creation                           |
-| DELETE       | `/agencies/mine/invites/:inviteId`                                               | AGENCY_OWNER                      |                                                          |
-| POST         | `/agencies/join`                                                                 | User                              | redeem code → AGENT (THROTTLE.AUTH), `consents` D8       |
-| GET          | `/agencies/membership`                                                           | User                              | caller's live membership                                 |
-| POST         | `/agencies/membership/leave`                                                     | User (agent)                      | owners cannot leave                                      |
-| GET          | `/admin/agencies?status&q&sort&page`                                             | Admin (OPERATOR+)                 | review queue (status=PENDING, oldest first)              |
-| GET          | `/admin/agencies/:id?includeRemoved`                                             | Admin                             | full contacts; each view audited `agency.pii-view` †     |
-| DELETE       | `/admin/agencies/:id` `{ reason }`                                               | Admin (OPERATOR+)                 | soft-delete a PENDING / REJECTED application, audited    |
-| POST         | `/admin/agencies/:id/decision`                                                   | Admin (suspend/reinstate: ADMIN+) | APPROVED / REJECTED / SUSPENDED (+reason), audited       |
-| PATCH        | `/admin/agencies/:id/location`                                                   | Admin (OPERATOR+)                 | 소재지 change after 이전신고 check (+reason), audited    |
-| GET          | `/admin/agencies/:id/documents/:docId/file`                                      | Admin                             | streams the private file, `no-store`, view audited       |
-| GET          | `/admin/agencies/:id/registry-check?refresh`                                     | Admin                             | MATCH / MISMATCH / NOT_FOUND / UNAVAILABLE               |
+| Method       | Path                                                                             | Auth                              | Notes                                                             |
+| ------------ | -------------------------------------------------------------------------------- | --------------------------------- | ----------------------------------------------------------------- |
+| GET          | `/agencies?q&emdCode&bbox&specialties&openNow&handlesPresale&sort&page&pageSize` | Public                            | APPROVED only; trigram on name / 대표 / address ◇                 |
+| GET          | `/agencies/map?bbox&zoom&q&specialties`                                          | Public                            | REGION_CLUSTERS / GRID_CLUSTERS / MARKERS by zoom                 |
+| GET          | `/agencies/regions`                                                              | Public                            | 읍면동 facet `{ total, items[] }`, cached ‡                       |
+| GET          | `/agencies/:id`                                                                  | Public                            | profile, staff, listing counts, 대표 매물, disclosure             |
+| POST         | `/agencies`                                                                      | User                              | 등록 신청 → PENDING (등록증 + D8 `consents` required)             |
+| GET          | `/agencies/mine`                                                                 | User (owner or staff)             | owner: full view; staff: reduced view (B2) §                      |
+| GET          | `/agencies/mine/dashboard`                                                       | AGENT / AGENCY_OWNER              | console home; served by the deal-requests module ¶                |
+| PATCH        | `/agencies/mine`                                                                 | User (owner)                      | profile (PENDING/APPROVED); APPROVED: 소재지 → 400 \*             |
+| POST         | `/agencies/mine/resubmit`                                                        | User (owner)                      | REJECTED → PENDING; 409 if active elsewhere; `consents`?          |
+| GET/POST     | `/agencies/mine/documents`                                                       | User (owner)                      | private document refs (media AGENCY_DOCUMENT, PRIVATE)            |
+| DELETE       | `/agencies/mine/documents/:docId`                                                | User (owner)                      | only before approval; keeps ≥ 1 등록증                            |
+| GET          | `/agencies/mine/members`                                                         | AGENCY_OWNER                      | paginated, `includeRemoved`                                       |
+| PATCH/DELETE | `/agencies/mine/members/:memberId`                                               | AGENCY_OWNER                      | remove downgrades the agent to USER + updates sessions            |
+| GET/POST     | `/agencies/mine/invites`                                                         | AGENCY_OWNER                      | code returned once on creation                                    |
+| DELETE       | `/agencies/mine/invites/:inviteId`                                               | AGENCY_OWNER                      |                                                                   |
+| POST         | `/agencies/join`                                                                 | User                              | redeem code → AGENT (THROTTLE.AUTH), `consents` D8                |
+| GET          | `/agencies/membership`                                                           | User                              | caller's live membership                                          |
+| POST         | `/agencies/membership/leave`                                                     | User (agent)                      | owners cannot leave                                               |
+| GET          | `/admin/agencies?status&q&sort&page`                                             | Admin (OPERATOR+)                 | review queue (status=PENDING, oldest first)                       |
+| GET          | `/admin/agencies/:id?includeRemoved`                                             | Admin                             | full contacts; each view audited `agency.pii-view` †              |
+| DELETE       | `/admin/agencies/:id` `{ reason }`                                               | Admin (OPERATOR+)                 | soft-delete a PENDING / REJECTED application, audited             |
+| POST         | `/admin/agencies/:id/decision`                                                   | Admin (suspend/reinstate: ADMIN+) | APPROVED / REJECTED / SUSPENDED (+reason), audited                |
+| PATCH        | `/admin/agencies/:id/location`                                                   | Admin (OPERATOR+)                 | 소재지 change after 이전신고 check (+reason), audited             |
+| GET          | `/admin/agencies/:id/documents/:docId/file`                                      | Admin                             | streams the private file, `no-store`, view audited                |
+| GET          | `/admin/agencies/:id/registry-check?refresh`                                     | Admin                             | MATCH / MISMATCH / NOT_FOUND / UNAVAILABLE                        |
+| GET          | `/agencies/mine/site`                                                            | AGENCY_OWNER / AGENT (read)       | `MyAgencySiteResponse` (site, rootDomain, 이용권 line) ▲          |
+| GET          | `/agencies/mine/site/availability?slug`                                          | AGENCY_OWNER                      | `{ slug, available, reason: INVALID / RESERVED / TAKEN }`         |
+| POST         | `/agencies/mine/site` `{ slug, color?, tagline? }`                               | AGENCY_OWNER                      | request / re-request → REQUESTED (200); 409 if ACTIVE / SUSPENDED |
+| PATCH        | `/agencies/mine/site` `{ color?, tagline? }`                                     | AGENCY_OWNER                      | any status; bumps the public cache                                |
+| GET          | `/sites/:slug`                                                                   | Public                            | `PublicAgencySite`; 404 unless servable ▲                         |
+| GET          | `/admin/agency-sites?status&q&page&pageSize`                                     | Admin (OPERATOR+)                 | REQUESTED oldest first, else recently changed first               |
+| GET          | `/admin/agencies/:id/site`                                                       | Admin                             | `{ site: AgencySiteView \| null }`                                |
+| POST         | `/admin/agencies/:id/site/decision`                                              | Admin (suspend/resume: ADMIN+)    | APPROVE (+slug) / REJECT / SUSPEND (+reason) / RESUME, audited    |
+| GET          | `/admin/agencies/:id/subscriptions`                                              | Admin                             | `{ items, current: { SITE, PLATFORM } }`                          |
+| POST         | `/admin/agencies/:id/subscriptions`                                              | Admin (ADMIN+)                    | record a paid period (201), audited                               |
+| PATCH        | `/admin/subscriptions/:id` `{ endsOn?, memo?, cancel? }`                         | Admin (ADMIN+)                    | end / extend / cancel, audited                                    |
 
 ◇ `GET /agencies` → `Paginated<AgencySearchItem>` (`AgencySummary` + `businessHours` +
 `handlesPresale`). `openNow=true` keeps offices open at the request time in Asia/Seoul by their
@@ -150,6 +169,41 @@ location responses mask owner and staff contacts; the full detail (owner name/em
 phone/license number) writes an `agency.pii-view` audit row (field names only). REMOVED staff are
 listed only with `includeRemoved=true`, phones masked.
 
+### 사무소 홈페이지 + 이용권 (docs/agency-sites/SPEC.md §3.1)
+
+▲ Lifecycle: the owner requests a slug (`REQUESTED`; again after `REJECTED`, or to change a pending
+request) → an admin approves (may edit the slug; `ACTIVE`, owner notified `AGENCY_SITE_APPROVED`),
+rejects with a reason (`REJECTED`, `AGENCY_SITE_REJECTED`), suspends a live site with a reason
+(`SUSPENDED`, ADMIN+) or resumes it. Suspend / resume notify nobody. Every write is audited
+(`agency_site.request|update|approve|reject|suspend|resume`, resource `AgencySite`) and bumps the
+public cache. A slug is "taken" while another office holds it as its approved slug (kept through
+SUSPENDED) or as an open request; claims are serialized by `lockSiteSlug`, and the partial unique
+indexes `agency_sites_slug_key` / `agency_sites_requested_slug_open_key` turn a race into
+`409 AGENCY_SITE_SLUG_DUPLICATE`. Approving with a different slug resets `httpsReadyAt`
+(deploy/sites.sh issues the per-host certificate and sets it again); nothing else does —
+SUSPEND / RESUME, the office's own status and the subscription gate keep it, because sites.sh
+keeps the host's server + certificate while the slug belongs to an ACTIVE or SUSPENDED site. The
+approval notice says the address opens shortly (보통 10분), never that it is open already.
+Slug rules (`AgencySiteGateService.slugProblem`, used by availability, request and APPROVE): the
+shared format + `RESERVED_SITE_SLUGS`, plus the first DNS label of `ADMIN_BASE_URL`'s host
+(`RESERVED`; a custom `--admin-subdomain` such as `manage` is never servable — sites.sh refuses it
+as ADMIN_HOST). The admin list sorts REQUESTED by oldest request, the other tabs by `decidedAt`
+(newest first; an owner's colour / 한 줄 소개 edit does not reorder them).
+
+- **Servable** (`GET /sites/:slug`): ACTIVE + office APPROVED and not deleted + subscription gate.
+- **Live** (`AgencySiteView.live`, `AgencyProfile.site = { url }` on `GET /agencies/:id`): servable and
+  https-ready (`httpsReadyAt` set, or `PUBLIC_BASE_URL` is plain http as in dev).
+- **URL**: `<PUBLIC_BASE_URL protocol>//<slug>.<SITE_ROOT_DOMAIN>[:port]` (`AppConfig.siteRootDomain`,
+  default the host of `PUBLIC_BASE_URL`; dev `http://<slug>.localhost:3000`).
+- **Subscription gate**: `FEATURES.siteSubscriptionRequired === true` (site setting, default off) ⇒ live
+  only with a `SITE` period covering today in KST (startsOn ≤ today ≤ endsOn or open-ended, not
+  canceled). `platformSubscriptionRequired` is recorded and shown but not enforced yet (future work).
+  FEATURES lives in the admin module's `site_settings`; this module only reads it (cached in the public
+  namespace; AdminModule imports AgenciesModule, so no service can be injected the other way) and the
+  admin module calls `AgencySiteGateService.featuresChanged()` after a FEATURES write.
+- 이용권 periods are recorded by admins after an offline payment (`amountWon` in 원); nothing is charged.
+  Audited `subscription.create|update|cancel` (resource `AgencySubscription`).
+
 ### 개인정보 동의 (D8)
 
 `POST /agencies` takes `consents: [{ type: 'PRIVACY_AGENCY_APPLICATION', version }]` and
@@ -171,6 +225,7 @@ await agencies.assertActiveMember(user.userId, user.agencyId);            // 403
 await agencies.getDisclosure(agencyId);  / getDisclosures(ids)             // 표시·광고 명시사항
 await agencies.recordWarning({ agencyId, reason, reportId, adminId }, tx); // reports resolution
 // AgencyDashboardService (also exported): listingDashboard(agencyId), snapshot(now?, agencyId?)
+// AgencySiteGateService (also exported): featuresChanged() after a FEATURES write, urlFor(slug)
 ```
 
 ## Tests
@@ -178,7 +233,9 @@ await agencies.recordWarning({ agencyId, reason, reportId, adminId }, tx); // re
 - Unit: `pnpm --filter @house/api test -- src/modules/agencies` (incl. `domain/dashboard.spec.ts`)
 - e2e: `pnpm --filter @house/api test:e2e agencies` (DB `house_test_agencies`, Redis DB 4);
   `console.e2e-spec.ts` covers regions, the staff `/agencies/mine`, resubmit consents and the
-  daily-views snapshot (the dashboard endpoint itself is tested in the deal-requests suite). The registry
+  daily-views snapshot (the dashboard endpoint itself is tested in the deal-requests suite).
+  `sites.e2e-spec.ts` covers every 사무소 홈페이지 / 이용권 endpoint (incl. the FEATURES gate and an
+  https `PUBLIC_BASE_URL`). The registry
   is replaced by `FakeBrokerRegistry` (test/e2e/agencies/helpers.ts); nothing touches the network.
 - Registry lookup: `VworldBrokerRegistryClient` calls 브이월드 `getEBOfficeInfo` (the nsdi.go.kr API moved
   there in 2024; data.go.kr only has the bulk file). Needs `VWORLD_API_KEY`; the key is domain-bound, so the

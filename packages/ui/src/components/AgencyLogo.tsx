@@ -19,7 +19,10 @@ export interface AgencyLogoProps {
   shape?: 'square' | 'round';
   /** `auto` = initials or illustration chosen from `seed`; `initials` / `art` force one. */
   fallback?: AgencyLogoFallback;
-  /** Initials to show. Default: 1 below 64px, 2 from 64px. */
+  /**
+   * Initials to show. Default 2 at every size, so an office reads the same on every list (the
+   * smallest logo in use, 36px, still fits two syllables at the 12px floor).
+   */
   maxInitials?: number;
   /** Accessible name. Without it the logo is decorative (the office name is next to it). */
   label?: string;
@@ -89,8 +92,7 @@ export function AgencyLogo({
   className,
 }: AgencyLogoProps) {
   const tone = image ? null : agencyLogoTone(seed, fallback);
-  const count = maxInitials ?? (size >= 64 ? 2 : 1);
-  const initials = tone && tone !== 'art' ? agencyInitials(name, count) : '';
+  const initials = tone && tone !== 'art' ? agencyInitials(name, maxInitials) : '';
   const fontSize = Math.max(12, Math.round(size * (Array.from(initials).length > 1 ? 0.3 : 0.39)));
   const style: CSSProperties = {
     width: size,

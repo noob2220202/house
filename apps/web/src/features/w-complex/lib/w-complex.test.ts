@@ -468,8 +468,9 @@ describe('listing rows', () => {
       rooms: '방3·욕2',
     });
     expect(listingSpecs(listing(), 'sqm').area).toBe('112㎡');
+    // A floor the broker publishes is shown exactly, like on every other card (11/13층, not 고).
     expect(listingSpecs(listing({ floor: 17, floorDisplay: 'EXACT' }), 'pyeong').floor).toBe(
-      '고/25층',
+      '17/25층',
     );
   });
 

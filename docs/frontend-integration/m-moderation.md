@@ -21,18 +21,19 @@ fixture together.
 
 ## Routes
 
-| Route                 | What                                                                                                                                                                |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/agencies`           | 승인 queue (default tab 승인 대기, oldest first) + office search. Tabs 승인 대기 · 승인 · 반려 · 정지 · 전체. One-click 승인 when 서류 + 등록 조회 are clean.       |
-| `/agencies/[id]`      | Application data, 등록 조회 결과 (application ↔ registry comparison, 다시 조회), private document viewer, applicant account, members, warnings, history, decision. |
-| `/listings`           | Listing search + 검수 필요 queue. Tabs 전체 · 검수 필요 · 광고중 · 계약중 · 거래완료 · 숨김, filters 매물 종류 · 거래 유형 · 정렬.                                  |
-| `/listings/[id]`      | Photos, 명시사항, private 호수, co-brokers, 실매물 확인 records, reports, change history; 숨김 / 숨김 해제 / 강제 종료 with reason.                                 |
-| `/reports`            | 허위매물 신고 queue. Tabs 새 신고 · 검토 중 · 조치 완료 · 기각 · 전체, filter 신고 대상. 24h handling target shown per row.                                         |
-| `/reports/[id]`       | Report text, reporter, evidence viewer, target listing / office, related reports, internal memo, timeline; 검토 시작 / 조치 (매물 숨김 · 중개사 경고) / 기각.       |
-| `/deal-requests`      | 내놓기·구하기 monitoring. Tabs 전체 · 내놓기 · 구하기 · 스팸 의심 · 스팸 표시, filter 상태.                                                                         |
-| `/deal-requests/[id]` | Request, requester + contact, proposals, target offices + contact grants, automatic abuse signals, history; 스팸 표시 / 해제 / 요청 종료.                           |
-| `/users`              | Member search (name / e-mail / phone **masked**). Tabs 전체 · 정상 · 이용 정지 · 탈퇴, filters 유형 · 로그인 수단.                                                  |
-| `/users/[id]`         | Profile, linked identities (카카오 · 네이버 · Google), consents, activity, sanctions; 이용 정지 (reason) / 정지 해제. Shows the audit-log notice.                   |
+| Route                 | What                                                                                                                                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/agencies`           | 승인 queue (default tab 승인 대기, oldest first) + office search. Tabs 승인 대기 · 승인 · 반려 · 정지 · 전체. One-click 승인 when 서류 + 등록 조회 are clean.                                                |
+| `/agencies/sites`     | 사무소 홈페이지 queue (SPEC `docs/agency-sites/SPEC.md` §5). Tabs 승인 대기 (oldest first) · 운영 중 · 정지 · 반려; 반려 / 승인 (editable slug) from the row. Own sidebar item + badge `agencySitesPending`. |
+| `/agencies/[id]`      | Application data, 등록 조회 결과 (application ↔ registry comparison, 다시 조회), private document viewer, applicant account, members, warnings, history, decision.                                          |
+| `/listings`           | Listing search + 검수 필요 queue. Tabs 전체 · 검수 필요 · 광고중 · 계약중 · 거래완료 · 숨김, filters 매물 종류 · 거래 유형 · 정렬.                                                                           |
+| `/listings/[id]`      | Photos, 명시사항, private 호수, co-brokers, 실매물 확인 records, reports, change history; 숨김 / 숨김 해제 / 강제 종료 with reason.                                                                          |
+| `/reports`            | 허위매물 신고 queue. Tabs 새 신고 · 검토 중 · 조치 완료 · 기각 · 전체, filter 신고 대상. 24h handling target shown per row.                                                                                  |
+| `/reports/[id]`       | Report text, reporter, evidence viewer, target listing / office, related reports, internal memo, timeline; 검토 시작 / 조치 (매물 숨김 · 중개사 경고) / 기각.                                                |
+| `/deal-requests`      | 내놓기·구하기 monitoring. Tabs 전체 · 내놓기 · 구하기 · 스팸 의심 · 스팸 표시, filter 상태.                                                                                                                  |
+| `/deal-requests/[id]` | Request, requester + contact, proposals, target offices + contact grants, automatic abuse signals, history; 스팸 표시 / 해제 / 요청 종료.                                                                    |
+| `/users`              | Member search (name / e-mail / phone **masked**). Tabs 전체 · 정상 · 이용 정지 · 탈퇴, filters 유형 · 로그인 수단.                                                                                           |
+| `/users/[id]`         | Profile, linked identities (카카오 · 네이버 · Google), consents, activity, sanctions; 이용 정지 (reason) / 정지 해제. Shows the audit-log notice.                                                            |
 
 - All list state (tab, filters, search, page) lives in the query string (`lib/list-params.ts`,
   unit tested); defaults are dropped from the URL. `q` is the search key on every list, so the
@@ -42,11 +43,46 @@ fixture together.
   (`fetchCounts`). If the backend prefers a `counts` field / endpoint, only `fetchCounts` changes.
 - Detail pages are client-rendered behind the console guard (no SEO; `X-Robots-Tag: noindex`).
 
+## 사무소 홈페이지 · 구독 (agency-sites, 2026-11-28)
+
+Contract: `docs/agency-sites/SPEC.md` §1.4 / §3.1 (shared types in `packages/shared/src/agencies/site-types.ts`).
+Parsed by `agencySiteViewSchema`, `adminAgencySiteResponseSchema`, `agencySiteDecisionResultSchema`,
+`adminAgencySitePageSchema`, `agencySubscriptionViewSchema`, `agencySubscriptionsResponseSchema`
+(`features/m-moderation/api/schemas.ts`); request bodies are the shared zod schemas.
+
+| Method | Path                                                | Used by                                                                                                          |
+| ------ | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/v1/admin/agency-sites?status&q&page&pageSize` | `/agencies/sites` list + tab counts (`pageSize=1` per status)                                                    |
+| GET    | `/api/v1/admin/agencies/:id/site`                   | `AgencySitePanel` (detail side column) + the hero "사무소 홈페이지" link when `live`                             |
+| POST   | `/api/v1/admin/agencies/:id/site/decision`          | 승인 (`slug` only when the admin corrected it) · 반려 / 정지 (`reason`) · 정지 해제                              |
+| GET    | `/api/v1/admin/agencies/:id/subscriptions`          | `AgencySubscriptionsPanel` (detail main column)                                                                  |
+| POST   | `/api/v1/admin/agencies/:id/subscriptions`          | 기간 기록 (ADMIN+, `adminSubscriptionCreateSchema`) → 201 `AgencySubscriptionView`                               |
+| PATCH  | `/api/v1/admin/subscriptions/:id`                   | 종료일 변경 `{ endsOn }` · 취소 `{ cancel: true }` (ADMIN+)                                                      |
+| GET    | `/api/v1/admin/dashboard/queues`                    | new optional queue `pendingAgencySites { total, items: [{ agencyId, agencyName, requestedSlug, requestedAt }] }` |
+| GET    | `/api/v1/admin/dashboard`                           | sidebar badge `agencySitesPending`, read from `agencySites.pending` or `agencies.sitesPending` (0 when absent)   |
+
+- The decision answer is read as `{ site }` (same as the GET) or a bare `AgencySiteView`.
+- An unknown stored colour reads as `BLUE` instead of failing the response.
+- Panels show for offices in APPROVED or SUSPENDED status only.
+- Every site / subscription mutation invalidates `['admin-agencies']` and `['admin-dashboard']`.
+- Admin bell: new kind `AGENCY_SITE_REQUEST` (label "홈페이지 신청", link `/agencies/sites` or `/agencies/:id#site`).
+- Settings › 기능 설정: `siteSubscriptionRequired` "사무소 홈페이지 유료 적용", `platformSubscriptionRequired`
+  "메인 입점 유료 적용 (준비 중 — 아직 적용되지 않아요)".
+- 작업 기록 labels: resources `AgencySite`, `AgencySubscription`; actions `agency_site.{request,approve,reject,suspend,resume,update}`,
+  `subscription.{create,update,cancel}` (also `agency_subscription.*`, `agency.site.*`).
+- Approve dialog: the input is pre-filled with `requestedSlug`, normalised and checked with the shared
+  `siteSlugMessage` before the POST; `409 AGENCY_SITE_SLUG_DUPLICATE` shows inline. The address preview
+  uses `NEXT_PUBLIC_SITE_ROOT_DOMAIN` (default: the user-site hostname without `www.`).
+
+Audit fixes in the same batch: the agencies list now sends `sort=OLDEST` on 승인 대기 and `sort=NEWEST`
+elsewhere (the API defaults to OLDEST); agency decisions on the list / detail also invalidate
+`['admin-dashboard']`, and dashboard decisions also invalidate `['admin-agencies']`.
+
 ## Endpoints used
 
 | Method | Path                                                       | Used by                                            | Backend status                                      |
 | ------ | ---------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------- |
-| GET    | `/api/v1/admin/agencies?status&q&page&pageSize`            | agencies list + counts                             | agencies README (`?status`) — `q` assumed           |
+| GET    | `/api/v1/admin/agencies?status&q&sort&page&pageSize`       | agencies list + counts                             | `adminAgencyListQuerySchema` (`sort` OLDEST/NEWEST) |
 | GET    | `/api/v1/admin/agencies/:id`                               | agency detail                                      | agencies README — shape assumed (1)                 |
 | GET    | `/api/v1/admin/agencies/:id/documents/:docId/file`         | private document viewer (file stream)              | agencies module ("private file")                    |
 | POST   | `/api/v1/admin/agencies/:id/decision`                      | 승인 / 반려 / 정지 / 정지 해제                     | agencies README, body = `agencyDecisionSchema`      |
@@ -193,6 +229,13 @@ report hides the listing and adds an agency warning; listing counters follow the
 Mock-only helpers: `listings/[id]/photos/[index]` and `reports/[id]/attachments/[attId]` serve
 generated SVG stand-ins; `agencies/[id]/documents/[docId]` serves a sample certificate image (and a
 tiny PDF for one office) so the viewer can be exercised without a media backend.
+
+사무소 홈페이지 / 구독: `agency-sites/_fixtures.ts` keeps two extra tables (`sitesDb`, `subscriptionsDb`)
+next to `agenciesDb()`, whose row shape is unchanged. Seeds: 신대중앙 ACTIVE `sindae`, 호수공원 / 연향센트럴
+REQUESTED, 오천그린 SUSPENDED, 선월 REJECTED, 순천대정문 ACTIVE with the certificate still pending. `live`
+follows the m-content mock FEATURES `siteSubscriptionRequired`; an approval simulates the certificate
+after one minute. Decisions and subscription writes add rows to the m-content audit log, so they
+show on 작업 기록. The mock agencies list honours `sort` like the API (default OLDEST).
 
 Fixture ids: agencies `a9000000-…-0000000000NN`, listings `b7…`, reports `e5…`, deal requests
 `d3…`, members `c1000000-…-0000000001NN`. The m-core dashboard and topbar-search mocks read these

@@ -24,3 +24,12 @@ export async function lockRegistrationKey(tx: PrismaTx, registrationKey: string)
   const key = `agency-registration:${registrationKey}`;
   await tx.$queryRaw`SELECT 1 AS ok FROM pg_advisory_xact_lock(hashtext(${key}))`;
 }
+
+/**
+ * Serializes claims of one 사무소 홈페이지 slug (owner requests, admin approvals) across agencies,
+ * so the "taken" check and the write cannot interleave. Taken after lockAgency.
+ */
+export async function lockSiteSlug(tx: PrismaTx, slug: string): Promise<void> {
+  const key = `agency-site-slug:${slug}`;
+  await tx.$queryRaw`SELECT 1 AS ok FROM pg_advisory_xact_lock(hashtext(${key}))`;
+}

@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { env } from '@/config/env';
+import { isOfficeSiteHost } from '@/features/w-site/lib/host';
 import { fetchPopups, homeKeys } from '../../api/client';
 import type { Popup } from '../../api/schemas';
 import {
@@ -82,7 +83,8 @@ export function NoticePopupHost() {
   const [closed, setClosed] = useState<readonly string[]>([]);
 
   useEffect(() => {
-    setReady(!suppressedByQuery());
+    // The platform's notices are not shown on an office's own 홈페이지 (`<slug>.<root>`).
+    setReady(!suppressedByQuery() && !isOfficeSiteHost());
   }, [pathname]);
 
   const { data } = useQuery({

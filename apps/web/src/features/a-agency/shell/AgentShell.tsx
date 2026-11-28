@@ -271,6 +271,7 @@ export function AgentShell({ user, agency, children }: AgentShellProps) {
   });
   const badges: AgentBadgeCounts = {
     newRequests: dashboard?.dealRequests.newCount,
+    unreadInquiries: dashboard?.inquiries.unreadCount,
     verificationDue: dashboard?.verificationDue.length,
   };
 

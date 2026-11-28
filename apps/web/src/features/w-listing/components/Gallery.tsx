@@ -2,6 +2,7 @@
 import { Icon, PhotoPlaceholder, cx, type PhotoKind } from '@house/ui';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ListingPhoto } from '../api/schemas';
 import { favoriteLabel } from '@/lib/favorites/useFavorite';
@@ -43,7 +44,7 @@ export function shortCaption(caption: string | null | undefined, index: number):
  * the lightbox (keyboard + swipe).
  */
 export function Gallery({ photos, title, shotLabel, placeholder, backHref }: GalleryProps) {
-  const { listing, favorite, openShare } = useListingInteractions();
+  const { listing, office, favorite, openShare } = useListingInteractions();
   const total = photos.length;
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [active, setActive] = useState(0);
@@ -89,22 +90,31 @@ export function Gallery({ photos, title, shotLabel, placeholder, backHref }: Gal
 
   const mobileActions = (
     <div className={styles.mTop}>
-      <BackToMapLink className={styles.fab} href={backHref} aria-label="지도로 돌아가기">
-        <Icon name="chevron-left" size={22} />
-      </BackToMapLink>
+      {office ? (
+        <Link className={styles.fab} href={backHref} aria-label={`${office.name} 홈으로`}>
+          <Icon name="chevron-left" size={22} />
+        </Link>
+      ) : (
+        <BackToMapLink className={styles.fab} href={backHref} aria-label="지도로 돌아가기">
+          <Icon name="chevron-left" size={22} />
+        </BackToMapLink>
+      )}
       <span className={styles.fabGap} />
       <button type="button" className={styles.fab} aria-label="공유하기" onClick={openShare}>
         <Icon name="share" size={20} />
       </button>
-      <button
-        type="button"
-        className={cx(styles.fab, favorite.on && styles.fabOn)}
-        aria-label={favoriteLabel('listings', listingName(listing), favorite.on)}
-        aria-pressed={favorite.on}
-        onClick={favorite.toggle}
-      >
-        <Icon name="heart" size={20} filled={favorite.on} />
-      </button>
+      {/* 관심 needs a session: none on an office's 홈페이지. */}
+      {!office && (
+        <button
+          type="button"
+          className={cx(styles.fab, favorite.on && styles.fabOn)}
+          aria-label={favoriteLabel('listings', listingName(listing), favorite.on)}
+          aria-pressed={favorite.on}
+          onClick={favorite.toggle}
+        >
+          <Icon name="heart" size={20} filled={favorite.on} />
+        </button>
+      )}
     </div>
   );
 

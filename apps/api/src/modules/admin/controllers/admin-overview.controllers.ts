@@ -1,7 +1,6 @@
 import {
   ADMIN_ROLE_PERMISSIONS,
   AdminPermission,
-  type AdminDashboard,
   type AdminPermissionsResponse,
   type AuditLogView,
   type Paginated,
@@ -16,7 +15,7 @@ import { AuditLogsService } from '../services/audit-logs.service';
 import type { DashboardQueues } from '../schemas';
 import { AdminNotificationsService } from '../services/admin-notifications.service';
 import { DashboardQueuesService } from '../services/dashboard-queues.service';
-import { DashboardService } from '../services/dashboard.service';
+import { DashboardService, type AdminDashboardSummary } from '../services/dashboard.service';
 
 /** What the signed-in admin may do (drives the back-office menu). */
 @ApiTags('admin')
@@ -48,7 +47,7 @@ export class AdminDashboardController {
   @Header('Cache-Control', 'private, no-store')
   async get(
     @CurrentAdmin() admin: AdminPrincipal,
-  ): Promise<AdminDashboard & { notificationsUnread: number }> {
+  ): Promise<AdminDashboardSummary & { notificationsUnread: number }> {
     await this.notifications.syncThrottled();
     const [summary, notificationsUnread] = await Promise.all([
       this.dashboard.get(),
@@ -57,7 +56,10 @@ export class AdminDashboardController {
     return { ...summary, notificationsUnread };
   }
 
-  /** Work queues previewed on the dashboard (pending agencies, deal requests, reports, ads). */
+  /**
+   * Work queues previewed on the dashboard (pending agencies, 사무소 홈페이지 requests, deal
+   * requests, reports, ads).
+   */
   @Get('queues')
   @Header('Cache-Control', 'private, no-store')
   getQueues(): Promise<DashboardQueues> {

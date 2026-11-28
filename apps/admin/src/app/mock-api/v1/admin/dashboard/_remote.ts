@@ -96,6 +96,49 @@ export async function remotePendingAgencies(
   return { total: Math.max(parsed.data.total, items.length), items };
 }
 
+// ---------- 사무소 홈페이지 신청 (m-moderation mock) ----------
+
+const sitePageSchema = z.object({
+  total: z.number().int().min(0),
+  items: z.array(
+    z.object({
+      site: z.object({
+        status: z.string(),
+        requestedSlug: z.string().nullish(),
+        requestedAt: z.string(),
+      }),
+      agency: z.object({ id: z.string(), name: z.string() }),
+    }),
+  ),
+});
+
+export interface RemotePendingSite {
+  agencyId: string;
+  agencyName: string;
+  requestedSlug: string | null;
+  requestedAt: string;
+}
+
+/** 사무소 홈페이지 requests from GET /admin/agency-sites?status=REQUESTED (oldest first), or null. */
+export async function remotePendingSites(
+  req: NextRequest,
+): Promise<{ total: number; items: RemotePendingSite[] } | null> {
+  const parsed = sitePageSchema.safeParse(
+    await selfGet(req, '/admin/agency-sites?status=REQUESTED&pageSize=50'),
+  );
+  if (!parsed.success) return null;
+  const items = parsed.data.items
+    .filter((r) => r.site.status === 'REQUESTED')
+    .sort((a, b) => a.site.requestedAt.localeCompare(b.site.requestedAt))
+    .map((r) => ({
+      agencyId: r.agency.id,
+      agencyName: r.agency.name,
+      requestedSlug: r.site.requestedSlug ?? null,
+      requestedAt: r.site.requestedAt,
+    }));
+  return { total: Math.max(parsed.data.total, items.length), items };
+}
+
 const trafficSchema = z.object({
   points: z.array(z.object({ visitors: z.number().int().min(0) })).min(2),
 });

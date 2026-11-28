@@ -12,15 +12,12 @@ import { BRAND } from '@/config/brand';
 import { ROUTES } from '@/config/nav';
 import {
   EMPTY_SIMILAR,
-  listingDetailSchema,
   servedBannersSchema,
   similarListingsSchema,
-  type ListingDetail,
   type ServedBanner,
 } from '@/features/w-listing/api/schemas';
-import { complexDetailSchema } from '@/features/w-complex/api/schemas';
+import { getListingDetail } from '@/features/w-listing/api/server';
 import { ListingPage } from '@/features/w-listing/components/ListingPage';
-import { withComplexDetail } from '@/features/w-listing/lib/complex';
 import {
   buildBreadcrumb,
   headlineAmount,
@@ -29,7 +26,7 @@ import {
   regionLine,
 } from '@/features/w-listing/lib/view';
 import { ApiError } from '@/lib/api';
-import { serverGet, serverGetOr } from '@/lib/api/server';
+import { serverGetOr } from '@/lib/api/server';
 import {
   JsonLd,
   SEO_ROUTES,
@@ -53,29 +50,12 @@ export function generateStaticParams(): { id: string }[] {
   return [];
 }
 
-/** Public listing detail — ISR (60s). Missing / hidden listings resolve to null → 404 page. */
-const getListing = cache(async (id: string): Promise<ListingDetail | null> => {
-  try {
-    const listing = await serverGet(`/listings/${encodeURIComponent(id)}`, {
-      schema: listingDetailSchema,
-      revalidate: 60,
-      tags: ['listings', `listing:${id}`],
-    });
-    // 단지 facts, 평형 and 최근 실거래 live on the complex (best effort — the page works without).
-    const complex = listing.complex
-      ? await serverGetOr(`/complexes/${encodeURIComponent(listing.complex.id)}`, null, {
-          schema: complexDetailSchema,
-          revalidate: 300,
-          tags: ['complexes', `complex:${listing.complex.id}`],
-        })
-      : null;
-    return withComplexDetail(listing, complex);
-  } catch (error) {
-    // 404 = gone / never existed, 400 = malformed id → both are "not found" for visitors.
-    if (error instanceof ApiError && (error.isNotFound || error.status === 400)) return null;
-    throw error;
-  }
-});
+/**
+ * Public listing detail — ISR (60s) with its 단지 facts (best effort). Missing / hidden listings
+ * resolve to null → 404 page; the "not found" outcome is cached too, so a listing hidden after
+ * it was cached stops being served (D-E, see `serverGetDetail`).
+ */
+const getListing = cache(getListingDetail);
 
 /**
  * Where the URL of a listing that is no longer public (거래완료 · 비공개 · 삭제 · 만료) leads: its

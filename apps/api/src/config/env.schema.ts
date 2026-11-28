@@ -24,6 +24,9 @@ const optionalString = z
   .optional()
   .transform((v) => (v === undefined || v.trim() === '' ? undefined : v));
 const seconds = (def: number) => z.coerce.number().int().positive().default(def);
+/** A DNS host name (labels of letters, digits and inner hyphens), no scheme, port or path. */
+const HOSTNAME =
+  /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/;
 
 /** Every environment variable the API reads. Documented in apps/api/.env.example. */
 export const envSchema = z
@@ -51,6 +54,19 @@ export const envSchema = z
      */
     CORS_ORIGINS: originList.default([]),
     ADMIN_CORS_ORIGINS: originList.default([]),
+    /**
+     * Parent domain of the 사무소 홈페이지 hosts (`https://<slug>.<SITE_ROOT_DOMAIN>`). Unset → the
+     * hostname of PUBLIC_BASE_URL (AppConfig.siteRootDomain). User routes also accept the origin
+     * of any valid office host under it (same protocol and port as PUBLIC_BASE_URL; reserved
+     * labels such as admin/www never), see common/auth/origin-policy.ts.
+     */
+    SITE_ROOT_DOMAIN: optionalString.pipe(
+      z
+        .string()
+        .transform((v) => v.trim().toLowerCase().replace(/\.$/, ''))
+        .pipe(z.string().regex(HOSTNAME, 'bare host name required, e.g. suncheonmap.kr'))
+        .optional(),
+    ),
     BODY_LIMIT: z.string().default('1mb'),
 
     DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\//, 'postgresql:// URL required'),

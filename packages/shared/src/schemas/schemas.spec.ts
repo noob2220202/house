@@ -3,6 +3,7 @@ import {
   bboxSchema,
   CSV_ARRAY_MAX,
   contactPhoneSchema,
+  listingListQuerySchema,
   mapSearchQuerySchema,
   oauthProviderParamSchema,
   paginationQuerySchema,
@@ -51,6 +52,20 @@ describe('common schemas', () => {
     expect(q.dealTypes).toEqual(['SALE', 'JEONSE']);
     expect(q.verifiedOnly).toBe(true);
     expect(q.zoom).toBe(14);
+  });
+
+  it('filters by primary agency and complex-less listings (office site, map counts)', () => {
+    const id = '0190f3c2-7a4b-7cde-8f00-123456789abc';
+    const q = listingListQuerySchema.parse({ primaryAgencyId: id, withoutComplex: 'true' });
+    expect(q.primaryAgencyId).toBe(id);
+    expect(q.withoutComplex).toBe(true);
+    expect(listingListQuerySchema.parse({ withoutComplex: '0' }).withoutComplex).toBe(false);
+    expect(listingListQuerySchema.parse({}).withoutComplex).toBeUndefined();
+    expect(listingListQuerySchema.safeParse({ primaryAgencyId: 'abc' }).success).toBe(false);
+    expect(
+      mapSearchQuerySchema.parse({ bbox: '127.4,34.9,127.5,35.0', zoom: '15', primaryAgencyId: id })
+        .primaryAgencyId,
+    ).toBe(id);
   });
 
   it('caps csv filter lists at CSV_ARRAY_MAX values', () => {

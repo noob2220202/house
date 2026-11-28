@@ -138,7 +138,7 @@ describe('admin dashboard, visitors, audit log, permissions (e2e)', () => {
       expect(res.body).toMatchObject({
         listings: { newToday: 1, active: 1, hidden: 0 },
         dealRequests: { newToday: 1, open: 1 },
-        agencies: { pending: 1, approved: 1 },
+        agencies: { pending: 1, approved: 1, sitesPending: 0 },
         reports: { open: 1, newToday: 1 },
         ads: { endingSoonCount: 1, endingSoon: [expect.objectContaining({ id: ending.id })] },
       });

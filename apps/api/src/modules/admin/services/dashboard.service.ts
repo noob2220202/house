@@ -1,6 +1,7 @@
 import {
   type AdminDashboard,
   ADS_ENDING_SOON_DAYS,
+  AgencySiteStatus,
   AgencyStatus,
   DealRequestStatus,
   ListingStatus,
@@ -29,6 +30,14 @@ export function startOfKstDay(now: Date): Date {
 }
 
 /**
+ * GET /admin/dashboard counters: the shared `AdminDashboard` plus `agencies.sitesPending`
+ * (사무소 홈페이지 requests waiting for approval, the sidebar badge `agencySitesPending`).
+ */
+export type AdminDashboardSummary = AdminDashboard & {
+  agencies: AdminDashboard['agencies'] & { sitesPending: number };
+};
+
+/**
  * Back-office dashboard: counters across modules (read-only COUNTs on indexed columns) plus the
  * visitor HyperLogLogs. Cached briefly — it is polled by every open admin tab.
  */
@@ -40,13 +49,13 @@ export class DashboardService {
     private readonly visitors: VisitorStatsService,
   ) {}
 
-  get(now: Date = new Date()): Promise<AdminDashboard> {
+  get(now: Date = new Date()): Promise<AdminDashboardSummary> {
     return this.cache.getOrSet('cache:admin:dashboard', DASHBOARD_CACHE_TTL_SECONDS, () =>
       this.compute(now),
     );
   }
 
-  async compute(now: Date = new Date()): Promise<AdminDashboard> {
+  async compute(now: Date = new Date()): Promise<AdminDashboardSummary> {
     const today = startOfKstDay(now);
     const soon = new Date(now.getTime() + ADS_ENDING_SOON_DAYS * DAY_MS);
     const liveBannerWhere: Prisma.BannerWhereInput = {
@@ -65,6 +74,7 @@ export class DashboardService {
       openDealRequests,
       pendingAgencies,
       approvedAgencies,
+      pendingAgencySites,
       openReports,
       newReports,
       newMembers,
@@ -89,6 +99,9 @@ export class DashboardService {
       db.dealRequest.count({ where: { status: DealRequestStatus.OPEN } }),
       db.agency.count({ where: { deletedAt: null, status: AgencyStatus.PENDING } }),
       db.agency.count({ where: { deletedAt: null, status: AgencyStatus.APPROVED } }),
+      db.agencySite.count({
+        where: { status: AgencySiteStatus.REQUESTED, agency: { deletedAt: null } },
+      }),
       db.report.count({ where: { status: { in: [...OPEN_REPORT_STATUSES] } } }),
       // `status IN (all)` lets Postgres use the (status, created_at) indexes for the date range.
       db.report.count({
@@ -116,7 +129,11 @@ export class DashboardService {
       },
       listings: { newToday: newListings, active: activeListings, hidden: hiddenListings },
       dealRequests: { newToday: newDealRequests, open: openDealRequests },
-      agencies: { pending: pendingAgencies, approved: approvedAgencies },
+      agencies: {
+        pending: pendingAgencies,
+        approved: approvedAgencies,
+        sitesPending: pendingAgencySites,
+      },
       reports: { open: openReports, newToday: newReports },
       members: { newToday: newMembers, total: totalMembers, suspended: suspendedMembers },
       ads: {

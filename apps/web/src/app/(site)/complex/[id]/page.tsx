@@ -21,7 +21,7 @@ import { defaultAreaType } from '@/features/w-complex/lib/trend';
 import { ComplexPageView } from '@/features/w-complex/page/ComplexPageView';
 import { ComplexFaqSection, complexFaq } from '@/features/w-seo';
 import { ApiError } from '@/lib/api';
-import { serverGet, serverGetOr } from '@/lib/api/server';
+import { serverGet, serverGetDetail, serverGetOr } from '@/lib/api/server';
 import { formatCount } from '@/lib/format';
 import {
   JsonLd,
@@ -54,20 +54,17 @@ export function generateStaticParams(): { id: string }[] {
 
 type Props = { params: Promise<{ id: string }> };
 
-/** One fetch per request, shared by generateMetadata and the page. Null = not found. */
-const getComplex = cache(async (id: string) => {
-  try {
-    return await serverGet(`/complexes/${encodeURIComponent(id)}`, {
-      schema: complexDetailSchema,
-      revalidate: REVALIDATE,
-      tags: ['complexes', `complex:${id}`],
-    });
-  } catch (error) {
-    // 404 = gone / never existed, 400 = malformed id (the API validates UUIDs) → both "not found".
-    if (error instanceof ApiError && (error.isNotFound || error.status === 400)) return null;
-    throw error;
-  }
-});
+/**
+ * One fetch per request, shared by generateMetadata and the page. Null = not found (404 = gone /
+ * never existed, 400 = malformed id). The outcome is cached, so a removed 단지 later 404s (D-E).
+ */
+const getComplex = cache((id: string) =>
+  serverGetDetail(`/complexes/${encodeURIComponent(id)}`, {
+    schema: complexDetailSchema,
+    revalidate: REVALIDATE,
+    tags: ['complexes', `complex:${id}`],
+  }),
+);
 
 /** First listings + summary of the complex (`GET /listings?complexId=` + `GET /complexes/:id/listings`). */
 const getListings = cache((id: string) =>

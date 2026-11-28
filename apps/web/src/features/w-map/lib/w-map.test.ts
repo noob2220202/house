@@ -32,6 +32,7 @@ import {
   bboxParam,
   centerForTarget,
   cropBottom,
+  mobileLandingView,
   nearestRegion,
   placePopover,
   projectToViewport,
@@ -250,6 +251,22 @@ describe('map geometry', () => {
     // Desktop: a 316px ad column on the right → the centre moves 158px east.
     const desktop = centerForTarget(target, { top: 0, right: 316, bottom: 0, left: 0 }, scale);
     expect(desktop.lng).toBeCloseTo(127.55 + 0.0158, 9);
+  });
+
+  it('lands the mobile city view one level out, centred in the band above the sheet', () => {
+    const scale = { lng: 10_000, lat: 10_000 };
+    const view = { center: { lat: 34.95, lng: 127.55 }, zoom: 13 };
+    const insets = { top: 170, right: 0, bottom: 430, left: 0 };
+    const out = mobileLandingView(view, insets, scale, 12);
+    expect(out.zoom).toBe(12);
+    // Half the pixels per degree at zoom 12 → the same 130px shift is twice as far in degrees.
+    expect(out.center.lat).toBeCloseTo(34.95 - 0.026, 9);
+    expect(out.center.lng).toBeCloseTo(127.55, 9);
+    // Same zoom: exactly the plain re-centring.
+    expect(mobileLandingView(view, insets, scale)).toEqual({
+      center: centerForTarget(view.center, insets, scale),
+      zoom: 13,
+    });
   });
 
   it('queries only the part of the map above the sheet', () => {

@@ -35,6 +35,20 @@ server {
     error_log /var/log/nginx/house-admin.error.log warn;
 }
 
+# 사무소 홈페이지 (<slug>.{{DOMAIN}}) over plain HTTP: the user site as is (the web app maps the
+# host to the office's pages). Exact names (www, admin) win over the wildcard. In TLS mode this
+# becomes ACME + a redirect, and deploy/sites.sh adds one 443 server per office.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name *.{{DOMAIN}};
+    include /etc/nginx/snippets/house-acme.conf;
+    include /etc/nginx/snippets/house-server-common.conf;
+    include /etc/nginx/snippets/house-web-locations.conf;
+    access_log /var/log/nginx/house-sites.access.log;
+    error_log /var/log/nginx/house-sites.error.log warn;
+}
+
 server {
     listen 80 default_server;
     listen [::]:80 default_server;

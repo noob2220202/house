@@ -10,7 +10,6 @@ import { noticeHref } from '@/features/w-content/notices/NoticeList';
 import styles from '@/features/w-content/notices/notices.module.css';
 import { BRAND } from '@/config/brand';
 import { ROUTES } from '@/config/nav';
-import { ApiError } from '@/lib/api/errors';
 import { formatCount, formatDate } from '@/lib/format';
 import { JsonLd, absoluteUrl, breadcrumbJsonLd, buildMetadata } from '@/lib/seo';
 
@@ -18,12 +17,9 @@ type Params = Promise<{ id: string }>;
 
 /** One fetch per request for both metadata and the page; a 404 from the API becomes notFound(). */
 const loadNotice = cache(async (id: string) => {
-  try {
-    return await getNotice(id);
-  } catch (error) {
-    if (error instanceof ApiError && (error.isNotFound || error.status === 400)) notFound();
-    throw error;
-  }
+  const notice = await getNotice(id);
+  if (!notice) notFound();
+  return notice;
 });
 
 export async function generateMetadata({ params }: { params: Params }) {

@@ -2,7 +2,7 @@ import 'server-only';
 import { DEFAULT_SGG_CODE, type TermsType } from '@house/shared';
 import { regionListSchema } from '@/features/w-map/api/schemas';
 import { ApiError } from '@/lib/api/errors';
-import { serverGet } from '@/lib/api/server';
+import { serverGet, serverGetDetail } from '@/lib/api/server';
 import { searchCacheSeconds } from '../search/popular';
 import { matchRegions } from '../search/targets';
 import {
@@ -33,12 +33,15 @@ export const getNotices = (page: number, extra?: Record<string, string | undefin
     tags: ['notices'],
   });
 
-/** GET /notices/:id */
+/**
+ * GET /notices/:id — null for 404 / 400. The outcome is cached, so a notice the operator deletes
+ * or unpublishes stops being served (D-E, see `serverGetDetail`).
+ */
 export const getNotice = (id: string) =>
-  serverGet(`/notices/${encodeURIComponent(id)}`, {
+  serverGetDetail(`/notices/${encodeURIComponent(id)}`, {
     schema: noticeDetailSchema,
     revalidate: 120,
-    tags: ['notices'],
+    tags: ['notices', `notice:${id}`],
   });
 
 /**

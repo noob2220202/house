@@ -115,8 +115,12 @@ name, no point. 400 without `roadAddress`. Cached 300 s.
 ³ Console home, composed here (`ConsoleDashboardService`) from the agencies module's
 `AgencyDashboardService` (listings, views, expiring / 실매물 확인 due — see the agencies README) and the
 inbox: `dealRequests.newCount/newSellCount/newWantedCount` (OPEN, not yet proposed to, by type) and
-`items` = the latest 4 visible requests in the `GET /agency/deal-requests` item shape. `inquiries` is
-always `{ unreadCount: 0, items: [] }` — no inquiry backend for launch (DECISIONS D5).
+`items` = the latest 4 visible requests in the `GET /agency/deal-requests` item shape. `inquiries`
+comes from the inquiries module (`InquiryDashboardService`, imported — inquiries never imports this
+module): `unreadCount` = unread rows of the office's inbox, `items` = its latest 3 written inquiries
+(MESSAGE) in the `GET /agency/inquiries` item shape. Notification scope: `INQUIRY_RECEIVED`,
+`AGENCY_SITE_APPROVED` and `AGENCY_SITE_REJECTED` are agency-only types (`notification-scope.ts`);
+`INQUIRY_REPLIED` is personal.
 
 ⁴ ACTIVE listings the agency actively (co-)brokers (the proposal rule), for a request it can see
 (404 otherwise). `q` = title or 단지명. Ranked like the web picker (`domain/listing-match.ts`: all

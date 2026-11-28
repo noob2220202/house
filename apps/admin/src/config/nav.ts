@@ -8,6 +8,7 @@ export const ADMIN_ROUTES = {
   listings: '/listings',
   complexes: '/complexes',
   agencies: '/agencies',
+  agencySites: '/agencies/sites',
   users: '/users',
   dealRequests: '/deal-requests',
   reports: '/reports',
@@ -46,6 +47,8 @@ export interface AdminNavItem {
   children?: readonly AdminNavChild[];
   /** Extra path prefixes that mark the item active. */
   match?: readonly string[];
+  /** Paths below `href` that belong to another item (`/agencies/sites` is not 중개사 관리). */
+  exclude?: readonly string[];
 }
 
 export interface AdminNavGroup {
@@ -57,6 +60,7 @@ export interface AdminNavGroup {
 export type AdminBadgeKey =
   | 'listingsPending'
   | 'agenciesPending'
+  | 'agencySitesPending'
   | 'dealRequestsOpen'
   | 'reportsOpen';
 export type AdminBadgeCounts = Partial<Record<AdminBadgeKey, number>>;
@@ -79,6 +83,14 @@ export const ADMIN_NAV: readonly AdminNavGroup[] = [
         href: ADMIN_ROUTES.agencies,
         icon: 'store',
         badgeKey: 'agenciesPending',
+        badgeWarn: true,
+        exclude: [ADMIN_ROUTES.agencySites],
+      },
+      {
+        label: '사무소 홈페이지',
+        href: ADMIN_ROUTES.agencySites,
+        icon: 'link',
+        badgeKey: 'agencySitesPending',
         badgeWarn: true,
       },
       { label: '회원 관리', href: ADMIN_ROUTES.users, icon: 'users' },
@@ -129,6 +141,15 @@ export function isAdminPathActive(
   return [href, ...match].some((m) => pathname === m || pathname.startsWith(`${m}/`));
 }
 
+/** True when `pathname` belongs to the item (its href or `match`, minus its `exclude` paths). */
+export function isNavItemActive(
+  pathname: string,
+  item: Pick<AdminNavItem, 'href' | 'match' | 'exclude'>,
+): boolean {
+  if (item.exclude?.some((x) => isAdminPathActive(pathname, x))) return false;
+  return isAdminPathActive(pathname, item.href, item.match);
+}
+
 /** Finds the nav entry for a path → `{ group, item, child }` (used for the topbar crumb + title). */
 export function findAdminNav(
   pathname: string,
@@ -137,10 +158,7 @@ export function findAdminNav(
     null;
   for (const group of ADMIN_NAV) {
     for (const item of group.items) {
-      if (
-        isAdminPathActive(pathname, item.href, item.match) &&
-        (!best || item.href.length > best.len)
-      )
+      if (isNavItemActive(pathname, item) && (!best || item.href.length > best.len))
         best = { group: group.title, item, len: item.href.length };
       for (const child of item.children ?? []) {
         if (isAdminPathActive(pathname, child.href) && (!best || child.href.length >= best.len))

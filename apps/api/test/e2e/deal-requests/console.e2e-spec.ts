@@ -71,7 +71,7 @@ describe('deal-requests: console additions (e2e)', () => {
   // ------------------------------------------------------------------ dashboard
 
   describe('GET /api/v1/agencies/mine/dashboard', () => {
-    it('200: listing counters, views, expiring / verification lists, request feed, no inquiries', async () => {
+    it('200: listing counters, views, expiring / verification lists, request feed', async () => {
       const b = await broker(t);
       const other = await broker(t);
       const now = Date.now();
@@ -198,13 +198,55 @@ describe('deal-requests: console additions (e2e)', () => {
         contact: null,
       });
       expect(JSON.stringify(res.body)).not.toContain('01012345678');
-      // D5: no inquiry backend — the widget data is always empty.
+      // No inquiries yet (the inquiry block has its own case below).
       expect(res.body.inquiries).toEqual({ unreadCount: 0, items: [] });
       // The read also wrote today's snapshot.
       const snap = await t.prisma.agencyDailyStat.findFirst({
         where: { agencyId: b.agency.id, day: new Date(`${today}T00:00:00Z`) },
       });
       expect(snap?.listingViews).toBe(42);
+    });
+
+    it('inquiry block: unread rows of the office + its latest 3 written inquiries', async () => {
+      const b = await broker(t);
+      const other = await broker(t);
+      const at = (min: number) => new Date(Date.now() - min * 60_000);
+      const message = (agencyId: string, min: number, extra: Record<string, unknown> = {}) =>
+        t.prisma.inquiry.create({
+          data: {
+            agencyId,
+            channel: 'MESSAGE',
+            source: 'MAIN',
+            customerName: '홍길동',
+            customerPhone: '01012345678',
+            message: `문의 ${min}`,
+            lastMessageAt: at(min),
+            ...extra,
+          },
+        });
+      const oldest = await message(b.agency.id, 50);
+      const m3 = await message(b.agency.id, 40, { readAt: at(1) });
+      const m2 = await message(b.agency.id, 30);
+      const m1 = await message(b.agency.id, 20);
+      await message(b.agency.id, 1, { deletedAt: at(0) });
+      await message(other.agency.id, 5);
+      // A contact event is unread too but never one of the written items.
+      await t.prisma.inquiry.create({
+        data: { agencyId: b.agency.id, channel: 'CALL', source: 'SITE', lastMessageAt: at(2) },
+      });
+      const res = await withSession(t.http().get('/api/v1/agencies/mine/dashboard'), b.s).expect(
+        200,
+      );
+      // unread: oldest, m2, m1 + the call (m3 is read, the deleted one does not count).
+      expect(res.body.inquiries.unreadCount).toBe(4);
+      expect(itemIds(res.body.inquiries)).toEqual([m1.id, m2.id, m3.id]);
+      expect(itemIds(res.body.inquiries)).not.toContain(oldest.id);
+      expect(res.body.inquiries.items[0]).toMatchObject({
+        channel: 'MESSAGE',
+        customerName: '홍길동',
+        isMember: false,
+        canReply: false,
+      });
     });
 
     it('200 for an AGENT of the agency; empty office gives zero values', async () => {

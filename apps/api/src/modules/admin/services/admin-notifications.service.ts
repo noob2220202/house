@@ -1,5 +1,6 @@
 import {
   AGENCY_DOCUMENT_TYPE_LABEL,
+  AgencySiteStatus,
   AgencyStatus,
   BANNER_SLOT_SPECS,
   DEAL_TYPE_LABEL,
@@ -83,8 +84,8 @@ const cut = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)
 
 /**
  * The back-office bell. Notifications are shared by every admin (read state per admin) and are
- * derived from the source tables — new agency applications, new open reports, deal requests no
- * office received, ads about to end — by `sync()`, which runs lazily (throttled to once a minute)
+ * derived from the source tables — new agency applications and 사무소 홈페이지 requests, new open
+ * reports, deal requests no office received, ads about to end — by `sync()`, which runs lazily (throttled to once a minute)
  * when the feed or the dashboard is read and from the admin-maintenance job. `dedupeKey` keeps
  * every event to one row, so re-running the sync is harmless.
  */
@@ -204,6 +205,7 @@ export class AdminNotificationsService {
     const drafts = (
       await Promise.all([
         this.agencyApplications(since),
+        this.agencySiteRequests(since),
         this.receivedReports(since),
         this.unassignedDealRequests(since, now),
         this.expiringAds(now),
@@ -258,6 +260,36 @@ export class AdminNotificationsService {
         createdAt: a.createdAt,
       };
     });
+  }
+
+  /**
+   * Pending 사무소 홈페이지 requests. The request time is part of the key, so a re-request (after a
+   * rejection, or a changed slug) is announced again.
+   */
+  private async agencySiteRequests(since: Date): Promise<NotificationDraft[]> {
+    const rows = await this.prisma.agencySite.findMany({
+      where: {
+        status: AgencySiteStatus.REQUESTED,
+        requestedAt: { gte: since },
+        agency: { deletedAt: null },
+      },
+      take: 200,
+      select: {
+        id: true,
+        agencyId: true,
+        requestedSlug: true,
+        requestedAt: true,
+        agency: { select: { name: true } },
+      },
+    });
+    return rows.map((r) => ({
+      kind: 'AGENCY_SITE_REQUEST',
+      title: '사무소 홈페이지 승인 요청',
+      body: r.requestedSlug ? `${r.agency.name} · ${r.requestedSlug}` : r.agency.name,
+      link: `/agencies/${r.agencyId}`,
+      dedupeKey: `agency-site-request:${r.id}:${r.requestedAt.toISOString()}`,
+      createdAt: r.requestedAt,
+    }));
   }
 
   private async receivedReports(since: Date): Promise<NotificationDraft[]> {

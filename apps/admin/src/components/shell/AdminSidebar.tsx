@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { Logo } from '@/components/brand/Logo';
 import { BRAND } from '@/config/brand';
-import { ADMIN_NAV, isAdminPathActive, type AdminBadgeCounts } from '@/config/nav';
+import { ADMIN_NAV, isAdminPathActive, isNavItemActive, type AdminBadgeCounts } from '@/config/nav';
 import { useAdminSession } from '@/lib/auth/session';
 import styles from './AdminShell.module.css';
 
@@ -45,7 +45,7 @@ export function AdminNavList({ badges, onNavigate }: AdminNavListProps) {
             {items.map((item) => {
               const children = (item.children ?? []).filter((c) => can(c.minRole));
               const childActive = children.some((c) => isAdminPathActive(pathname, c.href));
-              const on = isAdminPathActive(pathname, item.href, item.match) || childActive;
+              const on = isNavItemActive(pathname, item) || childActive;
               const count = item.badgeKey ? badges?.[item.badgeKey] : undefined;
               return (
                 <div key={item.href}>

@@ -1,0 +1,371 @@
+/* 문의 dialog: office head · 바로 연락 / 문의 남기기 tabs · success state. */
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.head {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+.name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.name b {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.name span {
+  font-size: 13px;
+  color: var(--text-3);
+}
+.tabs {
+  margin-top: -4px;
+}
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.panel[hidden] {
+  display: none;
+}
+
+/* ---------- 바로 연락 ---------- */
+.phone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 60px;
+  padding: 0 16px 0 20px;
+  border-radius: var(--r-lg);
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  text-align: left;
+}
+.phone:hover {
+  background: var(--brand-soft-2);
+}
+.phone:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+/* Links styled as buttons: the @house/ui Button drops onClick in link mode, and every press logs. */
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: var(--hit);
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  text-decoration: none;
+  transition:
+    background var(--dur-1),
+    border-color var(--dur-1);
+}
+.action:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.actionPrimary {
+  background: var(--brand);
+  color: var(--brand-contrast);
+}
+.actionPrimary:hover {
+  background: var(--brand-hover);
+}
+.actionSecondary {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+.actionSecondary:hover {
+  background: var(--surface-2);
+}
+.hint {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+.info {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.info > div {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.info > div + div {
+  border-top: 1px solid var(--grey-100);
+}
+.info dt {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.info dd {
+  margin: 0;
+  color: var(--text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.more {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 2px;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--brand);
+}
+.more:hover {
+  text-decoration: underline;
+}
+
+/* ---------- 문의 남기기 ---------- */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.subject {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-size: 13.5px;
+  color: var(--text-2);
+  min-width: 0;
+}
+.subject b {
+  flex: none;
+  color: var(--text-3);
+  font-weight: 700;
+}
+.subject span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 12px;
+}
+/* Counter right under the box, the one-tap starters on the line below it. */
+.messageFoot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: -10px;
+}
+.starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.starter {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  text-align: left;
+}
+.starter:hover {
+  border-color: var(--brand-line);
+  color: var(--brand);
+}
+.starter:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.counter {
+  order: -1;
+  align-self: flex-end;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.counterOver {
+  color: var(--danger);
+  font-weight: 700;
+}
+.agree {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 4px 16px;
+}
+.agreeErr {
+  border-color: var(--danger);
+}
+.agreeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.agreeRow label {
+  min-width: 0;
+  font-size: 14px;
+}
+.agreeLink {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.agreeNotice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+.agreeNotice[hidden] {
+  display: none;
+}
+.agreeMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  color: var(--text-2);
+}
+.agreeMeta span {
+  color: var(--text-3);
+}
+.agreeText {
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--grey-50);
+  color: var(--text-2);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.agreeText:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+.recipient {
+  color: var(--text-2);
+}
+.recipient b {
+  color: var(--text);
+}
+/* Off-screen, out of the tab order and hidden from assistive tech: only bots fill it in. */
+.trap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* ---------- sent ---------- */
+.done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0 4px;
+  text-align: center;
+}
+.doneIcon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--success-soft, var(--brand-soft));
+  color: var(--success, var(--brand));
+}
+.done h3 {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+/* Focused by script only (keeps focus in the dialog), never by Tab: no ring on a heading. */
+.done h3:focus {
+  outline: none;
+}
+.done p {
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: var(--text-2);
+}
+.doneActions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .phone {
+    font-size: 22px;
+  }
+  .pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .doneActions > * {
+    flex: 1 1 140px;
+  }
+}

@@ -27,7 +27,7 @@ Every admin route also needs an admin session with TOTP verified (global AuthGua
 | POST               | `/reports` (THROTTLE.REPORT + daily cap `REPORT_CREATE`)                                   | User              |
 | GET                | `/notices` · `/notices/:id` · `/faqs` · `/videos` · `/site-settings/public`                | Public (cached)   |
 | GET                | `/admin/permissions`                                                                       | any admin         |
-| GET                | `/admin/dashboard` (+ `notificationsUnread` of the caller) · `/queues`                     | DASHBOARD_READ    |
+| GET                | `/admin/dashboard` (+ `notificationsUnread` of the caller) · `/queues` †                   | DASHBOARD_READ    |
 | GET                | `/admin/search?q&limit` (q ≥ 2 chars besides spaces/hyphens, limit ≤ 20)                   | DASHBOARD_READ    |
 | GET · POST         | `/admin/notifications?cursor&limit&unreadOnly` · `/:id/read` · `/read-all`                 | DASHBOARD_READ    |
 | GET                | `/admin/stats/{traffic,listings,deal-requests,ads}?days=7\|30\|90`                         | DASHBOARD_READ    |
@@ -46,15 +46,24 @@ Every admin route also needs an admin session with TOTP verified (global AuthGua
 Response shapes of the WI-10 routes (dashboard queues, search, notifications, stats, social login)
 follow the admin app's zod schemas (`apps/admin/src/features/{m-core,m-content}/api/schemas.ts`);
 they are typed locally in `schemas.ts` (TODO: move to `packages/shared`). Routes owned by other
-modules that the admin app calls: `/admin/agencies/:id/documents/:docId/file` and
-`GET /admin/agencies/:id/registry-check?refresh=1` (agencies), `/admin/deal-requests/**` (deal-requests).
+modules that the admin app calls: `/admin/agencies/:id/documents/:docId/file`,
+`GET /admin/agencies/:id/registry-check?refresh=1`, `/admin/agency-sites`,
+`/admin/agencies/:id/site[/decision]`, `/admin/agencies/:id/subscriptions`, `/admin/subscriptions/:id`
+(agencies), `/admin/deal-requests/**` (deal-requests).
+
+† `GET /admin/dashboard` answers the shared `AdminDashboard` plus `agencies.sitesPending` (REQUESTED
+사무소 홈페이지 of offices that are not deleted; the admin app's badge `agencySitesPending`).
+`GET /admin/dashboard/queues` adds `pendingAgencySites: { total, items: [{ agencyId, agencyName,
+requestedSlug, requestedAt }] }`, oldest request first.
 
 ## Notes
 
 - **Topbar search** (`GET /admin/search`): listings match title, 단지, 건물, 주소, 대표 사무소, 읍면동 —
   and the 매물번호 exactly (`parseListingNo`: "100412", "매물번호 100412"); rows carry `listingNo`.
 - **Site settings** (`siteSettingSchemas[key]`, all keys in `GET /site-settings/public`): BUSINESS_INFO,
-  CONTACT, SEO, FEATURES, FOOTER, plus (D9) `HOME_LAYOUT` `{ sections: [{ key, visible }] }` — the home
+  CONTACT, SEO, FEATURES (incl. the 이용권 switches `siteSubscriptionRequired` — enforced by the agencies
+  module; a write bumps its public cache via `AgencySiteGateService.featuresChanged()` — and
+  `platformSubscriptionRequired`, stored but not enforced yet), FOOTER, plus (D9) `HOME_LAYOUT` `{ sections: [{ key, visible }] }` — the home
   sections in display order (`HomeSectionKey`: HERO_SEARCH, CATEGORY_TILES, MAIN_BANNER,
   POPULAR_COMPLEXES, NEW_LISTINGS, DEAL_REQUEST_CTA, FEATURED_AGENCIES, LOCAL_VIDEOS, NOTICES, APP_BAND),
   each key at most once; a key that is not listed keeps its default place and stays visible — and
@@ -110,7 +119,8 @@ modules that the admin app calls: `/admin/agencies/:id/documents/:docId/file` an
   human-facing listing number exists).
 - **Notifications** (`admin_notifications` + per-admin `admin_notification_reads`): shared by all
   admins, derived from the source tables by `AdminNotificationsService.sync()` — new PENDING
-  agencies (`AGENCY_APPLIED`), new open reports (`REPORT_RECEIVED`, "N건째"), OPEN deal requests
+  agencies (`AGENCY_APPLIED`), new 사무소 홈페이지 requests (`AGENCY_SITE_REQUEST`, re-armed by a
+  re-request: the request time is part of the key), new open reports (`REPORT_RECEIVED`, "N건째"), OPEN deal requests
   with no target office after 30 min (`DEAL_REQUEST_UNASSIGNED`), banners/popups ending within 3
   days (`AD_EXPIRING`, re-armed when the end date changes). One row per event (`dedupe_key`),
   events older than 7 days are skipped. The sync runs lazily (at most once a minute, Redis lock)

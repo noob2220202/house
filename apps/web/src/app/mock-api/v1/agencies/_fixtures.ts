@@ -24,6 +24,7 @@ import {
   type PriceBase,
 } from './_catalog';
 import { EMD, OFFICES, at, type EmdKey, type OfficeDef } from './_offices';
+import { liveSiteUrlOf } from '../sites/_state';
 
 /**
  * Payloads of the public agencies mock (w-agencies), derived from `_offices.ts` + `_catalog.ts`.
@@ -373,6 +374,11 @@ export const AGENCY_REGIONS: readonly AgencyRegion[] = (Object.keys(EMD) as EmdK
  * 대표 매물 as `AgencyListingCard`, the 표시·광고 disclosure block, `coverUrl`. Mock-only display
  * extras (tagline, 전문 단지, 30일 통계) are left out like the backend does.
  */
+function siteOf(agencyId: string): AgencyProfile['site'] {
+  const url = liveSiteUrlOf(agencyId);
+  return url ? { url } : null;
+}
+
 export function toAgencyProfileWire(d: AgencyDetail): AgencyProfile {
   const c = d.listingCounts;
   const byDealType: AgencyProfile['listingCounts']['byDealType'] = {};
@@ -432,5 +438,7 @@ export function toAgencyProfileWire(d: AgencyDetail): AgencyProfile {
       publishedAt: l.publishedAt ?? null,
     })),
     disclosure: toAgencyDisclosure({ ...d, addressDetail: d.addressDetail ?? null }),
+    // `{ url }` while the office's 사무소 홈페이지 is live (sites/_state.ts: `sindae`, `hosu`).
+    site: siteOf(d.id),
   };
 }

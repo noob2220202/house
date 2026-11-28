@@ -1,4 +1,5 @@
 import 'server-only';
+import { unstable_cache } from 'next/cache';
 import { cookies, headers } from 'next/headers';
 import type { z } from 'zod';
 import { apiFetch, type ApiRequestOptions } from './client';
@@ -48,6 +49,41 @@ export async function serverGet<T = unknown, S extends z.ZodType | undefined = u
     next: { revalidate, tags },
     headers: { ...extra, ...SSR_MARKER },
   });
+}
+
+/**
+ * Public detail read that can turn into a 404 (a listing hidden or deleted, an office no longer
+ * public, a 단지 removed): the parsed body, or null for 404 / 400 (malformed id).
+ *
+ * The OUTCOME is cached (`unstable_cache`, `revalidate` s, `tags`), not the response, and the
+ * inner fetch is not cached: Next's fetch cache stores only 200s, so once a 200 had been cached a
+ * later 404 never replaced it and the gone page was served until a restart (D-E). Same pattern
+ * as the office site (features/w-site/api/server.ts). Other errors throw and are not cached.
+ */
+export function serverGetDetail<S extends z.ZodType>(
+  path: string,
+  options: { schema: S; revalidate: number; tags: string[]; timeoutMs?: number },
+): Promise<z.infer<S> | null> {
+  const { schema, revalidate, tags, timeoutMs } = options;
+  return unstable_cache(
+    async (): Promise<z.infer<S> | null> => {
+      try {
+        const data = await apiFetch<unknown, S>(path, {
+          method: 'GET',
+          cache: 'no-store',
+          schema,
+          timeoutMs,
+          headers: { ...SSR_MARKER },
+        });
+        return data as z.infer<S>;
+      } catch (error) {
+        if (error instanceof ApiError && (error.isNotFound || error.status === 400)) return null;
+        throw error;
+      }
+    },
+    ['api-detail', path],
+    { revalidate, tags },
+  )();
 }
 
 /**

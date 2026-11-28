@@ -42,3 +42,34 @@ export const AGENCY_DOCUMENT_TYPE_LABEL: Record<AgencyDocumentType, string> = {
   BROKER_LICENSE: '공인중개사 자격증',
   OTHER: '기타',
 };
+
+/**
+ * 사무소 홈페이지 (`<slug>.<root domain>`) lifecycle: the owner requests a slug (REQUESTED), an
+ * admin approves (ACTIVE), rejects (REJECTED) or later suspends (SUSPENDED) it.
+ */
+export const AgencySiteStatus = {
+  REQUESTED: 'REQUESTED',
+  ACTIVE: 'ACTIVE',
+  REJECTED: 'REJECTED',
+  SUSPENDED: 'SUSPENDED',
+} as const;
+export type AgencySiteStatus = EnumValue<typeof AgencySiteStatus>;
+
+export const AGENCY_SITE_STATUS_LABEL: Record<AgencySiteStatus, string> = {
+  REQUESTED: '신청 중',
+  ACTIVE: '운영 중',
+  REJECTED: '반려',
+  SUSPENDED: '정지',
+};
+
+/** Paid products of an office (both free for now: admins record periods, enforcement is off). */
+export const SubscriptionProduct = {
+  SITE: 'SITE',
+  PLATFORM: 'PLATFORM',
+} as const;
+export type SubscriptionProduct = EnumValue<typeof SubscriptionProduct>;
+
+export const SUBSCRIPTION_PRODUCT_LABEL: Record<SubscriptionProduct, string> = {
+  SITE: '사무소 홈페이지',
+  PLATFORM: '메인 사이트 입점',
+};

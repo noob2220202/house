@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { UserStatus } from '@house/shared';
+import { InquiryAuthor, UserStatus } from '@house/shared';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { HomeUserDataService } from '../../home/services/home-user-data.service';
 import { ListingsModerationService } from '../../listings/services/listings-moderation.service';
@@ -15,7 +15,8 @@ const WITHDRAWN_MEMBER_NAME = '탈퇴 회원';
  * profile fields, identities, consent ip/UA, phone + ip on their reports, their notifications,
  * recent views and favorites (매물, 단지), 관심 중개사무소 + 관심 지역 (HomeUserDataService.purge:
  * those tables have no FK to users), and the name / title / phone / license number on their former
- * agency staff rows (and any listing contact still pointing at those); uploaded file names are
+ * agency staff rows (and any listing contact still pointing at those) and the display name
+ * snapshot on the 문의 replies they wrote for the office; uploaded file names are
  * forgotten and unattached uploads deleted (MediaService.scrubOwner). Also drops expired
  * rejoin-cooldown tombstones.
  * Idempotent: only rows not yet scrubbed are touched, so re-running (or a retry) is harmless.
@@ -86,6 +87,12 @@ export class PiiScrubService {
             });
             listingContactsCleared += count;
           }
+          // 문의 replies keep a snapshot of the staff member's display name (often a real name),
+          // shown to the customer and the office: it goes with the staff row's name.
+          await tx.inquiryMessage.updateMany({
+            where: { authorUserId: { in: ids }, author: InquiryAuthor.AGENCY },
+            data: { authorName: WITHDRAWN_MEMBER_NAME },
+          });
           await tx.user.updateMany({
             where: { id: { in: ids }, piiScrubbedAt: null },
             data: {

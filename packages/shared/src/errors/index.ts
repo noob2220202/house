@@ -6,6 +6,7 @@ import { COMMON_ERROR_MESSAGES, CommonErrorCode } from './common';
 import { COMPLEXES_ERROR_MESSAGES, ComplexesErrorCode } from './complexes';
 import { DEAL_REQUESTS_ERROR_MESSAGES, DealRequestsErrorCode } from './deal-requests';
 import { HOME_ERROR_MESSAGES, HomeErrorCode } from './home';
+import { INQUIRIES_ERROR_MESSAGES, InquiriesErrorCode } from './inquiries';
 import { LISTINGS_ERROR_MESSAGES, ListingsErrorCode } from './listings';
 import { MEDIA_ERROR_MESSAGES, MediaErrorCode } from './media';
 
@@ -21,6 +22,7 @@ export const ErrorCode = {
   ...MediaErrorCode,
   ...AdminErrorCode,
   ...HomeErrorCode,
+  ...InquiriesErrorCode,
 } as const;
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
@@ -36,6 +38,7 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   ...MEDIA_ERROR_MESSAGES,
   ...ADMIN_ERROR_MESSAGES,
   ...HOME_ERROR_MESSAGES,
+  ...INQUIRIES_ERROR_MESSAGES,
 };
 
 /** Error body returned by every API error response. */
@@ -55,6 +58,7 @@ export {
   ComplexesErrorCode,
   DealRequestsErrorCode,
   HomeErrorCode,
+  InquiriesErrorCode,
   ListingsErrorCode,
   MediaErrorCode,
 };

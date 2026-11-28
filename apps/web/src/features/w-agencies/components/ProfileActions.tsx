@@ -8,6 +8,8 @@ export interface ProfileActionsProps {
   agencyId: string;
   agencyName: string;
   className?: string;
+  /** 사무소 홈페이지 (`AgencyProfile.site.url`) — a "홈페이지" pill opening it in a new tab. */
+  siteUrl?: string | null;
 }
 
 /** 관심 pill — the shared favourites module (signed-out users log in and come back with it added). */
@@ -27,8 +29,8 @@ function FavoriteAgencyButton({ agencyId, agencyName }: { agencyId: string; agen
   );
 }
 
-/** 관심 + 공유 pills of the office profile (`.od-act`). */
-export function ProfileActions({ agencyId, agencyName, className }: ProfileActionsProps) {
+/** 관심 + 공유 (+ 홈페이지) pills of the office profile (`.od-act`). */
+export function ProfileActions({ agencyId, agencyName, className, siteUrl }: ProfileActionsProps) {
   const { toast } = useToast();
 
   const onShare = async () => {
@@ -60,6 +62,18 @@ export function ProfileActions({ agencyId, agencyName, className }: ProfileActio
         <Icon name="share" size={16} />
         공유
       </button>
+      {siteUrl && (
+        <a
+          className={styles.act}
+          href={siteUrl}
+          target="_blank"
+          rel="noopener"
+          aria-label={`${agencyName} 홈페이지 (새 창)`}
+        >
+          <Icon name="home" size={16} />
+          홈페이지
+        </a>
+      )}
     </div>
   );
 }

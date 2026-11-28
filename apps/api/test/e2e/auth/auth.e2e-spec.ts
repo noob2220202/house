@@ -44,9 +44,21 @@ describe('auth: sessions, csrf, /auth/me (e2e)', () => {
       expect(res.headers['cache-control']).toBe('no-store');
     });
 
-    it('issues a throwaway token anonymously (nothing to protect yet)', async () => {
+    it('issues a throwaway token anonymously, in the body only (no cookie)', async () => {
       const res = await t.http().get('/api/v1/auth/csrf').expect(200);
       expect(res.body.csrfToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(res.headers['set-cookie']).toBeUndefined();
+      expect(setCookies(res)[COOKIE_NAMES.CSRF]).toBeUndefined();
+      expect(res.headers['cache-control']).toBe('no-store');
+    });
+
+    it('a stale or unknown session cookie is anonymous: no csrf cookie either', async () => {
+      const user = await createUser(t.prisma);
+      const s = await loginUser(t.app, user);
+      await withSession(t.http().post('/api/v1/auth/logout'), s).expect(204);
+      const res = await t.http().get('/api/v1/auth/csrf').set('Cookie', s.cookie).expect(200);
+      expect(res.body.csrfToken).not.toBe(s.csrfToken);
+      expect(setCookies(res)[COOKIE_NAMES.CSRF]).toBeUndefined();
     });
 
     it('a state-changing request with a session but a wrong token is rejected (403)', async () => {

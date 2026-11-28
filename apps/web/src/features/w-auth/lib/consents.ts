@@ -23,6 +23,7 @@ export const CONSENT_COPY: Record<TermsType, { label: string; hint?: string }> =
   PRIVACY_AGENCY_JOIN: { label: '소속 중개사 합류 개인정보 수집·이용' },
   DEAL_REQUEST_PRIVACY: { label: '내놓기·구하기 개인정보 수집·이용' },
   DEAL_REQUEST_PROVIDE: { label: '개인정보 제3자(중개사무소) 제공' },
+  INQUIRY_PRIVACY: { label: '문의 개인정보 수집·이용 및 중개사무소 제공' },
 };
 
 export type ConsentState = Partial<Record<TermsType, boolean>>;

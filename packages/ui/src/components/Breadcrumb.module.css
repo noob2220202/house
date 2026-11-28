@@ -14,8 +14,30 @@
   align-items: center;
   gap: 2px;
 }
+/*
+ * Hit area: at least 24px tall and 4px wider on each side (WCAG 2.5.8), without moving the row —
+ * the negative margin gives the padding back. On touch screens a transparent layer grows it to
+ * the 44px minimum; the chevron between items keeps neighbouring links apart.
+ */
 .link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 4px;
+  margin: 0 -4px;
   border-radius: 4px;
+}
+@media (pointer: coarse) {
+  .link::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: 0;
+    left: 0;
+    height: var(--hit);
+    transform: translateY(-50%);
+  }
 }
 .link:hover {
   color: var(--text);

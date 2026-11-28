@@ -156,6 +156,8 @@ const agencyDetailObjectSchema = agencySummarySchema.extend({
   ),
   /** 대표 매물 (up to 4). */
   featuredListings: z.array(listingSummarySchema).default([]),
+  /** 사무소 홈페이지 (`https://<slug>.<root>`) — set only while the office's site is live. */
+  site: lenient(z.object({ url: z.url({ protocol: /^https?$/ }) })),
   /** 소속 공인중개사 / 중개보조원 (공인중개사법상 표시 대상). */
   members: z
     .array(

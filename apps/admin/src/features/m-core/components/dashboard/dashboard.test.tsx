@@ -2,7 +2,13 @@ import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { dashboardSummarySchema, type DashboardQueues, type DashboardSummary } from '../../api';
 import { KpiRow } from './KpiRow';
-import { DealRequestsPanel, ExpiringAdsPanel, ReportsPanel, adHref } from './QueuePanels';
+import {
+  DealRequestsPanel,
+  ExpiringAdsPanel,
+  PendingSitesPanel,
+  ReportsPanel,
+  adHref,
+} from './QueuePanels';
 
 const now = new Date('2026-11-23T05:20:00Z'); // 월 14:20 KST
 
@@ -73,6 +79,7 @@ describe('<KpiRow> with the shared AdminDashboard', () => {
       agenciesPending: 3,
       dealRequestsOpen: 14,
       reportsOpen: 5,
+      agencySitesPending: 0,
     });
     render(<KpiRow kpis={summary.kpis} />);
     const cards = within(screen.getByRole('region', { name: '오늘의 핵심 지표' })).getAllByRole(
@@ -207,5 +214,45 @@ describe('dashboard queue panels', () => {
     expect(screen.getByText('진행 중인 요청이 없어요')).toBeInTheDocument();
     expect(screen.getByText('처리할 신고가 없어요')).toBeInTheDocument();
     expect(screen.getByText('7일 안에 끝나는 광고가 없어요')).toBeInTheDocument();
+  });
+
+  it('lists 사무소 홈페이지 requests linking to the office site panel', () => {
+    render(
+      <PendingSitesPanel
+        now={now}
+        queue={{
+          total: 2,
+          items: [
+            {
+              agencyId: 'a-2',
+              agencyName: '호수공원 공인중개사사무소',
+              requestedSlug: 'hosupark',
+              requestedAt: '2026-11-19T01:00:00Z',
+            },
+            {
+              agencyId: 'a-3',
+              agencyName: '연향센트럴 공인중개사사무소',
+              requestedSlug: null,
+              requestedAt: '2026-11-23T03:20:00Z',
+            },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: /사무소 홈페이지 신청/ })).toHaveTextContent('2');
+    const first = screen.getByRole('link', { name: /호수공원/ });
+    expect(first).toHaveAttribute('href', '/agencies/a-2#site');
+    expect(first).toHaveTextContent('hosupark.');
+    expect(first).toHaveTextContent('4일째 대기');
+    expect(screen.getByRole('link', { name: /연향센트럴/ })).toHaveTextContent('오늘 신청');
+    expect(screen.getByRole('link', { name: /홈페이지 관리/ })).toHaveAttribute(
+      'href',
+      '/agencies/sites',
+    );
+  });
+
+  it('shows the empty 사무소 홈페이지 queue', () => {
+    render(<PendingSitesPanel now={now} queue={{ total: 0, items: [] }} />);
+    expect(screen.getByText('승인을 기다리는 홈페이지가 없어요')).toBeInTheDocument();
   });
 });

@@ -3,6 +3,7 @@ export * from './user';
 export * from './region';
 export * from './listing';
 export * from './agency';
+export * from './inquiry';
 export * from './complex';
 export * from './deal-request';
 export * from './ads';

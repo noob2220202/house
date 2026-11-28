@@ -45,22 +45,32 @@ export interface ListingListParams {
   sort: ListingSort;
   bbox?: string | null;
   complexId?: string;
+  /** Only listings without a 단지 (`complex_id IS NULL`): the price pills of the complex modes. */
+  withoutComplex?: boolean;
   pageSize?: number;
 }
 
 /** Infinite list for the side panel / bottom sheet (bbox list, or one complex's listings). */
 export function useListingList(
-  { filters, sort, bbox, complexId, pageSize = LIST_PAGE_SIZE }: ListingListParams,
+  { filters, sort, bbox, complexId, withoutComplex, pageSize = LIST_PAGE_SIZE }: ListingListParams,
   enabled = true,
 ) {
   return useInfiniteQuery({
-    queryKey: qk('listings', 'map-list', { filters, sort, bbox, complexId, pageSize }),
+    queryKey: qk('listings', 'map-list', {
+      filters,
+      sort,
+      bbox,
+      complexId,
+      withoutComplex,
+      pageSize,
+    }),
     queryFn: ({ pageParam, signal }) =>
       api.get(LISTING_LIST_PATH, {
         query: {
           ...filters,
           ...(bbox ? { bbox } : {}),
           ...(complexId ? { complexId } : {}),
+          ...(withoutComplex ? { withoutComplex: true } : {}),
           sort,
           page: pageParam,
           pageSize,

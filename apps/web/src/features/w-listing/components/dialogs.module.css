@@ -32,22 +32,6 @@
   gap: 8px;
   margin-top: 12px;
 }
-.shareKakao {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: var(--hit);
-  border-radius: var(--r-md);
-  background: var(--kakao);
-  color: var(--kakao-ink);
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-.shareKakao:hover {
-  filter: brightness(0.97);
-}
 
 /* ---------- report ---------- */
 .report {
@@ -95,116 +79,6 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--danger);
-}
-
-/* ---------- contact ---------- */
-.contact {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.contactHead {
-  display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
-  gap: 14px;
-  align-items: center;
-}
-.contactLogo {
-  position: relative;
-  width: 56px;
-  height: 56px;
-  border-radius: var(--r-md);
-  overflow: hidden;
-  background: var(--surface-2);
-}
-.contactLogo > * {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.contactName {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.contactName b {
-  font-size: 17px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.4;
-}
-.contactName span {
-  font-size: 13px;
-  color: var(--text-3);
-}
-.contactPhone {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 60px;
-  padding: 0 16px 0 20px;
-  border-radius: var(--r-lg);
-  background: var(--brand-soft);
-  color: var(--brand);
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  text-align: left;
-}
-.contactPhone:hover {
-  background: var(--brand-soft-2);
-}
-.contactCopy {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-}
-.contactInfo {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  overflow: hidden;
-}
-.contactInfo > div {
-  display: grid;
-  grid-template-columns: 84px minmax(0, 1fr);
-  gap: 12px;
-  padding: 10px 16px;
-  font-size: 14px;
-  line-height: 1.5;
-}
-.contactInfo > div + div {
-  border-top: 1px solid var(--grey-100);
-}
-.contactInfo dt {
-  font-weight: 600;
-  color: var(--text-muted);
-}
-.contactInfo dd {
-  margin: 0;
-  color: var(--text);
-  font-weight: 600;
-}
-.contactMore {
-  display: inline-flex;
-  align-items: center;
-  align-self: flex-start;
-  gap: 2px;
-  min-height: 32px;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--brand);
-}
-.contactMore:hover {
-  text-decoration: underline;
 }
 
 /* ---------- calculators ---------- */
@@ -279,8 +153,5 @@
 @media (max-width: 720px) {
   .reasonGrid {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .contactPhone {
-    font-size: 22px;
   }
 }

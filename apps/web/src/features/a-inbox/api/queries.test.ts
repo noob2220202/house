@@ -11,10 +11,16 @@ describe('fetchInboxCounts (/agent/notifications tiles)', () => {
       .spyOn(api, 'get')
       .mockImplementation((path: string) =>
         Promise.resolve(
-          path === '/agencies/mine/dashboard' ? { dealRequests: { newCount: 3 } } : { total: 2 },
+          path === '/agencies/mine/dashboard'
+            ? { dealRequests: { newCount: 3 }, inquiries: { unreadCount: 4 } }
+            : { total: 2 },
         ),
       );
-    await expect(fetchInboxCounts()).resolves.toEqual({ newRequests: 3, waitingProposals: 2 });
+    await expect(fetchInboxCounts()).resolves.toEqual({
+      newRequests: 3,
+      waitingProposals: 2,
+      unreadInquiries: 4,
+    });
     expect(get).toHaveBeenCalledWith(
       '/agency/proposals',
       expect.objectContaining({ query: { status: 'SENT,VIEWED', page: 1, pageSize: 1 } }),
@@ -27,6 +33,11 @@ describe('fetchInboxCounts (/agent/notifications tiles)', () => {
         ? Promise.reject(new ApiError(500, { code: 'INTERNAL', message: 'x' }))
         : Promise.resolve({ dealRequests: { newCount: 5 } }),
     );
-    await expect(fetchInboxCounts()).resolves.toEqual({ newRequests: 5, waitingProposals: null });
+    // A dashboard without the 문의함 block leaves only that counter empty too.
+    await expect(fetchInboxCounts()).resolves.toEqual({
+      newRequests: 5,
+      waitingProposals: null,
+      unreadInquiries: null,
+    });
   });
 });

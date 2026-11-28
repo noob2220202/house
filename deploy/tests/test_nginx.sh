@@ -3,8 +3,11 @@
 # case-insensitive blocking of the admin API on the apex, the strict auth zone covering only
 # login flows, frequent auth reads staying in the API zone, that both templates pass nginx -t,
 # /_next/static served from the active release (immutable, gzip, fallback to Next), the page
-# and image rate limits, the client IP headers sent to the Next upstreams, /media caching and
-# the loopback media origin of the image optimizer.
+# and image rate limits, the client IP headers sent to the Next upstreams, /media caching, the
+# loopback media origin of the image optimizer, one Permissions-Policy header (nginx's), and the
+# 사무소 홈페이지 hosts: *.DOMAIN on port 80 (HTTP template: the user site; TLS template: ACME +
+# https), one 443 server per office from deploy/sites.sh with its own certificate, exact names
+# (www, admin) winning over the wildcard, unknown slugs dropped on 443.
 source "$(dirname "$0")/lib.sh"
 
 if ! have_cmd nginx || ! have_cmd curl || ! have_cmd node; then
@@ -13,7 +16,7 @@ if ! have_cmd nginx || ! have_cmd curl || ! have_cmd node; then
   exit $?
 fi
 N="$T_TMP/nginx"
-mkdir -p "$N"/{snippets,house,log,www,cert,uploads/public,tmp}
+mkdir -p "$N"/{snippets,house/sites,log,www,cert,live,uploads/public,tmp}
 P=$((20000 + RANDOM % 20000)) PS=$((P + 1)) UP=$((P + 2)) MP=$((P + 3))
 TPL="$KIT_DIR/nginx"
 render() {
@@ -23,6 +26,7 @@ render() {
     -e "s|{{UPLOAD_PUBLIC}}|$N/uploads/public|g" -e "s|{{CERT_NAME}}|house|g" -e "s|{{HSTS_LINE}}||g" \
     -e "s|/etc/nginx/snippets/|$N/snippets/|g" -e "s|/etc/nginx/house/|$N/house/|g" \
     -e "s|/var/log/nginx/|$N/log/|g" -e "s|/etc/letsencrypt/live/house/|$N/cert/|g" \
+    -e "s|/etc/letsencrypt/live/house-site-\([a-z0-9-]*\)/|$N/live/house-site-\1/|g" \
     -e "s|/var/www/letsencrypt|$N/www|g" -e '/listen \[::\]/d' \
     -e "s|listen 80|listen 127.0.0.1:$P|" -e "s|listen 443|listen 127.0.0.1:$PS|" "$1"
 }
@@ -32,6 +36,17 @@ render "$TPL/admin-allowlist.conf.example" >"$N/house/admin-allowlist.conf"
 render "$TPL/house-upstreams.conf.template" >"$N/upstreams.conf"
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj /CN=web.test -keyout "$N/cert/privkey.pem" \
   -out "$N/cert/fullchain.pem" >/dev/null 2>&1
+# One office site the way deploy/sites.sh leaves it: its own certificate and server file.
+mkdir -p "$N/live/house-site-office"
+openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj /CN=office.web.test -addext subjectAltName=DNS:office.web.test \
+  -keyout "$N/live/house-site-office/privkey.pem" -out "$N/live/house-site-office/fullchain.pem" >/dev/null 2>&1
+(
+  # shellcheck source=../sites.sh
+  source "$KIT_DIR/sites.sh"
+  DOMAIN=web.test
+  site_server_conf office false
+) >"$T_TMP/office.conf"
+render "$T_TMP/office.conf" >"$N/house/sites/office.conf"
 # Active release with web/admin build assets, and one public upload.
 mkdir -p "$N/current/apps/web/.next/static/chunks" "$N/current/apps/admin/.next/static/chunks" "$N/uploads/public/listings"
 { printf '/* web chunk */\n'; for _ in $(seq 200); do printf 'console.log("house web chunk");\n'; done; } \
@@ -61,6 +76,10 @@ ngx() { nginx -p "$N" -e "$N/log/error.log" -c "$N/nginx.conf" "$@"; }
 
 render "$TPL/house.conf.template" >"$N/site.conf" && main
 check "TLS template + snippets pass nginx -t" ngx -t -q
+grep -qF "include $N/house/sites/*.conf;" "$N/site.conf" && pass "TLS template includes the office site servers" ||
+  fail "TLS template does not include /etc/nginx/house/sites/*.conf"
+grep -q 'server_name office.web.test;' "$N/house/sites/office.conf" && grep -q "ssl_certificate $N/live/house-site-office/fullchain.pem;" "$N/house/sites/office.conf" &&
+  pass "office server file uses its own certificate" || fail "office server file" "$(cat "$N/house/sites/office.conf")"
 render "$TPL/house-http.conf.template" >"$N/site.conf" && main
 check "HTTP template + snippets pass nginx -t" ngx -t -q
 
@@ -69,6 +88,8 @@ node -e 'require("http").createServer((q, r) => {
   r.setHeader("x-up-real-ip", q.headers["x-real-ip"] || "-");
   r.setHeader("x-up-xff", q.headers["x-forwarded-for"] || "-");
   r.setHeader("x-up-ssr", q.headers["x-house-ssr"] || "-");
+  // Next sends its own (next.config.mjs securityHeaders); nginx must hide it.
+  r.setHeader("permissions-policy", "geolocation=(self), camera=(), microphone=(), payment=()");
   r.end("upstream " + q.url);
 }).listen(+process.argv[1], "127.0.0.1")' "$UP" &
 up_pid=$!
@@ -189,6 +210,46 @@ assert_eq "loopback media origin: non-image 404" "$(mcode /media/listings/x.html
 assert_eq "loopback media origin serves nothing else" "$(mcode /api/v1/listings)" "404"
 grep -q "listen 127.0.0.1:{{MEDIA_PORT}};" "$TPL/house-upstreams.conf.template" && ! grep -q 'listen {{MEDIA_PORT}}\|listen \[::\]:{{MEDIA_PORT}}' "$TPL/house-upstreams.conf.template" &&
   pass "media origin listens on loopback only" || fail "media origin is not loopback-only"
+
+# ─── Permissions-Policy: exactly one, nginx's ───
+for target in "web.test /listing/abc" "web.test /api/v1/listings" "admin.web.test /members" "office.web.test /listing/abc"; do
+  read -r host path <<<"$target"
+  pp="$(hdr "$host" "$path" permissions-policy)"
+  assert_eq "one Permissions-Policy header ($host$path)" "$(tr -d '\r' <"$N/headers" | grep -ci '^permissions-policy:')" "1"
+  assert_contains "Permissions-Policy is nginx's ($host$path)" "$pp" "usb=()"
+  assert_not_contains "no obsolete interest-cohort ($host$path)" "$pp" "interest-cohort"
+done
+
+# ─── 사무소 홈페이지, HTTP template: *.web.test is the user site ───
+start >/dev/null
+assert_eq "HTTP: office host serves the user site" "$(code office.web.test /listing/abc; cat "$N/body")" "200upstream /listing/abc"
+assert_eq "HTTP: office host reaches the API" "$(code office.web.test /api/v1/sites/office; cat "$N/body")" "200upstream /api/v1/sites/office"
+c="$(code office.web.test /api/v1/ADMIN/members)"
+if [[ "$c" == 404 ]] && ! grep -q upstream "$N/body"; then pass "HTTP: office host blocks the admin API"; else fail "HTTP: office host blocks the admin API" "got $c"; fi
+assert_eq "HTTP: office host serves /_next/static from the web build" "$(code office.web.test /_next/static/chunks/app-abc123.js)" "200"
+assert_eq "HTTP: www still redirects to the apex (exact name wins)" "$(hdr www.web.test /x location)" "http://web.test/x"
+assert_eq "HTTP: admin host still serves the admin API" "$(code admin.web.test /api/v1/admin/members; cat "$N/body")" "200upstream /api/v1/admin/members"
+assert_eq "HTTP: a host outside the domain is still dropped" "$(code other.test /)" "000"
+
+# ─── 사무소 홈페이지, TLS template: ACME + https on 80, one server per office on 443 ───
+render "$TPL/house.conf.template" >"$N/site.conf" && main
+check "TLS sandbox starts with an office site server" start
+assert_eq "80: office host → https" "$(hdr office.web.test '/listing/abc?x=1' location)" "https://office.web.test/listing/abc?x=1"
+assert_eq "80: a slug without a certificate yet → https as well" "$(hdr new-office.web.test / location)" "https://new-office.web.test/"
+mkdir -p "$N/www/.well-known/acme-challenge" && printf 'tok-123' >"$N/www/.well-known/acme-challenge/tok-123"
+assert_eq "80: HTTP-01 challenge answered for a new slug (certbot --webroot)" \
+  "$(code new-office.web.test /.well-known/acme-challenge/tok-123; cat "$N/body")" "200tok-123"
+assert_eq "80: www still → https apex" "$(hdr www.web.test /x location)" "https://web.test/x"
+assert_eq "80: admin still → https admin" "$(hdr admin.web.test /x location)" "https://admin.web.test/x"
+tls() { curl -sk --path-as-is -o "$N/body" -w '%{http_code}' --resolve "$1:$PS:127.0.0.1" "https://$1:$PS$2"; }
+assert_eq "443: office site proxies to web" "$(tls office.web.test /listing/abc; cat "$N/body")" "200upstream /listing/abc"
+c="$(tls office.web.test /api/v1/admin/members)"
+if [[ "$c" == 404 ]] && ! grep -q upstream "$N/body"; then pass "443: office host blocks the admin API"; else fail "443: office host blocks the admin API" "got $c"; fi
+assert_eq "443: apex still served" "$(tls web.test /api/v1/listings; cat "$N/body")" "200upstream /api/v1/listings"
+sans="$(openssl s_client -connect "127.0.0.1:$PS" -servername office.web.test </dev/null 2>/dev/null |
+  openssl x509 -noout -ext subjectAltName 2>/dev/null)"
+assert_contains "443: the office's own certificate is served" "$sans" "office.web.test"
+assert_eq "443: a slug without a server is dropped by the default server" "$(tls unknown.web.test /)" "000"
 
 # ─── regexes still hold with merge_slashes off (no reliance on nginx normalizing //) ───
 HTTP_EXTRA="merge_slashes off;"

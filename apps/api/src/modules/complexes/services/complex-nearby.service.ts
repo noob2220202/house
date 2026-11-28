@@ -45,7 +45,7 @@ export interface ComplexAgencyView {
   specialtyLabel: string | null;
   /** The office's public listings in this 단지. */
   complexListingCount: number;
-  /** Not measured yet (no inquiry backend, DECISIONS D5). */
+  /** Not measured yet (문의 response times are not computed; DECISIONS D16). */
   avgResponseMinutes: number | null;
 }
 

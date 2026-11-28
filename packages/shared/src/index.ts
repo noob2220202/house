@@ -8,5 +8,6 @@ export * from './complexes';
 export * from './agencies';
 export * from './ads';
 export * from './deal-requests';
+export * from './inquiries';
 export * from './media';
 export * from './admin';

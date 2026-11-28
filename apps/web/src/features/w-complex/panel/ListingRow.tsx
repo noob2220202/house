@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { ROUTES } from '@/config/nav';
 import { formatPhone, type AreaUnit } from '@/lib/format';
+import { logContactEvent } from '@/features/w-inquiry/api';
 import { complexKeys, fetchListingAgencies } from '../api/queries';
 import type { ComplexListingItem, ListingAgency } from '../api/schemas';
 import {
@@ -76,6 +77,14 @@ function BrokerLine({
             href={`tel:${agency.phone}`}
             title={formatPhone(agency.phone)}
             aria-label={`${agency.name}에 전화 문의 (${formatPhone(agency.phone)})`}
+            onClick={() =>
+              logContactEvent({
+                agencyId: agency.agencyId,
+                listingId: listing.id,
+                channel: 'CALL',
+                source: 'MAIN',
+              })
+            }
           >
             <Icon name="phone" size={20} />
           </a>

@@ -3,6 +3,7 @@ import type { IconName } from '@house/ui';
 import { ROUTES } from '@/config/nav';
 import { AGENT_ROUTES } from '@/features/a-agency/nav';
 import { INBOX_ROUTES } from '@/features/a-inbox/routes';
+import { ME_INQUIRY_ROUTES } from '@/features/w-inquiry/routes';
 import { safeReturnTo } from '@/lib/auth/paths';
 import type { Notification } from '../schemas';
 
@@ -22,6 +23,9 @@ export interface NotificationMeta {
  * their contact to us); PROPOSAL_RECEIVED is the only one sent to the REQUESTER.
  * LISTING_EXPIRED / CO_BROKER_REQUESTED come from the `listings` module and go to the OWNERS of the
  * listing's primary agency with `data.listingId` (광고기간 만료, 다른 사무소의 공동중개 참여 요청).
+ * INQUIRY_RECEIVED (a customer wrote to the office, `data { agencyId, inquiryId }`) and
+ * AGENCY_SITE_APPROVED / _REJECTED (내 홈페이지 신청 결과) go to the agency; INQUIRY_REPLIED (the
+ * office answered, `data { inquiryId, agencyName }`, deliberately without `agencyId`) to the member.
  */
 export const NOTIFICATION_META: Record<NotificationType, NotificationMeta> = {
   DEAL_REQUEST_RECEIVED: { label: '새 요청 도착', icon: 'home-up', tone: 'brand' },
@@ -35,6 +39,10 @@ export const NOTIFICATION_META: Record<NotificationType, NotificationMeta> = {
   REPORT_RESOLVED: { label: '신고 처리', icon: 'shield', tone: 'success' },
   LISTING_EXPIRED: { label: '광고기간 만료', icon: 'clock', tone: 'warn' },
   CO_BROKER_REQUESTED: { label: '공동중개 요청', icon: 'link', tone: 'brand' },
+  INQUIRY_RECEIVED: { label: '새 문의', icon: 'chat', tone: 'brand' },
+  INQUIRY_REPLIED: { label: '문의 답변', icon: 'chat', tone: 'success' },
+  AGENCY_SITE_APPROVED: { label: '내 홈페이지', icon: 'home', tone: 'success' },
+  AGENCY_SITE_REJECTED: { label: '내 홈페이지', icon: 'home', tone: 'danger' },
   SYSTEM: { label: '알림', icon: 'megaphone', tone: 'neutral' },
 };
 
@@ -43,7 +51,7 @@ function str(data: Notification['data'], key: string): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
-/** Category meta of a notification (by type only — there is no 매물 문의 caption for launch, D5). */
+/** Category meta of a notification (by type). */
 export function notificationMeta(type: NotificationType): NotificationMeta {
   return NOTIFICATION_META[type] ?? NOTIFICATION_META.SYSTEM;
 }
@@ -55,6 +63,9 @@ const AGENCY_ONLY_TYPES: ReadonlySet<NotificationType> = new Set([
   NotificationType.CONTACT_GRANTED,
   NotificationType.LISTING_EXPIRED,
   NotificationType.CO_BROKER_REQUESTED,
+  NotificationType.INQUIRY_RECEIVED,
+  NotificationType.AGENCY_SITE_APPROVED,
+  NotificationType.AGENCY_SITE_REJECTED,
 ]);
 
 /**
@@ -78,8 +89,14 @@ function safeUrl(data: Notification['data']): string | null {
 /** Console destination of an agency event, or null when the type decides (승인, 경고 …). */
 function agencyHref(n: Pick<Notification, 'type' | 'data'>): string | null {
   const dealRequestId = str(n.data, 'dealRequestId');
+  const inquiryId = str(n.data, 'inquiryId');
   const listingId = str(n.data, 'listingId');
   switch (n.type) {
+    case NotificationType.INQUIRY_RECEIVED:
+      return inquiryId ? INBOX_ROUTES.inquiry(inquiryId) : INBOX_ROUTES.inquiries;
+    case NotificationType.AGENCY_SITE_APPROVED:
+    case NotificationType.AGENCY_SITE_REJECTED:
+      return AGENT_ROUTES.site;
     case NotificationType.LISTING_EXPIRED:
     case NotificationType.CO_BROKER_REQUESTED:
       // The console has no listing detail page of its own: the editor is the detail view.
@@ -94,7 +111,7 @@ function agencyHref(n: Pick<Notification, 'type' | 'data'>): string | null {
     case NotificationType.AGENCY_WARNED:
       return null;
     default:
-      // A payload `inquiryId` is ignored: there is no 문의함 for launch (D5).
+      if (inquiryId) return INBOX_ROUTES.inquiry(inquiryId);
       if (dealRequestId) return INBOX_ROUTES.request(dealRequestId);
       return safeUrl(n.data);
   }
@@ -103,7 +120,8 @@ function agencyHref(n: Pick<Notification, 'type' | 'data'>): string | null {
 /**
  * Where a notification leads. Built from `type` + the deep-link payload in `data`; returns null
  * when there is nothing to open. Agency events (see `isAgencyNotification`) open the broker console
- * (`/agent/requests/{id}`, `/agent/listings/{id}/edit`), everything else the my-page / public pages.
+ * (`/agent/requests/{id}`, `/agent/inquiries?id=`, `/agent/listings/{id}/edit`, `/agent/site`),
+ * everything else the my-page / public pages (`/me/inquiries/{id}` for an answered inquiry).
  * `data.url` is only followed when it is a site-relative path.
  */
 export function notificationHref(n: Pick<Notification, 'type' | 'data'>): string | null {
@@ -114,12 +132,15 @@ export function notificationHref(n: Pick<Notification, 'type' | 'data'>): string
   const dealRequestId = str(n.data, 'dealRequestId');
   const listingId = str(n.data, 'listingId');
   const complexId = str(n.data, 'complexId');
+  const inquiryId = str(n.data, 'inquiryId');
   const myRequest = dealRequestId
     ? `${ROUTES.myRequests}/${encodeURIComponent(dealRequestId)}`
     : null;
   switch (n.type) {
     case NotificationType.PROPOSAL_RECEIVED:
       return myRequest ?? ROUTES.myRequests;
+    case NotificationType.INQUIRY_REPLIED:
+      return inquiryId ? ME_INQUIRY_ROUTES.detail(inquiryId) : ME_INQUIRY_ROUTES.list;
     case NotificationType.AGENCY_APPROVED:
     case NotificationType.AGENCY_WARNED:
       return ROUTES.agent;

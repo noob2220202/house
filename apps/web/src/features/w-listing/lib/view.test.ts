@@ -9,6 +9,7 @@ import {
   disclosureLocation,
   buildFacts,
   buildVerifySteps,
+  buildingUseText,
   descriptionParagraphs,
   floorText,
   headlineAmount,
@@ -286,6 +287,17 @@ describe('facts and 표시·광고 명시사항', () => {
     expect(get('사용승인일')).toBe('2019.06.28');
     expect(get('주차대수')).toBe('확인 필요');
     expect(get('관리비')).toBe('확인 필요');
+  });
+
+  it('shows 건축물 용도 in Korean, never as the raw enum', () => {
+    const shop = make({}, { buildingUse: 'NEIGHBORHOOD_FACILITY_1' });
+    expect(buildFacts(shop, 'sqm').find((f) => f.key === 'use')?.value).toBe('제1종 근린생활시설');
+    expect(buildDisclosure(shop).find((r) => r.label === '건축물 용도')?.value).toBe(
+      '제1종 근린생활시설',
+    );
+    // The broker preview passes the label itself; an unknown future value is shown as sent.
+    expect(buildingUseText('아파트')).toBe('아파트');
+    expect(buildingUseText('SPACEPORT')).toBe('SPACEPORT');
   });
 
   it('writes 소재지 down to the 지번 without repeating words', () => {

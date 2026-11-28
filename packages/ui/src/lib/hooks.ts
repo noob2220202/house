@@ -59,13 +59,31 @@ export function useDismiss(
 const FOCUSABLE =
   'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
-/** Traps Tab focus inside `ref` while active, focuses the first focusable element, restores focus on close. */
+/**
+ * Whether Tab can actually reach `el`: not taken out of the order (`tabIndex -1`: a honeypot, an
+ * inactive roving tab), not inside a `hidden` / `inert` subtree (a closed tab panel), not disabled
+ * and rendered. `checkVisibility` is missing in jsdom, where the other checks still apply.
+ */
+export function isTabbable(el: HTMLElement): boolean {
+  if (el.tabIndex < 0 || el.closest('[hidden],[inert]') || el.matches(':disabled')) return false;
+  return typeof el.checkVisibility === 'function'
+    ? el.checkVisibility({ visibilityProperty: true })
+    : true;
+}
+
+/**
+ * Traps Tab focus inside `ref` while active, focuses the first focusable element, restores focus on
+ * close. Only elements Tab can reach count as first / last (`isTabbable`): a hidden control after
+ * the last visible one used to let focus walk out of the dialog to the page behind it. Focus on a
+ * non-tabbable element (a heading focused with tabIndex -1) wraps the same way at either end.
+ */
 export function useFocusTrap(active: boolean, ref: RefObject<HTMLElement | null>): void {
   useEffect(() => {
     const node = ref.current;
     if (!active || !node) return;
     const previous = document.activeElement as HTMLElement | null;
-    const focusables = () => Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE));
+    const focusables = () =>
+      Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(isTabbable);
     const initial = node.querySelector<HTMLElement>('[data-autofocus]') ?? focusables()[0] ?? node;
     initial.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
@@ -77,10 +95,19 @@ export function useFocusTrap(active: boolean, ref: RefObject<HTMLElement | null>
       }
       const first = items[0]!;
       const last = items[items.length - 1]!;
-      if (e.shiftKey && document.activeElement === first) {
+      const current = document.activeElement;
+      // Positions relative to the focused element (it may not be one of `items`).
+      const before = (el: HTMLElement) =>
+        !!current &&
+        el !== current &&
+        !!(el.compareDocumentPosition(current) & Node.DOCUMENT_POSITION_FOLLOWING);
+      const atStart =
+        current === first || (!items.includes(current as HTMLElement) && !before(first));
+      const atEnd = current === last || (!items.includes(current as HTMLElement) && before(last));
+      if (e.shiftKey && atStart) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
+      } else if (!e.shiftKey && atEnd) {
         e.preventDefault();
         first.focus();
       }

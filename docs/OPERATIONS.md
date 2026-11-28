@@ -20,7 +20,8 @@
 
 ### 매주
 
-- 관리자 화면에서 **허위매물 신고**, **중개사무소 승인 대기** 처리
+- 관리자 화면에서 **허위매물 신고**, **중개사무소 승인 대기**, **사무소 홈페이지 신청** 처리 (13장)
+- `/srv/house/status.sh`의 **사무소 홈페이지** 항목: 타이머 `active`, 마지막 결과 `success` (아니면 13장)
 - `sudo -u house pm2 logs --err --lines 200` 으로 반복되는 오류가 없는지
 - 외부 백업(rclone)을 쓴다면 원격 저장소에 최근 파일이 올라갔는지: `sudo -u house rclone ls offsite-crypt:house-backups/db | tail`
 
@@ -35,16 +36,18 @@
 
 ## 2. 로그
 
-| 로그                       | 위치 / 명령                                                          |
-| -------------------------- | -------------------------------------------------------------------- |
-| API / worker / web / admin | `sudo -u house pm2 logs` · 파일: `/var/log/house/pm2/*.log`          |
-| 배포·롤백 기록             | `/var/log/house/deploy.log` (배포 중 SSH가 끊겨도 여기서 이어 보기)  |
-| 백업 기록                  | `/var/log/house/backup.log`                                          |
-| 복원 기록                  | `/var/log/house/restore.log`                                         |
-| Nginx 접속/오류            | `/var/log/nginx/house-web.*.log`, `/var/log/nginx/house-admin.*.log` |
-| PostgreSQL                 | `/var/log/postgresql/postgresql-16-main.log`                         |
-| Redis                      | `/var/log/redis/redis-server.log`                                    |
-| 자동 보안 업데이트         | `/var/log/unattended-upgrades/`                                      |
+| 로그                       | 위치 / 명령                                                                 |
+| -------------------------- | --------------------------------------------------------------------------- |
+| API / worker / web / admin | `sudo -u house pm2 logs` · 파일: `/var/log/house/pm2/*.log`                 |
+| 배포·롤백 기록             | `/var/log/house/deploy.log` (배포 중 SSH가 끊겨도 여기서 이어 보기)         |
+| 백업 기록                  | `/var/log/house/backup.log`                                                 |
+| 복원 기록                  | `/var/log/house/restore.log`                                                |
+| Nginx 접속/오류            | `/var/log/nginx/house-web.*.log`, `/var/log/nginx/house-admin.*.log`        |
+| 사무소 홈페이지 (nginx)    | `/var/log/nginx/house-sites.*.log` (모든 `<주소>.도메인` 접속)              |
+| 사무소 홈페이지 인증서     | `journalctl -u house-sites` (systemd 없는 서버: `/var/log/house-sites.log`) |
+| PostgreSQL                 | `/var/log/postgresql/postgresql-16-main.log`                                |
+| Redis                      | `/var/log/redis/redis-server.log`                                           |
+| 자동 보안 업데이트         | `/var/log/unattended-upgrades/`                                             |
 
 자주 쓰는 명령:
 
@@ -236,6 +239,7 @@ certbot renew --dry-run              # 갱신 시험 (실제 변경 없음)
 
 - 만료 알림 메일이 오면 대개 DNS나 방화벽(80번 포트) 문제입니다. `certbot renew` 를 직접 실행해 오류를 확인하세요.
 - 도메인을 추가/변경했다면 install.sh를 새 도메인으로 다시 실행합니다. 인증서에 새 이름이 없으면 자동으로 다시 발급하고, `.env`에서 고칠 키를 알려 줍니다 (DEPLOY.md 16단계).
+- 사무소 홈페이지는 사무소마다 인증서가 따로 있습니다(`house-site-<주소>`). `certbot certificates`에 함께 나오고 같은 타이머로 갱신됩니다 (13장).
 
 ## 8. 보안 업데이트
 
@@ -378,3 +382,67 @@ du -sh /srv/house/releases /var/backups/house /var/lib/house/uploads /var/log/ho
 - **실패했을 때**: 공공데이터포털 일일 호출 한도·응답 지연이 원인인 경우가 많습니다. 한도에 걸리면 작업이 바로 멈추고
   "오늘 호출 한도를 다 썼어요"라고 표시됩니다. 잠시 후(한도는 다음 날) 다시 실행하면 이미 읽은 달(7일 보관)은 건너뛰고 이어서 진행합니다. 한 번에 하나만 실행됩니다. 로그: `sudo -u house pm2 logs house-worker`
 - 실행 기록은 작업 기록(감사 로그)에 `complex.bootstrap.preview` / `complex.bootstrap.run` / `complex.bootstrap.apply`로 남습니다.
+
+## 13. 사무소 홈페이지 (승인 · 인증서 · 발급 한도)
+
+중개사무소 홈페이지는 `https://<주소>.suncheonmap.kr` 입니다. 동작 원리와 DNS 설정은 DEPLOY.md 3단계(`*` 레코드)와 6-3을 보세요.
+
+### 신청 승인
+
+1. 관리자 사이트 대시보드의 **사무소 홈페이지 신청** 배지, 또는 **중개사무소 → 사무소 홈페이지**(신청 대기 탭, 오래된 신청부터)를 엽니다.
+2. 신청 주소를 확인합니다. 상호와 관계없는 주소, 다른 사무소·기관으로 오해할 주소, 욕설은 **주소를 고쳐서 승인**하거나
+   **반려**(사유는 중개사에게 그대로 보입니다)합니다. 예약어(`www`, `admin`, `api`, `help` 등)와 형식이 틀린 주소는 앱이 처음부터 막습니다.
+3. 승인하면 5분 안에 인증서가 발급되고, 보통 10분 안에 중개사 콘솔에 주소가 열립니다(그 전에는 "주소 준비 중 — 보통 10분 안에 열려요",
+   승인 알림도 주소가 곧 열린다고 안내). 한꺼번에 많이 승인했거나 DNS·발급 문제가 있으면 더 걸립니다(아래 표).
+4. **정지**하면 그 홈페이지는 바로 404가 됩니다(앱). nginx 설정과 인증서는 그대로 두므로 **재개**하면 바로 다시 열립니다.
+   승인 때 주소를 바꾸면 새 주소로 인증서를 새로 받고 그동안은 "주소 준비 중"입니다. 옛 주소의 nginx 설정은 지워지고 인증서는 남아 있다가
+   아래 "정리"로 지울 수 있습니다.
+5. 유료 적용: 관리자 사이트 **설정 → 기능**의 "사무소 홈페이지 유료 적용"을 켜면, 사무소 상세의 구독(입금 확인 후 관리자가 기간 입력)이
+   오늘 유효한 사무소만 운영됩니다. 지금은 무료이므로 **꺼 둡니다**. 켜고 끄는 즉시 앱에 반영됩니다. 구독이 없어 닫힌 사무소도 nginx 설정과
+   인증서는 그대로라, 구독을 넣거나 유료 적용을 끄면 이미 열렸던 홈페이지는 바로 다시 열립니다.
+
+### 동작 확인 (`house-sites`)
+
+```bash
+/srv/house/status.sh                          # "사무소 홈페이지": HTTPS 서버 수, 타이머 상태, 마지막 결과
+systemctl list-timers house-sites.timer       # 다음/지난 실행 시각 (5분마다)
+journalctl -u house-sites -n 50 --no-pager    # 최근 실행 기록 (발급·실패·미룸·주소 검사 결과)
+sudo /srv/house/sites.sh                      # 지금 바로 한 번 실행 (화면에 결과, 배정되지 않은 주소의 인증서 목록도 표시)
+ls /etc/nginx/house/sites/                    # 주소마다 <주소>.conf
+certbot certificates | grep -A3 house-site-   # 사무소 인증서와 만료일
+```
+
+실행할 때마다 마지막 줄에 `사무소 홈페이지: 운영 N곳 (정지·미구독 포함 N곳) · HTTPS N곳 · 이번 발급 N건 (실패 N) · 대기 N건`이 남습니다.
+"운영"은 지금 열리는 홈페이지, 괄호 안은 nginx 설정을 유지하는 주소 전체(정지·사무소 정지·유료 적용 중 구독 없음 포함)입니다.
+systemd가 없는 서버는 cron이 같은 작업을 5분마다 실행하고 기록은 `/var/log/house-sites.log`에 남습니다.
+
+| 기록에 나온 내용                                        | 뜻 / 할 일                                                                                                                                                            |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DNS 에서 찾을 수 없습니다`                             | 가비아 DNS의 `*` A 레코드가 없거나 아직 반영 전. `nslookup <주소>.suncheonmap.kr` (DEPLOY.md 3단계)                                                                   |
+| `인증서 발급 실패`                                      | 80번 포트(UFW, 공유기·클라우드 방화벽)와 DNS 확인 → 1시간 뒤 자동 재시도. 바로 다시 하려면 `sudo rm /var/lib/house-sites/failed/<주소>` 후 `sudo /srv/house/sites.sh` |
+| `발급 한도 … 다음 실행으로 미룹니다`                    | 정상. 한 번에 10개, 일주일에 40개까지만 새로 받습니다(아래 "발급 한도")                                                                                               |
+| `다른 certbot(자동 갱신 certbot.timer)이 실행 중입니다` | 정상. 하루 두 번 도는 인증서 자동 갱신과 겹쳤습니다. 실패로 치지 않고(1시간 대기 없음) 다음 실행(5분 뒤)에 발급합니다                                                 |
+| `웹 앱에 사무소 홈페이지가 없습니다`                    | 사무소 홈페이지가 없는 버전으로 롤백됨. 사무소 nginx 설정을 모두 내리고 링크를 숨김. 새 버전을 다시 배포하면 돌아옴 (DEPLOY.md 12단계)                                |
+| `사용할 수 없는 홈페이지 주소라 건너뜁니다`             | DB에 규칙에 맞지 않는 주소가 있음(앱을 거치지 않고 DB를 고쳤을 때). 관리자 사이트에서 주소를 고쳐 다시 승인                                                           |
+| `nginx 설정 검사 실패`                                  | 그 주소의 새 설정만 되돌림 — 이전 설정이 있던 주소는 그 설정으로 계속 열리고 링크도 유지. `sudo nginx -t` 로 원인 확인 (보통 `/etc/nginx` 를 손으로 고친 경우)        |
+| `nginx 가 TLS 설정이 아니거나 …`                        | 메인 인증서가 아직 없음(HTTP 모드). DEPLOY.md 6-2 → 발급되면 `sudo /srv/house/bin/install.sh --nginx-only`                                                            |
+| `https_ready_at 을 지움 (링크 숨김)`                    | 배정된 주소인데 인증서·설정이 사라진 경우(서버 이전, 인증서 수동 삭제). 운영 중인 주소는 다음 실행에서 다시 발급되면 링크도 돌아옵니다                                |
+
+### 발급 한도 (Let's Encrypt)
+
+- **도메인당 일주일에 새 인증서 50개**(`suncheonmap.kr` 전체 합계: 메인 인증서 재발급 포함). 갱신은 이 한도에 들어가지 않습니다.
+  `sites.sh`는 최근 7일 발급 기록(`/var/lib/house-sites/issued`)을 세어 **일주일 40개, 한 번에 10개**까지만 새로 받고 나머지는 대기시킵니다.
+  사무소를 한꺼번에 많이 승인해도 순서대로(먼저 승인한 곳부터) 며칠에 걸쳐 열릴 뿐 실패하지는 않습니다.
+- **같은 주소의 인증 실패는 시간당 5회**까지입니다. 그래서 실패한 주소는 1시간 동안 다시 시도하지 않습니다.
+- 발급을 시험할 때는 Let's Encrypt 스테이징 서버를 씁니다(한도 영향 없음, 브라우저가 믿지 않는 인증서라 `https_ready_at`은 그대로):
+  `sudo /srv/house/sites.sh --staging`. 이렇게 받은 인증서는 다음 일반 실행에서 정식 인증서로 자동 교체됩니다.
+
+### 정리 (배정되지 않은 주소의 인증서)
+
+정지된 홈페이지의 인증서와 nginx 설정은 재개에 대비해 그대로 둡니다(지우지 마세요). 주소 변경·반려·사무소 삭제로 **어떤 홈페이지에도
+배정되지 않은 주소**는 nginx 설정이 지워지지만 인증서는 남아 자동 갱신됩니다. 다시 쓸 일이 없으면 지워도 됩니다:
+
+```bash
+sudo /srv/house/sites.sh                           # 끝부분에 "배정된 사무소 홈페이지가 없는 인증서" 목록
+sudo certbot delete --cert-name house-site-<주소>
+```

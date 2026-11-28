@@ -1,0 +1,506 @@
+/* 내 홈페이지 (/agent/site): request form / status, colour + 한 줄 소개 editor, live preview. */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 20px;
+  align-items: start;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.help {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+.fieldLabel {
+  margin-bottom: 10px;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+/* ---- status ---- */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  min-width: 0;
+}
+.facts dt {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.facts dd {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.host {
+  font-family: var(--font-num);
+  letter-spacing: -0.01em;
+}
+.calloutMeta {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.address {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid var(--brand-line);
+  border-radius: var(--r-lg);
+  background: var(--brand-soft);
+}
+.addressUrl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-family: var(--font-num);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--brand);
+  overflow-wrap: anywhere;
+}
+a.addressUrl:hover span {
+  text-decoration: underline;
+}
+/* 주소 준비 중: the host as plain text, no open / copy until HTTPS is ready. */
+.addressPending {
+  border-color: var(--line);
+  background: var(--surface-2);
+}
+.addressPending .addressUrl {
+  color: var(--text-2);
+}
+.addressWait {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.addressUrl svg {
+  flex: none;
+}
+.addressActs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.profileRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.profileRow .help {
+  flex: 1;
+  min-width: 220px;
+}
+
+/* ---- request form ---- */
+.benefits {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.benefits li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+.benefits svg {
+  flex: none;
+  color: var(--brand);
+}
+.suffix {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.slugStatus {
+  min-height: 22px;
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.slugStatus > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.slugChecking,
+.slugMuted {
+  color: var(--text-muted);
+}
+.slugOk {
+  color: var(--success);
+}
+.slugBad {
+  color: var(--danger);
+}
+.formActs {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-soft);
+}
+.saveText {
+  flex: 1;
+  min-width: 180px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.formActsDirty .saveText {
+  color: var(--warn-text, var(--text-2));
+  font-weight: 700;
+}
+
+/* ---- colour swatches ---- */
+.swatches {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.swatches:disabled {
+  opacity: 0.6;
+}
+.swatchRow {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 8px;
+}
+.swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.swatches:disabled .swatch {
+  cursor: not-allowed;
+}
+.swatchDot {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-pill);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(10, 18, 34, 0.12);
+  transition: transform var(--dur-1);
+}
+.swatch:hover .swatchDot {
+  transform: scale(1.06);
+}
+.swatch input:checked + .swatchDot {
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 5px var(--text);
+}
+.swatch input:focus-visible + .swatchDot {
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 5px var(--focus-ring, #1d4ff2);
+  outline: 2px solid transparent;
+}
+.swatchLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.swatch input:checked ~ .swatchLabel {
+  color: var(--text);
+  font-weight: 800;
+}
+.swatches .help {
+  margin-top: 10px;
+}
+
+/* ---- preview ---- */
+.aside {
+  position: sticky;
+  top: 84px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.asideTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.asideTitle > svg {
+  color: var(--icon-muted);
+}
+.preview {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  box-shadow: var(--sh-2);
+  overflow: hidden;
+}
+.pvBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.pvDots {
+  display: flex;
+  gap: 5px;
+}
+.pvDots i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+.pvUrl {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pvFrame {
+  pointer-events: none;
+}
+.pvHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.pvHeader b {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pvAsk {
+  padding: 4px 10px;
+  border-radius: var(--r-sm);
+  background: var(--brand);
+  color: var(--brand-contrast);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.pvCover {
+  position: relative;
+  height: 96px;
+  background: #e8eefb;
+  overflow: hidden;
+}
+.pvCover > svg,
+.pvCover > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pvHero {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 14px 14px;
+}
+.pvLogo {
+  display: inline-flex;
+  width: max-content;
+  margin: -22px 0 4px;
+  border-radius: 14px;
+  box-shadow: 0 0 0 3px var(--surface);
+}
+.pvName {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.pvTagline {
+  padding-left: 8px;
+  border-left: 2px solid var(--brand);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--text-2);
+  word-break: keep-all;
+}
+.pvEmpty {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.pvMeta {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.pvList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px 16px;
+  border-top: 6px solid var(--surface-2);
+}
+.pvChips {
+  display: flex;
+  gap: 6px;
+}
+.pvChips span {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.pvChips .pvChipOn {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.pvCards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.pvCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pvPhoto {
+  height: 56px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.pvPrice {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text);
+}
+.pvDeal {
+  font-size: inherit;
+}
+.pvLine {
+  width: 70%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-3, var(--line));
+}
+.pvCaption {
+  padding: 8px 12px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+@media (max-width: 1180px) {
+  /* One column: the preview follows the panel with the swatches (status → form / 꾸미기 →
+     preview → profile · 이용료), so a tapped colour shows without scrolling past everything. */
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .col {
+    display: contents;
+  }
+  .aside {
+    order: 1;
+    position: static;
+    max-width: 420px;
+  }
+  .afterPreview {
+    order: 2;
+  }
+}
+@media (max-width: 720px) {
+  .swatchRow {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+  .facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .addressUrl {
+    font-size: 16px;
+  }
+  .addressActs {
+    width: 100%;
+  }
+  .addressActs > * {
+    flex: 1;
+  }
+  .aside {
+    max-width: none;
+  }
+  /* Save row: the status text on its own line, 되돌리기 and 저장 side by side below it. */
+  .formActs .saveText {
+    flex-basis: 100%;
+  }
+  .formActs > :not(.saveText) {
+    flex: 1;
+  }
+}

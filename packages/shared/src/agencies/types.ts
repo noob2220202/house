@@ -84,6 +84,8 @@ export interface AgencyProfile extends AgencySummary {
   listingCounts: AgencyListingCounts;
   representativeListings: AgencyListingCard[];
   disclosure: AgencyDisclosure;
+  /** The office's own 홈페이지; set only while the site is live (AgencySiteView.live). */
+  site: { url: string } | null;
 }
 
 export interface AgencyDocumentView {

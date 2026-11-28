@@ -104,15 +104,58 @@ describe('m-core schemas ↔ mock fixtures', () => {
       agenciesPending: 0,
       dealRequestsOpen: 0,
       reportsOpen: 0,
+      agencySitesPending: 0,
     });
     expect(summary.socialLogin).toEqual([]);
     expect(dashboardQueuesSchema.parse({})).toEqual({
       pendingAgencies: { total: 0, items: [] },
+      pendingAgencySites: { total: 0, items: [] },
       dealRequests: { total: 0, items: [] },
       reports: { total: 0, items: [], handledThisWeek: 0, avgHandleHours: null },
       expiringAds: { total: 0, items: [] },
     });
     expect(trafficStatsSchema.parse({ days: 7, points: [] }).signupsByProvider).toEqual([]);
+  });
+
+  it('carries the 사무소 홈페이지 queue and badge', () => {
+    const pendingSites = {
+      total: 3,
+      items: [
+        {
+          agencyId: 'a-1',
+          agencyName: '테스트 공인중개사사무소',
+          requestedSlug: 'test-office',
+          requestedAt: '2026-11-20T01:00:00Z',
+        },
+      ],
+    };
+    expect(dashboardSummarySchema.parse(mockSummary({ now, pendingSites })).badges).toMatchObject({
+      agencySitesPending: 3,
+    });
+    const queues = dashboardQueuesSchema.parse(mockQueues({ now, pendingSites }));
+    expect(queues.pendingAgencySites).toEqual(pendingSites);
+    // local fallback: two requests, oldest first
+    const local = dashboardQueuesSchema.parse(mockQueues({ now })).pendingAgencySites;
+    expect(local.items.map((i) => i.requestedSlug)).toEqual(['hosupark', 'yeonhyang-central']);
+  });
+
+  it('reads the site badge from the shared AdminDashboard', () => {
+    const base = {
+      generatedAt: '2026-11-23T05:20:00Z',
+      visitors: { today: 1, yesterday: 1 },
+      agencies: { pending: 2, approved: 10 },
+    };
+    expect(
+      dashboardSummarySchema.parse({ ...base, agencySites: { pending: 4 } }).badges
+        .agencySitesPending,
+    ).toBe(4);
+    expect(
+      dashboardSummarySchema.parse({
+        ...base,
+        agencies: { pending: 2, approved: 10, sitesPending: 5 },
+      }).badges.agencySitesPending,
+    ).toBe(5);
+    expect(dashboardSummarySchema.parse(base).badges.agencySitesPending).toBe(0);
   });
 
   it('rejects a provider the product does not support', () => {

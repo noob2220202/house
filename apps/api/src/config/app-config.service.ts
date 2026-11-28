@@ -22,4 +22,12 @@ export class AppConfig {
   get cookieSecure(): boolean {
     return this.get('COOKIE_SECURE') ?? this.isProduction;
   }
+
+  /**
+   * Parent domain of the 사무소 홈페이지 hosts: SITE_ROOT_DOMAIN, else PUBLIC_BASE_URL's hostname
+   * ("suncheonmap.kr"; dev "localhost", which browsers resolve for `<slug>.localhost` too).
+   */
+  get siteRootDomain(): string {
+    return this.get('SITE_ROOT_DOMAIN') ?? new URL(this.get('PUBLIC_BASE_URL')).hostname;
+  }
 }

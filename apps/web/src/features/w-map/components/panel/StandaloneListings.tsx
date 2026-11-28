@@ -6,9 +6,9 @@ import { ListingList, type ListingListQuery } from './ListingList';
 import s from './panel.module.css';
 
 export interface StandaloneListingsProps {
-  /** Listings without a 단지 behind the price pills on screen (they match the filters). */
+  /** Listings without a 단지 in the visible map that match the filters (the API total). */
   count: number;
-  /** `GET /listings?bbox` around those pills; rows of a 단지 are dropped here. */
+  /** `GET /listings?withoutComplex=true&bbox=` of the visible map; any row of a 단지 is dropped. */
   query: ListingListQuery;
   unit: AreaUnit;
   selectedId?: string | null;

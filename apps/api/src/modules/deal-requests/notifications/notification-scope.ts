@@ -14,6 +14,7 @@ export type NotificationScope = (typeof NotificationScope)[keyof typeof Notifica
  * `data.agencyId` (rows written before B5, and the listings module's direct writes of
  * LISTING_EXPIRED / CO_BROKER_REQUESTED, which carry only `listingId`). Mirrors the web
  * `AGENCY_ONLY_TYPES` (apps/web/src/features/w-me/lib/notifications.ts) plus LISTING_HIDDEN.
+ * INQUIRY_REPLIED is personal (the customer's answer) and carries no `agencyId`.
  */
 export const AGENCY_ONLY_NOTIFICATION_TYPES: readonly NotificationType[] = [
   NotificationType.DEAL_REQUEST_RECEIVED,
@@ -22,6 +23,9 @@ export const AGENCY_ONLY_NOTIFICATION_TYPES: readonly NotificationType[] = [
   NotificationType.LISTING_EXPIRED,
   NotificationType.CO_BROKER_REQUESTED,
   NotificationType.LISTING_HIDDEN,
+  NotificationType.INQUIRY_RECEIVED,
+  NotificationType.AGENCY_SITE_APPROVED,
+  NotificationType.AGENCY_SITE_REJECTED,
 ];
 
 /** Listing notices addressed to the listing's primary agency (agencyId resolved from listingId). */

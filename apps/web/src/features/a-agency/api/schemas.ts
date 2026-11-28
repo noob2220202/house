@@ -11,7 +11,12 @@ import {
   phoneSchema,
 } from '@house/shared';
 import { z } from 'zod';
-import { agencyDealRequestSchema, type AgencyDealRequest } from '@/features/a-inbox/api/schemas';
+import {
+  agencyDealRequestSchema,
+  agencyInquirySchema,
+  type AgencyDealRequest,
+  type AgencyInquiry,
+} from '@/features/a-inbox/api/schemas';
 import { businessHoursSchema } from '../lib/business-hours';
 import { SERVICE_AREA, SERVICE_AREA_MESSAGE } from '../lib/location';
 import {
@@ -295,12 +300,10 @@ export type DashboardListing = z.infer<typeof dashboardListingSchema>;
  * (`a-inbox/lib/request-text`). No dashboard-only `title`/`summary`.
  */
 export type DashboardRequest = AgencyDealRequest;
+/** Latest written inquiries of the 문의함 (`GET /agency/inquiries` row shape). */
+export type DashboardInquiry = AgencyInquiry;
 
-/**
- * GET /agencies/mine/dashboard — one aggregate for the console home + sidebar badges.
- * The API also answers `inquiries: { unreadCount: 0, items: [] }` (D5: no inquiry backend for
- * launch); it is not parsed — the console has no inquiry widgets.
- */
+/** GET /agencies/mine/dashboard — one aggregate for the console home + sidebar badges. */
 export const agencyDashboardSchema = z.object({
   listings: z.object({
     active: z.number(),
@@ -328,6 +331,13 @@ export const agencyDashboardSchema = z.object({
     /** Latest requests (a few only). */
     items: z.array(agencyDealRequestSchema),
   }),
+  /** 문의함: unread rows (sidebar badge) and the latest written inquiries. */
+  inquiries: z
+    .object({
+      unreadCount: z.number(),
+      items: z.array(agencyInquirySchema).default([]),
+    })
+    .default({ unreadCount: 0, items: [] }),
   expiringListings: z.array(dashboardListingSchema),
   verificationDue: z.array(dashboardListingSchema),
 });

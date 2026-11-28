@@ -41,10 +41,6 @@
   font-size: 18px;
   letter-spacing: -0.03em;
 }
-.contactValue.muted {
-  font-size: 18px;
-  color: var(--text-muted);
-}
 .contactNote {
   font-size: 13px;
   line-height: 1.55;
@@ -289,8 +285,7 @@
   .contactValue {
     font-size: 20px;
   }
-  .contactValue.text,
-  .contactValue.muted {
+  .contactValue.text {
     font-size: 17px;
   }
   .contactAction {

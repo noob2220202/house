@@ -21,8 +21,17 @@ import {
   agencyResubmitSchema,
   agencySearchQuerySchema,
   agencyUpdateSchema,
+  adminAgencySiteDecisionSchema,
+  adminAgencySiteListQuerySchema,
+  adminSubscriptionCreateSchema,
+  adminSubscriptionUpdateSchema,
+  agencySiteAvailabilityQuerySchema,
+  agencySiteRequestSchema,
+  agencySiteUpdateSchema,
   idParamSchema,
+  siteSlugSchema,
 } from '@house/shared';
+import { z } from 'zod';
 import { createZodDto } from '../../common/pipes/zod-validation.pipe';
 
 export class IdParamDto extends createZodDto(idParamSchema) {}
@@ -54,3 +63,16 @@ export class AgencyAdminDeleteDto extends createZodDto(agencyAdminDeleteSchema) 
 export class AdminAgencyDetailQueryDto extends createZodDto(adminAgencyDetailQuerySchema) {}
 export class AgencyLocationUpdateDto extends createZodDto(agencyLocationUpdateSchema) {}
 export class AgencyRegistryCheckQueryDto extends createZodDto(agencyRegistryCheckQuerySchema) {}
+
+// ---------- 사무소 홈페이지 + 이용권 ----------
+export class AgencySiteRequestDto extends createZodDto(agencySiteRequestSchema) {}
+export class AgencySiteUpdateDto extends createZodDto(agencySiteUpdateSchema) {}
+export class AgencySiteAvailabilityQueryDto extends createZodDto(
+  agencySiteAvailabilityQuerySchema,
+) {}
+/** GET /sites/:slug — normalised, then the slug rules (an unusable slug is a 400, like other params). */
+export class SiteSlugParamDto extends createZodDto(z.object({ slug: siteSlugSchema })) {}
+export class AdminAgencySiteListQueryDto extends createZodDto(adminAgencySiteListQuerySchema) {}
+export class AdminAgencySiteDecisionDto extends createZodDto(adminAgencySiteDecisionSchema) {}
+export class AdminSubscriptionCreateDto extends createZodDto(adminSubscriptionCreateSchema) {}
+export class AdminSubscriptionUpdateDto extends createZodDto(adminSubscriptionUpdateSchema) {}

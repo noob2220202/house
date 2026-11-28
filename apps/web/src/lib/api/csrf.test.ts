@@ -126,6 +126,16 @@ describe('CSRF token (in memory, not the shared house_csrf cookie)', () => {
     expect(mutations().at(-1)?.token).toBe('new-session-token');
   });
 
+  it('works for an anonymous visitor whose GET /auth/csrf sets no cookie', async () => {
+    // The API stops setting house_csrf without a session (so /auth/me is not probed on every
+    // later page); the anonymous token comes from the body alone.
+    document.cookie = `${COOKIE_NAMES.CSRF}=; path=/; max-age=0`;
+    serverToken = 'anonymous-token';
+    await api.post('/listings/l1/view');
+    expect(mutations().map((c) => c.token)).toEqual(['anonymous-token']);
+    expect(document.cookie).not.toContain(COOKIE_NAMES.CSRF);
+  });
+
   it('falls back to the cookie only when GET /auth/csrf cannot answer', async () => {
     serverToken = json(503, { code: 'INTERNAL_ERROR', message: 'down' });
     await expect(getCsrfToken()).resolves.toBe('admin-token');

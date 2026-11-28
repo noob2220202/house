@@ -36,6 +36,7 @@ function sampleListings(q: ListingListQuery): ListingSummary[] {
       (!q.dealTypes || q.dealTypes.includes(l.dealType)) &&
       (!q.verifiedOnly || l.verifiedAt !== null) &&
       (!q.complexId || l.complexId === q.complexId) &&
+      (!q.withoutComplex || !l.complexId) &&
       (!q.emdCode || l.emdCode.startsWith(q.emdCode)) &&
       between(l.salePrice ?? l.presalePrice, q.priceMin, q.priceMax) &&
       between(l.deposit, q.depositMin, q.depositMax) &&
@@ -53,10 +54,16 @@ function sampleListings(q: ListingListQuery): ListingSummary[] {
 
 /** Map side list: the full map inventory (every asset type) inside the bbox. */
 function mapListings(q: ListingListQuery, sp: URLSearchParams): ListingSummary[] {
-  const { bbox, sort, page: _page, pageSize: _pageSize, ...filter } = q;
+  const { bbox, sort, withoutComplex, page: _page, pageSize: _pageSize, ...filter } = q;
   const full = { ...filter, ...parseExtraFilters(sp) };
   return sortListings(
-    MAP_LISTINGS.filter((l) => (!bbox || inBbox(l, bbox)) && matchesFilter(l, full)),
+    MAP_LISTINGS.filter(
+      (l) =>
+        (!bbox || inBbox(l, bbox)) &&
+        // `withoutComplex=true`: listings without a 단지 only (the map's price pills).
+        (!withoutComplex || !l.complexId) &&
+        matchesFilter(l, full),
+    ),
     sort,
   ).map(toListingSummary);
 }
@@ -97,20 +104,23 @@ function agencyListings(q: ListingListQuery & { agencyId: string }): ListingSumm
 // GET /api/v1/listings?…filters&sort&page&pageSize — public paginated list (listings module).
 // Query = `listingListQuerySchema` (@house/shared): arrays as CSV, prices in 만원, areas in ㎡.
 // One endpoint, four mock data sets: `complexId` of a w-complex fixture → that 단지's listings,
-// `bbox` → the map inventory, `agencyId` → that office's listings, otherwise the home sample. Rows are built as cards (`toListingSummary()`) and sent in
+// `bbox` → the map inventory, `agencyId` → that office's listings (`primaryAgencyId`, the
+// 사무소 홈페이지: the same set — every agency-mock listing has its office as the primary one),
+// otherwise the home sample. Rows are built as cards (`toListingSummary()`) and sent in
 // the backend wire shape (`toListingWire()`).
 export async function GET(req: NextRequest) {
   const off = mockGuard();
   if (off) return off;
   const sp = req.nextUrl.searchParams;
-  const q = sp.get('agencyId') ? 'agency' : sp.get('bbox') ? 'map' : 'sample';
+  const q =
+    sp.get('agencyId') || sp.get('primaryAgencyId') ? 'agency' : sp.get('bbox') ? 'map' : 'sample';
   await mockDelay(req, q === 'agency' ? 250 : q === 'map' ? 160 : 150);
   const forced = forcedFailure(req);
   if (forced) return forced;
   const parsed = listingListQuerySchema.safeParse(queryObject(req));
   if (!parsed.success) return validationError(parsed.error);
   const query = parsed.data;
-  const { agencyId } = query;
+  const agencyId = query.agencyId ?? query.primaryAgencyId;
   const complex = query.complexId ? findComplexSpec(query.complexId) : undefined;
   const rows: ListingSummary[] = complex
     ? complexListingRows(complex, query)

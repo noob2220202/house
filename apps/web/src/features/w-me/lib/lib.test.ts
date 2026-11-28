@@ -94,6 +94,9 @@ describe('listing card mapping', () => {
       ),
     ).toEqual(['공급 112㎡(34평)', '고/25층', '남향']);
     expect(
+      listingMeta(listing({ supplyArea: 112.4, floor: 11, floorClass: 'HIGH', totalFloors: 13 })),
+    ).toEqual(['공급 112㎡(34평)', '11/13층']);
+    expect(
       listingMeta(
         listing({
           assetType: 'ONEROOM',
@@ -260,10 +263,13 @@ describe('notifications', () => {
     expect(
       notificationHref({ type: 'PROPOSAL_RECEIVED', data: { agencyId: 'a1', dealRequestId: 'x' } }),
     ).toBe('/agent/requests/x');
-    // No 문의함 for launch (D5): an inquiry payload leads nowhere.
+    // A customer wrote to the office: the 문의함 with that inquiry open.
+    expect(notificationHref({ type: 'SYSTEM', data: { agencyId: 'a1', inquiryId: 'inq 1' } })).toBe(
+      '/agent/inquiries?id=inq%201',
+    );
     expect(
-      notificationHref({ type: 'SYSTEM', data: { agencyId: 'a1', inquiryId: 'inq 1' } }),
-    ).toBeNull();
+      notificationHref({ type: 'INQUIRY_RECEIVED', data: { agencyId: 'a1', inquiryId: 'i1' } }),
+    ).toBe('/agent/inquiries?id=i1');
     expect(
       notificationHref({
         type: 'LISTING_HIDDEN',
@@ -289,6 +295,34 @@ describe('notifications', () => {
       tone: 'warn',
     });
     expect(notificationMeta('CO_BROKER_REQUESTED').label).toBe('공동중개 요청');
+  });
+  it('routes the inquiry and office-site types to their audience', () => {
+    // Agency-only types, even without `agencyId` in the payload.
+    for (const type of [
+      'INQUIRY_RECEIVED',
+      'AGENCY_SITE_APPROVED',
+      'AGENCY_SITE_REJECTED',
+    ] as const) {
+      expect(isAgencyNotification({ type, data: null })).toBe(true);
+    }
+    expect(notificationHref({ type: 'INQUIRY_RECEIVED', data: { inquiryId: 'q 1' } })).toBe(
+      '/agent/inquiries?id=q%201',
+    );
+    expect(notificationHref({ type: 'INQUIRY_RECEIVED', data: null })).toBe('/agent/inquiries');
+    expect(notificationHref({ type: 'AGENCY_SITE_APPROVED', data: null })).toBe('/agent/site');
+    expect(notificationHref({ type: 'AGENCY_SITE_REJECTED', data: { agencyId: 'a1' } })).toBe(
+      '/agent/site',
+    );
+    // The office answered: the member's own thread (the payload has no agencyId by contract).
+    const replied = {
+      type: 'INQUIRY_REPLIED',
+      data: { inquiryId: 'q 1', agencyName: 'A' },
+    } as const;
+    expect(isAgencyNotification(replied)).toBe(false);
+    expect(notificationHref(replied)).toBe('/me/inquiries/q%201');
+    expect(notificationHref({ type: 'INQUIRY_REPLIED', data: null })).toBe('/me/inquiries');
+    expect(notificationMeta('INQUIRY_RECEIVED').label).toBe('새 문의');
+    expect(notificationMeta('INQUIRY_REPLIED').label).toBe('문의 답변');
   });
   it('only follows site-relative urls from the payload', () => {
     expect(notificationHref({ type: 'SYSTEM', data: { url: '/notices' } })).toBe('/notices');

@@ -3,6 +3,8 @@ import path from 'node:path';
 import {
   AgencyDocumentType,
   AgencyMemberRole,
+  AgencySiteStatus,
+  SubscriptionProduct,
   AgencyStatus,
   type BrokerRegistryRecord,
   DEFAULT_MAP_CENTER,
@@ -10,7 +12,7 @@ import {
   MediaVisibility,
   UserRole,
 } from '@house/shared';
-import type { Agency, Media, User } from '@prisma/client';
+import type { Agency, AgencySite, AgencySubscription, Media, Prisma, User } from '@prisma/client';
 import {
   BrokerRegistryUnavailableError,
   type BrokerRegistryClient,
@@ -143,4 +145,51 @@ export class FakeBrokerRegistry implements BrokerRegistryClient {
 export function pluck(list: unknown, key: string): unknown[] {
   if (!Array.isArray(list)) throw new Error('expected an array');
   return (list as Record<string, unknown>[]).map((item) => item[key]);
+}
+
+/**
+ * An office site row (default: ACTIVE with an approved slug and https ready). Pass
+ * `status: 'REQUESTED', slug: null` for a pending request.
+ */
+export function createAgencySite(
+  prisma: PrismaService,
+  agencyId: string,
+  data: Partial<Prisma.AgencySiteUncheckedCreateInput> = {},
+): Promise<AgencySite> {
+  const status = data.status ?? AgencySiteStatus.ACTIVE;
+  const label = `office-${Math.random().toString(36).slice(2, 8)}`;
+  const approved = status === AgencySiteStatus.ACTIVE || status === AgencySiteStatus.SUSPENDED;
+  const slug = data.slug !== undefined ? data.slug : approved ? label : null;
+  return prisma.agencySite.create({
+    data: {
+      agencyId,
+      requestedAt: new Date(Date.now() - 60_000),
+      decidedAt: status === AgencySiteStatus.REQUESTED ? null : new Date(),
+      httpsReadyAt: status === AgencySiteStatus.ACTIVE ? new Date() : null,
+      ...data,
+      status,
+      slug,
+      requestedSlug: data.requestedSlug !== undefined ? data.requestedSlug : (slug ?? label),
+    },
+  });
+}
+
+/** An 이용권 period ("YYYY-MM-DD" days; endsOn null = open-ended). */
+export function createSubscription(
+  prisma: PrismaService,
+  agencyId: string,
+  data: { product?: SubscriptionProduct; startsOn: string; endsOn?: string | null } & Partial<
+    Omit<Prisma.AgencySubscriptionUncheckedCreateInput, 'startsOn' | 'endsOn' | 'product'>
+  >,
+): Promise<AgencySubscription> {
+  const { product, startsOn, endsOn, ...rest } = data;
+  return prisma.agencySubscription.create({
+    data: {
+      agencyId,
+      product: product ?? SubscriptionProduct.SITE,
+      startsOn: new Date(`${startsOn}T00:00:00Z`),
+      endsOn: endsOn ? new Date(`${endsOn}T00:00:00Z`) : null,
+      ...rest,
+    },
+  });
 }

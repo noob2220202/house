@@ -14,7 +14,12 @@ import { dashboardCrumb } from '../../lib/dashboard';
 import { DashPanel, PanelError, PanelRowsSkeleton } from './DashPanel';
 import { KpiRow, KpiRowSkeleton } from './KpiRow';
 import { PendingAgenciesPanel } from './PendingAgenciesPanel';
-import { DealRequestsPanel, ExpiringAdsPanel, ReportsPanel } from './QueuePanels';
+import {
+  DealRequestsPanel,
+  ExpiringAdsPanel,
+  PendingSitesPanel,
+  ReportsPanel,
+} from './QueuePanels';
 import { TrafficPanel } from './TrafficPanel';
 import styles from './dashboard.module.css';
 
@@ -112,6 +117,7 @@ export function DashboardView({ denied = false }: DashboardViewProps) {
                 items={q.pendingAgencies.items}
                 now={now}
               />
+              <PendingSitesPanel queue={q.pendingAgencySites} now={now} />
               <ExpiringAdsPanel queue={q.expiringAds} now={now} />
             </>
           ) : (
@@ -121,6 +127,13 @@ export function DashboardView({ denied = false }: DashboardViewProps) {
                   <PanelError what="승인 대기 목록을" onRetry={() => void queues.refetch()} />
                 ) : (
                   <PanelRowsSkeleton rows={4} />
+                )}
+              </DashPanel>
+              <DashPanel id="site-requests" title="사무소 홈페이지 신청">
+                {queues.isError ? (
+                  <PanelError what="홈페이지 신청 목록을" onRetry={() => void queues.refetch()} />
+                ) : (
+                  <PanelRowsSkeleton rows={2} />
                 )}
               </DashPanel>
               <DashPanel title="광고 만료 임박" grow>

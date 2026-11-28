@@ -181,6 +181,23 @@ export function centerForTarget(
   };
 }
 
+/**
+ * Mobile landing view: `view` (as the map reports it, with `pxPerDeg` measured at `view.zoom`)
+ * moved to `zoom` and shifted so its centre sits in the middle of the band the chrome leaves free.
+ */
+export function mobileLandingView(
+  view: { center: LatLng; zoom: number },
+  insets: Insets,
+  pxPerDeg: { lng: number; lat: number },
+  zoom = view.zoom,
+): { center: LatLng; zoom: number } {
+  const k = 2 ** (zoom - view.zoom);
+  return {
+    center: centerForTarget(view.center, insets, { lng: pxPerDeg.lng * k, lat: pxPerDeg.lat * k }),
+    zoom,
+  };
+}
+
 /** Bounds without the strip at the bottom that a sheet of `coveredPx` hides (at least 20% stays). */
 export function cropBottom(b: MapBounds, heightPx: number, coveredPx: number): MapBounds {
   if (heightPx <= 0 || coveredPx <= 0) return b;

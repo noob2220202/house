@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import {
   AgencyMemberRole,
   AgencyMemberStatus,
+  AgencySiteStatus,
   AgencyStatus,
   ErrorCode,
   MAP_MAX_MARKERS,
@@ -33,7 +34,9 @@ import {
 } from '../constants';
 import { AGENCY_LISTINGS_READER, type AgencyListingsReader } from '../ports/agency-listings.reader';
 import { AGENCY_MEDIA, type AgencyMediaPort } from '../ports/agency-media.port';
+import { isSiteLive } from '../domain/sites';
 import { AgencyCacheService } from './agency-cache.service';
+import { AgencySiteGateService } from './agency-site-gate.service';
 
 const round6 = (n: number): number => Math.round(n * 1e6) / 1e6;
 
@@ -70,6 +73,7 @@ export class AgencyPublicService {
     private readonly cache: AgencyCacheService,
     @Inject(AGENCY_LISTINGS_READER) private readonly listings: AgencyListingsReader,
     @Inject(AGENCY_MEDIA) private readonly media: AgencyMediaPort,
+    private readonly siteGate: AgencySiteGateService,
   ) {}
 
   /**
@@ -200,12 +204,14 @@ export class AgencyPublicService {
           take: PROFILE_MEMBERS_LIMIT,
           select: { id: true, displayName: true, title: true, role: true, isLicensed: true },
         },
+        site: { select: { status: true, slug: true, httpsReadyAt: true } },
       },
     });
     if (!row) return null;
-    const [listingCounts, representativeListings] = await Promise.all([
+    const [listingCounts, representativeListings, site] = await Promise.all([
       this.listings.counts(agencyId),
       this.listings.representative(agencyId, REPRESENTATIVE_LISTINGS_LIMIT),
+      this.siteLink(agencyId, row.site),
     ]);
     return {
       ...this.mapper.summary(row),
@@ -221,6 +227,18 @@ export class AgencyPublicService {
       listingCounts,
       representativeListings,
       disclosure: toAgencyDisclosure(row),
+      site,
     };
+  }
+
+  /** `{ url }` while the office's 사무소 홈페이지 is live (the profile row is an APPROVED office). */
+  private async siteLink(
+    agencyId: string,
+    site: { status: AgencySiteStatus; slug: string | null; httpsReadyAt: Date | null } | null,
+  ): Promise<AgencyProfile['site']> {
+    if (!site?.slug || site.status !== AgencySiteStatus.ACTIVE) return null;
+    const subscription = await this.siteGate.siteSubscription(agencyId);
+    const live = isSiteLive(site, this.siteGate.context(true, subscription));
+    return live ? { url: this.siteGate.urlFor(site.slug) } : null;
   }
 }

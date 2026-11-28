@@ -14,6 +14,7 @@ import { RequestContext } from '../../../common/context/request-context';
 import { AppException } from '../../../common/errors/app.exception';
 import { formatZodIssues } from '../../../common/errors/zod-issues';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { AgencySiteGateService } from '../../agencies/services/agency-site-gate.service';
 import { ADMIN_CACHE, SITE_SETTINGS_CACHE_TTL_SECONDS } from '../constants';
 
 const ALL_KEYS = Object.values(SiteSettingKey) as SiteSettingKey[];
@@ -51,6 +52,7 @@ export class SiteSettingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: CacheService,
+    private readonly siteGate: AgencySiteGateService,
   ) {}
 
   async publicSettings(): Promise<PublicSiteSettings> {
@@ -99,6 +101,9 @@ export class SiteSettingsService {
       select: settingSelect,
     });
     await this.cache.bump(ADMIN_CACHE.SITE_SETTINGS);
+    // FEATURES carries the 이용권 switches (siteSubscriptionRequired …): cached office sites and
+    // profiles must re-evaluate their gate.
+    if (key === SiteSettingKey.FEATURES) await this.siteGate.featuresChanged();
     return toView(key, row);
   }
 }

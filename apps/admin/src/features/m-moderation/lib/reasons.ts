@@ -66,3 +66,17 @@ export const USER_SUSPEND_PRESETS = [
   '다른 이용자에게 욕설·비방을 했습니다.',
   '타인의 정보를 도용한 것으로 확인되었습니다.',
 ] as const;
+
+/** 사무소 홈페이지 신청 반려 — the office reads it in the console and can ask again. */
+export const AGENCY_SITE_REJECT_PRESETS = [
+  '신청한 주소가 중개사무소 상호와 관련이 없습니다. 상호를 알 수 있는 주소로 다시 신청해 주세요.',
+  '다른 기관·브랜드로 오해할 수 있는 주소입니다.',
+  '부적절한 단어가 포함된 주소입니다.',
+  '사무소 정보(로고·소개)를 먼저 채운 뒤 다시 신청해 주세요.',
+] as const;
+
+export const AGENCY_SITE_SUSPEND_PRESETS = [
+  '홈페이지에 허위·과장 광고가 게시되어 있습니다.',
+  '중개사무소 정보가 사실과 달라 확인이 필요합니다.',
+  '이용료가 납부되지 않아 홈페이지를 정지합니다.',
+] as const;

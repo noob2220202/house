@@ -2,7 +2,12 @@ import {
   AgencyDocumentType,
   AgencyMemberRole,
   AgencyMemberStatus,
+  AgencySiteColor,
+  AgencySiteStatus,
   AgencyStatus,
+  AgencySubscriptionState,
+  DEFAULT_AGENCY_SITE_COLOR,
+  SubscriptionProduct,
   AssetType,
   AuditActorType,
   AuthProvider,
@@ -286,6 +291,87 @@ export function normalizeAgencyDetail(raw: unknown): unknown {
 
 export const adminAgencyDetailSchema = z.preprocess(normalizeAgencyDetail, adminAgencyDetailModel);
 export type AdminAgencyDetail = z.infer<typeof adminAgencyDetailSchema>;
+
+// ---------- 사무소 홈페이지 · 구독 -------------------------------------------------------------
+
+/**
+ * Shared `AgencySiteView`. A colour the palette no longer has (it is a validated VARCHAR, not a
+ * database enum) reads as the default instead of failing the whole response.
+ */
+export const agencySiteViewSchema = z.object({
+  id: str,
+  agencyId: str,
+  status: z.enum(AgencySiteStatus),
+  /** Approved slug (ACTIVE / SUSPENDED); null before the first approval. */
+  slug: str.nullable(),
+  /** Slug asked for (REQUESTED), or that of the last rejected request. */
+  requestedSlug: str.nullable(),
+  color: z.enum(AgencySiteColor).catch(DEFAULT_AGENCY_SITE_COLOR),
+  tagline: str.nullable().default(null),
+  /** `https://<slug>.<root>` while ACTIVE (also before the certificate is ready). */
+  url: str.nullable().default(null),
+  httpsReady: z.boolean().default(false),
+  /** Shown on the main site / console: ACTIVE + office approved + https + subscription gate. */
+  live: z.boolean().default(false),
+  requestedAt: iso,
+  decidedAt: iso.nullable().default(null),
+  decisionReason: str.nullable().default(null),
+  createdAt: iso,
+  updatedAt: iso,
+});
+export type AgencySite = z.infer<typeof agencySiteViewSchema>;
+
+/** GET /admin/agencies/:id/site — shared `AdminAgencySiteResponse` (`site: null` = never asked). */
+export const adminAgencySiteResponseSchema = z.object({ site: agencySiteViewSchema.nullable() });
+
+/**
+ * POST /admin/agencies/:id/site/decision answers `{ site }` like the GET; a bare `AgencySiteView`
+ * is accepted too, so either response shape of the backend reads the same.
+ */
+export const agencySiteDecisionResultSchema = z.preprocess(
+  (raw) => (raw && typeof raw === 'object' && 'site' in raw ? raw.site : raw),
+  agencySiteViewSchema,
+);
+
+/** Row of GET /admin/agency-sites — shared `AdminAgencySiteListItem`. */
+export const adminAgencySiteListItemSchema = z.object({
+  site: agencySiteViewSchema,
+  agency: z.object({
+    id: str,
+    name: str,
+    representativeName: str,
+    status: z.enum(AgencyStatus),
+  }),
+});
+export type AdminAgencySiteListItem = z.infer<typeof adminAgencySiteListItemSchema>;
+export const adminAgencySitePageSchema = pageOf(adminAgencySiteListItemSchema);
+
+/** Shared `AgencySubscriptionView` (dates are KST calendar days, `YYYY-MM-DD`). */
+export const agencySubscriptionViewSchema = z.object({
+  id: str,
+  agencyId: str,
+  product: z.enum(SubscriptionProduct),
+  startsOn: str,
+  endsOn: str.nullable().default(null),
+  /** 원 (not 만원); null = free / not recorded. */
+  amountWon: z.number().int().nullable().default(null),
+  memo: str.nullable().default(null),
+  canceledAt: iso.nullable().default(null),
+  state: z.enum(AgencySubscriptionState),
+  createdByName: str.nullable().default(null),
+  createdAt: iso,
+});
+export type AgencySubscription = z.infer<typeof agencySubscriptionViewSchema>;
+
+/** GET /admin/agencies/:id/subscriptions — shared `AgencySubscriptionsResponse`. */
+export const agencySubscriptionsResponseSchema = z.object({
+  items: z.array(agencySubscriptionViewSchema),
+  /** An ACTIVE subscription covers today, per product. */
+  current: z
+    .object({ SITE: z.boolean().default(false), PLATFORM: z.boolean().default(false) })
+    .default({ SITE: false, PLATFORM: false }),
+});
+export type AgencySubscriptions = z.infer<typeof agencySubscriptionsResponseSchema>;
 
 // ---------- listings -------------------------------------------------------------------------
 

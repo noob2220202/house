@@ -10,6 +10,7 @@ import path from 'node:path';
 const require = createRequire(import.meta.url);
 const { listModules, resolveTestEnv } = require('./load-test-env.cjs');
 const apiDir = path.resolve(import.meta.dirname, '..');
+const IS_WINDOWS = process.platform === 'win32';
 
 const argv = process.argv.slice(2);
 const dashIdx = argv.indexOf('--');
@@ -32,6 +33,8 @@ function run(cmd, args, env, label) {
       cwd: apiDir,
       env: { ...process.env, ...env },
       stdio: parallel ? 'pipe' : 'inherit',
+      // Windows dev PCs: node_modules/.bin holds .cmd shims, which Node only spawns through a shell.
+      shell: IS_WINDOWS,
     });
     let out = '';
     if (parallel) {
@@ -47,7 +50,8 @@ function run(cmd, args, env, label) {
 
 async function runModule(m) {
   const env = resolveTestEnv(m);
-  const bin = (name) => path.join(apiDir, 'node_modules', '.bin', name);
+  const bin = (name) =>
+    path.join(apiDir, 'node_modules', '.bin', IS_WINDOWS ? `${name}.cmd` : name);
   const migrated = await run(
     bin('prisma'),
     ['migrate', 'deploy'],

@@ -1,6 +1,8 @@
 import {
   ASSET_TYPE_LABEL,
   AssetType,
+  BUILDING_USE_LABEL,
+  type BuildingUse,
   DEAL_TYPE_LABEL,
   DIRECTION_BASIS_LABEL,
   DIRECTION_LABEL,
@@ -378,11 +380,19 @@ export function buildFacts(l: ListingDetail, unit: AreaUnit): Fact[] {
       key: 'use',
       icon: 'store',
       label: '건축물 용도',
-      value: p.buildingUse,
+      value: buildingUseText(p.buildingUse),
       sub: null,
     });
   }
   return facts;
+}
+
+/**
+ * 건축물 용도 as Korean. The API sends the `BuildingUse` enum; the broker preview already hands
+ * in the label, and a value from a newer API is shown as sent rather than dropped.
+ */
+export function buildingUseText(value: string): string {
+  return BUILDING_USE_LABEL[value as BuildingUse] ?? value;
 }
 
 export interface DisclosureRow {
@@ -528,7 +538,7 @@ export function buildDisclosure(l: ListingDetail, now: number = Date.now()): Dis
             : `월 ${formatMaintenanceFee(l.maintenanceFeeWon)}${l.maintenanceFeeItems.length ? ` (${l.maintenanceFeeItems.join(', ')} 포함)` : ''}`,
     },
   );
-  if (p.buildingUse) rows.push({ label: '건축물 용도', value: p.buildingUse });
+  if (p.buildingUse) rows.push({ label: '건축물 용도', value: buildingUseText(p.buildingUse) });
   return rows;
 }
 

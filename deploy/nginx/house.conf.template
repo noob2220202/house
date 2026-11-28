@@ -5,6 +5,10 @@
 #   www.{{DOMAIN}}      → https://{{DOMAIN}}
 #   {{DOMAIN}}          → web :{{WEB_PORT}}, /api/ → api :{{API_PORT}}, /media/ → uploads/public
 #   {{ADMIN_DOMAIN}}    → admin :{{ADMIN_PORT}}, /api/ → api, optional IP allow-list
+#   <slug>.{{DOMAIN}}   → 사무소 홈페이지: web (same locations as the apex), one server + certificate
+#                         per office in /etc/nginx/house/sites/ (written by deploy/sites.sh)
+# Exact names (www, admin) always win over the *.{{DOMAIN}} wildcard; a host without its own
+# server on 443 (unknown or not yet certified slug) reaches the default server and is dropped.
 
 server {
     listen 80;
@@ -25,6 +29,20 @@ server {
     include /etc/nginx/snippets/house-acme.conf;
     location / {
         return 301 https://{{DOMAIN}}$request_uri;
+    }
+}
+
+# Office sites on port 80: HTTP-01 challenges for their certificates (deploy/sites.sh), the rest
+# to https. A slug without a certificate yet ends at the 443 default server (never linked before
+# agency_sites.https_ready_at is set).
+server {
+    listen 80;
+    listen [::]:80;
+    server_name *.{{DOMAIN}};
+    server_tokens off;
+    include /etc/nginx/snippets/house-acme.conf;
+    location / {
+        return 301 https://$host$request_uri;
     }
 }
 
@@ -58,6 +76,10 @@ server {
     access_log /var/log/nginx/house-admin.access.log;
     error_log /var/log/nginx/house-admin.error.log warn;
 }
+
+# 사무소 홈페이지: one 443 server per office with its own certificate (root-owned files written by
+# deploy/sites.sh from nginx/house-site.conf.template; an empty directory matches nothing).
+include /etc/nginx/house/sites/*.conf;
 
 # Requests for unknown host names (scanners hitting the bare IP) are dropped.
 server {

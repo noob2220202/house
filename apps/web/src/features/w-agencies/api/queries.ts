@@ -43,10 +43,22 @@ export interface AgencyListingsParams {
   page?: number;
 }
 
+export interface AgencyListingsScope {
+  /**
+   * Only listings whose primary (최초 등록) office is this one (`primaryAgencyId`) — the office's
+   * own 홈페이지. Default: every listing the office advertises, co-brokered ones included.
+   */
+  primaryOnly?: boolean;
+}
+
 /** Query of `GET /listings` for one office (`listingListQuerySchema` param names). */
-export function agencyListingsQuery(agencyId: string, params: AgencyListingsParams): QueryParams {
+export function agencyListingsQuery(
+  agencyId: string,
+  params: AgencyListingsParams,
+  scope: AgencyListingsScope = {},
+): QueryParams {
   return {
-    agencyId,
+    ...(scope.primaryOnly ? { primaryAgencyId: agencyId } : { agencyId }),
     assetTypes: params.assetType ? [params.assetType] : undefined,
     dealTypes: params.dealType ? [params.dealType] : undefined,
     sort: params.sort && params.sort !== ListingSort.LATEST ? params.sort : undefined,
@@ -55,14 +67,15 @@ export function agencyListingsQuery(agencyId: string, params: AgencyListingsPara
   };
 }
 
-/** GET /listings?agencyId= — active listings of one office. */
+/** GET /listings?agencyId= (or `primaryAgencyId`) — active listings of one office. */
 export function fetchAgencyListings(
   id: string,
   params: AgencyListingsParams,
   signal?: AbortSignal,
+  scope?: AgencyListingsScope,
 ) {
   return api.get('/listings', {
-    query: agencyListingsQuery(id, params),
+    query: agencyListingsQuery(id, params, scope),
     schema: agencyListingPageSchema,
     signal,
   });

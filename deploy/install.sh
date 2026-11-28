@@ -45,7 +45,8 @@ usage() {
   --ssh-port 22               UFW에서 열어 둘 SSH 포트 (기본 22)
   --no-tls                    인증서 발급 생략, HTTP 전용 nginx 설정 (테스트용)
   --staging                   Let's Encrypt 스테이징 서버 사용 (발급 테스트)
-  --skip-upgrade              apt upgrade 생략
+  --skip-upgrade              apt upgrade 생략. 운영 중인 서버에서 다시 실행할 때는 붙이세요 (업그레이드된
+                              PostgreSQL·Redis·nginx 가 묻지 않고 재시작됨; 보안 업데이트는 unattended-upgrades)
   --skip-firewall             UFW 설정 생략
   --skip-fail2ban             fail2ban 설정 생략
   --skip-swap                 스왑 파일 생성 생략
@@ -56,6 +57,8 @@ usage() {
                               저장소 체크아웃에서 실행하면 그 deploy/ 를, /srv/house/bin 에서 실행하면
                               REPO_URL 에서 root 가 직접 받은 deploy/ 를 설치합니다.
   --kit-ref <브랜치|커밋>     --kit-only 로 받을 브랜치 또는 전체 커밋 해시 (기본: deploy.conf 의 BRANCH)
+  --allow-older-kit           설치본(/srv/house/bin)에만 있는 파일이 있어도 이 체크아웃의 deploy/ 로 실행
+                              (기본은 거부: 오래된 체크아웃이 배포 스크립트·nginx 설정을 되돌리지 않도록)
   -h, --help                  도움말
 
 systemd가 없는 환경(컨테이너 등)에서는 UFW·fail2ban·PM2 startup·서비스 enable을 자동으로 건너뜁니다.
@@ -67,7 +70,9 @@ OPT_DOMAIN="" OPT_EMAIL="" OPT_REPO="" OPT_BRANCH="" OPT_ADMIN_SUB="admin"
 OPT_DB_NAME="" OPT_DB_USER="" OPT_REDIS_PORT="" OPT_SSH_PORT=22
 NO_TLS=false STAGING=false SKIP_UPGRADE=false SKIP_FIREWALL=false SKIP_FAIL2BAN=false
 SKIP_SWAP=false SKIP_TIMEZONE=false SKIP_PM2_STARTUP=false NGINX_ONLY=false KIT_ONLY=false OPT_KIT_REF=""
+ALLOW_OLDER_KIT=false
 
+ORIG_ARGS="$*" # for the messages below (the loop shifts them away)
 need_arg() { [[ $# -ge 2 && -n "$2" && "$2" != --* ]] || die "옵션 $1 에 값이 필요합니다."; }
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -91,6 +96,7 @@ while [[ $# -gt 0 ]]; do
     --nginx-only) NGINX_ONLY=true; shift ;;
     --kit-only) KIT_ONLY=true; shift ;;
     --kit-ref) need_arg "$@"; OPT_KIT_REF="$2"; shift 2 ;;
+    --allow-older-kit) ALLOW_OLDER_KIT=true; shift ;;
     -h | --help) usage; exit 0 ;;
     *) usage >&2; die "알 수 없는 옵션: $1" ;;
   esac
@@ -102,13 +108,30 @@ done
 # sourced); flags override them.
 load_conf
 
+# Run from a checkout on a server that already has bin/: refuse a checkout older than bin/ before
+# anything changes. It would replace bin/ (rsync --delete) and render its own older nginx
+# templates; typically the /root/house-setup clone of the first install, long after --kit-only
+# updates. The installed kit re-runs itself instead: sudo /srv/house/bin/install.sh ...
+# A bin/ that is not entirely root-owned (the old house-owned layout) is untrusted and replaced.
+if [[ "$SCRIPT_DIR" != "$(readlink -f "$BIN_DIR")" ]] && ! $ALLOW_OLDER_KIT && [[ -d "$BIN_DIR" ]] &&
+  [[ -z "$(find "$BIN_DIR" ! -user root -print -quit)" ]] &&
+  KIT_ONLY_IN_BIN="$(kit_missing_from "$SCRIPT_DIR" "$BIN_DIR")"; then
+  warn "이 체크아웃($SCRIPT_DIR)의 배포 스크립트가 설치본($BIN_DIR)보다 오래된 것 같습니다."
+  warn "  설치본에만 있는 파일: $KIT_ONLY_IN_BIN"
+  warn "  이대로 실행하면 그 파일이 지워지고 그 뒤의 배포 스크립트·nginx 수정이 되돌려집니다. 대신:"
+  warn "    sudo $BIN_DIR/install.sh $ORIG_ARGS"
+  warn "  (설치본으로 다시 실행. 먼저 sudo $BIN_DIR/install.sh --kit-only 로 갱신 — DEPLOY.md 18단계)"
+  warn "  또는 저장소를 새로 받아(DEPLOY.md 5단계) 그 체크아웃으로 실행하세요."
+  die "아무것도 바꾸지 않았습니다. 이 체크아웃을 꼭 써야 한다면 --allow-older-kit 를 붙이세요."
+fi
+
 # ─── deploy kit (bin/) ──────────────────────────────────────────────────────────────────────
 # Root runs bin/, so it is only ever written here, as root, from a source root trusts: the
 # checkout this script runs from, or REPO_URL fetched by root itself (root-owned known_hosts;
 # the service user's mirror is not trusted).
 install_kit_links() {
   local s
-  for s in deploy rollback status backup restore create-admin db-shell set-keys; do
+  for s in deploy rollback status backup restore create-admin db-shell set-keys sites; do
     [[ -f "$BIN_DIR/$s.sh" ]] && ln -sfn "$BIN_DIR/$s.sh" "$HOUSE_ROOT/$s.sh"
   done
   return 0
@@ -229,22 +252,7 @@ svc() {
   fi
 }
 
-write_if_changed() {
-  # write_if_changed <path> <mode> [owner] < content ; returns 0 if the file changed
-  local dest="$1" mode="$2" owner="${3:-root:root}" tmp
-  tmp="$(mktemp)"
-  cat >"$tmp"
-  [[ -L "$dest" ]] && rm -f "$dest"
-  if [[ -f "$dest" ]] && cmp -s "$tmp" "$dest"; then
-    rm -f "$tmp"
-    chown "$owner" "$dest"
-    chmod "$mode" "$dest"
-    return 1
-  fi
-  install -m "$mode" -o "${owner%%:*}" -g "${owner##*:}" "$tmp" "$dest"
-  rm -f "$tmp"
-  return 0
-}
+# write_if_changed: lib/common.sh (deploy/sites.sh writes nginx files with it too).
 
 rand_hex() { openssl rand -hex "$1"; }
 rand_b64() { openssl rand -base64 "$1" | tr -d '\n'; }
@@ -311,9 +319,9 @@ render_template() {
 configure_nginx() {
   step "Nginx 설정 (${DOMAIN}, ${ADMIN_DOMAIN}, TLS=${TLS_ENABLED})"
   local tpl="$TPL_DIR" mode_tpl
-  install -d -m 0755 /etc/nginx/snippets /etc/nginx/house /var/www/letsencrypt
+  install -d -m 0755 /etc/nginx/snippets /etc/nginx/house /etc/nginx/house/sites /var/www/letsencrypt
   local f
-  for f in house-proxy.conf house-csp.conf house-acme.conf house-server-common.conf; do
+  for f in house-proxy.conf house-csp.conf house-acme.conf house-server-common.conf house-tls-params.conf; do
     write_if_changed "/etc/nginx/snippets/$f" 0644 <"$tpl/snippets/$f" || true
   done
   for f in house-web-locations house-admin-locations; do
@@ -341,6 +349,17 @@ configure_nginx() {
   fi
   render_template "$mode_tpl" /etc/nginx/sites-available/house.conf
   ln -sfn /etc/nginx/sites-available/house.conf /etc/nginx/sites-enabled/house.conf
+  # Office site servers (deploy/sites.sh) whose certificate is gone (certbot delete, a restored
+  # server) would fail nginx -t for everything: drop them; sites.sh writes them again once issued.
+  local cert
+  for f in /etc/nginx/house/sites/*.conf; do
+    [[ -f "$f" ]] || continue
+    cert="$(sed -n 's/^[[:space:]]*ssl_certificate[[:space:]]\{1,\}\([^;[:space:]]*\);.*/\1/p' "$f" | head -1)"
+    if [[ -z "$cert" || ! -s "$cert" ]]; then
+      rm -f -- "$f"
+      warn "인증서가 없는 사무소 홈페이지 설정 제거: $f (sites.sh 가 인증서 발급 후 다시 만듭니다)"
+    fi
+  done
   rm -f /etc/nginx/sites-enabled/default
 
   nginx -t 2>&1 | sed 's/^/    /' || true
@@ -775,14 +794,18 @@ step "배포 스크립트 설치 ($BIN_DIR, root 소유)"
 if [[ "$SCRIPT_DIR" != "$(readlink -f "$BIN_DIR")" ]]; then
   kit_install "$SCRIPT_DIR" "$BIN_DIR"
 else
-  # Re-run from bin/ itself: keep the files, take ownership back.
+  # Re-run from bin/ itself (the normal re-run once --kit-only updated it): keep the files, take
+  # ownership back.
   kit_validate "$BIN_DIR" || die "$BIN_DIR 검증 실패 — 저장소 체크아웃의 deploy/install.sh 로 다시 실행하세요."
+  if [[ -n "$(find "$BIN_DIR" \( ! -user root -o -perm /022 \) -print -quit)" ]]; then
+    note_warn "$BIN_DIR 가 root 소유가 아니었습니다(예전 구조). 신뢰할 수 있는 새 체크아웃으로 --kit-only 를 다시 실행하세요 (DEPLOY.md 18단계)."
+  fi
   chown -R root:root "$BIN_DIR"
   chmod -R go-w "$BIN_DIR"
-  note_warn "$BIN_DIR 에서 실행했습니다. 이전 설치에서 서비스 사용자 소유였다면 신뢰할 수 있는 체크아웃으로 --kit-only 를 다시 실행하세요."
+  ok "$BIN_DIR 의 배포 스크립트를 그대로 사용 (root 소유)"
 fi
 install_kit_links
-ok "$HOUSE_ROOT/deploy.sh, rollback.sh, status.sh, backup.sh, restore.sh, create-admin.sh, db-shell.sh, set-keys.sh"
+ok "$HOUSE_ROOT/deploy.sh, rollback.sh, status.sh, backup.sh, restore.sh, create-admin.sh, db-shell.sh, set-keys.sh, sites.sh"
 
 # ─── 9. Git mirror ──────────────────────────────────────────────────────────────────────────
 step "Git 저장소 미러"
@@ -899,16 +922,83 @@ ${LOG_DIR}/*.log {
     notifempty
     copytruncate
 }
+
+# deploy/sites.sh run by cron (servers without systemd); root writes it, so outside ${LOG_DIR}
+/var/log/house-sites.log {
+    monthly
+    rotate 6
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
 EOF
-write_if_changed /etc/cron.d/house 0644 <<EOF || true
+# 사무소 홈페이지 (<slug>.DOMAIN): deploy/sites.sh issues one certificate per office and writes its
+# nginx server, every 5 minutes as root — a systemd timer, or a cron line without systemd. Not with
+# TLS_ENABLED=false: the HTTP template serves *.DOMAIN directly and there is nothing to issue.
+SITES_FLAGS=""
+$STAGING && SITES_FLAGS=" --staging"
+SITES_CRON=""
+if [[ "$TLS_ENABLED" == true ]] && ! has_systemd; then
+  SITES_CRON="*/5 * * * * root ${BIN_DIR}/sites.sh${SITES_FLAGS} >> /var/log/house-sites.log 2>&1"
+fi
+{
+  cat <<EOF
 # house platform jobs (installed by deploy/install.sh)
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # 매일 03:30 DB 백업 + 업로드 스냅샷, 14일 보관 (최근 7개는 항상 보관)
 30 3 * * * ${HOUSE_USER} ${BIN_DIR}/backup.sh --cron >> ${LOG_DIR}/backup.log 2>&1
 EOF
+  if [[ -n "$SITES_CRON" ]]; then
+    printf '%s\n' "# 5분마다 사무소 홈페이지 인증서·nginx 설정 (systemd 가 없는 서버; 있으면 house-sites.timer)" "$SITES_CRON"
+  fi
+} | write_if_changed /etc/cron.d/house 0644 || true
 svc enable cron >/dev/null 2>&1 || note_warn "cron 서비스를 시작하지 못했습니다 (컨테이너라면 정상)."
 ok "/etc/cron.d/house, /etc/logrotate.d/house"
+
+step "사무소 홈페이지 인증서 (house-sites, 5분마다)"
+root_dir 0700 root:root /var/lib/house-sites
+if [[ "$TLS_ENABLED" != true ]]; then
+  if has_systemd && [[ -f /etc/systemd/system/house-sites.timer ]]; then
+    systemctl disable --now house-sites.timer >/dev/null 2>&1 || true
+  fi
+  log "TLS_ENABLED=false — 타이머를 켜지 않습니다 (HTTP 모드에서는 *.${DOMAIN} 이 사무소 홈페이지를 바로 보여 줍니다)."
+elif has_systemd; then
+  SITES_UNITS_CHANGED=false
+  write_if_changed /etc/systemd/system/house-sites.service 0644 <<EOF && SITES_UNITS_CHANGED=true
+# Installed by house deploy/install.sh — 사무소 홈페이지 HTTPS (see ${BIN_DIR}/sites.sh).
+[Unit]
+Description=house office sites: per-office certificates and nginx servers (deploy/sites.sh)
+After=network-online.target nginx.service postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=${BIN_DIR}/sites.sh${SITES_FLAGS}
+Nice=10
+TimeoutStartSec=30min
+EOF
+  write_if_changed /etc/systemd/system/house-sites.timer 0644 <<'EOF' && SITES_UNITS_CHANGED=true
+# Installed by house deploy/install.sh — runs house-sites.service every 5 minutes.
+[Unit]
+Description=house office sites: check certificates every 5 minutes
+
+[Timer]
+OnCalendar=*:0/5
+RandomizedDelaySec=30
+Persistent=false
+
+[Install]
+WantedBy=timers.target
+EOF
+  $SITES_UNITS_CHANGED && systemctl daemon-reload
+  systemctl enable --now house-sites.timer >/dev/null 2>&1 || note_warn "house-sites.timer 를 켜지 못했습니다: systemctl status house-sites.timer"
+  ok "house-sites.timer: 5분마다 ${BIN_DIR}/sites.sh${SITES_FLAGS} (로그: journalctl -u house-sites)"
+else
+  ok "cron: 5분마다 ${BIN_DIR}/sites.sh${SITES_FLAGS} (로그: /var/log/house-sites.log)"
+fi
 
 # ─── 13. firewall + fail2ban ────────────────────────────────────────────────────────────────
 step "방화벽 (UFW) / fail2ban"
@@ -969,7 +1059,8 @@ ${C_GRN}════════════════════════
 ════════════════════════════════════════════════════════════════════════════${C_RST}
  사이트       ${SCHEME}://${DOMAIN}   (www → apex)
  관리자       ${SCHEME}://${ADMIN_DOMAIN}
- DB           PostgreSQL 16 / ${DB_NAME} (역할 ${DB_USER}, 127.0.0.1:${PG_PORT})
+ 사무소 홈페이지 ${SCHEME}://<주소>.${DOMAIN}   (DNS * A 레코드 필요, 인증서는 house-sites 가 5분마다 발급)
+ DB          PostgreSQL 16 / ${DB_NAME} (역할 ${DB_USER}, 127.0.0.1:${PG_PORT})
  Redis        127.0.0.1:${REDIS_PORT} (비밀번호 설정됨)
  설정 파일    ${ENV_FILE}   (root:${HOUSE_USER} 0640, 비밀값 자동 생성됨)
  배포 설정    ${DEPLOY_CONF}
@@ -980,8 +1071,9 @@ ${C_GRN}════════════════════════
 ${C_BLU}▶ 다음 할 일${C_RST}
  1) 외부 서비스 키 입력 (하나씩 물어봅니다):   sudo ${HOUSE_ROOT}/set-keys.sh
     카카오(로그인 REST API 키 · 지도 JavaScript 키) · 네이버 로그인 · Google · 공공데이터포털 · 브이월드(선택)
-    카카오 앱 → 플랫폼 → Web 사이트 도메인 (지도 JavaScript SDK): ${SCHEME}://${DOMAIN}, ${SCHEME}://www.${DOMAIN}
+    카카오 내 애플리케이션 → 앱 설정 → 플랫폼 → Web → 사이트 도메인 (지도 JavaScript SDK): ${SCHEME}://${DOMAIN}, ${SCHEME}://www.${DOMAIN}
       + 카카오맵 사용 설정 ON (지도 표시와 주소 검색에 필요)
+      (사무소 홈페이지 ${SCHEME}://<주소>.${DOMAIN} 은 기본이 간이 지도 + 길찾기 링크 — 등록은 선택. DEPLOY.md 7단계)
     각 콘솔에 등록할 로그인 Redirect URI:
       ${SCHEME}://${DOMAIN}/api/v1/auth/oauth/kakao/callback
       ${SCHEME}://${DOMAIN}/api/v1/auth/oauth/naver/callback

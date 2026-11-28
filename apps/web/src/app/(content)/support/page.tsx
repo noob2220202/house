@@ -4,7 +4,7 @@ import { PageHead } from '@/features/w-content/components/PageHead';
 import { SupportTabs } from '@/features/w-content/components/SupportTabs';
 import layout from '@/features/w-content/components/layout.module.css';
 import { FAQ_CATEGORY_LABEL, FAQ_CATEGORY_ORDER } from '@/features/w-content/faq/faq-utils';
-import { contactInfo } from '@/features/w-content/support/contact';
+import { contactCards, contactInfo } from '@/features/w-content/support/contact';
 import styles from '@/features/w-content/support/support.module.css';
 import { policyHref } from '@/features/w-content/terms/policies';
 import { BRAND } from '@/config/brand';
@@ -13,7 +13,7 @@ import { JsonLd, breadcrumbJsonLd, buildMetadata } from '@/lib/seo';
 import { getPublicSiteSettings } from '@/lib/site/settings';
 
 const DESCRIPTION =
-  '서비스 이용 중 궁금한 점이나 불편한 점을 알려 주세요. 전화, 카카오톡, 이메일로 도와드려요.';
+  '서비스 이용 중 궁금한 점이나 불편한 점을 알려 주세요. 문의 방법과 자주 묻는 질문을 한곳에 모았어요.';
 
 export const metadata = buildMetadata({
   title: '고객센터',
@@ -31,6 +31,8 @@ export const revalidate = 300;
  */
 export default async function SupportPage() {
   const contact = contactInfo(await getPublicSiteSettings());
+  // Only the channels configured in 사이트 설정 are shown (no "준비하고 있어요" cards).
+  const cards = contactCards(contact);
   const adMail = contact.email
     ? `${contact.email.href}?subject=${encodeURIComponent(`[광고 문의] ${BRAND.name}`)}`
     : null;
@@ -47,99 +49,57 @@ export default async function SupportPage() {
         <SupportTabs current="support" />
       </div>
 
-      <section className={layout.body} aria-labelledby="support-contact">
-        <h2 id="support-contact" className="sr-only">
-          문의하기
-        </h2>
-        <ul className={styles.contacts}>
-          <li className={styles.contact}>
-            <span className={styles.contactIcon} aria-hidden="true">
-              <Icon name="phone" size={22} />
-            </span>
-            <span className={styles.contactLabel}>전화 상담</span>
-            {contact.phone ? (
-              <a className={styles.contactValue} href={contact.phone.href}>
-                {contact.phone.display}
-              </a>
-            ) : (
-              <span className={cx(styles.contactValue, styles.muted)}>번호를 준비하고 있어요</span>
-            )}
-            <span className={styles.contactNote}>
-              {contact.hours ?? '운영 시간은 공지사항으로 알려 드려요.'}
-            </span>
-            {contact.phone && (
-              <span className={styles.contactAction}>
-                <Button
-                  href={contact.phone.href}
-                  variant="secondary"
-                  size="sm"
-                  iconLeft={<Icon name="phone" size={16} />}
-                >
-                  전화 걸기
-                </Button>
-              </span>
-            )}
-          </li>
-          <li className={styles.contact}>
-            <span className={styles.contactIcon} aria-hidden="true">
-              <Icon name="chat" size={22} />
-            </span>
-            <span className={styles.contactLabel}>카카오톡 상담</span>
-            <span
-              className={cx(
-                styles.contactValue,
-                contact.kakaoChannelUrl ? styles.text : styles.muted,
-              )}
-            >
-              {contact.kakaoChannelUrl ? '카카오톡 채널' : '채널을 준비하고 있어요'}
-            </span>
-            <span className={styles.contactNote}>
-              채팅으로 편하게 물어보세요. 사진이나 화면 캡처도 함께 보낼 수 있어요.
-            </span>
-            {contact.kakaoChannelUrl && (
-              <span className={styles.contactAction}>
-                <Button
-                  href={contact.kakaoChannelUrl}
-                  target="_blank"
-                  variant="secondary"
-                  size="sm"
-                  iconRight={<Icon name="external-link" size={16} />}
-                >
-                  채널 열기<span className="sr-only">(새 창)</span>
-                </Button>
-              </span>
-            )}
-          </li>
-          <li className={styles.contact}>
-            <span className={styles.contactIcon} aria-hidden="true">
-              <Icon name="mail" size={22} />
-            </span>
-            <span className={styles.contactLabel}>이메일 문의</span>
-            {contact.email ? (
-              <a className={cx(styles.contactValue, styles.text)} href={contact.email.href}>
-                {contact.email.display}
-              </a>
-            ) : (
-              <span className={cx(styles.contactValue, styles.muted)}>주소를 준비하고 있어요</span>
-            )}
-            <span className={styles.contactNote}>
-              화면을 캡처해 함께 보내 주시면 더 빨리 확인할 수 있어요.
-            </span>
-            {contact.email && (
-              <span className={styles.contactAction}>
-                <Button
-                  href={contact.email.href}
-                  variant="secondary"
-                  size="sm"
-                  iconLeft={<Icon name="mail" size={16} />}
-                >
-                  메일 보내기
-                </Button>
-              </span>
-            )}
-          </li>
-        </ul>
-      </section>
+      {cards.length > 0 && (
+        <section className={layout.body} aria-labelledby="support-contact">
+          <h2 id="support-contact" className="sr-only">
+            문의하기
+          </h2>
+          <ul className={styles.contacts}>
+            {cards.map((card) => (
+              <li key={card.channel} className={styles.contact}>
+                <span className={styles.contactIcon} aria-hidden="true">
+                  <Icon name={card.icon} size={22} />
+                </span>
+                <span className={styles.contactLabel}>{card.label}</span>
+                {card.valueHref ? (
+                  <a
+                    className={cx(styles.contactValue, card.channel === 'email' && styles.text)}
+                    href={card.valueHref}
+                  >
+                    {card.value}
+                  </a>
+                ) : (
+                  <span className={cx(styles.contactValue, styles.text)}>{card.value}</span>
+                )}
+                <span className={styles.contactNote}>{card.note}</span>
+                <span className={styles.contactAction}>
+                  {card.action.external ? (
+                    <Button
+                      href={card.action.href}
+                      target="_blank"
+                      variant="secondary"
+                      size="sm"
+                      iconRight={<Icon name="external-link" size={16} />}
+                    >
+                      {card.action.label}
+                      <span className="sr-only">(새 창)</span>
+                    </Button>
+                  ) : (
+                    <Button
+                      href={card.action.href}
+                      variant="secondary"
+                      size="sm"
+                      iconLeft={<Icon name={card.icon} size={16} />}
+                    >
+                      {card.action.label}
+                    </Button>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className={styles.section} aria-labelledby="support-faq">
         <div className={styles.sectionHead}>
@@ -201,34 +161,39 @@ export default async function SupportPage() {
           </div>
         </section>
 
-        <section id="ads" className={styles.panel} aria-labelledby="support-ads">
-          <div className={styles.panelHead}>
-            <span className={styles.panelIcon} aria-hidden="true">
-              <Icon name="megaphone" size={20} />
-            </span>
-            <h2 id="support-ads" className={styles.panelTitle}>
-              광고 · 제휴 문의
-            </h2>
-          </div>
-          <p className={styles.panelText}>
-            메인 배너, 지도 광고, 분양 홍보 같은 광고와 제휴 제안은 이메일로 보내 주세요. 회사 이름,
-            연락처, 원하는 광고 위치와 기간을 적어 주시면 담당자가 확인하고 연락드려요.
-          </p>
-          <div className={styles.actions}>
-            {adMail ? (
-              <Button href={adMail} size="sm" iconLeft={<Icon name="mail" size={16} />}>
-                광고 문의 메일 보내기
-              </Button>
-            ) : (
-              <p className={styles.contactNote}>문의 메일 주소를 준비하고 있어요.</p>
-            )}
-            {contact.phone && (
-              <Button href={contact.phone.href} size="sm" variant="secondary">
-                전화 {contact.phone.display}
-              </Button>
-            )}
-          </div>
-        </section>
+        {(adMail || contact.phone) && (
+          <section id="ads" className={styles.panel} aria-labelledby="support-ads">
+            <div className={styles.panelHead}>
+              <span className={styles.panelIcon} aria-hidden="true">
+                <Icon name="megaphone" size={20} />
+              </span>
+              <h2 id="support-ads" className={styles.panelTitle}>
+                광고 · 제휴 문의
+              </h2>
+            </div>
+            <p className={styles.panelText}>
+              메인 배너, 지도 광고, 분양 홍보 같은 광고와 제휴 제안은{' '}
+              {adMail ? '이메일로 보내 주세요' : '전화로 알려 주세요'}. 회사 이름, 연락처, 원하는
+              광고 위치와 기간을 {adMail ? '적어' : '말씀해'} 주시면 담당자가 확인하고 연락드려요.
+            </p>
+            <div className={styles.actions}>
+              {adMail && (
+                <Button href={adMail} size="sm" iconLeft={<Icon name="mail" size={16} />}>
+                  광고 문의 메일 보내기
+                </Button>
+              )}
+              {contact.phone && (
+                <Button
+                  href={contact.phone.href}
+                  size="sm"
+                  variant={adMail ? 'secondary' : 'primary'}
+                >
+                  전화 {contact.phone.display}
+                </Button>
+              )}
+            </div>
+          </section>
+        )}
       </div>
 
       <aside className={styles.band} aria-label="중개사 회원 가입">

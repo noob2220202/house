@@ -1,4 +1,9 @@
-import type { FaqCategory, TradeSyncKind, TradeSyncStatus } from '@house/shared';
+import {
+  SUBSCRIPTION_REQUIRED_FEATURE,
+  type FaqCategory,
+  type TradeSyncKind,
+  type TradeSyncStatus,
+} from '@house/shared';
 import type { IconName } from '@house/ui';
 import type { HomeSectionKey } from '../api/schemas';
 
@@ -135,6 +140,16 @@ export const FEATURE_META: Record<string, { label: string; description: string }
     label: '앱 안내 띠',
     description: '메인 화면 아래에 앱 설치 안내를 보여 줘요. 앱 출시 후에 켜 주세요.',
   },
+  [SUBSCRIPTION_REQUIRED_FEATURE.SITE]: {
+    label: '사무소 홈페이지 유료 적용',
+    description:
+      '켜면 홈페이지 이용 기간 중인 사무소만 홈페이지가 열려요. 끄면 승인된 모든 사무소가 무료로 써요.',
+  },
+  [SUBSCRIPTION_REQUIRED_FEATURE.PLATFORM]: {
+    label: '메인 입점 유료 적용 (준비 중 — 아직 적용되지 않아요)',
+    description:
+      '메인 사이트 입점 이용 기간을 확인하는 기능은 준비 중이에요. 켜 두어도 지금은 모든 사무소가 그대로 입점해요.',
+  },
 };
 
 // ---------- 작업 기록 ----------
@@ -155,6 +170,8 @@ export const AUDIT_RESOURCE_LABEL: Record<string, string> = {
   Report: '신고',
   User: '회원',
   DealRequest: '내놓기·구하기',
+  AgencySite: '사무소 홈페이지',
+  AgencySubscription: '이용 기간',
 };
 export const auditResourceLabel = (type: string) => AUDIT_RESOURCE_LABEL[type] ?? type;
 
@@ -180,6 +197,9 @@ const AUDIT_VERB: Record<string, string> = {
   view_personal_data: '개인정보 열람',
   reset_totp: 'OTP 초기화',
   reset_password: '비밀번호 재설정',
+  request: '신청',
+  resume: '정지 해제',
+  cancel: '취소',
 };
 const AUDIT_NOUN: Record<string, string> = {
   notice: '공지사항',
@@ -199,6 +219,10 @@ const AUDIT_NOUN: Record<string, string> = {
   report: '신고',
   user: '회원',
   deal_request: '내놓기·구하기',
+  agency_site: '사무소 홈페이지',
+  site: '홈페이지',
+  subscription: '이용 기간',
+  agency_subscription: '이용 기간',
 };
 
 /** "complex.photo.add" → "단지 사진 추가"; unknown actions fall back to the raw string. */
@@ -214,11 +238,11 @@ export type AuditTone = 'neutral' | 'brand' | 'success' | 'warn' | 'danger';
 /** Badge tone by the kind of change. */
 export function auditActionTone(action: string): AuditTone {
   const verb = action.split('.').pop() ?? '';
-  if (['delete', 'remove', 'reject', 'suspend', 'hide'].includes(verb)) return 'danger';
-  if (['create', 'add', 'approve', 'publish', 'unsuspend', 'unhide'].includes(verb))
+  if (['delete', 'remove', 'reject', 'suspend', 'hide', 'cancel'].includes(verb)) return 'danger';
+  if (['create', 'add', 'approve', 'publish', 'unsuspend', 'unhide', 'resume'].includes(verb))
     return 'success';
   if (['warn', 'view_personal_data', 'reset_totp', 'reset_password'].includes(verb)) return 'warn';
-  if (['trigger', 'run', 'resolve'].includes(verb)) return 'brand';
+  if (['trigger', 'run', 'resolve', 'request'].includes(verb)) return 'brand';
   return 'neutral';
 }
 
@@ -298,6 +322,20 @@ export const FIELD_LABEL: Record<string, string> = {
   startAt: '시작일',
   endAt: '종료일',
   approvedAt: '승인 일시',
+  slug: '홈페이지 주소',
+  requestedSlug: '신청 주소',
+  color: '브랜드 색상',
+  tagline: '한 줄 소개',
+  requestedAt: '신청 일시',
+  decidedAt: '처리 일시',
+  decisionReason: '처리 사유',
+  httpsReadyAt: '인증서 발급 일시',
+  product: '상품',
+  startsOn: '이용 시작일',
+  endsOn: '이용 종료일',
+  amountWon: '금액(원)',
+  memo: '메모',
+  canceledAt: '취소 일시',
 };
 export const fieldLabel = (path: string): string =>
   path

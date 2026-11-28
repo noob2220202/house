@@ -20,11 +20,14 @@ const shadow =
   process.env.SHADOW_DATABASE_URL ??
   `postgresql://house:house@localhost:5432/house_shadow_${moduleName.replace(/-/g, '_')}`;
 
+const IS_WINDOWS = process.platform === 'win32';
 const prisma = (args, input) =>
-  spawnSync(path.join(apiDir, 'node_modules', '.bin', 'prisma'), args, {
+  spawnSync(path.join(apiDir, 'node_modules', '.bin', IS_WINDOWS ? 'prisma.cmd' : 'prisma'), args, {
     cwd: apiDir,
     encoding: 'utf8',
     input,
+    // Windows dev PCs: node_modules/.bin holds .cmd shims, which Node only spawns through a shell.
+    shell: IS_WINDOWS,
   });
 const diff = () =>
   prisma([

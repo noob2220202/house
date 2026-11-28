@@ -26,6 +26,18 @@ function useFieldIds(id: string | undefined) {
   return { controlId, helpId: `${controlId}-help`, errorId: `${controlId}-error` };
 }
 
+/**
+ * `aria-describedby` of a control: its own error (else help) line first, then the ids the caller
+ * passed (a live status line, a counter). Merged, never replaced, so neither side is lost.
+ */
+function describedByOf(
+  own: { error: ReactNode; help: ReactNode; errorId: string; helpId: string },
+  extra: string | undefined,
+): string | undefined {
+  const ids = [own.error ? own.errorId : own.help ? own.helpId : null, extra?.trim() || null];
+  return ids.filter(Boolean).join(' ') || undefined;
+}
+
 export interface InputProps
   extends Omit<InputHTMLAttributes<HTMLInputElement>, 'prefix'>,
     FieldBits {
@@ -48,10 +60,11 @@ export function Input({
   id,
   required,
   ref,
+  'aria-describedby': extraDescribedBy,
   ...rest
 }: InputProps) {
   const { controlId, helpId, errorId } = useFieldIds(id);
-  const describedBy = error ? errorId : help ? helpId : undefined;
+  const describedBy = describedByOf({ error, help, errorId, helpId }, extraDescribedBy);
   const input = (
     <input
       ref={ref}
@@ -110,6 +123,7 @@ export function Textarea({
   id,
   required,
   ref,
+  'aria-describedby': extraDescribedBy,
   ...rest
 }: TextareaProps) {
   const { controlId, helpId, errorId } = useFieldIds(id);
@@ -119,7 +133,7 @@ export function Textarea({
       id={controlId}
       className={cx(styles.input, styles.textarea, !!error && styles.isError, className)}
       aria-invalid={error ? true : undefined}
-      aria-describedby={error ? errorId : help ? helpId : undefined}
+      aria-describedby={describedByOf({ error, help, errorId, helpId }, extraDescribedBy)}
       required={required}
       {...rest}
     />
@@ -167,6 +181,7 @@ export function Select({
   required,
   children,
   ref,
+  'aria-describedby': extraDescribedBy,
   ...rest
 }: SelectProps) {
   const { controlId, helpId, errorId } = useFieldIds(id);
@@ -177,7 +192,7 @@ export function Select({
         id={controlId}
         className={cx(styles.input, !!error && styles.isError, className)}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? errorId : help ? helpId : undefined}
+        aria-describedby={describedByOf({ error, help, errorId, helpId }, extraDescribedBy)}
         required={required}
         {...rest}
       >

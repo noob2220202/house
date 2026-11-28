@@ -1,8 +1,12 @@
 import {
   AGENCY_DOCUMENT_TYPE_LABEL,
+  AGENCY_SITE_STATUS_LABEL,
   AGENCY_STATUS_LABEL,
+  AGENCY_SUBSCRIPTION_STATE_LABEL,
   AgencyDocumentType,
+  type AgencySiteStatus,
   type AgencyStatus,
+  type AgencySubscriptionState,
   ASSET_TYPE_LABEL,
   DEAL_REQUEST_TYPE_LABEL,
   DEAL_TYPE_LABEL,
@@ -30,6 +34,8 @@ import {
 import type {
   AdminDealRequestListItem,
   AdminListingListItem,
+  AgencySite,
+  AgencySubscription,
   ListingReviewFlag,
   RegistryCheckStatus,
 } from '../api/schemas';
@@ -105,6 +111,106 @@ export function readyToApprove(
   registryStatus: RegistryCheckStatus | null | undefined,
 ): boolean {
   return documentsComplete && registryStatus === 'MATCHED';
+}
+
+// ---------- 사무소 홈페이지 · 구독 -------------------------------------------------------------
+
+export const AGENCY_SITE_STATUS_META: Record<AgencySiteStatus, StatusMeta> = {
+  REQUESTED: { label: AGENCY_SITE_STATUS_LABEL.REQUESTED, tone: 'review' },
+  ACTIVE: { label: AGENCY_SITE_STATUS_LABEL.ACTIVE, tone: 'live' },
+  REJECTED: { label: AGENCY_SITE_STATUS_LABEL.REJECTED, tone: 'rejected' },
+  SUSPENDED: { label: AGENCY_SITE_STATUS_LABEL.SUSPENDED, tone: 'ended' },
+};
+
+export const SUBSCRIPTION_STATE_META: Record<AgencySubscriptionState, StatusMeta> = {
+  SCHEDULED: { label: AGENCY_SUBSCRIPTION_STATE_LABEL.SCHEDULED, tone: 'scheduled' },
+  ACTIVE: { label: AGENCY_SUBSCRIPTION_STATE_LABEL.ACTIVE, tone: 'live' },
+  ENDED: { label: AGENCY_SUBSCRIPTION_STATE_LABEL.ENDED, tone: 'ended' },
+  CANCELED: { label: AGENCY_SUBSCRIPTION_STATE_LABEL.CANCELED, tone: 'rejected' },
+};
+
+/** "sindae.suncheonmap.kr" — the host an office site lives (or would live) on. */
+export function siteHost(slug: string, rootDomain: string): string {
+  return `${slug}.${rootDomain}`;
+}
+
+/** Slug the screens talk about: the approved one, else the pending / last rejected request. */
+export function siteSlugOf(site: Pick<AgencySite, 'slug' | 'requestedSlug'>): string | null {
+  return site.slug ?? site.requestedSlug;
+}
+
+export interface SiteVisibility {
+  tone: 'success' | 'warn' | 'neutral';
+  label: string;
+  /** Why an approved site is not shown yet (null when it is, or when it is not approved). */
+  detail: string | null;
+}
+
+/**
+ * Whether visitors can reach an approved site, as the API derives `live`: ACTIVE + the office is
+ * APPROVED + the certificate is ready + the subscription gate passes. Null for sites that are not
+ * approved (the status pill says enough).
+ */
+export function siteVisibility(
+  site: Pick<AgencySite, 'status' | 'httpsReady' | 'live'>,
+  agencyStatus: AgencyStatus,
+): SiteVisibility | null {
+  if (site.status !== 'ACTIVE') return null;
+  if (site.live) return { tone: 'success', label: '공개 중', detail: null };
+  if (agencyStatus !== 'APPROVED')
+    return {
+      tone: 'warn',
+      label: '비공개',
+      detail: '중개사무소가 승인 상태가 아니라 홈페이지가 열리지 않아요.',
+    };
+  if (!site.httpsReady)
+    return {
+      tone: 'warn',
+      label: '주소 준비 중',
+      detail: '보안 인증서를 발급하고 있어요. 승인 후 보통 10분 안에 열려요.',
+    };
+  return {
+    tone: 'warn',
+    label: '비공개',
+    detail: '유료 적용이 켜져 있는데 오늘 기준 홈페이지 이용 기간이 없어요.',
+  };
+}
+
+/** Amount of a subscription in 원: "330,000원" · 0 → "무료" · null → "–". */
+export function formatWon(amount: number | null | undefined): string {
+  if (amount === null || amount === undefined) return '–';
+  return amount === 0 ? '무료' : `${amount.toLocaleString('ko-KR')}원`;
+}
+
+/**
+ * Last day (inclusive) of a period of `months` months starting on `startsOn` (YYYY-MM-DD):
+ * 2026-11-01 + 1 → 2026-11-30, 2026-11-15 + 12 → 2027-11-14. A start on a day the end month
+ * does not have ends on that month's last day (2026-01-31 + 1 → 2026-02-28). '' when invalid.
+ */
+export function subscriptionEndFor(startsOn: string, months: number): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(startsOn);
+  if (!m || !Number.isInteger(months) || months < 1) return '';
+  const [y, mo, d] = [Number(m[1]), Number(m[2]) - 1, Number(m[3])];
+  const total = y * 12 + mo + months;
+  const ty = Math.floor(total / 12);
+  const tm = total % 12;
+  const lastDay = new Date(Date.UTC(ty, tm + 1, 0)).getUTCDate();
+  const end = d > lastDay ? Date.UTC(ty, tm, lastDay) : Date.UTC(ty, tm, d) - 86_400_000; // day before
+  return new Date(end).toISOString().slice(0, 10);
+}
+
+/** "2026.11.01 ~ 2027.10.31" / "2026.11.01 ~ 종료일 없음" (days are KST `YYYY-MM-DD`). */
+export function subscriptionPeriod(s: Pick<AgencySubscription, 'startsOn' | 'endsOn'>): string {
+  const day = (d: string) => d.replaceAll('-', '.');
+  return `${day(s.startsOn)} ~ ${s.endsOn ? day(s.endsOn) : '종료일 없음'}`;
+}
+
+/** "2026.11.01 ~ 2027.10.31 · 무료" — no amount segment when no amount was recorded. */
+export function subscriptionPeriodLine(
+  s: Pick<AgencySubscription, 'startsOn' | 'endsOn' | 'amountWon'>,
+): string {
+  const period = subscriptionPeriod(s);
+  return s.amountWon === null ? period : `${period} · ${formatWon(s.amountWon)}`;
 }
 
 // ---------- listings -------------------------------------------------------------------------

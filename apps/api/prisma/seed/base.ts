@@ -16,6 +16,7 @@ import {
   REGION_CODE_LENGTH,
   SiteSettingKey,
   siteSettingSchemas,
+  SUBSCRIPTION_REQUIRED_FEATURE,
   type BannerSlot,
 } from '@house/shared';
 import { AdminRole, type PrismaClient, RegionLevel, TermsType } from '@prisma/client';
@@ -113,7 +114,15 @@ export async function seedSiteSettings(prisma: PrismaClient): Promise<void> {
       title: '순천 부동산 — 순천 아파트·원룸·상가·토지 매물',
       description: '순천시 중개사무소들이 함께 올리는 확인 매물, 단지 실거래가, 내놓기·구하기.',
     },
-    FEATURES: { dealRequests: true, localVideos: true, complexTrades: true },
+    // siteSubscriptionRequired / platformSubscriptionRequired (SUBSCRIPTION_REQUIRED_FEATURE):
+    // both products are free for now, so enforcement starts off.
+    FEATURES: {
+      dealRequests: true,
+      localVideos: true,
+      complexTrades: true,
+      [SUBSCRIPTION_REQUIRED_FEATURE.SITE]: false,
+      [SUBSCRIPTION_REQUIRED_FEATURE.PLATFORM]: false,
+    },
     FOOTER: {
       links: [
         { label: '이용약관', url: '/terms/SERVICE' },
@@ -161,6 +170,19 @@ export const DEAL_REQUEST_PROVIDE_BODY = [
   '- 연락처를 공개한 중개사무소에만 제공하는 항목: 이름·휴대폰 번호와 (내놓기) 도로명 주소·동·호수·정확한 위치·층·전용면적·사진·설명. 제안을 수락하면서 공개를 선택하거나 요청 상세에서 직접 공개한 중개사무소만 해당하며, 공개는 언제든 취소할 수 있습니다.',
   '- 보유·이용 기간: 요청이 끝난 날부터 30일까지. 거래 완료된 요청은 30일이 지나면, 공개를 취소하거나 요청이 취소·기간 만료·운영자 종료되면 그때부터 중개사무소에서도 연락처와 상세 정보를 볼 수 없습니다.',
   '- 동의를 거부할 권리와 불이익: 동의하지 않을 수 있으며, 동의하지 않으면 요청을 등록할 수 없습니다.',
+].join('\n');
+
+/**
+ * 문의 남기기 notice. Must match the inquiries module: fields of `inquiryCreateSchema`, the receiving
+ * office as the only recipient, and the retention job (INQUIRY_LIMITS.RETENTION_DAYS after the last
+ * message; at once when the member withdraws).
+ */
+export const INQUIRY_PRIVACY_BODY = [
+  '- 수집 항목: 이름, 연락처(휴대폰 또는 전화번호), 문의 내용 (회원은 회원 정보와 연결되어 저장됩니다)',
+  '- 수집·이용 목적: 문의 응대 — 문의를 받은 중개사무소의 답변과 연락, 문의 내역 관리',
+  '- 제공받는 자: 문의를 받는 중개사무소 (제공 항목: 이름, 연락처, 문의 내용과 문의한 매물, 제공 목적: 문의 응대)',
+  '- 보유·이용 기간: 마지막 답변(또는 마지막 문의) 후 1년. 그 전에 회원 탈퇴 시 즉시 파기합니다.',
+  '- 동의를 거부할 권리와 불이익: 동의하지 않을 수 있으며, 동의하지 않으면 문의를 남길 수 없습니다. 전화·문자로 직접 연락하는 데에는 영향이 없습니다.',
 ].join('\n');
 
 const TERMS_V1: { type: TermsType; title: string; isRequired: boolean; body: string }[] = [
@@ -229,6 +251,12 @@ const TERMS_V1: { type: TermsType; title: string; isRequired: boolean; body: str
     title: '[필수] 내놓기·구하기 개인정보 제3자(중개사무소) 제공 동의',
     isRequired: true,
     body: DEAL_REQUEST_PROVIDE_BODY,
+  },
+  {
+    type: TermsType.INQUIRY_PRIVACY,
+    title: '[필수] 문의 개인정보 수집·이용 및 제공 동의',
+    isRequired: true,
+    body: INQUIRY_PRIVACY_BODY,
   },
 ];
 

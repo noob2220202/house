@@ -1,8 +1,35 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 import { visitorHeaders, visitorIp, visitorUserAgent } from './forward';
 
 vi.mock('server-only', () => ({}));
+/**
+ * `unstable_cache` stand-in: one entry per key, kept until `expireDataCache()` (the revalidate
+ * window passing). Records the options so the tests can check tags / revalidate.
+ */
+const dataCache = vi.hoisted(() => ({
+  entries: new Map<string, unknown>(),
+  options: [] as { keyParts: string[]; revalidate?: number | false; tags?: string[] }[],
+}));
+vi.mock('next/cache', () => ({
+  unstable_cache:
+    <T>(
+      fn: () => Promise<T>,
+      keyParts: string[],
+      options: { revalidate?: number | false; tags?: string[] },
+    ) =>
+    async () => {
+      dataCache.options.push({ keyParts, ...options });
+      const key = JSON.stringify(keyParts);
+      if (dataCache.entries.has(key)) return dataCache.entries.get(key) as T;
+      const value = await fn();
+      // Like Next: the JSON-serialisable outcome is stored, null included; throws are not.
+      dataCache.entries.set(key, JSON.parse(JSON.stringify(value)) as unknown);
+      return value;
+    },
+}));
+const expireDataCache = () => dataCache.entries.clear();
 const incoming = vi.hoisted(() => ({
   headers: new Headers(),
   cookies: [] as { name: string; value: string }[],
@@ -55,6 +82,65 @@ describe('visitor forwarding (lib/api/forward)', () => {
       'x-house-ssr': '1',
       'x-forwarded-for': '203.0.113.7',
       'user-agent': 'Mozilla/5.0 (iPhone) Safari',
+    });
+  });
+});
+
+describe('serverGetDetail (public detail reads that can turn into a 404)', () => {
+  const schema = z.object({ id: z.string(), title: z.string() });
+  const json = (status: number, body: unknown) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { 'content-type': 'application/json' },
+    });
+
+  beforeEach(() => {
+    dataCache.entries.clear();
+    dataCache.options = [];
+  });
+
+  it('caches the outcome, so a listing hidden after a cached 200 turns into "not found"', async () => {
+    const { serverGetDetail } = await import('./server');
+    const read = () =>
+      serverGetDetail('/listings/L1', { schema, revalidate: 60, tags: ['listings', 'listing:L1'] });
+
+    fetchMock.mockResolvedValueOnce(json(200, { id: 'L1', title: '신대 레이크파크' }));
+    expect(await read()).toEqual({ id: 'L1', title: '신대 레이크파크' });
+    // The inner fetch is never put in Next's fetch cache (it would keep the 200 forever).
+    expect(lastInit().cache).toBe('no-store');
+    expect(lastInit().next).toBeUndefined();
+    expect(lastHeaders()).toEqual({ accept: 'application/json', 'x-house-ssr': '1' });
+    expect(dataCache.options.at(-1)).toEqual({
+      keyParts: ['api-detail', '/listings/L1'],
+      revalidate: 60,
+      tags: ['listings', 'listing:L1'],
+    });
+
+    // Within the window: served from the data cache, no API call.
+    expect(await read()).toEqual({ id: 'L1', title: '신대 레이크파크' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // The listing was hidden; once the window passes the 404 replaces the cached listing.
+    expireDataCache();
+    fetchMock.mockResolvedValueOnce(json(404, { code: 'LISTING_NOT_FOUND', message: '없음' }));
+    expect(await read()).toBeNull();
+    expect(await read()).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('treats a malformed id (400) as not found, and throws (uncached) on other failures', async () => {
+    const { serverGetDetail } = await import('./server');
+    fetchMock.mockResolvedValueOnce(json(400, { code: 'VALIDATION_FAILED', message: 'x' }));
+    expect(await serverGetDetail('/agencies/x', { schema, revalidate: 120, tags: [] })).toBeNull();
+
+    fetchMock.mockResolvedValueOnce(json(500, { code: 'INTERNAL_ERROR', message: 'x' }));
+    await expect(
+      serverGetDetail('/agencies/b01', { schema, revalidate: 120, tags: [] }),
+    ).rejects.toMatchObject({ status: 500 });
+    fetchMock.mockResolvedValueOnce(json(200, { id: 'b01', title: '신대중앙' }));
+    expect(await serverGetDetail('/agencies/b01', { schema, revalidate: 120, tags: [] })).toEqual({
+      id: 'b01',
+      title: '신대중앙',
     });
   });
 });

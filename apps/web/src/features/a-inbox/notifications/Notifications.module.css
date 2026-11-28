@@ -1,6 +1,6 @@
 .tiles {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 .tileLink {
@@ -133,7 +133,7 @@ button.unread:hover {
 }
 @media (max-width: 720px) {
   /*
-   * Phones: two compact counters in one row (label + figure) so the feed starts above the fold.
+   * Phones: three compact counters in one row (label + figure) so the feed starts above the fold.
    * StatTile's children are label · value · detail · icon, in that order.
    */
   .tiles {

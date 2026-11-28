@@ -25,12 +25,14 @@ export interface FloorInfo {
 
 /**
  * Floor text for lists: "고/25층" (class), "3/4층" (exact, e.g. 원룸), "지하 1/5층", "고층".
- * Returns "" when nothing is known.
+ * One rule for every card: a known floor is shown exactly (the API sends `floor` only when the
+ * broker publishes it), even when the 저/중/고 class comes along; `showExact: false` forces the
+ * class. Returns "" when nothing is known.
  */
 export function formatFloor({ floor, totalFloors, floorClass, showExact }: FloorInfo): string {
   const total = totalFloors && totalFloors > 0 ? `${totalFloors}층` : '';
   const exact = floor !== null && floor !== undefined && showExact !== false;
-  if (exact && floorClass === undefined) {
+  if (exact) {
     const f = floor < 0 ? `지하 ${Math.abs(floor)}` : String(floor);
     return total ? `${f}/${total}` : `${f}층`;
   }

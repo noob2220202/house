@@ -14,6 +14,10 @@ sw="$(grep -n '^switch_current "\$TARGET"' "$r" | head -1 | cut -d: -f1)"
 assert_contains "preflight failure says nothing was switched" "$src" "전환하지 않았습니다"
 assert_contains "--no-preflight escape hatch" "$src" "--no-preflight) PREFLIGHT=false"
 health_fail="$(awk '/^if pm2_apply "\$CURRENT_LINK" && health_check "\$TARGET"/,/^fi$/' "$r")"
+# A target without office sites: house-sites runs at once (it takes their servers down).
+health_ok="$(sed -n '1,/^else$/p' <<<"$health_fail")"
+assert_contains "a target without office sites starts house-sites at once" "$health_ok" 'if [[ ! -d "$TARGET/$SITES_WEB_ROUTE"'
+assert_contains "  … through its systemd unit" "$health_ok" "systemctl start --no-block house-sites.service"
 assert_contains "failed health check switches back" "$(sed -n '/^else$/,/^fi$/p' <<<"$health_fail")" "restore_previous"
 restore="$(awk '/^restore_previous\(\) \{/,/^\}/' "$r")"
 assert_contains "switch back goes to the previously live release" "$restore" 'switch_current "$CURRENT"'

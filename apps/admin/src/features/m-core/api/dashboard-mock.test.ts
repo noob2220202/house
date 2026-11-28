@@ -4,6 +4,7 @@ import { mockQueues, mockSummary } from '@/app/mock-api/v1/admin/dashboard/_fixt
 import {
   remoteDealRequests,
   remoteExpiringAds,
+  remotePendingSites,
   remoteReports,
 } from '@/app/mock-api/v1/admin/dashboard/_remote';
 import { dashboardQueuesSchema, dashboardSummarySchema } from './schemas';
@@ -284,6 +285,47 @@ describe('dashboard mock · reports', () => {
     expect(
       dashboardSummarySchema.parse(mockSummary({ now, reports: result })).badges.reportsOpen,
     ).toBe(4);
+  });
+});
+
+describe('dashboard mock · 사무소 홈페이지 신청', () => {
+  const row = (agencyId: string, requestedAt: string, status = 'REQUESTED') => ({
+    site: { status, requestedSlug: `${agencyId}-site`, requestedAt },
+    agency: { id: agencyId, name: `${agencyId} 공인중개사사무소` },
+  });
+
+  it('maps REQUESTED sites to queue rows, oldest first', async () => {
+    const fetchMock = stubFetch({
+      total: 3,
+      items: [
+        row('new', '2026-11-23T23:00:00Z'),
+        row('old', '2026-11-19T01:00:00Z'),
+        row('done', '2026-11-18T01:00:00Z', 'ACTIVE'),
+      ],
+    });
+    const result = await remotePendingSites(req);
+    expect(fetchMock.mock.calls[0]![0]).toContain('/admin/agency-sites?status=REQUESTED');
+    expect(result?.items).toEqual([
+      {
+        agencyId: 'old',
+        agencyName: 'old 공인중개사사무소',
+        requestedSlug: 'old-site',
+        requestedAt: '2026-11-19T01:00:00Z',
+      },
+      {
+        agencyId: 'new',
+        agencyName: 'new 공인중개사사무소',
+        requestedSlug: 'new-site',
+        requestedAt: '2026-11-23T23:00:00Z',
+      },
+    ]);
+    const queues = dashboardQueuesSchema.parse(mockQueues({ now, pendingSites: result }));
+    expect(queues.pendingAgencySites.total).toBe(3);
+  });
+
+  it('answers null when the sibling mock is unavailable', async () => {
+    stubFetch({}, false);
+    expect(await remotePendingSites(req)).toBeNull();
   });
 });
 
